@@ -1,3 +1,4 @@
+// map.h
 #pragma once
 
 #include <SFML/Graphics.hpp>
@@ -5,6 +6,7 @@
 #include <mutex>
 #include <unordered_set>
 #include <unordered_map>
+#include <random> // Add this line
 #include "country.h"
 #include "resource.h"
 #include "news.h"
@@ -49,6 +51,8 @@ public:
     bool isPlagueActive() const;
     int getPlagueStartYear() const;
     void updatePlagueDeaths(int deaths);
+    bool loadSpawnZones(const std::string& filename);
+    sf::Vector2i getRandomCellInPreferredZones(std::mt19937& gen);
 
 private:
     std::vector<std::vector<int>> m_countryGrid;
@@ -69,4 +73,6 @@ private:
     long long m_plagueDeathToll; // Changed to long long
     int m_plagueInterval;
     int m_nextPlagueYear;
+    sf::Image m_spawnZoneImage;
+    sf::Color m_spawnZoneColor = sf::Color(255, 132, 255);
 };

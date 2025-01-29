@@ -120,52 +120,69 @@ std::string generate_country_name() {
     return name; // Now returns only the generated name
 }
 
+bool Map::loadSpawnZones(const std::string& filename) {
+    if (!m_spawnZoneImage.loadFromFile(filename)) {
+        std::cerr << "Error: Could not load spawn zone image: " << filename << std::endl;
+        return false;
+    }
+    return true;
+}
+
+sf::Vector2i Map::getRandomCellInPreferredZones(std::mt19937& gen) {
+    std::uniform_int_distribution<> xDist(0, m_spawnZoneImage.getSize().x - 1);
+    std::uniform_int_distribution<> yDist(0, m_spawnZoneImage.getSize().y - 1);
+
+    while (true) {
+        int x = xDist(gen);
+        int y = yDist(gen);
+
+        if (m_spawnZoneImage.getPixel(x, y) == m_spawnZoneColor && m_isLandGrid[y][x]) {
+            return sf::Vector2i(x, y);
+        }
+    }
+}
+
 void Map::initializeCountries(std::vector<Country>& countries, int numCountries) {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> xDist(0, static_cast<int>(m_isLandGrid[0].size() - 1));
     std::uniform_int_distribution<> yDist(0, static_cast<int>(m_isLandGrid.size() - 1));
     std::uniform_int_distribution<> colorDist(50, 255);
-    std::uniform_int_distribution<> popDist(1000, 10000); // Initial population between 1000 and 10000
-    std::uniform_real_distribution<> growthRateDist(0.0003, 0.001); // Growth rate between 0.03% and 0.1%
+    std::uniform_int_distribution<> popDist(1000, 10000);
+    std::uniform_real_distribution<> growthRateDist(0.0003, 0.001);
+    std::uniform_real_distribution<> spawnDist(0.0, 1.0);
 
-    // Define some example country names
-    //std::vector<std::string> countryNames = {
-        //"Alvonian", "Bantorian", "Caledonian", "Dravidian", "Elysian",
-        //"Feronian", "Galtian", "Hellenian", "Iberian", "Jovian",
-        //"Keltian", "Lydian", "Mycenaean", "Norse", "Ophirian",
-        //"Persian", "Qunari", "Roman", "Sumerian", "Thracian",
-        //"Uruk", "Vandal", "Wessex", "Xanadu", "Yoruba",
-      //  "Zargonian"
-    //};
-
-    std::uniform_int_distribution<> typeDist(0, 2); // 0 = Warmonger, 1 = Pacifist, 2 = Trader
-    std::discrete_distribution<> scienceTypeDist({ 50, 40, 10 }); // 50% NS, 40% LS, 10% MS
+    std::uniform_int_distribution<> typeDist(0, 2);
+    std::discrete_distribution<> scienceTypeDist({ 50, 40, 10 });
 
     for (int i = 0; i < numCountries; ++i) {
         sf::Vector2i startCell;
-        do {
-            startCell.x = xDist(gen);
-            startCell.y = yDist(gen);
-        } while (!m_isLandGrid[startCell.y][startCell.x]);
+        double spawnRoll = spawnDist(gen);
+
+        if (spawnRoll < 0.75) {
+            // Attempt to spawn in a preferred zone
+            startCell = getRandomCellInPreferredZones(gen);
+        }
+        else {
+            // 25% chance: Random spawn anywhere on land
+            do {
+                startCell.x = xDist(gen);
+                startCell.y = yDist(gen);
+            } while (!m_isLandGrid[startCell.y][startCell.x]);
+        }
 
         sf::Color countryColor(colorDist(gen), colorDist(gen), colorDist(gen));
         long long initialPopulation = popDist(gen);
         double growthRate = growthRateDist(gen);
 
-        // Generate a unique random name:
         std::string countryName = generate_country_name();
         while (isNameTaken(countries, countryName)) {
             countryName = generate_country_name();
         }
 
-        // Add " Tribe" to the generated name:
-        countryName += " Tribe"; // Now done here
+        countryName += " Tribe";
 
-        // Assign a random type to the country
         Country::Type countryType = static_cast<Country::Type>(typeDist(gen));
-
-        // Assign a random science type to the country
         Country::ScienceType scienceType = static_cast<Country::ScienceType>(scienceTypeDist(gen));
 
         countries.emplace_back(i, countryColor, startCell, initialPopulation, growthRate, countryName, countryType, scienceType);
@@ -225,7 +242,7 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
             // If no potential targets were found, set the next war check year
             if (potentialTargets.empty()) {
                 std::cout << "  No potential targets found for " << countries[i].getName() << "." << std::endl; // Debug: No targets
-                std::uniform_int_distribution<> delayDist(50, 150);
+                std::uniform_int_distribution<> delayDist(25, 75);
                 int delay = delayDist(gen);
                 countries[i].setNextWarCheckYear(currentYear + delay);
             }
@@ -240,14 +257,14 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
                     countries[i].startWar(countries[targetIndex], news);
 
                     // If a war is declared, also set a cooldown (you might want a different cooldown after a war)
-                    std::uniform_int_distribution<> delayDist(5, 10); // Example: 5-10 years cooldown after a war
+                    std::uniform_int_distribution<> delayDist(25, 75); // Example: 5-10 years cooldown after a war
                     int delay = delayDist(gen);
                     countries[i].setNextWarCheckYear(currentYear + delay); // Use setter here
                 }
                 else {
                     // War not declared, set a shorter delay
                     std::cout << "  " << countries[i].getName() << " decided not to declare war this time." << std::endl;
-                    std::uniform_int_distribution<> delayDist(10, 30); // Shorter delay
+                    std::uniform_int_distribution<> delayDist(25, 75); // Shorter delay
                     int delay = delayDist(gen);
                     countries[i].setNextWarCheckYear(currentYear + delay);
                 }

@@ -44,6 +44,11 @@ int main() {
     Renderer tempRenderer(window, map, waterColor);
     tempRenderer.showLoadingScreen();
 
+    // Load spawn zones before initializing countries
+    if (!map.loadSpawnZones("spawn.png")) {
+        return -1; // Or handle the error in some other way
+    }
+
     map.initializeCountries(countries, numCountries);
 
     // Initialize the TechnologyManager
