@@ -22,7 +22,6 @@ Country::Country(int countryIndex, const sf::Color & color, const sf::Vector2i &
     m_isAtWar(false),
     m_warDuration(0),
     m_isWarofConquest(false),
-    m_nextWarCheckYear(-5001),
     m_isWarofAnnihilation(false),
     m_peaceDuration(0),
     m_preWarPopulation(initialPopulation),
@@ -44,6 +43,14 @@ Country::Country(int countryIndex, const sf::Color & color, const sf::Vector2i &
     }
     else if (m_type == Type::Warmonger) {
         m_militaryStrength = 1.3;
+    }
+
+    // Stagger initial war check year for Warmongers
+    if (m_type == Type::Warmonger) {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> staggerDist(-4950, -4450); // Example: Range from -4950 to -4450 So countries will trigger their first look for war within -4950 to -4450
+        m_nextWarCheckYear = staggerDist(gen);
     }
 }
 
