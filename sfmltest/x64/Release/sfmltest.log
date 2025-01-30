@@ -7,7 +7,7 @@ C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.42.3443
   (compiling source file 'country.cpp')
       C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.42.34433\include\xmemory(700,103):
       the template instantiation context (the oldest one first) is
-          C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\country.cpp(562,44):
+          C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\country.cpp(563,44):
           see reference to function template instantiation 'sf::Vector2i &std::vector<sf::Vector2i,std::allocator<sf::Vector2i>>::emplace_back<size_t&,size_t&>(size_t &,size_t &)' being compiled
           C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.42.34433\include\vector(858,24):
           see reference to function template instantiation '_Ty &std::vector<_Ty,std::allocator<_Ty>>::_Emplace_one_at_back<size_t&,size_t&>(size_t &,size_t &)' being compiled
@@ -47,60 +47,60 @@ C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\map.cpp(107,72): w
 C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\map.cpp(107,72): warning C4267:         [
 C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\map.cpp(107,72): warning C4267:             _Ty=int
 C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\map.cpp(107,72): warning C4267:         ]
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\map.cpp(253,91): warning C4267: 'argument': conversion from 'size_t' to '_Ty', possible loss of data
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\map.cpp(253,91): warning C4267:         with
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\map.cpp(253,91): warning C4267:         [
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\map.cpp(253,91): warning C4267:             _Ty=int
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\map.cpp(253,91): warning C4267:         ]
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\map.cpp(254,91): warning C4267: 'argument': conversion from 'size_t' to '_Ty', possible loss of data
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\map.cpp(254,91): warning C4267:         with
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\map.cpp(254,91): warning C4267:         [
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\map.cpp(254,91): warning C4267:             _Ty=int
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\map.cpp(254,91): warning C4267:         ]
   news.cpp
   renderer.cpp
 C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(121,21): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(198,136): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(198,136): warning C4244:         with
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(198,136): warning C4244:         [
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(198,136): warning C4244:             T=float
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(198,136): warning C4244:         ]
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(198,88): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(198,88): warning C4244:         with
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(198,88): warning C4244:         [
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(198,88): warning C4244:             T=float
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(198,88): warning C4244:         ]
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(199,89): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(199,89): warning C4244:         with
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(199,89): warning C4244:         [
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(199,89): warning C4244:             T=float
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(199,89): warning C4244:         ]
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(199,61): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(199,61): warning C4244:         with
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(199,61): warning C4244:         [
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(199,61): warning C4244:             T=float
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(199,61): warning C4244:         ]
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(260,132): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(260,132): warning C4244:         with
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(260,132): warning C4244:         [
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(260,132): warning C4244:             T=float
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(260,132): warning C4244:         ]
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(260,84): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(260,84): warning C4244:         with
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(260,84): warning C4244:         [
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(260,84): warning C4244:             T=float
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(260,84): warning C4244:         ]
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(261,85): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(261,85): warning C4244:         with
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(261,85): warning C4244:         [
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(261,85): warning C4244:             T=float
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(261,85): warning C4244:         ]
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(261,57): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(261,57): warning C4244:         with
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(261,57): warning C4244:         [
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(261,57): warning C4244:             T=float
-C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(261,57): warning C4244:         ]
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(212,136): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(212,136): warning C4244:         with
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(212,136): warning C4244:         [
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(212,136): warning C4244:             T=float
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(212,136): warning C4244:         ]
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(212,88): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(212,88): warning C4244:         with
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(212,88): warning C4244:         [
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(212,88): warning C4244:             T=float
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(212,88): warning C4244:         ]
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(213,89): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(213,89): warning C4244:         with
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(213,89): warning C4244:         [
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(213,89): warning C4244:             T=float
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(213,89): warning C4244:         ]
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(213,61): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(213,61): warning C4244:         with
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(213,61): warning C4244:         [
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(213,61): warning C4244:             T=float
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(213,61): warning C4244:         ]
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(274,132): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(274,132): warning C4244:         with
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(274,132): warning C4244:         [
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(274,132): warning C4244:             T=float
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(274,132): warning C4244:         ]
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(274,84): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(274,84): warning C4244:         with
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(274,84): warning C4244:         [
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(274,84): warning C4244:             T=float
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(274,84): warning C4244:         ]
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(275,85): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(275,85): warning C4244:         with
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(275,85): warning C4244:         [
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(275,85): warning C4244:             T=float
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(275,85): warning C4244:         ]
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(275,57): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(275,57): warning C4244:         with
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(275,57): warning C4244:         [
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(275,57): warning C4244:             T=float
+C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\renderer.cpp(275,57): warning C4244:         ]
   resource.cpp
   resource.h
   technology.cpp
 sfmltest\x64\Release\resource.obj : warning LNK4042: object specified more than once; extras ignored
   Generating code
   Previous IPDB not found, fall back to full compilation.
-  All 2359 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  All 2361 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   Finished generating code
   sfmltest.vcxproj -> C:\Users\Jacob\Documents\Worldsimulation\WorldSimulation10028\x64\Release\sfmltest.exe

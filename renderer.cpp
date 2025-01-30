@@ -151,6 +151,20 @@ void Renderer::drawCountryInfo(const Country* country, const TechnologyManager& 
     }
     infoString += "\n";
 
+    infoString += "Culture Type: ";
+    switch (country->getCultureType()) {
+    case Country::CultureType::NC:
+        infoString += "NC";
+        break;
+    case Country::CultureType::LC:
+        infoString += "LC";
+        break;
+    case Country::CultureType::MC:
+        infoString += "MC";
+        break;
+    }
+    infoString += "\n";
+
     infoString += "Population: " + std::to_string(country->getPopulation()) + "\n";
     infoString += "Total Pixels: " + std::to_string(totalPixels) + "\n";
 

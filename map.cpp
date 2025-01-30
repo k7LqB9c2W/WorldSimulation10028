@@ -154,6 +154,7 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
 
     std::uniform_int_distribution<> typeDist(0, 2);
     std::discrete_distribution<> scienceTypeDist({ 50, 40, 10 });
+    std::discrete_distribution<> cultureTypeDist({ 40, 40, 20 }); // 40% NC, 40% LC, 20% MC
 
     for (int i = 0; i < numCountries; ++i) {
         sf::Vector2i startCell;
@@ -184,8 +185,8 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
 
         Country::Type countryType = static_cast<Country::Type>(typeDist(gen));
         Country::ScienceType scienceType = static_cast<Country::ScienceType>(scienceTypeDist(gen));
-
-        countries.emplace_back(i, countryColor, startCell, initialPopulation, growthRate, countryName, countryType, scienceType);
+        Country::CultureType cultureType = static_cast<Country::CultureType>(cultureTypeDist(gen));
+        countries.emplace_back(i, countryColor, startCell, initialPopulation, growthRate, countryName, countryType, scienceType, cultureType);
         m_countryGrid[startCell.y][startCell.x] = i;
 
         int regionIndex = static_cast<int>(startCell.y / m_regionSize * (m_baseImage.getSize().x / m_gridCellSize / m_regionSize) + startCell.x / m_regionSize);

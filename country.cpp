@@ -8,7 +8,7 @@
 #include <limits>
 
 // Constructor
-Country::Country(int countryIndex, const sf::Color & color, const sf::Vector2i & startCell, long long initialPopulation, double growthRate, const std::string & name, Type type, ScienceType scienceType) :
+Country::Country(int countryIndex, const sf::Color& color, const sf::Vector2i& startCell, long long initialPopulation, double growthRate, const std::string& name, Type type, ScienceType scienceType, CultureType cultureType) : 
     m_countryIndex(countryIndex),
     m_color(color),
     m_population(initialPopulation),
@@ -16,6 +16,7 @@ Country::Country(int countryIndex, const sf::Color & color, const sf::Vector2i &
     m_name(name),
     m_type(type),
     m_scienceType(scienceType),
+    m_cultureType(cultureType),
     m_hasCity(false),
     m_gold(0.0),
     m_militaryStrength(0.0), // Initialize m_militaryStrength here
@@ -684,4 +685,9 @@ void Country::addSciencePoints(double points) {
 
 void Country::setSciencePoints(double points) {
     m_sciencePoints = points;
+}
+
+// Get the culture type
+Country::CultureType Country::getCultureType() const {
+    return m_cultureType;
 }

@@ -1,3 +1,5 @@
+// country.h
+
 #pragma once
 
 #include <SFML/Graphics.hpp>
@@ -44,13 +46,19 @@ public:
         LS, // Less Science
         MS  // More Science
     };
+    // Add the enum for culture types
+    enum class CultureType {
+        NC, // Normal Culture (40% chance)
+        LC, // Less Culture (40% chance)
+        MC  // More Culture (20% chance)
+    };
     // Getter for m_nextWarCheckYear
     int getNextWarCheckYear() const;
 
     // Setter for m_nextWarCheckYear
     void setNextWarCheckYear(int year);
 
-    Country(int countryIndex, const sf::Color& color, const sf::Vector2i& startCell, long long initialPopulation, double growthRate, const std::string& name, Type type, ScienceType scienceType);
+    Country(int countryIndex, const sf::Color& color, const sf::Vector2i& startCell, long long initialPopulation, double growthRate, const std::string& name, Type type, ScienceType scienceType, CultureType cultureType);
     void update(const std::vector<std::vector<bool>>& isLandGrid, std::vector<std::vector<int>>& countryGrid, std::mutex& gridMutex, int gridCellSize, int regionSize, std::unordered_set<int>& dirtyRegions, int currentYear, const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid, News& news, bool plagueActive, long long& plagueDeaths, const Map& map);
     long long getPopulation() const;
     sf::Color getColor() const;
@@ -69,6 +77,7 @@ public:
     const std::string& getName() const;
     Type getType() const; // Add a getter for the country type
     ScienceType getScienceType() const;
+    CultureType getCultureType() const;
     bool canFoundCity() const;
     bool canDeclareWar() const;
     void startWar(Country& target, News& news);
@@ -108,6 +117,7 @@ private:
     double m_militaryStrength;  // Add military strength member
     Type m_type; // Add a member variable to store the country type
     ScienceType m_scienceType;
+    CultureType m_cultureType;
 
     int getMaxExpansionPixels(int year) const;
     long long m_prePlaguePopulation;
