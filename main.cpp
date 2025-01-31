@@ -48,7 +48,7 @@ int main() {
 
     // Load spawn zones before initializing countries
     if (!map.loadSpawnZones("spawn.png")) {
-        return -1; // Or handle the error in some other way
+        return -1;
     }
 
     map.initializeCountries(countries, numCountries);
@@ -79,6 +79,20 @@ int main() {
     const Country* selectedCountry = nullptr;
     bool showCountryInfo = false;
 
+    // Country add mode variables
+    bool countryAddMode = false;
+    sf::Font m_font; // Font loading moved outside the loop
+    if (!m_font.loadFromFile("arial.ttf")) {
+        std::cerr << "Error: Could not load font file." << std::endl;
+        return -1;
+    }
+    sf::Text countryAddModeText;
+    countryAddModeText.setFont(m_font);
+    countryAddModeText.setCharacterSize(24);
+    countryAddModeText.setFillColor(sf::Color::White);
+    countryAddModeText.setPosition(10, 10);
+    countryAddModeText.setString("Country Add Mode");
+
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
@@ -89,17 +103,18 @@ int main() {
                 if (event.key.code == sf::Keyboard::Num5) {
                     news.toggleWindow();
                 }
-                else if (event.key.code == sf::Keyboard::Num4) { // Check for "4" key press
+                else if (event.key.code == sf::Keyboard::Num4) {
                     renderer.toggleWarmongerHighlights();
                 }
-                else if (event.key.code == sf::Keyboard::Num3) { // Check for "3" key press
-                    enableZoom = !enableZoom; // Toggle zoom mode
+                else if (event.key.code == sf::Keyboard::Num9) {
+                    countryAddMode = !countryAddMode;
+                }
+                else if (event.key.code == sf::Keyboard::Num3) {
+                    enableZoom = !enableZoom;
                     if (enableZoom) {
-                        // Initialize zoomed view
                         zoomedView = window.getView();
                     }
                     else {
-                        // Reset to default view
                         window.setView(defaultView);
                         zoomLevel = 1.0f;
                     }
@@ -109,24 +124,19 @@ int main() {
                 }
             }
             else if (event.type == sf::Event::MouseWheelScrolled) {
-                if (showCountryInfo) { // Only allow scrolling if the country info window is visible
-                    // Adjust the scroll offset based on the mouse wheel delta
+                if (showCountryInfo) {
                     int newOffset = renderer.getTechScrollOffset() - static_cast<int>(event.mouseWheelScroll.delta * 10);
-
-                    // Assuming a maximum offset of 300 and a minimum of 0:
                     newOffset = std::max(0, std::min(newOffset, renderer.getMaxTechScrollOffset()));
-
                     renderer.setTechScrollOffset(newOffset);
                 }
-                else if (enableZoom)
-                {
+                else if (enableZoom) {
                     if (event.mouseWheelScroll.delta > 0) {
-                        zoomLevel *= 0.9f; // Zoom in
+                        zoomLevel *= 0.9f;
                     }
                     else {
-                        zoomLevel *= 1.1f; // Zoom out
+                        zoomLevel *= 1.1f;
                     }
-                    zoomLevel = std::max(0.5f, std::min(zoomLevel, 3.0f)); // Limit zoom
+                    zoomLevel = std::max(0.5f, std::min(zoomLevel, 3.0f));
                     zoomedView.setSize(defaultView.getSize().x * zoomLevel, defaultView.getSize().y * zoomLevel);
                 }
             }
@@ -134,6 +144,49 @@ int main() {
                 if (enableZoom) {
                     isDragging = true;
                     lastMousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+                }
+                else if (countryAddMode) {
+                    // Add new country
+                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+                    sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
+                    sf::Vector2i gridPos = map.pixelToGrid(worldPos);
+
+                    if (gridPos.x >= 0 && gridPos.x < map.getIsLandGrid()[0].size() &&
+                        gridPos.y >= 0 && gridPos.y < map.getIsLandGrid().size() &&
+                        map.getIsLandGrid()[gridPos.y][gridPos.x] && map.getCountryGrid()[gridPos.y][gridPos.x] == -1) {
+
+                        std::random_device rd;
+                        std::mt19937 gen(rd());
+                        std::uniform_int_distribution<> colorDist(50, 255);
+                        std::uniform_int_distribution<> popDist(1000, 10000);
+                        std::uniform_real_distribution<> growthRateDist(0.0003, 0.001);
+                        std::uniform_int_distribution<> typeDist(0, 2);
+                        std::discrete_distribution<> scienceTypeDist({ 50, 40, 10 });
+                        std::discrete_distribution<> cultureTypeDist({ 40, 40, 20 });
+
+                        sf::Color countryColor(colorDist(gen), colorDist(gen), colorDist(gen));
+                        long long initialPopulation = popDist(gen);
+                        double growthRate = growthRateDist(gen);
+                        std::string countryName = generate_country_name();
+                        while (isNameTaken(countries, countryName)) {
+                            countryName = generate_country_name();
+                        }
+                        countryName += " Tribe";
+                        Country::Type countryType = static_cast<Country::Type>(typeDist(gen));
+                        Country::ScienceType scienceType = static_cast<Country::ScienceType>(scienceTypeDist(gen));
+                        Country::CultureType cultureType = static_cast<Country::CultureType>(cultureTypeDist(gen));
+
+                        int newCountryIndex = countries.size();
+                        countries.emplace_back(newCountryIndex, countryColor, gridPos, initialPopulation, growthRate, countryName, countryType, scienceType, cultureType);
+
+                        // Use Map's methods to update the grid and dirty regions
+                        map.setCountryGridValue(gridPos.x, gridPos.y, newCountryIndex);
+
+                        int regionIndex = static_cast<int>((gridPos.y / map.getRegionSize()) * (map.getBaseImage().getSize().x / map.getGridCellSize() / map.getRegionSize()) + (gridPos.x / map.getRegionSize()));
+                        map.insertDirtyRegion(regionIndex);
+
+                        renderer.setNeedsUpdate(true);
+                    }
                 }
                 else {
                     // Check if a country is clicked
@@ -165,7 +218,6 @@ int main() {
             }
         }
 
-        // Update countries and technology
         map.updateCountries(countries, currentYear, news);
         for (auto& country : countries) {
             technologyManager.updateCountry(country);
@@ -186,6 +238,9 @@ int main() {
         }
 
         renderer.render(countries, map, news, technologyManager, selectedCountry, showCountryInfo);
+        if (countryAddMode) {
+            window.draw(countryAddModeText);
+        }
     }
 
     return 0;

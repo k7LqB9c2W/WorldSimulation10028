@@ -397,3 +397,19 @@ int Country::getNextWarCheckYear() const {
 void Country::setNextWarCheckYear(int year) {
     m_nextWarCheckYear = year;
 }
+
+void Map::setCountryGridValue(int x, int y, int value) {
+    m_countryGrid[y][x] = value;
+}
+
+void Map::insertDirtyRegion(int regionIndex) {
+    m_dirtyRegions.insert(regionIndex);
+}
+
+std::vector<std::vector<int>>& Map::getCountryGrid() {
+    return m_countryGrid;
+}
+
+std::unordered_set<int>& Map::getDirtyRegions() {
+    return m_dirtyRegions;
+}
