@@ -17,5 +17,6 @@ Welcome to **Civilization Simulation**, a C++ project using **SFML** for graphic
 4. Shows all warmonger countries.
 5. Shows the news feed (shows wars, when great plagues happen, the founding of cities).
 6. Shows all active wars.
+
 '9.' Enables add country mode. Click on a pixel to add a country.
 
