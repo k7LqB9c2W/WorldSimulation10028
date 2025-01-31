@@ -108,6 +108,7 @@ int main() {
                 }
                 else if (event.key.code == sf::Keyboard::Num9) {
                     countryAddMode = !countryAddMode;
+                    renderer.setShowCountryAddModeText(countryAddMode); // Update the flag in Renderer
                 }
                 else if (event.key.code == sf::Keyboard::Num3) {
                     enableZoom = !enableZoom;
@@ -238,9 +239,9 @@ int main() {
         }
 
         renderer.render(countries, map, news, technologyManager, selectedCountry, showCountryInfo);
-        if (countryAddMode) {
-            window.draw(countryAddModeText);
-        }
+        //if (countryAddMode) {
+          //  window.draw(countryAddModeText);
+        //}
     }
 
     return 0;

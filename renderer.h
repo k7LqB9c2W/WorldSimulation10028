@@ -17,6 +17,7 @@ public:
     void updateYearText(int year);
     void setNeedsUpdate(bool needsUpdate);
     void showLoadingScreen();
+    void setShowCountryAddModeText(bool show);
     void toggleWarHighlights();
     int getTechScrollOffset() const;
     int getMaxTechScrollOffset() const;
@@ -35,6 +36,8 @@ private:
     bool m_needsUpdate;
     bool m_showWarmongerHighlights;
     bool m_showWarHighlights;
+    bool m_showCountryAddModeText;
+
 
     // Country info window variables
     sf::RectangleShape m_infoWindowBackground;

@@ -101,6 +101,16 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
         drawCountryInfo(selectedCountry, technologyManager);
     }
 
+    if (m_showCountryAddModeText) {
+        sf::Text countryAddModeText;
+        countryAddModeText.setFont(m_font);
+        countryAddModeText.setCharacterSize(24);
+        countryAddModeText.setFillColor(sf::Color::White);
+        countryAddModeText.setPosition(10, 10);
+        countryAddModeText.setString("Country Add Mode");
+        m_window.draw(countryAddModeText);
+    }
+
     m_window.display();
 }
 
@@ -367,4 +377,8 @@ int Renderer::getMaxTechScrollOffset() const
 void Renderer::setTechScrollOffset(int offset)
 {
     m_techScrollOffset = offset;
+}
+
+void Renderer::setShowCountryAddModeText(bool show) {
+    m_showCountryAddModeText = show;
 }

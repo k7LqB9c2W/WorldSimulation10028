@@ -31,7 +31,7 @@ C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.42.3443
           ]
   
   main.cpp
-C:\Users\ricke\source\repos\sfmltest\sfmltest\main.cpp(179,45): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\ricke\source\repos\sfmltest\sfmltest\main.cpp(180,45): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
   map.cpp
 C:\Users\ricke\source\repos\sfmltest\sfmltest\map.cpp(105,75): warning C4267: 'argument': conversion from 'size_t' to '_Ty', possible loss of data
 C:\Users\ricke\source\repos\sfmltest\sfmltest\map.cpp(105,75): warning C4267:         with
@@ -55,53 +55,53 @@ C:\Users\ricke\source\repos\sfmltest\sfmltest\map.cpp(254,91): warning C4267:   
 C:\Users\ricke\source\repos\sfmltest\sfmltest\map.cpp(254,91): warning C4267:         ]
   news.cpp
   renderer.cpp
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(125,21): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(257,136): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(257,136): warning C4244:         with
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(257,136): warning C4244:         [
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(257,136): warning C4244:             T=float
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(257,136): warning C4244:         ]
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(257,88): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(257,88): warning C4244:         with
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(257,88): warning C4244:         [
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(257,88): warning C4244:             T=float
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(257,88): warning C4244:         ]
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(258,89): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(258,89): warning C4244:         with
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(258,89): warning C4244:         [
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(258,89): warning C4244:             T=float
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(258,89): warning C4244:         ]
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(258,61): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(258,61): warning C4244:         with
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(258,61): warning C4244:         [
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(258,61): warning C4244:             T=float
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(258,61): warning C4244:         ]
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(319,132): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(319,132): warning C4244:         with
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(319,132): warning C4244:         [
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(319,132): warning C4244:             T=float
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(319,132): warning C4244:         ]
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(319,84): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(319,84): warning C4244:         with
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(319,84): warning C4244:         [
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(319,84): warning C4244:             T=float
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(319,84): warning C4244:         ]
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(320,85): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(320,85): warning C4244:         with
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(320,85): warning C4244:         [
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(320,85): warning C4244:             T=float
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(320,85): warning C4244:         ]
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(320,57): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(320,57): warning C4244:         with
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(320,57): warning C4244:         [
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(320,57): warning C4244:             T=float
-C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(320,57): warning C4244:         ]
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(135,21): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(267,136): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(267,136): warning C4244:         with
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(267,136): warning C4244:         [
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(267,136): warning C4244:             T=float
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(267,136): warning C4244:         ]
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(267,88): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(267,88): warning C4244:         with
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(267,88): warning C4244:         [
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(267,88): warning C4244:             T=float
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(267,88): warning C4244:         ]
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(268,89): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(268,89): warning C4244:         with
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(268,89): warning C4244:         [
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(268,89): warning C4244:             T=float
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(268,89): warning C4244:         ]
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(268,61): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(268,61): warning C4244:         with
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(268,61): warning C4244:         [
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(268,61): warning C4244:             T=float
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(268,61): warning C4244:         ]
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(329,132): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(329,132): warning C4244:         with
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(329,132): warning C4244:         [
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(329,132): warning C4244:             T=float
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(329,132): warning C4244:         ]
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(329,84): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(329,84): warning C4244:         with
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(329,84): warning C4244:         [
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(329,84): warning C4244:             T=float
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(329,84): warning C4244:         ]
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(330,85): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(330,85): warning C4244:         with
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(330,85): warning C4244:         [
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(330,85): warning C4244:             T=float
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(330,85): warning C4244:         ]
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(330,57): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(330,57): warning C4244:         with
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(330,57): warning C4244:         [
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(330,57): warning C4244:             T=float
+C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(330,57): warning C4244:         ]
   resource.cpp
   resource.h
   technology.cpp
 sfmltest\x64\Release\resource.obj : warning LNK4042: object specified more than once; extras ignored
   Generating code
   Previous IPDB not found, fall back to full compilation.
-  All 2369 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  All 2370 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   Finished generating code
   sfmltest.vcxproj -> C:\Users\ricke\source\repos\sfmltest\sfmltest\x64\Release\sfmltest.exe
