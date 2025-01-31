@@ -3,12 +3,20 @@
   "WorkspaceRootPath": "C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\country.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|solutionrelative:country.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|solutionrelative:main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\renderer.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|solutionrelative:renderer.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\renderer.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|solutionrelative:renderer.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\country.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|solutionrelative:country.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\map.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
@@ -19,16 +27,8 @@
       "RelativeMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|solutionrelative:map.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\renderer.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|solutionrelative:renderer.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\country.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|solutionrelative:country.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\renderer.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|solutionrelative:renderer.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     }
   ],
   "DocumentGroupContainers": [
@@ -38,7 +38,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 6,
+          "SelectedChildIndex": 7,
           "Children": [
             {
               "$type": "Bookmark",
@@ -46,7 +46,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 6,
               "Title": "country.cpp",
               "DocumentMoniker": "C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\country.cpp",
               "RelativeDocumentMoniker": "country.cpp",
@@ -54,38 +54,37 @@
               "RelativeToolTip": "country.cpp",
               "ViewState": "AgIAAKACAAAAdA3lNRQbwLQCAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-01-21T07:07:54.79Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-01-21T07:07:54.79Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 2,
               "Title": "renderer.cpp",
               "DocumentMoniker": "C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\renderer.cpp",
               "RelativeDocumentMoniker": "renderer.cpp",
               "ToolTip": "C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\renderer.cpp",
               "RelativeToolTip": "renderer.cpp",
-              "ViewState": "AgIAAIYAAAAAAAAAAAAuwKUAAAAXAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAHEBAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2025-01-25T02:08:13.685Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 1,
               "Title": "renderer.h",
               "DocumentMoniker": "C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\renderer.h",
               "RelativeDocumentMoniker": "renderer.h",
               "ToolTip": "C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\renderer.h",
               "RelativeToolTip": "renderer.h",
-              "ViewState": "AgIAAAQAAAAAAAAAAAAwwBYAAAAcAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABQAAAAiAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
               "WhenOpened": "2025-01-25T02:06:32.374Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 5,
               "Title": "map.cpp",
               "DocumentMoniker": "C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\map.cpp",
               "RelativeDocumentMoniker": "map.cpp",
@@ -93,12 +92,11 @@
               "RelativeToolTip": "map.cpp",
               "ViewState": "AgIAAKcAAAAAAAAAAAApwK0AAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-01-21T07:10:30.031Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-01-21T07:10:30.031Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 4,
               "Title": "map.h",
               "DocumentMoniker": "C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\map.h",
               "RelativeDocumentMoniker": "map.h",
@@ -106,31 +104,30 @@
               "RelativeToolTip": "map.h",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAAAiAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2025-01-21T07:25:34.484Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-01-21T07:25:34.484Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 3,
               "Title": "country.h",
               "DocumentMoniker": "C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\country.h",
               "RelativeDocumentMoniker": "country.h",
               "ToolTip": "C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\country.h",
               "RelativeToolTip": "country.h",
-              "ViewState": "AgIAAGcAAAAAAAAAAAAkwIYAAAACAAAAAAAAAA==",
+              "ViewState": "AgIAAGcAAAAAAAAAAAAkwGkAAAAXAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
               "WhenOpened": "2025-01-21T07:05:53.743Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 0,
               "Title": "main.cpp",
               "DocumentMoniker": "C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\main.cpp",
               "RelativeDocumentMoniker": "main.cpp",
               "ToolTip": "C:\\Users\\Jacob\\Documents\\Worldsimulation\\WorldSimulation10028\\main.cpp",
               "RelativeToolTip": "main.cpp",
-              "ViewState": "AgIAABUAAAAAAAAAAAArwCEAAAAmAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABAAAAAIAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2025-01-21T06:36:39.484Z",
               "EditorCaption": ""

@@ -1,3 +1,5 @@
+// renderer.cpp
+
 #include "renderer.h"
 #include <string>
 #include <algorithm>
@@ -7,7 +9,9 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
     m_waterColor(waterColor),
     m_needsUpdate(true),
     m_showWarmongerHighlights(false),
-    m_showWarHighlights(false)
+    m_showWarHighlights(false),
+    m_techScrollOffset(0),
+    m_maxTechScrollOffset(0)
 {
 
     // Load the texture from the base image (map.png)
@@ -168,19 +172,60 @@ void Renderer::drawCountryInfo(const Country* country, const TechnologyManager& 
     infoString += "Population: " + std::to_string(country->getPopulation()) + "\n";
     infoString += "Total Pixels: " + std::to_string(totalPixels) + "\n";
 
-    // Add list of unlocked technologies
-    infoString += "Technologies:\n";
-    const std::vector<int>& unlockedTechs = techManager.getUnlockedTechnologies(*country);
-    // Use a const reference to avoid copying the map
-    const std::unordered_map<int, Technology>& allTechs = techManager.getTechnologies();
-    for (int techId : unlockedTechs) {
-        // Use .at() for faster access (assuming techId is always valid)
-        infoString += "- " + allTechs.at(techId).name + "\n";
-    }
+    // Draw technologies title
+    m_infoWindowText.setString("Technologies:");
+    m_infoWindowText.setPosition(m_infoWindowBackground.getPosition().x + 10, m_infoWindowBackground.getPosition().y + 220);
+    m_window.draw(m_infoWindowText);
+
+    // Draw the list of technologies with scrolling
+    drawTechList(country, techManager);
 
     m_infoWindowText.setString(infoString);
     m_infoWindowText.setPosition(m_infoWindowBackground.getPosition().x + 40, m_infoWindowBackground.getPosition().y + 10);
     m_window.draw(m_infoWindowText);
+}
+
+void Renderer::drawTechList(const Country* country, const TechnologyManager& techManager) {
+    const std::vector<int>& unlockedTechs = techManager.getUnlockedTechnologies(*country);
+    const std::unordered_map<int, Technology>& allTechs = techManager.getTechnologies();
+
+    // Calculate the starting y-position for the tech list
+    float startY = m_infoWindowBackground.getPosition().y + 240;
+
+    // Define the maximum height for the tech list
+    float maxHeight = 150; // Adjust as needed
+
+    // Define the y-increment for each tech item
+    float yIncrement = 20;
+
+    // Calculate the total height of the tech list
+    float totalHeight = unlockedTechs.size() * yIncrement;
+
+    // Adjust the scroll offset if necessary to keep the list within bounds
+    m_maxTechScrollOffset = 0;
+    if (totalHeight > maxHeight) {
+        m_maxTechScrollOffset = static_cast<int>(totalHeight - maxHeight);
+        if (m_techScrollOffset > m_maxTechScrollOffset)
+        {
+            m_techScrollOffset = m_maxTechScrollOffset;
+        }
+    }
+    else {
+        m_techScrollOffset = 0; // Reset scroll offset if the list fits within the max height
+    }
+
+    // Draw each tech item, taking the scroll offset into account
+    for (size_t i = 0; i < unlockedTechs.size(); ++i) {
+        int techId = unlockedTechs[i];
+        float yPos = startY + (i * yIncrement) - m_techScrollOffset;
+
+        // Only draw the tech if it's within the visible area
+        if (yPos + yIncrement > startY && yPos < startY + maxHeight) {
+            m_infoWindowText.setString("- " + allTechs.at(techId).name);
+            m_infoWindowText.setPosition(m_infoWindowBackground.getPosition().x + 20, yPos);
+            m_window.draw(m_infoWindowText);
+        }
+    }
 }
 
 void Renderer::toggleWarmongerHighlights() {
@@ -307,4 +352,19 @@ void Renderer::showLoadingScreen() {
     m_window.clear();
     m_window.draw(loadingText);
     m_window.display();
+}
+
+int Renderer::getTechScrollOffset() const
+{
+    return m_techScrollOffset;
+}
+
+int Renderer::getMaxTechScrollOffset() const
+{
+    return m_maxTechScrollOffset;
+}
+
+void Renderer::setTechScrollOffset(int offset)
+{
+    m_techScrollOffset = offset;
 }

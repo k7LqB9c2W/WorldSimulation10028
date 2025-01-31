@@ -1,3 +1,5 @@
+// renderer.h
+
 #pragma once
 
 #include <SFML/Graphics.hpp>
@@ -16,6 +18,9 @@ public:
     void setNeedsUpdate(bool needsUpdate);
     void showLoadingScreen();
     void toggleWarHighlights();
+    int getTechScrollOffset() const;
+    int getMaxTechScrollOffset() const;
+    void setTechScrollOffset(int offset);
 
 private:
     sf::RenderWindow& m_window;
@@ -35,9 +40,12 @@ private:
     sf::RectangleShape m_infoWindowBackground;
     sf::Text m_infoWindowText;
     sf::RectangleShape m_infoWindowColorSquare;
+    int m_techScrollOffset;
+    int m_maxTechScrollOffset;
 
     void updateCountryImage(const std::vector<std::vector<int>>& countryGrid, const std::vector<Country>& countries, const Map& map);
     void drawCountryInfo(const Country* country, const TechnologyManager& techManager);
     void drawWarmongerHighlights(const std::vector<Country>& countries, const Map& map);
     void drawWarHighlights(const std::vector<Country>& countries, const Map& map);
+    void drawTechList(const Country* country, const TechnologyManager& techManager);
 };

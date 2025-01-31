@@ -1,3 +1,5 @@
+// main.cpp
+
 #include <SFML/Graphics.hpp>
 #include <vector>
 #include <iostream>
@@ -106,15 +108,27 @@ int main() {
                     renderer.toggleWarHighlights();
                 }
             }
-            else if (event.type == sf::Event::MouseWheelScrolled && enableZoom) {
-                if (event.mouseWheelScroll.delta > 0) {
-                    zoomLevel *= 0.9f; // Zoom in
+            else if (event.type == sf::Event::MouseWheelScrolled) {
+                if (showCountryInfo) { // Only allow scrolling if the country info window is visible
+                    // Adjust the scroll offset based on the mouse wheel delta
+                    int newOffset = renderer.getTechScrollOffset() - static_cast<int>(event.mouseWheelScroll.delta * 10);
+
+                    // Assuming a maximum offset of 300 and a minimum of 0:
+                    newOffset = std::max(0, std::min(newOffset, renderer.getMaxTechScrollOffset()));
+
+                    renderer.setTechScrollOffset(newOffset);
                 }
-                else {
-                    zoomLevel *= 1.1f; // Zoom out
+                else if (enableZoom)
+                {
+                    if (event.mouseWheelScroll.delta > 0) {
+                        zoomLevel *= 0.9f; // Zoom in
+                    }
+                    else {
+                        zoomLevel *= 1.1f; // Zoom out
+                    }
+                    zoomLevel = std::max(0.5f, std::min(zoomLevel, 3.0f)); // Limit zoom
+                    zoomedView.setSize(defaultView.getSize().x * zoomLevel, defaultView.getSize().y * zoomLevel);
                 }
-                zoomLevel = std::max(0.5f, std::min(zoomLevel, 3.0f)); // Limit zoom
-                zoomedView.setSize(defaultView.getSize().x * zoomLevel, defaultView.getSize().y * zoomLevel);
             }
             else if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
                 if (enableZoom) {
