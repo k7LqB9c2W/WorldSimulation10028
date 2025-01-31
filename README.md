@@ -11,7 +11,7 @@ Welcome to **Civilization Simulation**, a C++ project using **SFML** for graphic
 
 ## 📷 Screenshots
 
-**Important Notes and Controls**
+## Important Notes and Controls
 
 3. Zoom feature! Scroll to zoom in and click and drag to move around the map, press 3 again to go to default zoom.
 4. Shows all warmonger countries.
