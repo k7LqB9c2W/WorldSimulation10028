@@ -13,6 +13,7 @@ Country::Country(int countryIndex, const sf::Color& color, const sf::Vector2i& s
     m_color(color),
     m_population(initialPopulation),
     m_populationGrowthRate(growthRate),
+    m_culturePoints(0.0), // Initialize culture points to zero
     m_name(name),
     m_type(type),
     m_scienceType(scienceType),
@@ -294,6 +295,21 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
 
     // Science point generation
     double sciencePointIncrease = 1.0; // Base science point per year
+
+    // Culture point generation
+    double culturePointIncrease = 1.0; // Base culture point per year
+
+    // Apply multipliers based on CultureType
+    if (m_cultureType == CultureType::MC) {
+        // MC countries get 1.1x to 2x culture points
+        culturePointIncrease *= (1.1 + (static_cast<double>(rand()) / RAND_MAX) * (2.0 - 1.1));
+    }
+    else if (m_cultureType == CultureType::LC) {
+        // LC countries get 0.1x to 0.35x culture points
+        culturePointIncrease *= (0.1 + (static_cast<double>(rand()) / RAND_MAX) * (0.35 - 0.1));
+    }
+
+    addCulturePoints(culturePointIncrease * m_cultureMultiplier);
 
     // Apply multipliers based on ScienceType
     if (m_scienceType == ScienceType::MS) {
@@ -720,5 +736,28 @@ void Country::applyScienceMultiplier(double bonus) {
     // If multiple great science effects apply, use the highest bonus.
     if (bonus > m_scienceMultiplier) {
         m_scienceMultiplier = bonus;
+    }
+}
+
+double Country::getCulturePoints() const {
+    return m_culturePoints;
+}
+
+void Country::addCulturePoints(double points) {
+    m_culturePoints += points;
+}
+
+void Country::setCulturePoints(double points) {
+    m_culturePoints = points;
+}
+
+void Country::resetCultureMultiplier() {
+    m_cultureMultiplier = 1.0;
+}
+
+void Country::applyCultureMultiplier(double bonus) {
+    // If multiple great culture effects apply, use the highest bonus.
+    if (bonus > m_cultureMultiplier) {
+        m_cultureMultiplier = bonus;
     }
 }

@@ -105,6 +105,12 @@ public:
     void resetMilitaryStrength();
     // Applies a bonus multiplier to the current military strength.
     void applyMilitaryBonus(double bonus);
+    double getCulturePoints() const;
+    void addCulturePoints(double points);
+    void setCulturePoints(double points);
+    double getCultureMultiplier() const { return m_cultureMultiplier; }
+    void resetCultureMultiplier();
+    void applyCultureMultiplier(double bonus);
 
     // (Optionally, if you want to apply a bonus for science too, add similar methods.)
 
@@ -128,7 +134,8 @@ private:
     Type m_type; // Add a member variable to store the country type
     ScienceType m_scienceType;
     CultureType m_cultureType;
-
+    double m_culturePoints; // For culture points
+    double m_cultureMultiplier = 1.0;
     int getMaxExpansionPixels(int year) const;
     long long m_prePlaguePopulation;
     std::vector<Country*> m_enemies;

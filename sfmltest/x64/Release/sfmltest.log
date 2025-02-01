@@ -7,7 +7,7 @@ C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.42.3443
   (compiling source file 'country.cpp')
       C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.42.34433\include\xmemory(700,103):
       the template instantiation context (the oldest one first) is
-          C:\Users\ricke\source\repos\sfmltest\sfmltest\country.cpp(563,44):
+          C:\Users\ricke\source\repos\sfmltest\sfmltest\country.cpp(579,44):
           see reference to function template instantiation 'sf::Vector2i &std::vector<sf::Vector2i,std::allocator<sf::Vector2i>>::emplace_back<size_t&,size_t&>(size_t &,size_t &)' being compiled
           C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.42.34433\include\vector(858,24):
           see reference to function template instantiation '_Ty &std::vector<_Ty,std::allocator<_Ty>>::_Emplace_one_at_back<size_t&,size_t&>(size_t &,size_t &)' being compiled
@@ -118,6 +118,6 @@ C:\Users\ricke\source\repos\sfmltest\sfmltest\renderer.cpp(330,57): warning C424
 sfmltest\x64\Release\resource.obj : warning LNK4042: object specified more than once; extras ignored
   Generating code
   Previous IPDB not found, fall back to full compilation.
-  All 2477 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  All 2478 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   Finished generating code
   sfmltest.vcxproj -> C:\Users\ricke\source\repos\sfmltest\sfmltest\x64\Release\sfmltest.exe
