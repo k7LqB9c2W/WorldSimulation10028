@@ -11,6 +11,8 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
     m_showWarmongerHighlights(false),
     m_showWarHighlights(false),
     m_techScrollOffset(0),
+    m_civicScrollOffset(0),
+    m_maxCivicScrollOffset(0),
     m_maxTechScrollOffset(0)
 {
 
@@ -41,7 +43,7 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
     m_infoWindowColorSquare.setSize(sf::Vector2f(20, 20));
 }
 
-void Renderer::render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const Country* selectedCountry, bool showCountryInfo) {
+void Renderer::render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const CultureManager& cultureManager, const Country* selectedCountry, bool showCountryInfo) {
     m_window.clear();
 
     m_window.draw(m_baseSprite); // Draw the base map (map.png)
@@ -99,6 +101,7 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
     // Draw country info window if a country is selected and the flag is true
     if (showCountryInfo && selectedCountry != nullptr) {
         drawCountryInfo(selectedCountry, technologyManager);
+        drawCivicList(selectedCountry, cultureManager);
     }
 
     if (m_showCountryAddModeText) {
@@ -136,6 +139,11 @@ void Renderer::drawCountryInfo(const Country* country, const TechnologyManager& 
     for (const auto& city : country->getCities()) {
         totalPixels++; // Add 1 for each city (assuming each city occupies one pixel)
     }
+
+    // Draw civics title
+    m_infoWindowText.setString("Civics:");
+    m_infoWindowText.setPosition(m_infoWindowBackground.getPosition().x + 10, m_infoWindowBackground.getPosition().y + 360);
+    m_window.draw(m_infoWindowText);
 
     infoString += "Type: ";
     switch (country->getType()) {
@@ -381,4 +389,59 @@ void Renderer::setTechScrollOffset(int offset)
 
 void Renderer::setShowCountryAddModeText(bool show) {
     m_showCountryAddModeText = show;
+}
+
+// Add the drawCivicList() function in renderer.cpp:
+void Renderer::drawCivicList(const Country* country, const CultureManager& cultureManager) {
+    const std::vector<int>& unlockedCivics = cultureManager.getUnlockedCivics(*country);
+    const std::unordered_map<int, Civic>& allCivics = cultureManager.getCivics();
+
+    // Calculate the starting y-position for the civic list
+    float startY = m_infoWindowBackground.getPosition().y + 380;
+
+    // Define the maximum height for the civic list
+    float maxHeight = 150;
+
+    // Define the y-increment for each civic item
+    float yIncrement = 20;
+
+    // Calculate the total height of the civic list
+    float totalHeight = unlockedCivics.size() * yIncrement;
+
+    // Adjust the scroll offset if necessary
+    m_maxCivicScrollOffset = 0;
+    if (totalHeight > maxHeight) {
+        m_maxCivicScrollOffset = static_cast<int>(totalHeight - maxHeight);
+        if (m_civicScrollOffset > m_maxCivicScrollOffset) {
+            m_civicScrollOffset = m_maxCivicScrollOffset;
+        }
+    }
+    else {
+        m_civicScrollOffset = 0;
+    }
+
+    // Draw each civic item
+    for (size_t i = 0; i < unlockedCivics.size(); ++i) {
+        int civicId = unlockedCivics[i];
+        float yPos = startY + (i * yIncrement) - m_civicScrollOffset;
+
+        if (yPos + yIncrement > startY && yPos < startY + maxHeight) {
+            m_infoWindowText.setString("- " + allCivics.at(civicId).name);
+            m_infoWindowText.setPosition(m_infoWindowBackground.getPosition().x + 20, yPos);
+            m_window.draw(m_infoWindowText);
+        }
+    }
+}
+
+// Add the getter and setter implementations in renderer.cpp:
+int Renderer::getCivicScrollOffset() const {
+    return m_civicScrollOffset;
+}
+
+int Renderer::getMaxCivicScrollOffset() const {
+    return m_maxCivicScrollOffset;
+}
+
+void Renderer::setCivicScrollOffset(int offset) {
+    m_civicScrollOffset = offset;
 }

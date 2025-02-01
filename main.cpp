@@ -10,7 +10,7 @@
 #include "news.h"
 #include "technology.h"
 #include "great_people.h"
-
+#include "culture.h" // Include the new culture header
 
 int main() {
     sf::VideoMode videoMode(1920, 1080);
@@ -57,6 +57,9 @@ int main() {
 
     // Initialize the TechnologyManager
     TechnologyManager technologyManager;
+
+    // Initialize the CultureManager
+    CultureManager cultureManager;
 
     // Initialize the Great People Manager
     GreatPeopleManager greatPeopleManager;
@@ -131,9 +134,36 @@ int main() {
             }
             else if (event.type == sf::Event::MouseWheelScrolled) {
                 if (showCountryInfo) {
-                    int newOffset = renderer.getTechScrollOffset() - static_cast<int>(event.mouseWheelScroll.delta * 10);
-                    newOffset = std::max(0, std::min(newOffset, renderer.getMaxTechScrollOffset()));
-                    renderer.setTechScrollOffset(newOffset);
+                    if (event.mouseWheelScroll.delta > 0) {
+                        // Scrolling up
+                        if (sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::RShift)) {
+                            // Tech scroll
+                            int newOffset = renderer.getTechScrollOffset() - static_cast<int>(event.mouseWheelScroll.delta * 10);
+                            newOffset = std::max(0, std::min(newOffset, renderer.getMaxTechScrollOffset()));
+                            renderer.setTechScrollOffset(newOffset);
+                        }
+                        else {
+                            // Civic scroll (default)
+                            int newOffset = renderer.getCivicScrollOffset() - static_cast<int>(event.mouseWheelScroll.delta * 10);
+                            newOffset = std::max(0, std::min(newOffset, renderer.getMaxCivicScrollOffset()));
+                            renderer.setCivicScrollOffset(newOffset);
+                        }
+                    }
+                    else if (event.mouseWheelScroll.delta < 0) {
+                        // Scrolling down
+                        if (sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::RShift)) {
+                            // Tech scroll
+                            int newOffset = renderer.getTechScrollOffset() - static_cast<int>(event.mouseWheelScroll.delta * 10);
+                            newOffset = std::max(0, std::min(newOffset, renderer.getMaxTechScrollOffset()));
+                            renderer.setTechScrollOffset(newOffset);
+                        }
+                        else {
+                            // Civic scroll (default)
+                            int newOffset = renderer.getCivicScrollOffset() - static_cast<int>(event.mouseWheelScroll.delta * 10);
+                            newOffset = std::max(0, std::min(newOffset, renderer.getMaxCivicScrollOffset()));
+                            renderer.setCivicScrollOffset(newOffset);
+                        }
+                    }
                 }
                 else if (enableZoom) {
                     if (event.mouseWheelScroll.delta > 0) {
@@ -227,6 +257,7 @@ int main() {
         map.updateCountries(countries, currentYear, news);
         for (auto& country : countries) {
             technologyManager.updateCountry(country);
+            cultureManager.updateCountry(country); // Update civics for each country
         }
 
         if (yearClock.getElapsedTime() >= yearDuration) {
@@ -249,7 +280,7 @@ int main() {
             window.setView(zoomedView);
         }
 
-        renderer.render(countries, map, news, technologyManager, selectedCountry, showCountryInfo);
+        renderer.render(countries, map, news, technologyManager, cultureManager, selectedCountry, showCountryInfo); // Pass CultureManager to renderer
         //if (countryAddMode) {
           //  window.draw(countryAddModeText);
         //}

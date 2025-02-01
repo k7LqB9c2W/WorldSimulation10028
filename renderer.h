@@ -8,11 +8,13 @@
 #include "map.h"
 #include "news.h"
 #include "technology.h"
+#include "culture.h"
+
 
 class Renderer {
 public:
     Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& waterColor);
-    void render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const Country* selectedCountry, bool showCountryInfo);
+    void render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const CultureManager& cultureManager, const Country* selectedCountry, bool showCountryInfo);
     void toggleWarmongerHighlights();
     void updateYearText(int year);
     void setNeedsUpdate(bool needsUpdate);
@@ -22,6 +24,9 @@ public:
     int getTechScrollOffset() const;
     int getMaxTechScrollOffset() const;
     void setTechScrollOffset(int offset);
+    int getCivicScrollOffset() const;
+    int getMaxCivicScrollOffset() const;
+    void setCivicScrollOffset(int offset);
 
 private:
     sf::RenderWindow& m_window;
@@ -45,10 +50,14 @@ private:
     sf::RectangleShape m_infoWindowColorSquare;
     int m_techScrollOffset;
     int m_maxTechScrollOffset;
+    int m_civicScrollOffset;
+    int m_maxCivicScrollOffset;
 
     void updateCountryImage(const std::vector<std::vector<int>>& countryGrid, const std::vector<Country>& countries, const Map& map);
     void drawCountryInfo(const Country* country, const TechnologyManager& techManager);
     void drawWarmongerHighlights(const std::vector<Country>& countries, const Map& map);
     void drawWarHighlights(const std::vector<Country>& countries, const Map& map);
     void drawTechList(const Country* country, const TechnologyManager& techManager);
+    void drawCivicList(const Country* country, const CultureManager& cultureManager);
+
 };
