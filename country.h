@@ -101,6 +101,16 @@ public:
     void removeEnemy(Country* enemy);
     void clearEnemies();
     void setPopulation(long long population);
+    // Resets military strength to its base value (based on the country type).
+    void resetMilitaryStrength();
+    // Applies a bonus multiplier to the current military strength.
+    void applyMilitaryBonus(double bonus);
+
+    // (Optionally, if you want to apply a bonus for science too, add similar methods.)
+
+    void resetScienceMultiplier();
+    void applyScienceMultiplier(double bonus);
+    double getScienceMultiplier() const { return m_scienceMultiplier; }
 
 private:
     int m_countryIndex;
@@ -132,4 +142,5 @@ private:
     int m_warCheckDuration;  // Duration for actively seeking war
     bool m_isSeekingWar;    // Flag to indicate if currently seeking war
     double m_sciencePoints; // For science points
+    double m_scienceMultiplier = 1.0;
 };

@@ -305,7 +305,7 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
         sciencePointIncrease *= (0.1 + (static_cast<double>(rand()) / RAND_MAX) * (0.35 - 0.1));
     }
 
-    addSciencePoints(sciencePointIncrease);
+    addSciencePoints(sciencePointIncrease * m_scienceMultiplier);
 
     // Get the maximum expansion pixels for the current year
     int maxExpansionPixels = getMaxExpansionPixels(currentYear);
@@ -690,4 +690,35 @@ void Country::setSciencePoints(double points) {
 // Get the culture type
 Country::CultureType Country::getCultureType() const {
     return m_cultureType;
+}
+
+void Country::resetMilitaryStrength() {
+    // Reset the military strength to the default based on country type.
+    if (m_type == Type::Pacifist) {
+        m_militaryStrength = 0.3;
+    }
+    else if (m_type == Type::Trader) {
+        m_militaryStrength = 0.6;
+    }
+    else if (m_type == Type::Warmonger) {
+        m_militaryStrength = 1.3;
+    }
+}
+
+void Country::applyMilitaryBonus(double bonus) {
+    m_militaryStrength *= bonus;
+}
+
+// If you have a science production value you want to modify, you could do something similar.
+// For example, if you decide to boost the science points accumulation rate:
+// (Assume you add a member like m_scienceProduction; if not, you can adjust how you use science points.)
+void Country::resetScienceMultiplier() {
+    m_scienceMultiplier = 1.0;
+}
+
+void Country::applyScienceMultiplier(double bonus) {
+    // If multiple great science effects apply, use the highest bonus.
+    if (bonus > m_scienceMultiplier) {
+        m_scienceMultiplier = bonus;
+    }
 }
