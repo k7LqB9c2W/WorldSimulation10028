@@ -9,6 +9,8 @@
 #include "map.h"
 #include "news.h"
 #include "technology.h"
+#include "great_people.h"
+
 
 int main() {
     sf::VideoMode videoMode(1920, 1080);
@@ -55,6 +57,9 @@ int main() {
 
     // Initialize the TechnologyManager
     TechnologyManager technologyManager;
+
+    // Initialize the Great People Manager
+    GreatPeopleManager greatPeopleManager;
 
     Renderer renderer(window, map, waterColor);
     News news;
@@ -229,6 +234,12 @@ int main() {
             if (currentYear == 0) {
                 currentYear = 1;
             }
+
+            // Update the great people system
+            greatPeopleManager.updateEffects(currentYear, countries, news);
+
+            // Update the year text and flag a redraw
+
             renderer.updateYearText(currentYear);
             yearClock.restart();
             renderer.setNeedsUpdate(true);

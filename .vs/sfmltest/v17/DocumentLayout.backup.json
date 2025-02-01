@@ -7,6 +7,14 @@
       "RelativeMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|solutionrelative:main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
+      "AbsoluteMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|C:\\Users\\ricke\\source\\repos\\sfmltest\\sfmltest\\great_people.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|solutionrelative:great_people.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|C:\\Users\\ricke\\source\\repos\\sfmltest\\sfmltest\\great_people.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|solutionrelative:great_people.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|C:\\Users\\ricke\\source\\repos\\sfmltest\\sfmltest\\renderer.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{DD0610A0-AD1A-4AFB-9977-8521B7581959}|sfmltest.vcxproj|solutionrelative:renderer.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
@@ -38,15 +46,41 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 7,
+          "SelectedChildIndex": 9,
           "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "great_people.h",
+              "DocumentMoniker": "C:\\Users\\ricke\\source\\repos\\sfmltest\\sfmltest\\great_people.h",
+              "RelativeDocumentMoniker": "great_people.h",
+              "ToolTip": "C:\\Users\\ricke\\source\\repos\\sfmltest\\sfmltest\\great_people.h",
+              "RelativeToolTip": "great_people.h",
+              "ViewState": "AgIAACEAAAAAAAAAAAAAACwAAAACAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-02-01T01:47:23.486Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "great_people.cpp",
+              "DocumentMoniker": "C:\\Users\\ricke\\source\\repos\\sfmltest\\sfmltest\\great_people.cpp",
+              "RelativeDocumentMoniker": "great_people.cpp",
+              "ToolTip": "C:\\Users\\ricke\\source\\repos\\sfmltest\\sfmltest\\great_people.cpp",
+              "RelativeToolTip": "great_people.cpp",
+              "ViewState": "AgIAAJcAAAAAAAAAAAAAAKMAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-02-01T01:47:07.381Z",
+              "EditorCaption": ""
+            },
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{cce594b6-0c39-4442-ba28-10c64ac7e89f}"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 8,
               "Title": "country.cpp",
               "DocumentMoniker": "C:\\Users\\ricke\\source\\repos\\sfmltest\\sfmltest\\country.cpp",
               "RelativeDocumentMoniker": "country.cpp",
@@ -58,7 +92,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 3,
               "Title": "renderer.cpp",
               "DocumentMoniker": "C:\\Users\\ricke\\source\\repos\\sfmltest\\sfmltest\\renderer.cpp",
               "RelativeDocumentMoniker": "renderer.cpp",
@@ -66,12 +100,11 @@
               "RelativeToolTip": "renderer.cpp",
               "ViewState": "AgIAAGMAAAAAAAAAAAAuwG8AAAAFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-01-25T02:08:13.685Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-01-25T02:08:13.685Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 4,
               "Title": "renderer.h",
               "DocumentMoniker": "C:\\Users\\ricke\\source\\repos\\sfmltest\\sfmltest\\renderer.h",
               "RelativeDocumentMoniker": "renderer.h",
@@ -79,12 +112,11 @@
               "RelativeToolTip": "renderer.h",
               "ViewState": "AgIAAAMAAAAAAAAAAAAAABMAAAAuAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2025-01-25T02:06:32.374Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-01-25T02:06:32.374Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 6,
               "Title": "map.cpp",
               "DocumentMoniker": "C:\\Users\\ricke\\source\\repos\\sfmltest\\sfmltest\\map.cpp",
               "RelativeDocumentMoniker": "map.cpp",
@@ -96,7 +128,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 5,
               "Title": "map.h",
               "DocumentMoniker": "C:\\Users\\ricke\\source\\repos\\sfmltest\\sfmltest\\map.h",
               "RelativeDocumentMoniker": "map.h",
@@ -104,12 +136,11 @@
               "RelativeToolTip": "map.h",
               "ViewState": "AgIAAEAAAAAAAAAAAAAqwFMAAAACAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2025-01-21T07:25:34.484Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-01-21T07:25:34.484Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 7,
               "Title": "country.h",
               "DocumentMoniker": "C:\\Users\\ricke\\source\\repos\\sfmltest\\sfmltest\\country.h",
               "RelativeDocumentMoniker": "country.h",
@@ -127,7 +158,7 @@
               "RelativeDocumentMoniker": "main.cpp",
               "ToolTip": "C:\\Users\\ricke\\source\\repos\\sfmltest\\sfmltest\\main.cpp",
               "RelativeToolTip": "main.cpp",
-              "ViewState": "AgIAAGQAAAAAAAAAAAAkwG4AAABmAAAAAAAAAA==",
+              "ViewState": "AgIAAOIAAAAAAAAAAAAIwO8AAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2025-01-21T06:36:39.484Z",
               "EditorCaption": ""

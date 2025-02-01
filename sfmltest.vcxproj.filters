@@ -39,6 +39,9 @@
     <ClCompile Include="technology.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="great_people.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="renderer.h">
@@ -54,6 +57,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="technology.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="great_people.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
