@@ -131,6 +131,10 @@ int main() {
                 else if (event.key.code == sf::Keyboard::Num6) {
                     renderer.toggleWarHighlights();
                 }
+
+                else if (event.key.code == sf::Keyboard::Num8) { // Add this block
+                    map.triggerPlague(currentYear, news);
+                }
             }
             else if (event.type == sf::Event::MouseWheelScrolled) {
                 if (showCountryInfo) {
@@ -281,9 +285,7 @@ int main() {
         }
 
         renderer.render(countries, map, news, technologyManager, cultureManager, selectedCountry, showCountryInfo); // Pass CultureManager to renderer
-        //if (countryAddMode) {
-          //  window.draw(countryAddModeText);
-        //}
+
     }
 
     return 0;

@@ -413,3 +413,16 @@ std::vector<std::vector<int>>& Map::getCountryGrid() {
 std::unordered_set<int>& Map::getDirtyRegions() {
     return m_dirtyRegions;
 }
+
+// map.cpp (Modified section)
+
+void Map::triggerPlague(int year, News& news) {
+    startPlague(year, news); // Reuse the existing startPlague logic
+
+    // Immediately reset the next plague year for "spamming"
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> plagueIntervalDist(600, 700);
+    m_plagueInterval = plagueIntervalDist(gen);
+    m_nextPlagueYear = year + m_plagueInterval;
+}

@@ -13,7 +13,7 @@ CultureManager::CultureManager() {
 
 void CultureManager::initializeCivics() {
     m_civics = {
-        {1, {"Code of Laws", 50, 1, {}, {}}}, // No requirements
+        {1, {"Code of Laws", 900, 1, {}, {}}}, // No requirements
         {2, {"Craftsmanship", 80, 2, {1}, {}}},
         {3, {"Foreign Trade", 80, 3, {1}, {}}},
         {4, {"State Workforce", 150, 4, {2}, {}}},

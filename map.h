@@ -49,6 +49,7 @@ public:
     sf::Vector2i getRandomCellInPreferredZones(std::mt19937& gen);
     void setCountryGridValue(int x, int y, int value);
     void insertDirtyRegion(int regionIndex);
+    void triggerPlague(int year, News& news); // Add this line
 
     // Keep these for read-only access (const versions)
     const std::vector<std::vector<int>>& getCountryGrid() const;
