@@ -20,3 +20,10 @@ Welcome to **Civilization Simulation**, a C++ project using **SFML** for graphic
 
 '9.' Enables add country mode. Click on a pixel to add a country.
 
+## Documentaiton 
+
+Warmongers can expand to 10x the country size limit
+    else if (m_type == Type::Warmonger) {
+        return static_cast<int>(baseLimit * 10);
+Trader countries are at the limit
+Pacifists are at 10% the limit but have a chance to be at 50% of the limit
