@@ -18,6 +18,7 @@ public:
     void toggleWarmongerHighlights();
     void updateYearText(int year);
     void setNeedsUpdate(bool needsUpdate);
+    bool needsUpdate() const { return m_needsUpdate; }
     void showLoadingScreen();
     void setShowCountryAddModeText(bool show);
     void toggleWarHighlights();
@@ -57,7 +58,7 @@ private:
     void drawCountryInfo(const Country* country, const TechnologyManager& techManager);
     void drawWarmongerHighlights(const std::vector<Country>& countries, const Map& map);
     void drawWarHighlights(const std::vector<Country>& countries, const Map& map);
-    void drawTechList(const Country* country, const TechnologyManager& techManager);
+    void drawTechList(const Country* country, const TechnologyManager& techManager, float x, float y, float width, float height);
     void drawCivicList(const Country* country, const CultureManager& cultureManager);
 
 };

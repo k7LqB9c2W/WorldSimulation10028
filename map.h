@@ -6,7 +6,8 @@
 #include <mutex>
 #include <unordered_set>
 #include <unordered_map>
-#include <random> 
+#include <random>
+#include <functional>
 #include "country.h"
 #include "resource.h"
 #include "news.h"
@@ -50,6 +51,15 @@ public:
     void setCountryGridValue(int x, int y, int value);
     void insertDirtyRegion(int regionIndex);
     void triggerPlague(int year, News& news); // Add this line
+    
+    // Fast Forward Mode - simulate multiple years quickly
+    void fastForwardSimulation(std::vector<Country>& countries, int& currentYear, int targetYears, News& news);
+    
+    // MEGA TIME JUMP - simulate thousands of years with historical tracking
+    void megaTimeJump(std::vector<Country>& countries, int& currentYear, int targetYear, News& news, 
+                      class TechnologyManager& techManager, class CultureManager& cultureManager, 
+                      class GreatPeopleManager& greatPeopleManager, 
+                      std::function<void(int, int, float)> progressCallback = nullptr);
 
     // Keep these for read-only access (const versions)
     const std::vector<std::vector<int>>& getCountryGrid() const;

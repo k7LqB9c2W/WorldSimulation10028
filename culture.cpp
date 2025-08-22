@@ -7,6 +7,9 @@
 
 using namespace std;
 
+// 🔧 STATIC DEBUG CONTROL: Default to OFF (no spam)
+bool CultureManager::s_debugMode = false;
+
 CultureManager::CultureManager() {
     initializeCivics();
 }
@@ -139,7 +142,11 @@ void CultureManager::initializeCivics() {
 
         // Add any immediate effects of the civic here (e.g., government type changes)
         // ... (Implementation for civic effects will be added later)
-        cout << country.getName() << " unlocked civic: " << m_civics.at(civicId).name << endl; // Debug message
+        
+        // 🔧 DEBUG CONTROL: Only show message if debug mode is enabled
+        if (s_debugMode) {
+            cout << country.getName() << " unlocked civic: " << m_civics.at(civicId).name << endl;
+        }
     }
 
     const std::unordered_map<int, Civic>& CultureManager::getCivics() const {

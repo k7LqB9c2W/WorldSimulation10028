@@ -1,0 +1,40 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "shell": {
+      "executable": "cmd.exe",
+      "args": ["/d", "/c"]
+    }
+  },
+  "tasks": [
+    {
+      "label": "Build World Release (MSVC + SFML)",
+      "type": "shell",
+      "command": "call \"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\Tools\\VsDevCmd.bat\" -arch=x64 && cl /nologo /EHsc /std:c++17 /I \"C:\\SFML-2.6.1\\include\" main.cpp country.cpp map.cpp renderer.cpp news.cpp technology.cpp culture.cpp great_people.cpp resource.cpp /Fe:WorldSimulation.exe /MD /link /LIBPATH:\"C:\\SFML-2.6.1\\lib\" sfml-graphics.lib sfml-window.lib sfml-system.lib sfml-audio.lib",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$msCompile"]
+    },
+    {
+      "label": "Build World Debug (MSVC + SFML)",
+      "type": "shell",
+      "command": "call \"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\Tools\\VsDevCmd.bat\" -arch=x64 && cl /nologo /EHsc /std:c++17 /I \"C:\\SFML-2.6.1\\include\" main.cpp country.cpp map.cpp renderer.cpp news.cpp technology.cpp culture.cpp great_people.cpp resource.cpp /Fe:WorldSimulation.exe /MDd /Zi /Od /link /LIBPATH:\"C:\\SFML-2.6.1\\lib\" sfml-graphics-d.lib sfml-window-d.lib sfml-system-d.lib sfml-audio-d.lib",
+      "group": "build",
+      "problemMatcher": ["$msCompile"]
+    },
+    {
+      "label": "Run World Simulation",
+      "type": "shell",
+      "command": "WorldSimulation.exe",
+      "group": "test",
+      "dependsOn": "Build World Release (MSVC + SFML)",
+      "problemMatcher": []
+    },
+    {
+      "label": "Clean Build Files",
+      "type": "shell",
+      "command": "del *.obj *.exe *.pdb *.ilk",
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}

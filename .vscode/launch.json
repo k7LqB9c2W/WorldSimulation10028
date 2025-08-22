@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug World Simulation",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/WorldSimulation.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "console": "externalTerminal",
+      "preLaunchTask": "Build World Debug (MSVC + SFML)"
+    },
+    {
+      "name": "Run World Simulation",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/WorldSimulation.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "console": "externalTerminal",
+      "preLaunchTask": "Build World Release (MSVC + SFML)"
+    }
+  ]
+}
