@@ -72,7 +72,7 @@ public:
     void setNextWarCheckYear(int year);
 
     Country(int countryIndex, const sf::Color& color, const sf::Vector2i& startCell, long long initialPopulation, double growthRate, const std::string& name, Type type, ScienceType scienceType, CultureType cultureType);
-    void update(const std::vector<std::vector<bool>>& isLandGrid, std::vector<std::vector<int>>& countryGrid, std::mutex& gridMutex, int gridCellSize, int regionSize, std::unordered_set<int>& dirtyRegions, int currentYear, const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid, News& news, bool plagueActive, long long& plagueDeaths, const Map& map);
+    void update(const std::vector<std::vector<bool>>& isLandGrid, std::vector<std::vector<int>>& countryGrid, std::mutex& gridMutex, int gridCellSize, int regionSize, std::unordered_set<int>& dirtyRegions, int currentYear, const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid, News& news, bool plagueActive, long long& plagueDeaths, const Map& map, const class TechnologyManager& technologyManager);
     long long getPopulation() const;
     sf::Color getColor() const;
     int getCountryIndex() const;
@@ -94,7 +94,7 @@ public:
     bool canFoundCity() const;
     bool canDeclareWar() const;
     void startWar(Country& target, News& news);
-    void endWar();
+    void endWar(int currentYear = 0);
     bool isAtWar() const;
     bool isNeighbor(const Country& other) const;
     int getWarDuration() const;
@@ -114,6 +114,12 @@ public:
     void removeEnemy(Country* enemy);
     void clearEnemies();
     void setPopulation(long long population);
+    
+    // NEW LOGISTIC POPULATION SYSTEM
+    double computeYearlyFood(const std::vector<std::vector<std::unordered_map<Resource::Type,double>>>& resourceGrid) const;
+    long long stepLogistic(double r, const std::vector<std::vector<std::unordered_map<Resource::Type,double>>>& resourceGrid, double techKMultiplier, double climateKMultiplier);
+    double getPlagueMortalityMultiplier(const class TechnologyManager& tm) const;
+    
     // Resets military strength to its base value (based on the country type).
     void resetMilitaryStrength();
     // Applies a bonus multiplier to the current military strength.
@@ -135,7 +141,7 @@ public:
     void fastForwardGrowth(int yearIndex, int currentYear, const std::vector<std::vector<bool>>& isLandGrid, 
                           std::vector<std::vector<int>>& countryGrid, 
                           const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid,
-                          News& news, const Map& map);
+                          News& news, const Map& map, const class TechnologyManager& technologyManager);
     void applyPlagueDeaths(long long deaths);
     
     // Technology effects
@@ -163,6 +169,14 @@ public:
     bool canChangeToIdeology(Ideology newIdeology) const;
     double getSciencePointsMultiplier() const;
     double calculateNeighborScienceBonus(const std::vector<Country>& allCountries, const class Map& map, const class TechnologyManager& techManager, int currentYear) const;
+    double calculateScienceGeneration() const; // New scaler-based science calculation
+    static void setScienceScaler(double scaler) { s_scienceScaler = scaler; }
+    
+    // TECHNOLOGY SHARING SYSTEM
+    void initializeTechSharingTimer(int currentYear);
+    void attemptTechnologySharing(int currentYear, std::vector<Country>& allCountries, const class TechnologyManager& techManager, const class Map& map, class News& news);
+    bool canShareTechWith(const Country& target, int currentYear) const;
+    void recordWarEnd(int enemyIndex, int currentYear);
 
 private:
     int m_countryIndex;
@@ -181,8 +195,13 @@ private:
     ScienceType m_scienceType;
     CultureType m_cultureType;
     Ideology m_ideology;
+    sf::Vector2i m_startingPixel; // Remember the original founding location for capital bonus
     double m_culturePoints; // For culture points
     double m_cultureMultiplier = 1.0;
+    
+    // TECHNOLOGY SHARING SYSTEM (for Trader countries)
+    int m_nextTechSharingYear = 0;
+    std::unordered_map<int, int> m_lastWarEndYear; // Track when wars ended with other countries
     int getMaxExpansionPixels(int year) const;
     long long m_prePlaguePopulation;
     std::vector<Country*> m_enemies;
@@ -197,6 +216,15 @@ private:
     bool m_isSeekingWar;    // Flag to indicate if currently seeking war
     double m_sciencePoints; // For science points
     double m_scienceMultiplier = 1.0;
+    double m_researchMultiplier = 1.0; // Multiplicative technology research bonuses
+    
+    // Science generation scaler system
+    static double s_scienceScaler; // Global scaler for balancing
+    double m_traitScienceMultiplier = 1.0;
+    double m_policyScienceMultiplier = 1.0;
+    double m_situationScienceMultiplier = 1.0;
+    double m_educationScienceBase = 0.0;
+    double m_buildingScienceMultiplier = 1.0;
     
     // Technology bonuses
     double m_populationGrowthBonus = 0.0;

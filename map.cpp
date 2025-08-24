@@ -7,6 +7,8 @@
 #include <chrono>
 #include <iomanip>
 #include <limits>
+#include <queue>
+#include <unordered_set>
 
 Map::Map(const sf::Image& baseImage, const sf::Image& resourceImage, int gridCellSize, const sf::Color& landColor, const sf::Color& waterColor, int regionSize) :
     m_gridCellSize(gridCellSize),
@@ -17,7 +19,8 @@ Map::Map(const sf::Image& baseImage, const sf::Image& resourceImage, int gridCel
     m_resourceImage(resourceImage),
     m_plagueActive(false),
     m_plagueStartYear(0),
-    m_plagueDeathToll(0)
+    m_plagueDeathToll(0),
+    m_plagueAffectedCountries()
 {
 
     m_countryGrid.resize(baseImage.getSize().y / gridCellSize, std::vector<int>(baseImage.getSize().x / gridCellSize, -1));
@@ -70,7 +73,7 @@ void Map::initializeResourceGrid() {
             if (m_isLandGrid[y][x]) {
                 // OPTIMIZATION 2: Simplified food calculation (no nested loops)
                 // Check only immediate neighbors for water (much faster)
-                double foodAmount = 2.0; // Default inland food
+                double foodAmount = 51.2; // Inland food (supports 61,440 people)
                 
                 // Quick water proximity check (only 8 directions, not 49 pixels!)
                 const int dx[] = {-1, -1, -1, 0, 0, 1, 1, 1};
@@ -82,7 +85,7 @@ void Map::initializeResourceGrid() {
                     if (nx >= 0 && nx < static_cast<int>(m_isLandGrid[0].size()) && 
                         ny >= 0 && ny < static_cast<int>(m_isLandGrid.size())) {
                         if (!m_isLandGrid[ny][nx]) { // Found water
-                            foodAmount = 5.0; // Coastal bonus
+                            foodAmount = 102.4; // Coastal bonus (supports 122,880 people)
                             break;
                         }
                     }
@@ -169,8 +172,8 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
     std::uniform_int_distribution<> xDist(0, static_cast<int>(m_isLandGrid[0].size() - 1));
     std::uniform_int_distribution<> yDist(0, static_cast<int>(m_isLandGrid.size() - 1));
     std::uniform_int_distribution<> colorDist(50, 255);
-    std::uniform_int_distribution<> popDist(1000, 10000);
-    std::uniform_real_distribution<> growthRateDist(0.0003, 0.001);
+    std::uniform_int_distribution<> popDist(50000, 500000); // Realistic 5000 BCE populations
+    std::uniform_real_distribution<> growthRateDist(0.0003, 0.001); // Legacy - not used in logistic system
     std::uniform_real_distribution<> spawnDist(0.0, 1.0);
 
     std::uniform_int_distribution<> typeDist(0, 2);
@@ -225,7 +228,7 @@ bool isNameTaken(const std::vector<Country>& countries, const std::string& name)
     return false;
 }
 
-void Map::updateCountries(std::vector<Country>& countries, int currentYear, News& news) {
+void Map::updateCountries(std::vector<Country>& countries, int currentYear, News& news, TechnologyManager& technologyManager) {
     m_dirtyRegions.clear();
 
     // Declare rd and gen here, outside of any loops or conditional blocks
@@ -235,6 +238,7 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
     // Trigger the plague in the year 4950
     if (currentYear == m_nextPlagueYear) {
         startPlague(currentYear, news);
+        initializePlagueCluster(countries); // Initialize geographic cluster
     }
 
     // Check if the plague should end
@@ -247,7 +251,7 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
 
     // 🛡️ PERFORMANCE FIX: Remove OpenMP to prevent mutex contention and thread blocking
     for (int i = 0; i < countries.size(); ++i) {
-        countries[i].update(m_isLandGrid, m_countryGrid, m_gridMutex, m_gridCellSize, m_regionSize, m_dirtyRegions, currentYear, m_resourceGrid, news, m_plagueActive, m_plagueDeathToll, *this);
+        countries[i].update(m_isLandGrid, m_countryGrid, m_gridMutex, m_gridCellSize, m_regionSize, m_dirtyRegions, currentYear, m_resourceGrid, news, m_plagueActive, m_plagueDeathToll, *this, technologyManager);
         // Check for war declarations only if not already at war and it's not before 4950 BCE
         if (currentYear >= -4950 && countries[i].getType() == Country::Type::Warmonger && countries[i].canDeclareWar() && !countries[i].isAtWar() && currentYear >= countries[i].getNextWarCheckYear()) {
             // Check for potential targets among neighboring countries
@@ -319,12 +323,15 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
         if (countries[i].isAtWar()) {
             countries[i].decrementWarDuration();
             if (countries[i].getWarDuration() <= 0) {
-                countries[i].endWar();
+                countries[i].endWar(currentYear);
             }
         }
         else {
             countries[i].decrementPeaceDuration();
         }
+        
+        // TECHNOLOGY SHARING - Trader countries attempt to share technology
+        countries[i].attemptTechnologySharing(currentYear, countries, technologyManager, *this, news);
     }
 
     // REMOVE THIS ENTIRE BLOCK - Grid update is now handled within Country::update
@@ -341,6 +348,8 @@ void Map::startPlague(int year, News& news) {
     m_plagueActive = true;
     m_plagueStartYear = year;
     m_plagueDeathToll = 0;
+    m_plagueAffectedCountries.clear(); // Clear previous plague
+    
     news.addEvent("The Great Plague of " + std::to_string(year) + " has started!");
 
     // Determine the next plague year
@@ -353,7 +362,73 @@ void Map::startPlague(int year, News& news) {
 
 void Map::endPlague(News& news) {
     m_plagueActive = false;
+    m_plagueAffectedCountries.clear(); // Clear affected countries
     news.addEvent("The Great Plague has ended. Total deaths: " + std::to_string(m_plagueDeathToll));
+}
+
+void Map::initializePlagueCluster(const std::vector<Country>& countries) {
+    if (countries.empty()) return;
+    
+    // Select a random country with neighbors as starting point
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::vector<int> potentialStarters;
+    
+    // Find countries that have neighbors (to avoid isolated countries)
+    for (size_t i = 0; i < countries.size(); ++i) {
+        if (countries[i].getPopulation() <= 0) continue; // Skip dead countries
+        
+        // Check if this country has neighbors
+        bool hasNeighbors = false;
+        for (size_t j = 0; j < countries.size(); ++j) {
+            if (i != j && countries[j].getPopulation() > 0 && areNeighbors(countries[i], countries[j])) {
+                hasNeighbors = true;
+                break;
+            }
+        }
+        if (hasNeighbors) {
+            potentialStarters.push_back(static_cast<int>(i));
+        }
+    }
+    
+    if (potentialStarters.empty()) return; // No connected countries
+    
+    // Select random starting country
+    std::uniform_int_distribution<> starterDist(0, static_cast<int>(potentialStarters.size() - 1));
+    int startCountry = potentialStarters[starterDist(gen)];
+    
+    // Start BFS to build connected cluster
+    std::queue<int> toProcess;
+    std::unordered_set<int> visited;
+    
+    toProcess.push(startCountry);
+    visited.insert(startCountry);
+    m_plagueAffectedCountries.insert(startCountry);
+    
+    // Spread to neighbors with 70% probability each
+    std::uniform_real_distribution<> spreadDist(0.0, 1.0);
+    
+    while (!toProcess.empty()) {
+        int currentCountry = toProcess.front();
+        toProcess.pop();
+        
+        // Check all potential neighbors
+        for (size_t i = 0; i < countries.size(); ++i) {
+            int neighborIndex = static_cast<int>(i);
+            if (visited.count(neighborIndex) || countries[i].getPopulation() <= 0) continue;
+            
+            // If they are neighbors and plague spreads (70% chance)
+            if (areNeighbors(countries[currentCountry], countries[i]) && spreadDist(gen) < 0.7) {
+                visited.insert(neighborIndex);
+                m_plagueAffectedCountries.insert(neighborIndex);
+                toProcess.push(neighborIndex);
+            }
+        }
+    }
+}
+
+bool Map::isCountryAffectedByPlague(int countryIndex) const {
+    return m_plagueAffectedCountries.count(countryIndex) > 0;
 }
 
 bool Map::isPlagueActive() const {
@@ -460,14 +535,11 @@ void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
             currentYear++;
             if (currentYear == 0) currentYear = 1; // Skip year 0
             
-            // 🦠 RANDOMIZED PLAGUE SIMULATION - More realistic timing
-            static int nextPlagueYear = currentYear + (gen() % 300) + 200; // Random 200-500 years
-            if (currentYear >= nextPlagueYear && !m_plagueActive) {
+            // 🦠 CONSISTENT PLAGUE TIMING - Same as normal mode (600-700 years)
+            if (currentYear == m_nextPlagueYear && !m_plagueActive) {
                 startPlague(currentYear, news);
+                initializePlagueCluster(countries); // Initialize geographic cluster
                 totalPlagues++;
-                
-                // Set next random plague
-                nextPlagueYear = currentYear + (gen() % 400) + 300; // Next plague in 300-700 years
                 
                 std::string plagueEvent = "🦠 MEGA PLAGUE ravages the world in " + std::to_string(currentYear);
                 if (currentYear < 0) plagueEvent += " BCE";
@@ -488,18 +560,16 @@ void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
                 if (!m_plagueActive) {
                     // 🗺️ TERRITORIAL EXPANSION - More frequent for mega simulation
                     if (year % 3 == 0) { // Every 3 years instead of every 5
-                        countries[i].fastForwardGrowth(year, currentYear, m_isLandGrid, m_countryGrid, m_resourceGrid, news, *this);
+                        countries[i].fastForwardGrowth(year, currentYear, m_isLandGrid, m_countryGrid, m_resourceGrid, news, *this, techManager);
                     }
                     
                     // Let the fastForwardGrowth function handle population growth naturally
                     // based on territory size, resources, and food availability
-                } else {
-                    // 🦠 TECHNOLOGY-ENHANCED PLAGUE RESISTANCE
-                    double basePlagueDeathRate = 0.08 + (static_cast<double>(gen() % 41) / 1000.0); // 8.0% to 12.0%
-                    double resistance = countries[i].getPlagueResistance();
-                    double actualDeathRate = basePlagueDeathRate * (1.0 - resistance);
-                    
-                    long long deaths = static_cast<long long>(currentPop * actualDeathRate);
+                } else if (isCountryAffectedByPlague(static_cast<int>(i))) {
+                    // NEW TECH-DEPENDENT PLAGUE SYSTEM - Only affect countries in plague cluster
+                    double baseDeathRate = 0.05; // 5% typical country hit
+                    long long deaths = static_cast<long long>(std::llround(currentPop * baseDeathRate * countries[i].getPlagueMortalityMultiplier(techManager)));
+                    deaths = std::min(deaths, currentPop); // Clamp deaths to population
                     countries[i].applyPlagueDeaths(deaths);
                     m_plagueDeathToll += deaths;
                 }
@@ -771,7 +841,7 @@ void Map::triggerPlague(int year, News& news) {
 }
 
 // FAST FORWARD MODE: Optimized simulation for 100 years in 2 seconds
-void Map::fastForwardSimulation(std::vector<Country>& countries, int& currentYear, int targetYears, News& news) {
+void Map::fastForwardSimulation(std::vector<Country>& countries, int& currentYear, int targetYears, News& news, TechnologyManager& technologyManager) {
     std::random_device rd;
     std::mt19937 gen(rd());
     
@@ -789,25 +859,31 @@ void Map::fastForwardSimulation(std::vector<Country>& countries, int& currentYea
         currentYear++;
         if (currentYear == 0) currentYear = 1;
         
-        // Simplified plague logic - every 600-700 years
-        if ((currentYear + 5000) % 650 == 0 && !m_plagueActive) {
+        // Randomized plague logic - every 600-700 years (same as normal mode)
+        if (currentYear == m_nextPlagueYear && !m_plagueActive) {
             startPlague(currentYear, news);
+            initializePlagueCluster(countries); // Initialize geographic cluster
         }
         if (m_plagueActive && (currentYear == m_plagueStartYear + 3)) {
             endPlague(news);
         }
         
         // Batch update countries with simplified logic
-        for (auto& country : countries) {
+        for (size_t i = 0; i < countries.size(); ++i) {
             // Simplified population growth and expansion
             if (!m_plagueActive) {
-                country.fastForwardGrowth(year, currentYear, m_isLandGrid, m_countryGrid, m_resourceGrid, news, *this);
-            } else {
-                // Plague effects - kill 8% per year
-                long long deaths = static_cast<long long>(country.getPopulation() * 0.08);
-                country.applyPlagueDeaths(deaths);
+                countries[i].fastForwardGrowth(year, currentYear, m_isLandGrid, m_countryGrid, m_resourceGrid, news, *this, technologyManager);
+            } else if (isCountryAffectedByPlague(static_cast<int>(i))) {
+                // NEW TECH-DEPENDENT PLAGUE SYSTEM - Only affect countries in plague cluster
+                double baseDeathRate = 0.05; // 5% typical country hit
+                long long deaths = static_cast<long long>(std::llround(countries[i].getPopulation() * baseDeathRate * countries[i].getPlagueMortalityMultiplier(technologyManager)));
+                deaths = std::min(deaths, countries[i].getPopulation()); // Clamp deaths to population
+                countries[i].applyPlagueDeaths(deaths);
                 m_plagueDeathToll += deaths;
             }
+            
+            // TECHNOLOGY SHARING - Trader countries attempt to share technology
+            countries[i].attemptTechnologySharing(currentYear, countries, technologyManager, *this, news);
         }
         
         // Simplified war logic - only every 10 years for performance
@@ -835,9 +911,12 @@ void Map::fastForwardSimulation(std::vector<Country>& countries, int& currentYea
                 if (countries[i].isAtWar()) {
                     countries[i].decrementWarDuration();
                     if (countries[i].getWarDuration() <= 0) {
-                        countries[i].endWar();
+                        countries[i].endWar(currentYear);
                     }
                 }
+                
+                // TECHNOLOGY SHARING - Trader countries attempt to share technology
+                countries[i].attemptTechnologySharing(currentYear, countries, technologyManager, *this, news);
             }
         }
     }

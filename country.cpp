@@ -8,6 +8,10 @@
 #include <iostream>
 #include <limits>
 #include <mutex>
+#include <cmath> // For std::llround
+
+// Initialize static science scaler (tuned for realistic science progression)
+double Country::s_scienceScaler = 0.1;
 
 // Constructor
 Country::Country(int countryIndex, const sf::Color& color, const sf::Vector2i& startCell, long long initialPopulation, double growthRate, const std::string& name, Type type, ScienceType scienceType, CultureType cultureType) : 
@@ -21,6 +25,7 @@ Country::Country(int countryIndex, const sf::Color& color, const sf::Vector2i& s
     m_scienceType(scienceType),
     m_cultureType(cultureType),
     m_ideology(Ideology::Tribal), // All countries start as Tribal
+    m_startingPixel(startCell), // Remember the founding location
     m_hasCity(false),
     m_gold(0.0),
     m_militaryStrength(0.0), // Initialize m_militaryStrength here
@@ -45,9 +50,18 @@ Country::Country(int countryIndex, const sf::Color& color, const sf::Vector2i& s
     }
     else if (m_type == Type::Trader) {
         m_militaryStrength = 0.6;
+        m_traitScienceMultiplier = 1.25; // Traders get bonus from trade knowledge
     }
     else if (m_type == Type::Warmonger) {
         m_militaryStrength = 1.3;
+    }
+    
+    // Initialize education policy multiplier (could be modified by policies later)
+    m_policyScienceMultiplier = 1.10; // Base education policy bonus
+    
+    // Initialize technology sharing timer for trader countries
+    if (m_type == Type::Trader) {
+        initializeTechSharingTimer(-5000); // Start from 5000 BCE
     }
 
     // 🚀 STAGGERED OPTIMIZATION: Each country gets a random neighbor recalculation interval (20-80 years)
@@ -216,12 +230,19 @@ void Country::startWar(Country& target, News& news) {
 }
 
 // End the current war
-void Country::endWar() {
+void Country::endWar(int currentYear) {
     m_isAtWar = false;
     m_warDuration = 0;
     m_isWarofAnnihilation = false;
     m_isWarofConquest = false;
     m_peaceDuration = 1 + rand() % 100; // Start a peace period of 1-100 years
+    
+    // Record war end time for technology sharing history
+    for (Country* enemy : m_enemies) {
+        recordWarEnd(enemy->getCountryIndex(), currentYear);
+        enemy->recordWarEnd(m_countryIndex, currentYear);
+    }
+    
     clearEnemies(); // Clear the list of enemies when the war ends
     // Reduce population by 10% for the losing country
     if (m_population > 0) {
@@ -350,7 +371,7 @@ bool Country::isNeighbor(const Country& other) const {
 }
 
 // 🔥 NUCLEAR OPTIMIZATION: Update the country's state each year
-void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vector<std::vector<int>>& countryGrid, std::mutex& gridMutex, int gridCellSize, int regionSize, std::unordered_set<int>& dirtyRegions, int currentYear, const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid, News& news, bool plagueActive, long long& plagueDeaths, const Map& map) {
+void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vector<std::vector<int>>& countryGrid, std::mutex& gridMutex, int gridCellSize, int regionSize, std::unordered_set<int>& dirtyRegions, int currentYear, const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid, News& news, bool plagueActive, long long& plagueDeaths, const Map& map, const TechnologyManager& technologyManager) {
     
     // PERFORMANCE OPTIMIZATION: Use static generators to avoid expensive random_device creation
     static std::random_device rd;
@@ -401,8 +422,9 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
         }
     }
 
-    // Science point generation - MAJOR ACCELERATION REBALANCE
-    double sciencePointIncrease = 0.8; // Significantly increased base rate for faster progression
+    // Science point generation - NEW COMPREHENSIVE SCALER SYSTEM
+    double totalScienceIncrease = calculateScienceGeneration();
+    addSciencePoints(totalScienceIncrease);
 
     // Culture point generation
     double culturePointIncrease = 1.0; // Base culture point per year
@@ -418,21 +440,6 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
     }
 
     addCulturePoints(culturePointIncrease * m_cultureMultiplier);
-
-    // Apply multipliers based on ScienceType - REALISTIC REBALANCE
-    if (m_scienceType == ScienceType::MS) {
-        // MS countries get modest 1.3x to 1.8x boost (was 1.2x to 2.5x - too high!)
-        sciencePointIncrease *= (1.3 + (static_cast<double>(rand()) / RAND_MAX) * (1.8 - 1.3));
-    }
-    else if (m_scienceType == ScienceType::LS) {
-        // LS countries get 0.3x to 0.6x science points (was 0.05x to 0.15x - too severe!)
-        sciencePointIncrease *= (0.3 + (static_cast<double>(rand()) / RAND_MAX) * (0.6 - 0.3));
-    }
-    // NS countries keep 1.0x multiplier (no change)
-
-    // Apply science points with technology and neighbor bonuses
-    double totalScienceIncrease = sciencePointIncrease * m_scienceMultiplier * getSciencePointsMultiplier();
-    addSciencePoints(totalScienceIncrease);
 
     // Get the maximum expansion pixels for the current year
     int maxExpansionPixels = getMaxExpansionPixels(currentYear);
@@ -830,39 +837,33 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
         }
     }
 
-    if (foodAvailable >= foodConsumption) {
-        m_resourceManager.consumeResource(Resource::Type::FOOD, foodConsumption);
-        if (!plagueActive)
-        {
-            // 🧬 USE TECHNOLOGY-ENHANCED GROWTH RATE
-            double enhancedGrowthRate = getTotalPopulationGrowthRate();
-            m_population += static_cast<long long>(m_population * enhancedGrowthRate);
-        }
-        else
-        {
-            // During plagues, still get some growth but reduced
-            double enhancedGrowthRate = getTotalPopulationGrowthRate();
-            m_population += static_cast<long long>(m_population * (enhancedGrowthRate / 10));
-        }
+    // NEW LOGISTIC POPULATION SYSTEM - Remove old food consumption, treat FOOD as signal for K
+    double kMult = TechnologyManager::techKMultiplier(technologyManager, *this);
+    double r = TechnologyManager::techGrowthRateR(technologyManager, *this);
+
+    // Small type modifier only, keep narrow to avoid runaway
+    double typeMult = 1.0;
+    if (m_type == Type::Trader) typeMult = 1.05;
+    if (m_type == Type::Pacifist) typeMult = 0.95;
+    r *= typeMult;
+
+    // Plague effects on growth rate - only for affected countries
+    if (plagueActive && map.isCountryAffectedByPlague(m_countryIndex)) {
+        r *= 0.1; // Severely reduce growth during plagues, but don't eliminate it
     }
-    else {
-        double populationLoss = m_population * (0.001 + (0.009 * (1.0 - (foodAvailable / foodConsumption))));
-        m_population -= static_cast<long long>(populationLoss);
-        if (m_population < 0) m_population = 0;
-    }
-    // Plague effects
-    if (plagueActive) {
+
+    stepLogistic(r, resourceGrid, kMult, /*climate*/1.0);
+    // Plague effects - only affect countries in plague cluster
+    if (plagueActive && map.isCountryAffectedByPlague(m_countryIndex)) {
         // Store the pre-plague population at the start of the plague
         if (currentYear == map.getPlagueStartYear()) {
             m_prePlaguePopulation = m_population;
         }
 
-        // 🧬 TECHNOLOGY-MODIFIED PLAGUE DEATHS
-        double basePlagueDeathRate = 0.08; // 8% base death rate
-        double resistance = getPlagueResistance();
-        double actualDeathRate = basePlagueDeathRate * (1.0 - resistance);
-        
-        long long deaths = static_cast<long long>(m_population * actualDeathRate);
+        // NEW TECH-DEPENDENT PLAGUE SYSTEM - Apply once per country per outbreak
+        double baseDeathRate = 0.05; // 5% typical country hit
+        long long deaths = static_cast<long long>(std::llround(m_population * baseDeathRate * getPlagueMortalityMultiplier(technologyManager)));
+        deaths = std::min(deaths, m_population); // Clamp deaths to population
         m_population -= deaths;
         if (m_population < 0) m_population = 0;
 
@@ -894,7 +895,7 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
                 enemyName = (*m_enemies.begin())->getName(); // Assuming you only have one enemy at a time
             }
 
-            endWar();
+            endWar(currentYear);
 
             // Add news event after ending the war
             if (!enemyName.empty()) {
@@ -946,17 +947,25 @@ const std::string& Country::getName() const {
 void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vector<std::vector<bool>>& isLandGrid, 
                                std::vector<std::vector<int>>& countryGrid, 
                                const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid,
-                               News& news, const Map& map) {
+                               News& news, const Map& map, const TechnologyManager& technologyManager) {
     
     std::random_device rd;
     std::mt19937 gen(rd());
     
-    // 🧬 TECHNOLOGY-ENHANCED POPULATION GROWTH
-    double enhancedGrowthRate = getTotalPopulationGrowthRate();
-    m_population += static_cast<long long>(m_population * enhancedGrowthRate);
+    // NEW LOGISTIC POPULATION SYSTEM FOR FAST FORWARD - Do not multiply growth
+    double kMult = TechnologyManager::techKMultiplier(technologyManager, *this);
+    double r = TechnologyManager::techGrowthRateR(technologyManager, *this);
+    
+    // Small type modifier only
+    double typeMult = 1.0;
+    if (m_type == Type::Trader) typeMult = 1.05;
+    if (m_type == Type::Pacifist) typeMult = 0.95;
+    r *= typeMult;
+    
+    stepLogistic(r, resourceGrid, kMult, 1.0);
     
     // Add science and culture points (simplified)
-    addSciencePoints(5.0 * m_scienceMultiplier * getSciencePointsMultiplier());  // 5x normal rate + tech bonuses for fast forward
+    addSciencePoints(calculateScienceGeneration());  // Normal rate - no artificial multiplier
     addCulturePoints(5.0 * m_cultureMultiplier);
     
     // 🚀 ENHANCED FAST FORWARD EXPANSION - Use same advanced mechanics as normal update
@@ -1094,11 +1103,11 @@ void Country::applyTechnologyBonus(int techId) {
     switch(techId) {
         // 🌾 EARLY AGRICULTURAL TECHNOLOGIES
         case 10: // Irrigation
-            m_populationGrowthBonus += 0.003; // +0.3% growth rate
+            // Population growth now handled by logistic system
             m_maxSizeMultiplier += 0.2; // +20% max territory size
             break;
         case 20: // Agriculture
-            m_populationGrowthBonus += 0.005; // +0.5% growth rate
+            // Population growth now handled by logistic system
             m_maxSizeMultiplier += 0.3; // +30% max territory size
             m_expansionRateBonus += 5; // +5 extra pixels per year
             break;
@@ -1116,30 +1125,40 @@ void Country::applyTechnologyBonus(int techId) {
         case 38: // Universities
             m_sciencePointsBonus += 15.5; // +15.5 science points per year (organized learning + education)
             m_maxSizeMultiplier += 0.30; // +30% max territory size (educated population)
+            m_researchMultiplier *= 1.10; // +10% research speed (organized learning)
             break;
         case 39: // Astronomy
             m_sciencePointsBonus += 20.0; // +20.0 science points per year (scientific observation)
             break;
         case 48: // Scientific Method
             m_sciencePointsBonus += 50.0; // +50.0 science points per year (RESEARCH REVOLUTION!)
+            m_researchMultiplier *= 1.10; // +10% research speed (scientific methodology)
             break;
         case 54: // Electricity
             m_sciencePointsBonus += 30.0; // +30.0 science points per year (electrical age)
+            m_researchMultiplier *= 1.05; // +5% research speed (electrical infrastructure)
             break;
         case 69: // Computers
             m_sciencePointsBonus += 100.0; // +100.0 science points per year (COMPUTATIONAL REVOLUTION!)
+            m_researchMultiplier *= 1.10; // +10% research speed (computational power)
             break;
         case 76: // Integrated Circuit
             m_sciencePointsBonus += 75.0; // +75.0 science points per year (microprocessor age)
             break;
         case 79: // Internet
             m_sciencePointsBonus += 200.0; // +200.0 science points per year (INFORMATION EXPLOSION!)
+            m_researchMultiplier *= 1.10; // +10% research speed (global knowledge sharing)
             break;
         case 80: // Personal Computers
             m_sciencePointsBonus += 150.0; // +150.0 science points per year (computing for all)
             break;
         case 85: // Artificial Intelligence
             m_sciencePointsBonus += 300.0; // +300.0 science points per year (AI BREAKTHROUGH!)
+            m_researchMultiplier *= 1.15; // +15% research speed (AI-assisted research)
+            break;
+        case 93: // Machine Learning
+            m_sciencePointsBonus += 250.0; // +250.0 science points per year (ML algorithms)
+            m_researchMultiplier *= 1.10; // +10% research speed (automated pattern recognition)
             break;
             
         // 🗡️ ANCIENT MILITARY TECHNOLOGIES
@@ -1287,30 +1306,30 @@ void Country::applyTechnologyBonus(int techId) {
         // 🏥 MEDICAL/HEALTH TECHNOLOGIES  
         case 52: // Sanitation
             m_plagueResistanceBonus += 0.30; // 30% plague resistance
-            m_populationGrowthBonus += 0.002; // +0.2% growth from better health
+            // Population growth now handled by logistic system
             break;
         case 53: // Vaccination
             m_plagueResistanceBonus += 0.50; // 50% plague resistance
-            m_populationGrowthBonus += 0.003; // +0.3% growth from disease prevention
+            // Population growth now handled by logistic system
             break;
         case 65: // Penicillin
             m_plagueResistanceBonus += 0.60; // 60% plague resistance
-            m_populationGrowthBonus += 0.004; // +0.4% growth from antibiotics
+            // Population growth now handled by logistic system
             break;
             
         // 🥶 FOOD/PRESERVATION TECHNOLOGIES
         case 71: // Refrigeration
-            m_populationGrowthBonus += 0.006; // +0.6% growth from food preservation
+            // Population growth now handled by logistic system
             break;
             
         // 🔬 ADVANCED TECHNOLOGIES
         case 81: // Genetic Engineering
-            m_populationGrowthBonus += 0.008; // +0.8% growth from genetic improvements
+            // Population growth now handled by logistic system
             m_plagueResistanceBonus += 0.40; // 40% additional plague resistance
             m_militaryStrengthBonus += 0.30; // +30% military strength (enhanced soldiers)
             break;
         case 90: // Biotechnology
-            m_populationGrowthBonus += 0.010; // +1.0% growth from biotech advances
+            // Population growth now handled by logistic system
             m_plagueResistanceBonus += 0.50; // 50% additional plague resistance
             m_militaryStrengthBonus += 0.25; // +25% military strength (bio-enhancements)
             break;
@@ -1342,7 +1361,44 @@ double Country::getWarDurationReduction() const {
 }
 
 double Country::getSciencePointsMultiplier() const {
-    return 1.0 + m_sciencePointsBonus; // Base 1.0 + technology bonuses
+    return (1.0 + m_sciencePointsBonus) * m_researchMultiplier; // Additive + multiplicative technology bonuses
+}
+
+double Country::calculateScienceGeneration() const {
+    // Base science from population and territory (wealth proxy)
+    double populationBase = static_cast<double>(m_population) / 100000.0; // ~20 for 2M population
+    double territoryBase = static_cast<double>(m_boundaryPixels.size()) / 1000.0; // ~10-50 for typical territories
+    double baseFromPopAndGdp = populationBase + territoryBase;
+    
+    // Education base (accumulated from education policies/buildings - simplified for now)
+    double baseFromEducation = m_educationScienceBase;
+    
+    // Buildings base (simplified - could be expanded later)
+    double baseFromBuildings = 5.0; // Base building science infrastructure
+    
+    // Total base science generation
+    double baseScienceGeneration = baseFromPopAndGdp + baseFromEducation + baseFromBuildings;
+    
+    // Apply trait multiplier (based on country type)
+    double traitMult = m_traitScienceMultiplier;
+    if (m_scienceType == ScienceType::MS) traitMult *= 1.25; // +25% for science-focused countries
+    else if (m_scienceType == ScienceType::LS) traitMult *= 0.75; // -25% for non-science countries
+    
+    // Policy multiplier (education policy bonus)
+    double policyMult = m_policyScienceMultiplier; // Default 1.0, could be set by policies
+    
+    // Technology multiplier (from research bonuses)
+    double techMult = getSciencePointsMultiplier();
+    
+    // Situation multiplier (war, unrest, etc.)
+    double situationMult = m_situationScienceMultiplier;
+    if (m_isAtWar) situationMult *= 0.85; // -15% during war
+    // Could add other situation modifiers here
+    
+    // Apply the full multiplier stack
+    double totalScienceGeneration = s_scienceScaler * baseScienceGeneration * traitMult * policyMult * techMult * situationMult;
+    
+    return totalScienceGeneration;
 }
 
 // 🚀 OPTIMIZED KNOWLEDGE DIFFUSION - Cache neighbors and update less frequently
@@ -1608,9 +1664,13 @@ void Country::absorbCountry(Country& target, std::vector<std::vector<int>>& coun
         m_boundaryPixels.insert(pixel);
     }
     
-    // Absorb population (with some losses from conquest)
-    long long absorbedPopulation = static_cast<long long>(target.getPopulation() * 0.7); // 30% casualties
-    m_population += absorbedPopulation;
+    // Transfer people (world population must not drop from border changes)
+    long long gained = std::max(0LL, target.getPopulation());
+    if (LLONG_MAX - m_population < gained) {
+        m_population = LLONG_MAX;
+    } else {
+        m_population += gained;
+    }
     
     // Absorb cities
     const auto& targetCities = target.getCities();
@@ -1623,12 +1683,12 @@ void Country::absorbCountry(Country& target, std::vector<std::vector<int>>& coun
     
     // Major historical event
     news.addEvent("🗡️💀 ANNIHILATION: " + m_name + " completely destroys " + target.getName() + 
-                  " and absorbs " + std::to_string(absorbedPopulation) + " people!");
+                  " and absorbs " + std::to_string(gained) + " people!");
     
     // Set target population to 0 to mark for removal
     target.setPopulation(0);
     
-    std::cout << "   📊 Absorbed " << absorbedPopulation << " people and " << targetPixels.size() << " territory!" << std::endl;
+    std::cout << "   📊 Absorbed " << gained << " people and " << targetPixels.size() << " territory!" << std::endl;
 }
 
 // Found a new city at a specific location
@@ -1715,8 +1775,200 @@ void Country::applyScienceMultiplier(double bonus) {
     }
 }
 
+// NEW LOGISTIC POPULATION SYSTEM IMPLEMENTATIONS
+
+double Country::computeYearlyFood(
+    const std::vector<std::vector<std::unordered_map<Resource::Type,double>>>& resourceGrid) const {
+    double f = 0.0;
+    for (const auto& p : m_boundaryPixels) {
+        if (p.y >= 0 && p.y < static_cast<int>(resourceGrid.size()) && 
+            p.x >= 0 && p.x < static_cast<int>(resourceGrid[p.y].size())) {
+            auto it = resourceGrid[p.y][p.x].find(Resource::Type::FOOD);
+            if (it != resourceGrid[p.y][p.x].end()) {
+                double pixelFood = it->second;
+                
+                // CAPITAL CITY BONUS: Starting pixel can support 500k people
+                if (p == m_startingPixel) {
+                    pixelFood = std::max(pixelFood, 417.0); // Ensures 500k capacity (417 * 1200 = 500,400)
+                }
+                
+                f += pixelFood;
+            }
+        }
+    }
+    return f;
+}
+
+long long Country::stepLogistic(double r,
+    const std::vector<std::vector<std::unordered_map<Resource::Type,double>>>& resourceGrid,
+    double techKMultiplier, double climateKMultiplier) {
+    
+    const double baseK = std::max(1.0, computeYearlyFood(resourceGrid) * 1200.0);
+    const double K = baseK * techKMultiplier * climateKMultiplier;
+
+    const double pop = static_cast<double>(m_population);
+    const double d = r * pop * (1.0 - pop / K);
+    long long delta = static_cast<long long>(std::llround(d));
+    long long np = m_population + delta;
+    if (np < 0) np = 0;
+    m_population = np;
+    return delta;
+}
+
+double Country::getPlagueMortalityMultiplier(const TechnologyManager& tm) const {
+    double mult = 1.0;
+    if (TechnologyManager::hasTech(tm, *this, 52)) mult *= 0.7;  // Sanitation
+    if (TechnologyManager::hasTech(tm, *this, 53)) mult *= 0.6;  // Vaccination
+    if (TechnologyManager::hasTech(tm, *this, 65)) mult *= 0.6;  // Penicillin
+    return mult;
+}
+
 double Country::getCulturePoints() const {
     return m_culturePoints;
+}
+
+// TECHNOLOGY SHARING SYSTEM IMPLEMENTATIONS
+
+void Country::initializeTechSharingTimer(int currentYear) {
+    if (m_type != Type::Trader) return;
+    
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> intervalDist(50, 200);
+    
+    m_nextTechSharingYear = currentYear + intervalDist(gen);
+}
+
+void Country::attemptTechnologySharing(int currentYear, std::vector<Country>& allCountries, const TechnologyManager& techManager, const Map& map, News& news) {
+    // Only trader countries can share technology
+    if (m_type != Type::Trader) return;
+    
+    // Check if it's time to share
+    if (currentYear < m_nextTechSharingYear) return;
+    
+    // Get our technologies
+    const auto& ourTechs = techManager.getUnlockedTechnologies(*this);
+    if (ourTechs.empty()) {
+        // Reset timer and return if we have no tech to share
+        initializeTechSharingTimer(currentYear);
+        return;
+    }
+    
+    // Find potential recipients (neighbors only)
+    std::vector<int> potentialRecipients;
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    
+    for (size_t i = 0; i < allCountries.size(); ++i) {
+        if (static_cast<int>(i) == m_countryIndex) continue; // Skip ourselves
+        if (allCountries[i].getPopulation() <= 0) continue; // Skip dead countries
+        
+        // Must be neighbors
+        if (!map.areNeighbors(*this, allCountries[i])) continue;
+        
+        // Must be able to share with them (type preferences + war history)
+        if (!canShareTechWith(allCountries[i], currentYear)) continue;
+        
+        // Must have fewer technologies than us
+        const auto& theirTechs = techManager.getUnlockedTechnologies(allCountries[i]);
+        if (theirTechs.size() >= ourTechs.size()) continue;
+        
+        potentialRecipients.push_back(static_cast<int>(i));
+    }
+    
+    if (potentialRecipients.empty()) {
+        // Reset timer and return if no valid recipients
+        initializeTechSharingTimer(currentYear);
+        return;
+    }
+    
+    // Select recipients (can choose multiple)
+    std::uniform_int_distribution<> recipientCountDist(1, std::min(3, static_cast<int>(potentialRecipients.size())));
+    int numRecipients = recipientCountDist(gen);
+    
+    std::shuffle(potentialRecipients.begin(), potentialRecipients.end(), gen);
+    
+    for (int r = 0; r < numRecipients && r < static_cast<int>(potentialRecipients.size()); ++r) {
+        int recipientIndex = potentialRecipients[r];
+        Country& recipient = allCountries[recipientIndex];
+        
+        // Find technologies we have that they don't
+        const auto& theirTechs = techManager.getUnlockedTechnologies(recipient);
+        std::unordered_set<int> theirTechSet(theirTechs.begin(), theirTechs.end());
+        
+        std::vector<int> sharableTechs;
+        for (int techId : ourTechs) {
+            if (theirTechSet.find(techId) == theirTechSet.end()) {
+                sharableTechs.push_back(techId);
+            }
+        }
+        
+        if (sharableTechs.empty()) continue;
+        
+        // Share 1-5 technologies
+        std::uniform_int_distribution<> techCountDist(1, std::min(5, static_cast<int>(sharableTechs.size())));
+        int numTechsToShare = techCountDist(gen);
+        
+        std::shuffle(sharableTechs.begin(), sharableTechs.end(), gen);
+        
+        std::string sharedTechNames;
+        for (int t = 0; t < numTechsToShare && t < static_cast<int>(sharableTechs.size()); ++t) {
+            int techId = sharableTechs[t];
+            
+            // Give them the technology (add to their unlocked list)
+            const_cast<TechnologyManager&>(techManager).unlockTechnology(recipient, techId);
+            
+            // Build list of shared technology names for news
+            if (!sharedTechNames.empty()) sharedTechNames += ", ";
+            sharedTechNames += techManager.getTechnologies().at(techId).name;
+        }
+        
+        // Add news event
+        std::string eventText = "📚💱 TECH TRANSFER: " + m_name + " shares technology (" + 
+                               sharedTechNames + ") with " + recipient.getName() + " through trade networks!";
+        news.addEvent(eventText);
+    }
+    
+    // Reset timer for next sharing opportunity
+    initializeTechSharingTimer(currentYear);
+}
+
+bool Country::canShareTechWith(const Country& target, int currentYear) const {
+    // Cannot share with ourselves
+    if (target.getCountryIndex() == m_countryIndex) return false;
+    
+    // Type-based preferences
+    Country::Type targetType = target.getType();
+    
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> chanceDist(0.0, 1.0);
+    
+    if (targetType == Country::Type::Pacifist || targetType == Country::Type::Trader) {
+        // 95% chance for pacifists and traders
+        return chanceDist(gen) < 0.95;
+    } 
+    else if (targetType == Country::Type::Warmonger) {
+        // Only 5% chance for warmongers
+        if (chanceDist(gen) >= 0.05) return false;
+        
+        // Additional check: cannot share with warmongers we were at war with in past 500 years
+        auto warEndIt = m_lastWarEndYear.find(target.getCountryIndex());
+        if (warEndIt != m_lastWarEndYear.end()) {
+            int yearsSinceWar = currentYear - warEndIt->second;
+            if (yearsSinceWar < 500) {
+                return false; // Too recent war history
+            }
+        }
+        
+        return true;
+    }
+    
+    return false;
+}
+
+void Country::recordWarEnd(int enemyIndex, int currentYear) {
+    m_lastWarEndYear[enemyIndex] = currentYear;
 }
 
 void Country::addCulturePoints(double points) {

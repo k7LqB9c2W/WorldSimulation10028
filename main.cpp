@@ -262,7 +262,7 @@ int main() {
                         try {
                             // Perform map simulation for this chunk
                             std::cout << "   📍 Map simulation..." << std::endl;
-                            map.fastForwardSimulation(countries, currentYear, chunkSize, news);
+                            map.fastForwardSimulation(countries, currentYear, chunkSize, news, technologyManager);
                             
                             // 🚀 OPTIMIZED TECH/CULTURE: Batch processing and reduced frequency
                             std::cout << "   🧠 Tech/Culture updates for " << countries.size() << " countries..." << std::endl;
@@ -639,7 +639,7 @@ int main() {
             // DIAGNOSTIC: Time each major component
             auto mapStart = std::chrono::high_resolution_clock::now();
             try {
-                map.updateCountries(countries, currentYear, news);
+                map.updateCountries(countries, currentYear, news, technologyManager);
             } catch (const std::exception& e) {
                 std::cout << "🚨 MAP UPDATE CRASHED at year " << currentYear << ": " << e.what() << std::endl;
                 throw;
