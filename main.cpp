@@ -8,6 +8,7 @@
 #include <csignal>
 #include <exception>
 #include <stdexcept>
+#include <sstream>
 #include "country.h"
 #include "renderer.h"
 #include "map.h"
@@ -173,6 +174,29 @@ int main() {
 
     // Country add mode variables
     bool countryAddMode = false;
+    
+    // Country Add Editor variables
+    struct CountryTemplate {
+        std::vector<int> unlockedTechnologies;
+        std::vector<int> unlockedCultures;
+        long long initialPopulation = 5000; // Default starting population
+        Country::Type countryType = Country::Type::Pacifist;
+        Country::ScienceType scienceType = Country::ScienceType::NS;
+        Country::CultureType cultureType = Country::CultureType::NC;
+        Country::Ideology ideology = Country::Ideology::Tribal;
+        bool useTemplate = false; // If false, use random generation
+    };
+    
+    CountryTemplate customCountryTemplate;
+    bool countryAddEditorMode = false;
+    std::string editorInput = "";
+    int editorState = 0; // 0=tech selection, 1=population, 2=culture selection, 3=type selection, etc.
+    int maxTechId = 0;
+    int maxCultureId = 0;
+    
+    // Initialize max IDs for the country editor
+    maxTechId = technologyManager.getTechnologies().size();
+    maxCultureId = 10; // Assuming 10 culture levels, adjust as needed
     sf::Font m_font; // Font loading moved outside the loop
     if (!m_font.loadFromFile("arial.ttf")) {
         std::cerr << "Error: Could not load font file." << std::endl;
@@ -365,6 +389,12 @@ int main() {
                     megaTimeJumpInput = "";
                     std::cout << "\n🚀 MEGA TIME JUMP MODE ACTIVATED!" << std::endl;
                 }
+                else if (event.key.code == sf::Keyboard::M) { // 🏗️ COUNTRY ADD EDITOR MODE
+                    countryAddEditorMode = true;
+                    editorInput = "";
+                    editorState = 0;
+                    std::cout << "\n🏗️ COUNTRY ADD EDITOR ACTIVATED!" << std::endl;
+                }
             }
             else if (event.type == sf::Event::TextEntered) {
                 // Handle text input for Mega Time Jump
@@ -497,6 +527,149 @@ int main() {
                         megaTimeJumpInput = "";
                     }
                 }
+                // Handle text input for Country Add Editor
+                else if (countryAddEditorMode) {
+                    if (event.text.unicode >= '0' && event.text.unicode <= '9') {
+                        editorInput += static_cast<char>(event.text.unicode);
+                    }
+                    else if (event.text.unicode == ',' && !editorInput.empty()) {
+                        editorInput += ",";
+                    }
+                    else if ((event.text.unicode >= 'a' && event.text.unicode <= 'z') || 
+                             (event.text.unicode >= 'A' && event.text.unicode <= 'Z')) {
+                        editorInput += static_cast<char>(event.text.unicode);
+                    }
+                    else if (event.text.unicode == 8 && !editorInput.empty()) { // Backspace
+                        editorInput.pop_back();
+                    }
+                    else if (event.text.unicode == 13) { // Enter key
+                        // Process input based on current editor state
+                        if (editorState == 0) { // Technology selection
+                            customCountryTemplate.unlockedTechnologies.clear();
+                            
+                            // Check if user wants to unlock all
+                            if (editorInput == "all" || editorInput == "ALL") {
+                                // Unlock all technologies
+                                for (int i = 1; i <= maxTechId; i++) {
+                                    customCountryTemplate.unlockedTechnologies.push_back(i);
+                                }
+                                std::cout << "🚀 ALL " << maxTechId << " TECHNOLOGIES UNLOCKED!" << std::endl;
+                            } else {
+                                // Parse comma-separated technology IDs
+                                std::stringstream ss(editorInput);
+                                std::string item;
+                                while (std::getline(ss, item, ',')) {
+                                    try {
+                                        int techId = std::stoi(item);
+                                        if (techId >= 1 && techId <= maxTechId) {
+                                            customCountryTemplate.unlockedTechnologies.push_back(techId);
+                                        }
+                                    } catch (const std::exception&) {
+                                        // Skip invalid entries
+                                    }
+                                }
+                                std::cout << "🔧 " << customCountryTemplate.unlockedTechnologies.size() << " technologies selected" << std::endl;
+                            }
+                            editorState = 1; // Move to population selection
+                            editorInput = "";
+                        }
+                        else if (editorState == 1) { // Population input
+                            long long population = std::stoll(editorInput);
+                            if (population > 0 && population <= 1000000000) { // Reasonable range
+                                customCountryTemplate.initialPopulation = population;
+                            }
+                            editorState = 2; // Move to culture selection
+                            editorInput = "";
+                        }
+                        else if (editorState == 2) { // Culture selection
+                            customCountryTemplate.unlockedCultures.clear();
+                            
+                            // Check if user wants to unlock all
+                            if (editorInput == "all" || editorInput == "ALL") {
+                                // Unlock all cultures
+                                for (int i = 1; i <= maxCultureId; i++) {
+                                    customCountryTemplate.unlockedCultures.push_back(i);
+                                }
+                                std::cout << "🎭 ALL " << maxCultureId << " CULTURES UNLOCKED!" << std::endl;
+                            } else {
+                                // Parse comma-separated culture IDs
+                                std::stringstream ss(editorInput);
+                                std::string item;
+                                while (std::getline(ss, item, ',')) {
+                                    try {
+                                        int cultureId = std::stoi(item);
+                                        if (cultureId >= 1 && cultureId <= maxCultureId) {
+                                            customCountryTemplate.unlockedCultures.push_back(cultureId);
+                                        }
+                                    } catch (const std::exception&) {
+                                        // Skip invalid entries
+                                    }
+                                }
+                                std::cout << "🎭 " << customCountryTemplate.unlockedCultures.size() << " cultures selected" << std::endl;
+                            }
+                            editorState = 3; // Move to type selection
+                            editorInput = "";
+                        }
+                        else if (editorState == 3) { // Country type selection
+                            int typeChoice = std::stoi(editorInput);
+                            if (typeChoice >= 1 && typeChoice <= 3) {
+                                customCountryTemplate.countryType = static_cast<Country::Type>(typeChoice - 1);
+                            }
+                            editorState = 4; // Move to science type selection
+                            editorInput = "";
+                        }
+                        else if (editorState == 4) { // Science type selection
+                            int scienceChoice = std::stoi(editorInput);
+                            if (scienceChoice >= 1 && scienceChoice <= 3) {
+                                customCountryTemplate.scienceType = static_cast<Country::ScienceType>(scienceChoice - 1);
+                            }
+                            editorState = 5; // Move to culture type selection
+                            editorInput = "";
+                        }
+                        else if (editorState == 5) { // Culture type selection
+                            int cultureChoice = std::stoi(editorInput);
+                            if (cultureChoice >= 1 && cultureChoice <= 3) {
+                                customCountryTemplate.cultureType = static_cast<Country::CultureType>(cultureChoice - 1);
+                            }
+                            editorState = 6; // Move to save/reset
+                            editorInput = "";
+                        }
+                        else if (editorState == 6) { // Save or Reset
+                            int choice = std::stoi(editorInput);
+                            if (choice == 1) { // Save
+                                customCountryTemplate.useTemplate = true;
+                                std::cout << "✅ COUNTRY TEMPLATE SAVED!" << std::endl;
+                                std::cout << "   Technologies: " << customCountryTemplate.unlockedTechnologies.size();
+                                if (customCountryTemplate.unlockedTechnologies.size() == maxTechId) {
+                                    std::cout << " (ALL UNLOCKED!)";
+                                }
+                                std::cout << std::endl;
+                                std::cout << "   Cultures: " << customCountryTemplate.unlockedCultures.size();
+                                if (customCountryTemplate.unlockedCultures.size() == maxCultureId) {
+                                    std::cout << " (ALL UNLOCKED!)";
+                                }
+                                std::cout << std::endl;
+                                std::cout << "   Population: " << customCountryTemplate.initialPopulation << std::endl;
+                                std::cout << "   Type: " << static_cast<int>(customCountryTemplate.countryType) << std::endl;
+                            }
+                            else if (choice == 2) { // Reset
+                                customCountryTemplate.useTemplate = false;
+                                customCountryTemplate.unlockedTechnologies.clear();
+                                customCountryTemplate.unlockedCultures.clear();
+                                customCountryTemplate.initialPopulation = 5000;
+                                std::cout << "🔄 RESET TO RANDOM GENERATION!" << std::endl;
+                            }
+                            countryAddEditorMode = false;
+                            editorInput = "";
+                            editorState = 0;
+                        }
+                    }
+                    else if (event.text.unicode == 27) { // Escape key
+                        countryAddEditorMode = false;
+                        editorInput = "";
+                        editorState = 0;
+                    }
+                }
             }
             else if (event.type == sf::Event::MouseWheelScrolled) {
                 if (showCountryInfo) {
@@ -568,16 +741,30 @@ int main() {
                         std::discrete_distribution<> cultureTypeDist({ 40, 40, 20 });
 
                         sf::Color countryColor(colorDist(gen), colorDist(gen), colorDist(gen));
-                        long long initialPopulation = popDist(gen);
                         double growthRate = growthRateDist(gen);
                         std::string countryName = generate_country_name();
                         while (isNameTaken(countries, countryName)) {
                             countryName = generate_country_name();
                         }
                         countryName += " Tribe";
-                        Country::Type countryType = static_cast<Country::Type>(typeDist(gen));
-                        Country::ScienceType scienceType = static_cast<Country::ScienceType>(scienceTypeDist(gen));
-                        Country::CultureType cultureType = static_cast<Country::CultureType>(cultureTypeDist(gen));
+                        
+                        // Use custom template if available, otherwise use random generation
+                        long long initialPopulation;
+                        Country::Type countryType;
+                        Country::ScienceType scienceType;
+                        Country::CultureType cultureType;
+                        
+                        if (customCountryTemplate.useTemplate) {
+                            initialPopulation = customCountryTemplate.initialPopulation;
+                            countryType = customCountryTemplate.countryType;
+                            scienceType = customCountryTemplate.scienceType;
+                            cultureType = customCountryTemplate.cultureType;
+                        } else {
+                            initialPopulation = popDist(gen);
+                            countryType = static_cast<Country::Type>(typeDist(gen));
+                            scienceType = static_cast<Country::ScienceType>(scienceTypeDist(gen));
+                            cultureType = static_cast<Country::CultureType>(cultureTypeDist(gen));
+                        }
 
                         int newCountryIndex = countries.size();
                         countries.emplace_back(newCountryIndex, countryColor, gridPos, initialPopulation, growthRate, countryName, countryType, scienceType, cultureType);
@@ -587,6 +774,28 @@ int main() {
 
                         int regionIndex = static_cast<int>((gridPos.y / map.getRegionSize()) * (map.getBaseImage().getSize().x / map.getGridCellSize() / map.getRegionSize()) + (gridPos.x / map.getRegionSize()));
                         map.insertDirtyRegion(regionIndex);
+
+                        // Apply custom template technologies and cultures if available
+                        if (customCountryTemplate.useTemplate) {
+                            Country& newCountry = countries.back();
+                            
+                            // Unlock specified technologies
+                            for (int techId : customCountryTemplate.unlockedTechnologies) {
+                                if (technologyManager.canUnlockTechnology(newCountry, techId)) {
+                                    technologyManager.unlockTechnology(newCountry, techId);
+                                }
+                            }
+                            
+                            // Unlock specified cultures (assuming similar structure to technologies)
+                            for (int cultureId : customCountryTemplate.unlockedCultures) {
+                                // Note: You may need to implement culture unlocking in CultureManager
+                                // cultureManager.unlockCulture(newCountry, cultureId);
+                            }
+                            
+                            std::cout << "✅ CREATED CUSTOM COUNTRY: " << newCountry.getName() 
+                                      << " with " << customCountryTemplate.unlockedTechnologies.size() 
+                                      << " technologies and " << initialPopulation << " population!" << std::endl;
+                        }
 
                         renderer.setNeedsUpdate(true);
                     }
@@ -706,77 +915,22 @@ int main() {
         }
         
         // STEP 2: Smart rendering - only render when needed or for smooth interaction
-        bool needsRender = renderingNeedsUpdate || enableZoom || isDragging || showCountryInfo || megaTimeJumpMode;
+        bool needsRender = renderingNeedsUpdate || enableZoom || isDragging || showCountryInfo || megaTimeJumpMode || countryAddEditorMode;
         
         if (needsRender) {
-            if (enableZoom) {
-                window.setView(zoomedView);
-            }
-            
-            renderer.render(countries, map, news, technologyManager, cultureManager, selectedCountry, showCountryInfo);
-            
-            // Draw Mega Time Jump GUI on top
             if (megaTimeJumpMode) {
-                // Reset view for GUI
-                window.setView(window.getDefaultView());
+                // Use dedicated mega time jump renderer (no game world, no flickering)
+                renderer.renderMegaTimeJumpScreen(megaTimeJumpInput, m_font);
+            } else if (countryAddEditorMode) {
+                // Use dedicated country add editor renderer
+                renderer.renderCountryAddEditor(editorInput, editorState, maxTechId, maxCultureId, m_font);
+            } else {
+                // Normal game rendering
+                if (enableZoom) {
+                    window.setView(zoomedView);
+                }
                 
-                // Dark overlay
-                sf::RectangleShape overlay(sf::Vector2f(window.getSize().x, window.getSize().y));
-                overlay.setFillColor(sf::Color(0, 0, 0, 180));
-                window.draw(overlay);
-                
-                // Input box background
-                sf::RectangleShape inputBox(sf::Vector2f(600, 300));
-                inputBox.setPosition(window.getSize().x / 2 - 300, window.getSize().y / 2 - 150);
-                inputBox.setFillColor(sf::Color(40, 40, 40));
-                inputBox.setOutlineColor(sf::Color::Yellow);
-                inputBox.setOutlineThickness(3);
-                window.draw(inputBox);
-                
-                // Title text
-                sf::Text titleText;
-                titleText.setFont(m_font);
-                titleText.setCharacterSize(36);
-                titleText.setFillColor(sf::Color::Yellow);
-                titleText.setString("MEGA TIME JUMP");
-                titleText.setPosition(window.getSize().x / 2 - 150, window.getSize().y / 2 - 130);
-                window.draw(titleText);
-                
-                // Instructions
-                sf::Text instructionText;
-                instructionText.setFont(m_font);
-                instructionText.setCharacterSize(20);
-                instructionText.setFillColor(sf::Color::White);
-                instructionText.setString("Enter target year (-5000 to 2025):");
-                instructionText.setPosition(window.getSize().x / 2 - 150, window.getSize().y / 2 - 60);
-                window.draw(instructionText);
-                
-                // Year input field
-                sf::RectangleShape inputField(sf::Vector2f(300, 50));
-                inputField.setPosition(window.getSize().x / 2 - 150, window.getSize().y / 2 - 20);
-                inputField.setFillColor(sf::Color(60, 60, 60));
-                inputField.setOutlineColor(sf::Color::White);
-                inputField.setOutlineThickness(2);
-                window.draw(inputField);
-                
-                // Input text
-                sf::Text inputText;
-                inputText.setFont(m_font);
-                inputText.setCharacterSize(28);
-                inputText.setFillColor(sf::Color::White);
-                inputText.setString(megaTimeJumpInput.empty() ? "_" : megaTimeJumpInput + "_");
-                inputText.setPosition(window.getSize().x / 2 - 140, window.getSize().y / 2 - 10);
-                window.draw(inputText);
-                
-                // Help text
-                sf::Text helpText;
-                helpText.setFont(m_font);
-                helpText.setCharacterSize(16);
-                helpText.setFillColor(sf::Color(200, 200, 200));
-                helpText.setString("Current year: " + std::to_string(currentYear) + "\nPress ENTER to jump | ESC to cancel");
-                helpText.setPosition(window.getSize().x / 2 - 150, window.getSize().y / 2 + 50);
-                window.draw(helpText);
-                
+                renderer.render(countries, map, news, technologyManager, cultureManager, selectedCountry, showCountryInfo);
                 window.display();
             }
             

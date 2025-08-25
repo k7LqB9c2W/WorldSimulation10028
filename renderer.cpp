@@ -537,3 +537,182 @@ int Renderer::getMaxCivicScrollOffset() const {
 void Renderer::setCivicScrollOffset(int offset) {
     m_civicScrollOffset = offset;
 }
+
+void Renderer::renderMegaTimeJumpScreen(const std::string& inputText, const sf::Font& font) {
+    // Clear with a solid dark background (no game world underneath)
+    m_window.clear(sf::Color(20, 20, 20));
+    
+    // Reset view for GUI
+    m_window.setView(m_window.getDefaultView());
+    
+    // Dark overlay (optional, since we already have dark background)
+    sf::RectangleShape overlay(sf::Vector2f(m_window.getSize().x, m_window.getSize().y));
+    overlay.setFillColor(sf::Color(0, 0, 0, 200));
+    m_window.draw(overlay);
+    
+    // Input box background
+    sf::RectangleShape inputBox(sf::Vector2f(600, 300));
+    inputBox.setPosition(m_window.getSize().x / 2 - 300, m_window.getSize().y / 2 - 150);
+    inputBox.setFillColor(sf::Color(40, 40, 40));
+    inputBox.setOutlineColor(sf::Color::Yellow);
+    inputBox.setOutlineThickness(3);
+    m_window.draw(inputBox);
+    
+    // Title text
+    sf::Text titleText;
+    titleText.setFont(font);
+    titleText.setCharacterSize(36);
+    titleText.setFillColor(sf::Color::Yellow);
+    titleText.setString("MEGA TIME JUMP");
+    titleText.setPosition(m_window.getSize().x / 2 - 150, m_window.getSize().y / 2 - 130);
+    m_window.draw(titleText);
+    
+    // Instructions
+    sf::Text instructionText;
+    instructionText.setFont(font);
+    instructionText.setCharacterSize(20);
+    instructionText.setFillColor(sf::Color::White);
+    instructionText.setString("Enter target year (-5000 to 2025):");
+    instructionText.setPosition(m_window.getSize().x / 2 - 150, m_window.getSize().y / 2 - 60);
+    m_window.draw(instructionText);
+    
+    // Input text
+    sf::Text inputTextDisplay;
+    inputTextDisplay.setFont(font);
+    inputTextDisplay.setCharacterSize(24);
+    inputTextDisplay.setFillColor(sf::Color::Cyan);
+    inputTextDisplay.setString(inputText + "_"); // Add cursor
+    inputTextDisplay.setPosition(m_window.getSize().x / 2 - 100, m_window.getSize().y / 2 - 20);
+    m_window.draw(inputTextDisplay);
+    
+    // Controls text
+    sf::Text controlsText;
+    controlsText.setFont(font);
+    controlsText.setCharacterSize(16);
+    controlsText.setFillColor(sf::Color(200, 200, 200));
+    controlsText.setString("Press ENTER to jump, ESC to cancel");
+    controlsText.setPosition(m_window.getSize().x / 2 - 120, m_window.getSize().y / 2 + 60);
+    m_window.draw(controlsText);
+    
+    m_window.display();
+}
+
+void Renderer::renderCountryAddEditor(const std::string& inputText, int editorState, int maxTechId, int maxCultureId, const sf::Font& font) {
+    // Clear with a solid dark background
+    m_window.clear(sf::Color(15, 15, 15));
+    
+    // Reset view for GUI
+    m_window.setView(m_window.getDefaultView());
+    
+    // Main window background
+    sf::RectangleShape mainBox(sf::Vector2f(700, 500));
+    mainBox.setPosition(m_window.getSize().x / 2 - 350, m_window.getSize().y / 2 - 250);
+    mainBox.setFillColor(sf::Color(40, 40, 40));
+    mainBox.setOutlineColor(sf::Color::Green);
+    mainBox.setOutlineThickness(3);
+    m_window.draw(mainBox);
+    
+    // Title text
+    sf::Text titleText;
+    titleText.setFont(font);
+    titleText.setCharacterSize(32);
+    titleText.setFillColor(sf::Color::Green);
+    titleText.setString("🏗️ COUNTRY ADD EDITOR");
+    titleText.setPosition(m_window.getSize().x / 2 - 180, m_window.getSize().y / 2 - 230);
+    m_window.draw(titleText);
+    
+    std::string stateText;
+    std::string instructionText;
+    
+    switch (editorState) {
+        case 0: // Technology selection
+            stateText = "1. Select Technologies (1-" + std::to_string(maxTechId) + ")";
+            instructionText = "Enter tech IDs (e.g., 1,5,12) or type 'all' to unlock everything";
+            break;
+        case 1: // Population input
+            stateText = "2. Set Starting Population";
+            instructionText = "Enter population number (e.g., 50000)";
+            break;
+        case 2: // Culture selection
+            stateText = "3. Select Cultures (1-" + std::to_string(maxCultureId) + ")";
+            instructionText = "Enter culture IDs (e.g., 1,3,7) or type 'all' to unlock everything";
+            break;
+        case 3: // Country type
+            stateText = "4. Choose Country Type";
+            instructionText = "1=Warmonger, 2=Pacifist, 3=Trader";
+            break;
+        case 4: // Science type
+            stateText = "5. Choose Science Type";
+            instructionText = "1=Normal Science, 2=Less Science, 3=More Science";
+            break;
+        case 5: // Culture type
+            stateText = "6. Choose Culture Type";
+            instructionText = "1=Normal Culture, 2=Less Culture, 3=More Culture";
+            break;
+        case 6: // Save/Reset
+            stateText = "7. Save or Reset";
+            instructionText = "1=Save Template, 2=Reset to Random";
+            break;
+    }
+    
+    // State text
+    sf::Text stateDisplay;
+    stateDisplay.setFont(font);
+    stateDisplay.setCharacterSize(24);
+    stateDisplay.setFillColor(sf::Color::Yellow);
+    stateDisplay.setString(stateText);
+    stateDisplay.setPosition(m_window.getSize().x / 2 - 300, m_window.getSize().y / 2 - 170);
+    m_window.draw(stateDisplay);
+    
+    // Instruction text
+    sf::Text instruction;
+    instruction.setFont(font);
+    instruction.setCharacterSize(18);
+    instruction.setFillColor(sf::Color::White);
+    instruction.setString(instructionText);
+    instruction.setPosition(m_window.getSize().x / 2 - 300, m_window.getSize().y / 2 - 120);
+    m_window.draw(instruction);
+    
+    // Input box
+    sf::RectangleShape inputBox(sf::Vector2f(600, 50));
+    inputBox.setPosition(m_window.getSize().x / 2 - 300, m_window.getSize().y / 2 - 70);
+    inputBox.setFillColor(sf::Color(60, 60, 60));
+    inputBox.setOutlineColor(sf::Color::Cyan);
+    inputBox.setOutlineThickness(2);
+    m_window.draw(inputBox);
+    
+    // Input text
+    sf::Text input;
+    input.setFont(font);
+    input.setCharacterSize(20);
+    input.setFillColor(sf::Color::Cyan);
+    input.setString(inputText.empty() ? "_" : inputText + "_");
+    input.setPosition(m_window.getSize().x / 2 - 290, m_window.getSize().y / 2 - 60);
+    m_window.draw(input);
+    
+    // Help text
+    sf::Text helpText;
+    helpText.setFont(font);
+    helpText.setCharacterSize(16);
+    helpText.setFillColor(sf::Color(200, 200, 200));
+    helpText.setString("Press ENTER to continue | ESC to cancel\nStep " + std::to_string(editorState + 1) + " of 7");
+    helpText.setPosition(m_window.getSize().x / 2 - 150, m_window.getSize().y / 2 + 50);
+    m_window.draw(helpText);
+    
+    // Progress indicator
+    float progressWidth = 500.0f;
+    float progressHeight = 10.0f;
+    float progressFill = (static_cast<float>(editorState + 1) / 7.0f) * progressWidth;
+    
+    sf::RectangleShape progressBg(sf::Vector2f(progressWidth, progressHeight));
+    progressBg.setPosition(m_window.getSize().x / 2 - progressWidth / 2, m_window.getSize().y / 2 + 150);
+    progressBg.setFillColor(sf::Color(80, 80, 80));
+    m_window.draw(progressBg);
+    
+    sf::RectangleShape progressBar(sf::Vector2f(progressFill, progressHeight));
+    progressBar.setPosition(m_window.getSize().x / 2 - progressWidth / 2, m_window.getSize().y / 2 + 150);
+    progressBar.setFillColor(sf::Color::Green);
+    m_window.draw(progressBar);
+    
+    m_window.display();
+}

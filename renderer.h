@@ -28,6 +28,8 @@ public:
     int getCivicScrollOffset() const;
     int getMaxCivicScrollOffset() const;
     void setCivicScrollOffset(int offset);
+    void renderMegaTimeJumpScreen(const std::string& inputText, const sf::Font& font);
+    void renderCountryAddEditor(const std::string& inputText, int editorState, int maxTechId, int maxCultureId, const sf::Font& font);
 
 private:
     sf::RenderWindow& m_window;
