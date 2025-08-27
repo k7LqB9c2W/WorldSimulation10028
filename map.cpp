@@ -144,6 +144,18 @@ std::string generate_country_name() {
     return name; // Now returns only the generated name
 }
 
+// 🛣️ ROAD BUILDING SUPPORT - Check if a pixel is valid for road construction
+bool Map::isValidRoadPixel(int x, int y) const {
+    // Check bounds
+    if (x < 0 || x >= static_cast<int>(m_isLandGrid[0].size()) || 
+        y < 0 || y >= static_cast<int>(m_isLandGrid.size())) {
+        return false;
+    }
+    
+    // Roads can be built on land
+    return m_isLandGrid[y][x];
+}
+
 bool Map::loadSpawnZones(const std::string& filename) {
     if (!m_spawnZoneImage.loadFromFile(filename)) {
         std::cerr << "Error: Could not load spawn zone image: " << filename << std::endl;
@@ -251,7 +263,7 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
 
     // 🛡️ PERFORMANCE FIX: Remove OpenMP to prevent mutex contention and thread blocking
     for (int i = 0; i < countries.size(); ++i) {
-        countries[i].update(m_isLandGrid, m_countryGrid, m_gridMutex, m_gridCellSize, m_regionSize, m_dirtyRegions, currentYear, m_resourceGrid, news, m_plagueActive, m_plagueDeathToll, *this, technologyManager);
+        countries[i].update(m_isLandGrid, m_countryGrid, m_gridMutex, m_gridCellSize, m_regionSize, m_dirtyRegions, currentYear, m_resourceGrid, news, m_plagueActive, m_plagueDeathToll, *this, technologyManager, countries);
         // Check for war declarations only if not already at war and it's not before 4950 BCE
         if (currentYear >= -4950 && countries[i].getType() == Country::Type::Warmonger && countries[i].canDeclareWar() && !countries[i].isAtWar() && currentYear >= countries[i].getNextWarCheckYear()) {
             // Check for potential targets among neighboring countries

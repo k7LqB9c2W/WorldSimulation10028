@@ -16,6 +16,7 @@
 #include "technology.h"
 #include "great_people.h"
 #include "culture.h" // Include the new culture header
+#include "trade.h" // Include the new trade system
 
 // 🚨 CRASH DETECTION SYSTEM
 void crashHandler(int signal) {
@@ -141,6 +142,9 @@ int main() {
 
     // Initialize the Great People Manager
     GreatPeopleManager greatPeopleManager;
+    
+    // Initialize the Trade Manager
+    TradeManager tradeManager;
 
     Renderer renderer(window, map, waterColor);
     News news;
@@ -287,6 +291,10 @@ int main() {
                             // Perform map simulation for this chunk
                             std::cout << "   📍 Map simulation..." << std::endl;
                             map.fastForwardSimulation(countries, currentYear, chunkSize, news, technologyManager);
+                            
+                            // 🏪 FAST FORWARD TRADE PROCESSING
+                            std::cout << "   💰 Trade simulation..." << std::endl;
+                            tradeManager.fastForwardTrade(countries, currentYear, currentYear + chunkSize, map, technologyManager, news);
                             
                             // 🚀 OPTIMIZED TECH/CULTURE: Batch processing and reduced frequency
                             std::cout << "   🧠 Tech/Culture updates for " << countries.size() << " countries..." << std::endl;
@@ -453,6 +461,10 @@ int main() {
                                 // Call mega simulation function with progress callback
                                 map.megaTimeJump(countries, currentYear, targetYear, news, technologyManager, cultureManager, greatPeopleManager, 
                                     [&](int currentSimYear, int targetSimYear, float estimatedSecondsRemaining) {
+                                        // 🏪 MEGA TIME JUMP TRADE PROCESSING
+                                        if (currentSimYear % 10 == 0) { // Every 10 years during mega jump
+                                            tradeManager.fastForwardTrade(countries, currentSimYear, currentSimYear + 10, map, technologyManager, news);
+                                        }
                                         // Update display with progress
                                         int yearsCompleted = currentSimYear - (targetYear - yearsToSimulate);
                                         loadingText.setString("TIME JUMPING TO " + std::to_string(targetYear) + " (" + 
@@ -877,6 +889,12 @@ int main() {
             auto greatEnd = std::chrono::high_resolution_clock::now();
             auto greatTime = std::chrono::duration_cast<std::chrono::milliseconds>(greatEnd - greatStart);
             
+            // 🏪 TRADE SYSTEM UPDATE
+            auto tradeStart = std::chrono::high_resolution_clock::now();
+            tradeManager.updateTrade(countries, currentYear, map, technologyManager, news);
+            auto tradeEnd = std::chrono::high_resolution_clock::now();
+            auto tradeTime = std::chrono::duration_cast<std::chrono::milliseconds>(tradeEnd - tradeStart);
+            
             auto simEnd = std::chrono::high_resolution_clock::now();
             auto simDuration = std::chrono::duration_cast<std::chrono::microseconds>(simEnd - simStart);
             
@@ -887,6 +905,7 @@ int main() {
                 std::cout << "  Map Update: " << mapTime.count() << "ms" << std::endl;
                 std::cout << "  Tech/Culture: " << techTime.count() << "ms" << std::endl;
                 std::cout << "  Great People: " << greatTime.count() << "ms" << std::endl;
+                std::cout << "  Trade System: " << tradeTime.count() << "ms" << std::endl;
             }
             
             // Update UI elements

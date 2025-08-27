@@ -79,6 +79,12 @@ Country::Country(int countryIndex, const sf::Color& color, const sf::Vector2i& s
         std::uniform_int_distribution<> staggerDist(-4950, -4450); // Example: Range from -4950 to -4450 So countries will trigger their first look for war within -4950 to -4450
         m_nextWarCheckYear = staggerDist(gen);
     }
+
+    // Stagger initial road-building check year to offset load
+    {
+        std::uniform_int_distribution<> initialRoadOffset(0, 120);
+        m_nextRoadCheckYear = -5000 + initialRoadOffset(gen);
+    }
     
     // 🎯 INITIALIZE EXPANSION CONTENTMENT SYSTEM - reuse existing gen
     
@@ -371,7 +377,7 @@ bool Country::isNeighbor(const Country& other) const {
 }
 
 // 🔥 NUCLEAR OPTIMIZATION: Update the country's state each year
-void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vector<std::vector<int>>& countryGrid, std::mutex& gridMutex, int gridCellSize, int regionSize, std::unordered_set<int>& dirtyRegions, int currentYear, const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid, News& news, bool plagueActive, long long& plagueDeaths, const Map& map, const TechnologyManager& technologyManager) {
+void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vector<std::vector<int>>& countryGrid, std::mutex& gridMutex, int gridCellSize, int regionSize, std::unordered_set<int>& dirtyRegions, int currentYear, const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid, News& news, bool plagueActive, long long& plagueDeaths, const Map& map, const TechnologyManager& technologyManager, std::vector<Country>& allCountries) {
     
     // PERFORMANCE OPTIMIZATION: Use static generators to avoid expensive random_device creation
     static std::random_device rd;
@@ -870,6 +876,9 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
         // Update the total death toll
         plagueDeaths += deaths;
     }
+    // 🏙️ CITY GROWTH AND FOUNDING SYSTEM
+    checkCityGrowth(currentYear, news);
+    
     // 🚀 NUCLEAR OPTIMIZATION: Streamlined city founding
     if (m_population >= 10000 && canFoundCity() && !m_boundaryPixels.empty()) {
         // Use a random boundary pixel directly (no vector copy needed)
@@ -884,6 +893,9 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
     
     // 🏛️ CHECK FOR IDEOLOGY CHANGES
     checkIdeologyChange(currentYear, news);
+    
+    // 🛣️ ROAD BUILDING SYSTEM - Build roads to other countries
+    buildRoads(allCountries, map, technologyManager, currentYear, news);
 
     // Decrement war and peace durations
     if (isAtWar()) {
@@ -1699,7 +1711,12 @@ void Country::foundCity(const sf::Vector2i& location, News& news) {
 
 // Check if the country can found a new city
 bool Country::canFoundCity() const {
-    return m_cities.empty();
+    // Can found new cities every 2,500,000 population after the first city
+    if (m_cities.empty()) return true; // First city always available
+    
+    // Calculate how many cities this population can support
+    int maxCities = 1 + static_cast<int>(m_population / 2500000); // 1 city per 2.5M people
+    return m_cities.size() < maxCities;
 }
 
 // Get the list of cities
@@ -1710,6 +1727,23 @@ const std::vector<City>& Country::getCities() const {
 // Get the current gold amount
 double Country::getGold() const {
     return m_gold;
+}
+
+// Add gold to the country's treasury
+void Country::addGold(double amount) {
+    m_gold += amount;
+    if (m_gold < 0.0) m_gold = 0.0; // Prevent negative gold
+}
+
+// Subtract gold from the country's treasury
+void Country::subtractGold(double amount) {
+    m_gold -= amount;
+    if (m_gold < 0.0) m_gold = 0.0; // Prevent negative gold
+}
+
+// Set the country's gold amount
+void Country::setGold(double amount) {
+    m_gold = std::max(0.0, amount); // Ensure non-negative
 }
 
 // Get the country type
@@ -1969,6 +2003,220 @@ bool Country::canShareTechWith(const Country& target, int currentYear) const {
 
 void Country::recordWarEnd(int enemyIndex, int currentYear) {
     m_lastWarEndYear[enemyIndex] = currentYear;
+}
+
+// 🏙️ CITY GROWTH SYSTEM - Handle major city upgrades and new city founding
+void Country::checkCityGrowth(int currentYear, News& news) {
+    
+    // Check for major city upgrade when reaching 1 million population
+    if (m_population >= 1000000 && !m_cities.empty() && !m_hasCheckedMajorCityUpgrade) {
+        
+        // Upgrade the first city to a major city (gold square)
+        if (!m_cities[0].isMajorCity()) {
+            m_cities[0].setMajorCity(true);
+            news.addEvent("🏙️ METROPOLIS: " + m_name + " grows its capital into a magnificent major city!");
+            std::cout << "🏙️ " << m_name << " upgraded their capital to a major city (gold square)!" << std::endl;
+            
+            m_hasCheckedMajorCityUpgrade = true; // Prevent multiple upgrades
+            
+            // Found a new city when upgrading to major city
+            if (!m_boundaryPixels.empty()) {
+                std::random_device rd;
+                std::mt19937 gen(rd());
+                auto it = m_boundaryPixels.begin();
+                std::advance(it, gen() % m_boundaryPixels.size());
+                foundCity(*it, news);
+                std::cout << "   📍 " << m_name << " also founded a new city!" << std::endl;
+            }
+        }
+    }
+    
+    // Reset the upgrade check if population drops below 1 million
+    if (m_population < 1000000) {
+        m_hasCheckedMajorCityUpgrade = false;
+    }
+}
+
+// 🛣️ ROAD BUILDING SYSTEM - Build roads between friendly countries
+void Country::buildRoads(std::vector<Country>& allCountries, const Map& map, 
+                        const TechnologyManager& techManager, int currentYear, News& news) {
+    
+    // Only build roads if we have Construction or Roads technology
+    if (!TechnologyManager::hasTech(techManager, *this, 16) && // Construction
+        !TechnologyManager::hasTech(techManager, *this, 17)) { // Roads
+        return;
+    }
+    
+    // Only check for road building every 25 years for performance
+    if (currentYear < m_nextRoadCheckYear) return;
+    
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    // Randomized per-country cadence to spread work: 20–120 years between checks
+    std::uniform_int_distribution<> intervalDist(20, 120);
+    m_nextRoadCheckYear = currentYear + intervalDist(gen);
+    
+    // Only build roads if we have cities
+    if (m_cities.empty()) return;
+    
+    // Find potential road partners
+    for (size_t i = 0; i < allCountries.size(); ++i) {
+        Country& otherCountry = allCountries[i];
+        if (otherCountry.getCountryIndex() == m_countryIndex) continue; // Skip ourselves
+        if (otherCountry.getPopulation() <= 0 || otherCountry.getCities().empty()) continue; // Skip dead/cityless countries
+        
+        // Check if we can build roads to this country
+        if (!canBuildRoadTo(otherCountry, currentYear)) continue;
+        
+        // Check if we already have roads to this country
+        if (m_roadsToCountries.find(otherCountry.getCountryIndex()) != m_roadsToCountries.end()) continue;
+        
+        // Must be neighbors or within reasonable distance
+        if (!map.areNeighbors(*this, otherCountry)) {
+            double distance = calculateDistanceToCountry(otherCountry);
+            if (distance > 600) continue; // Max road distance (increased from 150)
+        }
+        
+        // Build road between closest cities
+        sf::Vector2i ourClosestCity = getClosestCityTo(otherCountry);
+        sf::Vector2i theirClosestCity = otherCountry.getClosestCityTo(*this);
+        
+        // Create road path using simple line algorithm
+        std::vector<sf::Vector2i> roadPath = createRoadPath(ourClosestCity, theirClosestCity, map);
+        
+        if (!roadPath.empty()) {
+            // Store the road
+            m_roadsToCountries[otherCountry.getCountryIndex()] = roadPath;
+            m_roads.insert(m_roads.end(), roadPath.begin(), roadPath.end());
+            
+            // Also add to the other country (mutual roads)
+            otherCountry.m_roadsToCountries[m_countryIndex] = roadPath;
+            otherCountry.m_roads.insert(otherCountry.m_roads.end(), roadPath.begin(), roadPath.end());
+            
+            // Add news event
+            news.addEvent("🛣️ ROAD BUILT: " + m_name + " constructs a road network connecting to " + otherCountry.getName() + "!");
+            std::cout << "🛣️ " << m_name << " built roads to " << otherCountry.getName() << " (" << roadPath.size() << " pixels)" << std::endl;
+            
+            // Only build one road per check cycle to prevent spam
+            break;
+        }
+    }
+}
+
+// Helper function to check if we can build roads to another country
+bool Country::canBuildRoadTo(const Country& otherCountry, int currentYear) const {
+    
+    // Can always build roads to other Traders and Pacifists
+    if ((m_type == Type::Trader || m_type == Type::Pacifist) &&
+        (otherCountry.getType() == Type::Trader || otherCountry.getType() == Type::Pacifist)) {
+        return true;
+    }
+    
+    // Can build roads to Warmongers only if they haven't declared war on us in 500 years
+    if (otherCountry.getType() == Type::Warmonger || m_type == Type::Warmonger) {
+        
+        // Check our war history with them
+        auto warEndIt = m_lastWarEndYear.find(otherCountry.getCountryIndex());
+        if (warEndIt != m_lastWarEndYear.end()) {
+            int yearsSinceWar = currentYear - warEndIt->second;
+            if (yearsSinceWar < 500) {
+                return false; // Too recent war history
+            }
+        }
+        
+        // Check their war history with us
+        auto theirWarEndIt = otherCountry.m_lastWarEndYear.find(m_countryIndex);
+        if (theirWarEndIt != otherCountry.m_lastWarEndYear.end()) {
+            int yearsSinceWar = currentYear - theirWarEndIt->second;
+            if (yearsSinceWar < 500) {
+                return false; // Too recent war history
+            }
+        }
+        
+        // If warmonger countries are currently at war with each other, no roads
+        if (isAtWar() && std::find(m_enemies.begin(), m_enemies.end(), &otherCountry) != m_enemies.end()) {
+            return false;
+        }
+        
+        return true; // Can build roads if no recent wars
+    }
+    
+    return false;
+}
+
+// Helper function to get the closest city to another country
+sf::Vector2i Country::getClosestCityTo(const Country& otherCountry) const {
+    
+    if (m_cities.empty() || otherCountry.getCities().empty()) {
+        return sf::Vector2i(0, 0); // Return invalid if no cities
+    }
+    
+    sf::Vector2i closestCity = m_cities[0].getLocation();
+    double shortestDistance = std::numeric_limits<double>::max();
+    
+    for (const auto& ourCity : m_cities) {
+        for (const auto& theirCity : otherCountry.getCities()) {
+            sf::Vector2i ourPos = ourCity.getLocation();
+            sf::Vector2i theirPos = theirCity.getLocation();
+            
+            double distance = std::sqrt(std::pow(ourPos.x - theirPos.x, 2) + std::pow(ourPos.y - theirPos.y, 2));
+            
+            if (distance < shortestDistance) {
+                shortestDistance = distance;
+                closestCity = ourPos;
+            }
+        }
+    }
+    
+    return closestCity;
+}
+
+// Helper function to calculate distance to another country
+double Country::calculateDistanceToCountry(const Country& otherCountry) const {
+    
+    if (m_boundaryPixels.empty() || otherCountry.getBoundaryPixels().empty()) {
+        return 1000.0; // Very far if no territory
+    }
+    
+    sf::Vector2i ourCenter = *m_boundaryPixels.begin();
+    sf::Vector2i theirCenter = *otherCountry.getBoundaryPixels().begin();
+    
+    return std::sqrt(std::pow(ourCenter.x - theirCenter.x, 2) + std::pow(ourCenter.y - theirCenter.y, 2));
+}
+
+// Helper function to create a road path between two points
+std::vector<sf::Vector2i> Country::createRoadPath(sf::Vector2i start, sf::Vector2i end, const Map& map) const {
+    
+    std::vector<sf::Vector2i> path;
+    
+    // Simple Bresenham's line algorithm for road building
+    int dx = std::abs(end.x - start.x);
+    int dy = std::abs(end.y - start.y);
+    int x = start.x;
+    int y = start.y;
+    int x_inc = (start.x < end.x) ? 1 : -1;
+    int y_inc = (start.y < end.y) ? 1 : -1;
+    int error = dx - dy;
+    
+    dx *= 2;
+    dy *= 2;
+    
+    for (int n = dx + dy; n > 0; --n) {
+        // Check if the current pixel is valid for road building
+        if (map.isValidRoadPixel(x, y)) {
+            path.push_back(sf::Vector2i(x, y));
+        }
+        
+        if (error > 0) {
+            x += x_inc;
+            error -= dy;
+        } else {
+            y += y_inc;
+            error += dx;
+        }
+    }
+    
+    return path;
 }
 
 void Country::addCulturePoints(double points) {

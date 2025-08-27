@@ -149,8 +149,8 @@
     <ClCompile Include="news.cpp" />
     <ClCompile Include="renderer.cpp" />
     <ClCompile Include="resource.cpp" />
-    <ClCompile Include="resource.h" />
     <ClCompile Include="technology.cpp" />
+    <ClCompile Include="trade.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="country.h" />
@@ -159,7 +159,9 @@
     <ClInclude Include="map.h" />
     <ClInclude Include="news.h" />
     <ClInclude Include="renderer.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="technology.h" />
+    <ClInclude Include="trade.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="CMakeLists.txt" />

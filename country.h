@@ -25,12 +25,15 @@ namespace std {
 
 class City {
 public:
-    City(const sf::Vector2i& location) : m_location(location) {}
+    City(const sf::Vector2i& location) : m_location(location), m_isMajorCity(false) {}
 
     sf::Vector2i getLocation() const { return m_location; }
+    bool isMajorCity() const { return m_isMajorCity; }
+    void setMajorCity(bool isMajor) { m_isMajorCity = isMajor; }
 
 private:
     sf::Vector2i m_location;
+    bool m_isMajorCity; // True if population reached 1 million (gold square)
 };
 
 class Country {
@@ -72,13 +75,16 @@ public:
     void setNextWarCheckYear(int year);
 
     Country(int countryIndex, const sf::Color& color, const sf::Vector2i& startCell, long long initialPopulation, double growthRate, const std::string& name, Type type, ScienceType scienceType, CultureType cultureType);
-    void update(const std::vector<std::vector<bool>>& isLandGrid, std::vector<std::vector<int>>& countryGrid, std::mutex& gridMutex, int gridCellSize, int regionSize, std::unordered_set<int>& dirtyRegions, int currentYear, const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid, News& news, bool plagueActive, long long& plagueDeaths, const Map& map, const class TechnologyManager& technologyManager);
+    void update(const std::vector<std::vector<bool>>& isLandGrid, std::vector<std::vector<int>>& countryGrid, std::mutex& gridMutex, int gridCellSize, int regionSize, std::unordered_set<int>& dirtyRegions, int currentYear, const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid, News& news, bool plagueActive, long long& plagueDeaths, const Map& map, const class TechnologyManager& technologyManager, std::vector<Country>& allCountries);
     long long getPopulation() const;
     sf::Color getColor() const;
     int getCountryIndex() const;
     void foundCity(const sf::Vector2i& location, News& news);
     const std::vector<City>& getCities() const;
     double getGold() const;
+    void addGold(double amount);
+    void subtractGold(double amount);
+    void setGold(double amount);
     double getMilitaryStrength() const;
     // Add a member variable to store science points
     double getSciencePoints() const;
@@ -92,6 +98,16 @@ public:
     ScienceType getScienceType() const;
     CultureType getCultureType() const;
     bool canFoundCity() const;
+    void checkCityGrowth(int currentYear, News& news); // Check for city upgrades and new cities
+    void buildRoads(std::vector<Country>& allCountries, const class Map& map, 
+                   const class TechnologyManager& techManager, int currentYear, News& news); // Road building system
+    
+    // Road system helper functions
+    bool canBuildRoadTo(const Country& otherCountry, int currentYear) const;
+    sf::Vector2i getClosestCityTo(const Country& otherCountry) const;
+    double calculateDistanceToCountry(const Country& otherCountry) const;
+    std::vector<sf::Vector2i> createRoadPath(sf::Vector2i start, sf::Vector2i end, const class Map& map) const;
+    const std::vector<sf::Vector2i>& getRoads() const { return m_roads; }
     bool canDeclareWar() const;
     void startWar(Country& target, News& news);
     void endWar(int currentYear = 0);
@@ -202,6 +218,12 @@ private:
     // TECHNOLOGY SHARING SYSTEM (for Trader countries)
     int m_nextTechSharingYear = 0;
     std::unordered_map<int, int> m_lastWarEndYear; // Track when wars ended with other countries
+    
+    // ROAD BUILDING SYSTEM
+    std::vector<sf::Vector2i> m_roads; // All road pixels owned by this country
+    std::unordered_map<int, std::vector<sf::Vector2i>> m_roadsToCountries; // Roads to specific countries
+    int m_nextRoadCheckYear = -5000; // When to next check for road building opportunities (initialize to start year)
+    bool m_hasCheckedMajorCityUpgrade = false; // Track if we've checked for major city upgrade this population milestone
     int getMaxExpansionPixels(int year) const;
     long long m_prePlaguePopulation;
     std::vector<Country*> m_enemies;

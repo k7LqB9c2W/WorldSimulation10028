@@ -61,7 +61,23 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
     sf::Vector2f viewSize = m_window.getView().getSize();
     sf::FloatRect visibleArea(viewCenter.x - viewSize.x/2, viewCenter.y - viewSize.y/2, viewSize.x, viewSize.y);
 
-    // Draw cities with viewport culling
+    // Draw roads first (so they appear under cities)
+    for (const auto& country : countries) {
+        const auto& roads = country.getRoads();
+        for (const auto& roadPixel : roads) {
+            sf::Vector2f roadWorldPos(roadPixel.x * map.getGridCellSize(), roadPixel.y * map.getGridCellSize());
+            
+            // Only draw roads that are visible in the current viewport
+            if (visibleArea.contains(roadWorldPos)) {
+                sf::RectangleShape roadShape(sf::Vector2f(1, 1));
+                roadShape.setFillColor(sf::Color::Black);
+                roadShape.setPosition(roadWorldPos.x, roadWorldPos.y);
+                m_window.draw(roadShape);
+            }
+        }
+    }
+
+    // Draw cities with viewport culling (on top of roads)
     for (const auto& country : countries) {
         for (const auto& city : country.getCities()) {
             sf::Vector2i cityLocation = city.getLocation();
@@ -70,7 +86,14 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
             // Only draw cities that are visible in the current viewport
             if (visibleArea.contains(cityWorldPos)) {
                 sf::RectangleShape cityShape(sf::Vector2f(3, 3));
-                cityShape.setFillColor(sf::Color::Black);
+                
+                // 🏙️ MAJOR CITY SYSTEM: Gold squares for major cities, black for regular cities
+                if (city.isMajorCity()) {
+                    cityShape.setFillColor(sf::Color::Yellow); // Gold square for major cities
+                } else {
+                    cityShape.setFillColor(sf::Color::Black); // Black square for regular cities
+                }
+                
                 cityShape.setPosition(cityWorldPos.x - 1, cityWorldPos.y - 1);
                 m_window.draw(cityShape);
             }

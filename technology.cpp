@@ -56,23 +56,24 @@ void TechnologyManager::initializeTechnologies() {
         {32, {"Civil Service", 1500, 32, {15, 30}}},
         {33, {"Paper", 1600, 33, {19}}},
         {34, {"Banking", 1700, 34, {15, 32}}},
-        {35, {"Printing", 1800, 35, {33}}},
-        {36, {"Gunpowder", 2000, 36, {28}}},
-        {37, {"Mechanical Clock", 2200, 37, {29}}},
-        {38, {"Universities", 2400, 38, {30}}},
-        {39, {"Astronomy", 2600, 39, {24, 38}}},
-        {40, {"Chemistry", 2800, 40, {39}}},
-        {41, {"Metallurgy", 3000, 41, {28}}},
-        {42, {"Navigation", 3200, 42, {26, 39}}},
-        {43, {"Architecture", 3400, 43, {23, 31}}},
-        {44, {"Economics", 3600, 44, {34}}},
-        {45, {"Printing Press", 3800, 45, {35}}},
-        {46, {"Firearms", 4000, 46, {36, 41}}},
-        {47, {"Physics", 4200, 47, {39}}},
-        {48, {"Scientific Method", 4500, 48, {47}}},
-        {49, {"Rifling", 4800, 49, {46}}},
-        {50, {"Steam Engine", 5000, 50, {47}}},
-        {51, {"Industrialization", 5500, 51, {41, 50}}},
+        {35, {"Markets", 1750, 35, {15, 34}}}, // Trade markets - requires Currency and Banking
+        {36, {"Printing", 1800, 36, {33}}},
+        {37, {"Gunpowder", 2000, 37, {28}}},
+        {38, {"Mechanical Clock", 2200, 38, {29}}},
+        {39, {"Universities", 2400, 39, {30}}},
+        {40, {"Astronomy", 2600, 40, {24, 39}}},
+        {41, {"Chemistry", 2800, 41, {40}}},
+        {42, {"Metallurgy", 3000, 42, {28}}},
+        {43, {"Navigation", 3200, 43, {26, 40}}},
+        {44, {"Architecture", 3400, 44, {23, 31}}},
+        {45, {"Economics", 3600, 45, {34}}},
+        {46, {"Printing Press", 3800, 46, {36}}},
+        {47, {"Firearms", 4000, 47, {37, 42}}},
+        {48, {"Physics", 4200, 48, {40}}},
+        {49, {"Scientific Method", 4500, 49, {48}}},
+        {50, {"Rifling", 4800, 50, {47}}},
+        {51, {"Steam Engine", 5000, 51, {48}}},
+        {52, {"Industrialization", 5500, 52, {42, 51}}},
         {52, {"Sanitation", 6000, 52, {40}}},
         {53, {"Vaccination", 6500, 53, {40}}},
         {54, {"Electricity", 7000, 54, {48}}},
@@ -241,7 +242,7 @@ double TechnologyManager::techKMultiplier(const TechnologyManager& tm, const Cou
     }
 
     // Small extras for transport and trade
-    if (hasTech(tm, c, 42)) m *= 1.02; // Navigation
+    if (hasTech(tm, c, 43)) m *= 1.02; // Navigation
     if (hasTech(tm, c, 58)) m *= 1.02; // Telegraph
     if (hasTech(tm, c, 59)) m *= 1.02; // Telephone
     if (hasTech(tm, c, 79)) m *= 1.01; // Internet

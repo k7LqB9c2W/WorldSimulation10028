@@ -54,6 +54,9 @@ public:
     void insertDirtyRegion(int regionIndex);
     void triggerPlague(int year, News& news); // Add this line
     
+    // Road building support
+    bool isValidRoadPixel(int x, int y) const;
+    
     // Fast Forward Mode - simulate multiple years quickly
     void fastForwardSimulation(std::vector<Country>& countries, int& currentYear, int targetYears, News& news, class TechnologyManager& technologyManager);
     
