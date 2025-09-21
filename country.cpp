@@ -1061,6 +1061,14 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
         plagueDeaths += deaths;
     }
     // 🏙️ CITY GROWTH AND FOUNDING SYSTEM
+    attemptFactoryConstruction(technologyManager, isLandGrid, countryGrid, gen, news);
+    if (!m_factories.empty()) {
+        double factoryOutput = static_cast<double>(m_factories.size());
+        double efficiencyBonus = TechnologyManager::hasTech(technologyManager, *this, 55) ? 1.5 : 1.0;
+        addGold(5.0 * factoryOutput * efficiencyBonus);
+        addSciencePoints(2.0 * factoryOutput * efficiencyBonus);
+        addCulturePoints(1.0 * factoryOutput);
+    }
     checkCityGrowth(currentYear, news);
     
     // 🚀 NUCLEAR OPTIMIZATION: Streamlined city founding
@@ -1159,6 +1167,16 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
     r *= typeMult;
     
     stepLogistic(r, resourceGrid, kMult, 1.0);
+
+    attemptFactoryConstruction(technologyManager, isLandGrid, countryGrid, gen, news);
+    if (!m_factories.empty()) {
+        double factoryOutput = static_cast<double>(m_factories.size());
+        double efficiencyBonus = TechnologyManager::hasTech(technologyManager, *this, 55) ? 1.5 : 1.0;
+        addGold(5.0 * factoryOutput * efficiencyBonus);
+        addSciencePoints(2.0 * factoryOutput * efficiencyBonus);
+        addCulturePoints(1.0 * factoryOutput);
+    }
+
     
     // Add science and culture points (simplified)
     addSciencePoints(calculateScienceGeneration());  // Normal rate - no artificial multiplier
@@ -2420,5 +2438,78 @@ void Country::applyCultureMultiplier(double bonus) {
     // If multiple great culture effects apply, use the highest bonus.
     if (bonus > m_cultureMultiplier) {
         m_cultureMultiplier = bonus;
+    }
+}
+
+
+void Country::attemptFactoryConstruction(const TechnologyManager& techManager,
+                                         const std::vector<std::vector<bool>>& isLandGrid,
+                                         const std::vector<std::vector<int>>& countryGrid,
+                                         std::mt19937& gen,
+                                         News& news) {
+    constexpr int kMaxFactories = 5;
+    if (!TechnologyManager::hasTech(techManager, *this, 52)) {
+        return;
+    }
+    if (static_cast<int>(m_factories.size()) >= kMaxFactories) {
+        return;
+    }
+    if (m_cities.empty()) {
+        return;
+    }
+
+    auto spacingOk = [&](const sf::Vector2i& pos) {
+        for (const auto& factory : m_factories) {
+            int dx = pos.x - factory.x;
+            int dy = pos.y - factory.y;
+            if (dx * dx + dy * dy < 100) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    std::vector<sf::Vector2i> majorCandidates;
+    std::vector<sf::Vector2i> regularCandidates;
+    for (const auto& city : m_cities) {
+        sf::Vector2i loc = city.getLocation();
+        if (loc.y < 0 || loc.y >= static_cast<int>(isLandGrid.size())) {
+            continue;
+        }
+        if (loc.x < 0 || loc.x >= static_cast<int>(isLandGrid[loc.y].size())) {
+            continue;
+        }
+        if (!isLandGrid[loc.y][loc.x]) {
+            continue;
+        }
+        if (countryGrid[loc.y][loc.x] != m_countryIndex) {
+            continue;
+        }
+        if (city.isMajorCity()) {
+            majorCandidates.push_back(loc);
+        } else {
+            regularCandidates.push_back(loc);
+        }
+    }
+
+    if (majorCandidates.empty() && regularCandidates.empty()) {
+        return;
+    }
+
+    auto tryPlaceFrom = [&](std::vector<sf::Vector2i>& pool) {
+        std::shuffle(pool.begin(), pool.end(), gen);
+        for (const auto& candidate : pool) {
+            if (!spacingOk(candidate)) {
+                continue;
+            }
+            m_factories.push_back(candidate);
+            news.addEvent(m_name + " builds a new national factory complex.");
+            return true;
+        }
+        return false;
+    };
+
+    if (!tryPlaceFrom(majorCandidates)) {
+        tryPlaceFrom(regularCandidates);
     }
 }

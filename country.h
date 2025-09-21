@@ -6,6 +6,7 @@
 #include <vector>
 #include <unordered_set>
 #include <mutex>
+#include <random>
 #include <string>
 #include "resource.h"
 #include "news.h"
@@ -108,6 +109,7 @@ public:
     double calculateDistanceToCountry(const Country& otherCountry) const;
     std::vector<sf::Vector2i> createRoadPath(sf::Vector2i start, sf::Vector2i end, const class Map& map) const;
     const std::vector<sf::Vector2i>& getRoads() const { return m_roads; }
+    const std::vector<sf::Vector2i>& getFactories() const { return m_factories; }
     bool canDeclareWar() const;
     void startWar(Country& target, News& news);
     void endWar(int currentYear = 0);
@@ -195,6 +197,11 @@ public:
     void recordWarEnd(int enemyIndex, int currentYear);
 
 private:
+    void attemptFactoryConstruction(const TechnologyManager& techManager,
+                                    const std::vector<std::vector<bool>>& isLandGrid,
+                                    const std::vector<std::vector<int>>& countryGrid,
+                                    std::mt19937& gen,
+                                    News& news);
     int m_countryIndex;
     sf::Color m_color;
     long long m_population;
@@ -221,6 +228,7 @@ private:
     
     // ROAD BUILDING SYSTEM
     std::vector<sf::Vector2i> m_roads; // All road pixels owned by this country
+    std::vector<sf::Vector2i> m_factories; // Factory positions within national territory
     std::unordered_map<int, std::vector<sf::Vector2i>> m_roadsToCountries; // Roads to specific countries
     int m_nextRoadCheckYear = -5000; // When to next check for road building opportunities (initialize to start year)
     bool m_hasCheckedMajorCityUpgrade = false; // Track if we've checked for major city upgrade this population milestone

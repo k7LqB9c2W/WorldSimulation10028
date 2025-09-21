@@ -47,6 +47,19 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
         }
     }
 
+    if (m_factoryTexture.loadFromFile("factory.png")) {
+        sf::Vector2u texSize = m_factoryTexture.getSize();
+        m_factorySprite.setTexture(m_factoryTexture);
+        m_factorySprite.setOrigin(static_cast<float>(texSize.x) / 2.f, static_cast<float>(texSize.y) / 2.f);
+        float targetSize = std::max(8.f, static_cast<float>(map.getGridCellSize()) * 12.f);
+        float maxDimension = static_cast<float>(std::max(texSize.x, texSize.y));
+        if (maxDimension > 0.f) {
+            float scale = targetSize / maxDimension;
+            m_factorySprite.setScale(scale, scale);
+        }
+    }
+
+
     // Initialize country info window elements
     m_infoWindowBackground.setFillColor(sf::Color(0, 0, 0, 175));
     m_infoWindowBackground.setSize(sf::Vector2f(400, 350));
@@ -86,6 +99,8 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
     if (m_extractorVertices.getVertexCount() > 0) {
         m_window.draw(m_extractorVertices);
     }
+
+    drawFactories(countries, map, visibleArea);
 
     // Draw cities with viewport culling (on top of infrastructure)
     for (const auto& country : countries) {
@@ -910,4 +925,39 @@ void Renderer::drawRoadNetwork(const Country& country, const Map& map, const Tec
             m_window.draw(roadHighlight);
         }
     }
+}
+
+void Renderer::drawFactories(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
+    if (!m_factoryTexture.getSize().x || !m_factoryTexture.getSize().y) {
+        return;
+    }
+
+    float cellSize = static_cast<float>(map.getGridCellSize());
+    sf::FloatRect spriteBounds;
+
+    for (const auto& country : countries) {
+        sf::Color tint = country.getColor();
+        tint.a = 220;
+        for (const auto& factoryPos : country.getFactories()) {
+            sf::Vector2f worldCenter((static_cast<float>(factoryPos.x) + 0.5f) * cellSize,
+                                     (static_cast<float>(factoryPos.y) + 0.5f) * cellSize);
+
+            sf::Vector2f halfSize(m_factoryTexture.getSize().x * 0.5f * m_factorySprite.getScale().x,
+                                  m_factoryTexture.getSize().y * 0.5f * m_factorySprite.getScale().y);
+            spriteBounds = sf::FloatRect(worldCenter.x - halfSize.x,
+                                         worldCenter.y - halfSize.y,
+                                         halfSize.x * 2.f,
+                                         halfSize.y * 2.f);
+
+            if (!visibleArea.intersects(spriteBounds)) {
+                continue;
+            }
+
+            m_factorySprite.setColor(tint);
+            m_factorySprite.setPosition(worldCenter);
+            m_window.draw(m_factorySprite);
+        }
+    }
+
+    m_factorySprite.setColor(sf::Color::White);
 }

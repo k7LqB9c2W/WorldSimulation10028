@@ -63,6 +63,8 @@ private:
     };
     std::vector<ResourceCell> m_resourceCells;
     sf::VertexArray m_extractorVertices;
+    sf::Texture m_factoryTexture;
+    sf::Sprite m_factorySprite;
 
     void updateCountryImage(const std::vector<std::vector<int>>& countryGrid, const std::vector<Country>& countries, const Map& map);
     void drawCountryInfo(const Country* country, const TechnologyManager& techManager);
@@ -74,6 +76,7 @@ private:
     sf::Color getExtractorColor(Resource::Type type) const;
     int getExtractorUnlockTech(Resource::Type type) const;
     void drawRoadNetwork(const Country& country, const Map& map, const TechnologyManager& technologyManager, const sf::FloatRect& visibleArea);
+    void drawFactories(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
 
 };
 
