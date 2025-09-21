@@ -934,42 +934,37 @@ int main() {
         }
         
         // STEP 2: Smart rendering - only render when needed or for smooth interaction
-        bool needsRender = renderingNeedsUpdate || enableZoom || isDragging || showCountryInfo || megaTimeJumpMode || countryAddEditorMode;
-        
-        if (needsRender) {
-            if (megaTimeJumpMode) {
-                // Use dedicated mega time jump renderer (no game world, no flickering)
-                renderer.renderMegaTimeJumpScreen(megaTimeJumpInput, m_font);
-            } else if (countryAddEditorMode) {
-                // Use dedicated country add editor renderer
-                renderer.renderCountryAddEditor(editorInput, editorState, maxTechId, maxCultureId, m_font);
-            } else {
-                // Normal game rendering
-                if (enableZoom) {
-                    window.setView(zoomedView);
-                }
-                
-                renderer.render(countries, map, news, technologyManager, cultureManager, selectedCountry, showCountryInfo);
-                window.display();
-            }
-            
+        bool renderedFrame = false;
+
+        if (megaTimeJumpMode) {
+            renderer.renderMegaTimeJumpScreen(megaTimeJumpInput, m_font);
+            renderedFrame = true;
+        } else if (countryAddEditorMode) {
+            renderer.renderCountryAddEditor(editorInput, editorState, maxTechId, maxCultureId, m_font);
+            renderedFrame = true;
+        } else {
+            window.setView(enableZoom ? zoomedView : defaultView);
+
+            renderer.render(countries, map, news, technologyManager, cultureManager, selectedCountry, showCountryInfo);
+            window.display();
+
+            renderedFrame = true;
             renderingNeedsUpdate = false;
         }
-        
+
         // STEP 3: Intelligent frame rate control
         float frameTime = frameClock.getElapsedTime().asSeconds();
-        
+
         if (turboMode) {
             // In turbo mode, prioritize simulation over smooth rendering
             if (frameTime < 0.033f) { // Cap at 30 FPS in turbo mode
                 sf::sleep(sf::seconds(0.033f - frameTime));
             }
         } else {
-            // Normal mode - smooth 60 FPS when rendering
-            if (needsRender && frameTime < targetFrameTime) {
+            // Normal mode - smooth 60 FPS, fall back to light sleep when idle
+            if (renderedFrame && frameTime < targetFrameTime) {
                 sf::sleep(sf::seconds(targetFrameTime - frameTime));
-            } else if (!needsRender) {
-                // If not rendering, sleep longer to save CPU
+            } else if (!renderedFrame) {
                 sf::sleep(sf::seconds(0.016f));
             }
         }
