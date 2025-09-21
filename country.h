@@ -257,6 +257,7 @@ private:
     double m_warDurationReduction = 0.0;
     double m_maxSizeMultiplier = 1.0;
     int m_expansionRateBonus = 0;
+    int m_flatMaxSizeBonus = 0; // Additional flat territory cap unlocked by breakthrough logistics
     int m_burstExpansionRadius = 1; // How many pixels outward to expand in bursts
     int m_burstExpansionFrequency = 0; // How often burst expansion occurs (0 = never)
     int m_warBurstConquestRadius = 1; // How many enemy pixels to capture in war bursts

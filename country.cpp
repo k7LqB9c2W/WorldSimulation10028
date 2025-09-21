@@ -8,6 +8,8 @@
 #include <iostream>
 #include <limits>
 #include <mutex>
+#include <unordered_set>
+#include <queue>
 #include <cmath> // For std::llround
 
 // Initialize static science scaler (tuned for realistic science progression)
@@ -192,7 +194,8 @@ int Country::getMaxExpansionPixels(int year) const {
     
     // 🚀 TECHNOLOGY EXPANSION MULTIPLIER - Advanced civs can build massive empires!
     double techMultiplier = getMaxSizeMultiplier();
-    return static_cast<int>(typeModifiedLimit * techMultiplier);
+    int techAdjustedLimit = static_cast<int>(typeModifiedLimit * techMultiplier);
+    return techAdjustedLimit + m_flatMaxSizeBonus;
 }
 
 // Check if the country can declare war
@@ -749,12 +752,193 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
         }
     }
 
+
+    // WARMONGER TERRITORIAL SURGE - occasional large-scale grabs beyond immediate border
+    if (m_type == Type::Warmonger && !m_isContentWithSize && !m_boundaryPixels.empty()) {
+        std::uniform_real_distribution<> blobChance(0.0, 1.0);
+        if (blobChance(gen) < 0.5) {
+            int maxExpansionPixels = getMaxExpansionPixels(currentYear);
+            int currentApproxSize = static_cast<int>(m_boundaryPixels.size());
+            int remainingCapacity = std::max(0, maxExpansionPixels - currentApproxSize);
+
+            int blobRadius = 5 + static_cast<int>(std::min(5.0, getMaxSizeMultiplier()));
+            if (m_flatMaxSizeBonus >= 2000) blobRadius += 3;
+            if (m_flatMaxSizeBonus >= 3000) blobRadius += 4;
+
+            int blobTarget = blobRadius * blobRadius * 4;
+            if (m_flatMaxSizeBonus >= 3000) blobTarget += 150;
+            else if (m_flatMaxSizeBonus >= 2000) blobTarget += 90;
+            blobTarget += static_cast<int>(getExpansionRateBonus() * 0.6);
+            blobTarget = std::min(blobTarget, remainingCapacity);
+
+            if (blobTarget > 0) {
+                static const std::vector<sf::Vector2i> blobDirections = {
+                    {1,0}, {1,1}, {0,1}, {-1,1}, {-1,0}, {-1,-1}, {0,-1}, {1,-1}
+                };
+                std::uniform_int_distribution<> dirDist(0, static_cast<int>(blobDirections.size()) - 1);
+
+                std::vector<sf::Vector2i> boundaryVector(m_boundaryPixels.begin(), m_boundaryPixels.end());
+                std::shuffle(boundaryVector.begin(), boundaryVector.end(), gen);
+
+                sf::Vector2i chosenDir;
+                sf::Vector2i seedCell;
+                bool foundSeed = false;
+
+                for (int attempt = 0; attempt < static_cast<int>(blobDirections.size()) && !foundSeed; ++attempt) {
+                    chosenDir = blobDirections[dirDist(gen)];
+                    for (const auto& boundaryCell : boundaryVector) {
+                        sf::Vector2i probe = boundaryCell + chosenDir;
+                        if (probe.x < 0 || probe.x >= static_cast<int>(isLandGrid[0].size()) ||
+                            probe.y < 0 || probe.y >= static_cast<int>(isLandGrid.size()) ||
+                            !isLandGrid[probe.y][probe.x]) {
+                            continue;
+                        }
+
+                        int owner;
+                        {
+                            std::lock_guard<std::mutex> lock(gridMutex);
+                            owner = countryGrid[probe.y][probe.x];
+                        }
+
+                        bool enemyCell = false;
+                        if (owner >= 0 && owner != m_countryIndex) {
+                            enemyCell = std::any_of(m_enemies.begin(), m_enemies.end(), [&](const Country* e){ return e->getCountryIndex() == owner; });
+                        }
+
+                        if (owner == -1 || enemyCell) {
+                            seedCell = probe;
+                            foundSeed = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (foundSeed) {
+                    std::queue<std::pair<sf::Vector2i,int>> frontier;
+                    std::unordered_set<sf::Vector2i> visited;
+                    frontier.push({seedCell, 0});
+                    visited.insert(seedCell);
+                    std::vector<sf::Vector2i> blobCells;
+                    blobCells.reserve(blobTarget);
+
+                    while (!frontier.empty() && static_cast<int>(blobCells.size()) < blobTarget) {
+                        auto [cell, distance] = frontier.front();
+                        frontier.pop();
+
+                        if (cell.x < 0 || cell.x >= static_cast<int>(isLandGrid[0].size()) ||
+                            cell.y < 0 || cell.y >= static_cast<int>(isLandGrid.size()) ||
+                            !isLandGrid[cell.y][cell.x]) {
+                            continue;
+                        }
+
+                        int owner;
+                        {
+                            std::lock_guard<std::mutex> lock(gridMutex);
+                            owner = countryGrid[cell.y][cell.x];
+                        }
+
+                        bool enemyCell = false;
+                        if (owner >= 0 && owner != m_countryIndex) {
+                            enemyCell = std::any_of(m_enemies.begin(), m_enemies.end(), [&](const Country* e){ return e->getCountryIndex() == owner; });
+                        }
+
+                        if (owner == -1 || enemyCell) {
+                            blobCells.push_back(cell);
+                        }
+
+                        if (distance >= blobRadius) {
+                            continue;
+                        }
+
+                        static const sf::Vector2i offsets[8] = {
+                            {1,0}, {1,1}, {0,1}, {-1,1}, {-1,0}, {-1,-1}, {0,-1}, {1,-1}
+                        };
+                        for (const auto& delta : offsets) {
+                            sf::Vector2i next = cell + delta;
+                            if (visited.count(next)) {
+                                continue;
+                            }
+
+                            sf::Vector2i relative = next - seedCell;
+                            int dot = relative.x * chosenDir.x + relative.y * chosenDir.y;
+                            if (dot < 0) {
+                                continue;
+                            }
+
+                            visited.insert(next);
+                            frontier.push({next, distance + 1});
+                            if (static_cast<int>(visited.size()) >= blobTarget * 3) {
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!blobCells.empty()) {
+                        if (static_cast<int>(blobCells.size()) > remainingCapacity) {
+                            blobCells.resize(remainingCapacity);
+                        }
+
+                        std::vector<std::pair<Country*, sf::Vector2i>> capturedCells;
+                        capturedCells.reserve(blobCells.size());
+
+                        {
+                            std::lock_guard<std::mutex> lock(gridMutex);
+                            for (const auto& cell : blobCells) {
+                                int prevOwner = countryGrid[cell.y][cell.x];
+                                if (prevOwner == m_countryIndex) {
+                                    continue;
+                                }
+
+                                Country* prevCountry = nullptr;
+                                if (prevOwner >= 0) {
+                                    if (prevOwner < static_cast<int>(allCountries.size()) && allCountries[prevOwner].getCountryIndex() == prevOwner) {
+                                        prevCountry = &allCountries[prevOwner];
+                                    } else {
+                                        for (auto& candidate : allCountries) {
+                                            if (candidate.getCountryIndex() == prevOwner) {
+                                                prevCountry = &candidate;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                countryGrid[cell.y][cell.x] = m_countryIndex;
+                                int regionIndex = static_cast<int>((cell.y / regionSize) * (isLandGrid[0].size() / regionSize) + (cell.x / regionSize));
+                                dirtyRegions.insert(regionIndex);
+
+                                if (prevCountry) {
+                                    capturedCells.emplace_back(prevCountry, cell);
+                                }
+
+                                newBoundaryPixels.push_back(cell);
+                                m_boundaryPixels.insert(cell);
+                            }
+                        }
+
+                        for (auto& entry : capturedCells) {
+                            Country* prevCountry = entry.first;
+                            const sf::Vector2i& cell = entry.second;
+                            prevCountry->m_boundaryPixels.erase(cell);
+                            double randomFactor = static_cast<double>(rand() % 101) / 100.0;
+                            long long baseLoss = static_cast<long long>(prevCountry->getPopulation() * (0.001 + (0.002 * randomFactor)));
+                            prevCountry->setPopulation(std::max(0LL, prevCountry->getPopulation() - baseLoss));
+                        }
+
+                        news.addEvent(m_name + " establishes a new frontier region!");
+                    }
+                }
+            }
+        }
+    }
+
     // 🚀⚡ SUPER OPTIMIZED BURST EXPANSION - Lightning fast! ⚡🚀
     if (doBurstExpansion && !m_boundaryPixels.empty() && !m_isContentWithSize) {
         
         // OPTIMIZATION 1: Pre-calculate burst size to avoid expensive nested loops
-        int targetBurstPixels = burstRadius * burstRadius * 2; // Approximate burst area
-        targetBurstPixels = std::min(targetBurstPixels, 120); // Cap for performance
+        int targetBurstPixels = burstRadius * burstRadius * 3; // Scale bursts with modern logistics
+        int burstPixelCap = (m_flatMaxSizeBonus > 0) ? 240 : 120; // Navigation/Railroad unlock larger colonial waves
+        targetBurstPixels = std::min(targetBurstPixels, burstPixelCap); // Respect performance guardrail
         
         // OPTIMIZATION 2: Use random sampling instead of exhaustive search
         std::vector<sf::Vector2i> burstTargets;
@@ -1227,9 +1411,10 @@ void Country::applyTechnologyBonus(int techId) {
             break;
         case 42: // Navigation
             m_maxSizeMultiplier += 1.5; // +150% max territory size (MASSIVE COLONIAL EMPIRES!)
-            m_expansionRateBonus += 50; // +50 pixels per year (rapid colonization)
-            m_burstExpansionRadius = 5; // Expand 5 pixels outward in bursts (MASSIVE WAVES!)
-            m_burstExpansionFrequency = 5; // Burst expansion every 5 years
+            m_flatMaxSizeBonus += 2000; // +2000 coastal/ocean pixels (~190k sq mi) unlocked by blue-water navigation
+            m_expansionRateBonus += 90; // +90 pixels per year (enhanced colonial logistics)
+            m_burstExpansionRadius = 6; // Expand 6 pixels outward in bursts (deeper ocean corridors)
+            m_burstExpansionFrequency = 4; // Burst expansion every 4 years
             break;
             
         // 💰 ECONOMIC EXPANSION TECHNOLOGIES
@@ -1250,9 +1435,10 @@ void Country::applyTechnologyBonus(int techId) {
         // 🚂 INDUSTRIAL EXPANSION
         case 55: // Railroad
             m_maxSizeMultiplier += 2.0; // +200% max territory size (CONTINENTAL EMPIRES!)
-            m_expansionRateBonus += 100; // +100 pixels per year (RAPID RAIL EXPANSION!)
-            m_burstExpansionRadius = 8; // Expand 8 pixels outward in bursts (RAILROAD NETWORKS!)
-            m_burstExpansionFrequency = 3; // Burst expansion every 3 years
+            m_flatMaxSizeBonus += 3000; // +3000 inland pixels (~285k sq mi) opened by continental rail grids
+            m_expansionRateBonus += 180; // +180 pixels per year (rapid rail logistics)
+            m_burstExpansionRadius = 10; // Expand 10 pixels outward in bursts (rail hub surges)
+            m_burstExpansionFrequency = 2; // Burst expansion every 2 years
             break;
             
         // ⚔️ MEDIEVAL MILITARY TECHNOLOGIES
@@ -2071,12 +2257,11 @@ void Country::buildRoads(std::vector<Country>& allCountries, const Map& map,
         // Check if we already have roads to this country
         if (m_roadsToCountries.find(otherCountry.getCountryIndex()) != m_roadsToCountries.end()) continue;
         
-        // Must be neighbors or within reasonable distance
+        // Only build roads when countries share a land border
         if (!map.areNeighbors(*this, otherCountry)) {
-            double distance = calculateDistanceToCountry(otherCountry);
-            if (distance > 600) continue; // Max road distance (increased from 150)
+            continue;
         }
-        
+
         // Build road between closest cities
         sf::Vector2i ourClosestCity = getClosestCityTo(otherCountry);
         sf::Vector2i theirClosestCity = otherCountry.getClosestCityTo(*this);

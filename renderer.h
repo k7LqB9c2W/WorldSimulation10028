@@ -56,11 +56,24 @@ private:
     int m_civicScrollOffset;
     int m_maxCivicScrollOffset;
 
+    // Infrastructure overlays
+    struct ResourceCell {
+        sf::Vector2i position;
+        Resource::Type type;
+    };
+    std::vector<ResourceCell> m_resourceCells;
+    sf::VertexArray m_extractorVertices;
+
     void updateCountryImage(const std::vector<std::vector<int>>& countryGrid, const std::vector<Country>& countries, const Map& map);
     void drawCountryInfo(const Country* country, const TechnologyManager& techManager);
     void drawWarmongerHighlights(const std::vector<Country>& countries, const Map& map);
     void drawWarHighlights(const std::vector<Country>& countries, const Map& map);
     void drawTechList(const Country* country, const TechnologyManager& techManager, float x, float y, float width, float height);
     void drawCivicList(const Country* country, const CultureManager& cultureManager);
+    void updateExtractorVertices(const Map& map, const std::vector<Country>& countries, const TechnologyManager& technologyManager);
+    sf::Color getExtractorColor(Resource::Type type) const;
+    int getExtractorUnlockTech(Resource::Type type) const;
+    void drawRoadNetwork(const Country& country, const Map& map, const TechnologyManager& technologyManager, const sf::FloatRect& visibleArea);
 
 };
+

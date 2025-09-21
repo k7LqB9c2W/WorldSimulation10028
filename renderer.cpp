@@ -33,6 +33,20 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
     m_countryTexture.loadFromImage(m_countryImage);
     m_countrySprite.setTexture(m_countryTexture);
 
+    m_extractorVertices.setPrimitiveType(sf::Quads);
+    const auto& resourceGridInit = map.getResourceGrid();
+    for (size_t y = 0; y < resourceGridInit.size(); ++y) {
+        for (size_t x = 0; x < resourceGridInit[y].size(); ++x) {
+            const auto& resources = resourceGridInit[y][x];
+            for (const auto& entry : resources) {
+                if (entry.first == Resource::Type::FOOD) {
+                    continue;
+                }
+                m_resourceCells.push_back({sf::Vector2i(static_cast<int>(x), static_cast<int>(y)), entry.first});
+            }
+        }
+    }
+
     // Initialize country info window elements
     m_infoWindowBackground.setFillColor(sf::Color(0, 0, 0, 175));
     m_infoWindowBackground.setSize(sf::Vector2f(400, 350));
@@ -61,23 +75,19 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
     sf::Vector2f viewSize = m_window.getView().getSize();
     sf::FloatRect visibleArea(viewCenter.x - viewSize.x/2, viewCenter.y - viewSize.y/2, viewSize.x, viewSize.y);
 
-    // Draw roads first (so they appear under cities)
+    // Refresh infrastructure overlays before drawing per-country assets
+    updateExtractorVertices(map, countries, technologyManager);
+
+    // Draw roads/rails first (so they appear under cities)
     for (const auto& country : countries) {
-        const auto& roads = country.getRoads();
-        for (const auto& roadPixel : roads) {
-            sf::Vector2f roadWorldPos(roadPixel.x * map.getGridCellSize(), roadPixel.y * map.getGridCellSize());
-            
-            // Only draw roads that are visible in the current viewport
-            if (visibleArea.contains(roadWorldPos)) {
-                sf::RectangleShape roadShape(sf::Vector2f(1, 1));
-                roadShape.setFillColor(sf::Color::Black);
-                roadShape.setPosition(roadWorldPos.x, roadWorldPos.y);
-                m_window.draw(roadShape);
-            }
-        }
+        drawRoadNetwork(country, map, technologyManager, visibleArea);
     }
 
-    // Draw cities with viewport culling (on top of roads)
+    if (m_extractorVertices.getVertexCount() > 0) {
+        m_window.draw(m_extractorVertices);
+    }
+
+    // Draw cities with viewport culling (on top of infrastructure)
     for (const auto& country : countries) {
         for (const auto& city : country.getCities()) {
             sf::Vector2i cityLocation = city.getLocation();
@@ -738,4 +748,166 @@ void Renderer::renderCountryAddEditor(const std::string& inputText, int editorSt
     m_window.draw(progressBar);
     
     m_window.display();
+}
+
+void Renderer::updateExtractorVertices(const Map& map, const std::vector<Country>& countries, const TechnologyManager& technologyManager) {
+    m_extractorVertices.clear();
+    m_extractorVertices.setPrimitiveType(sf::Quads);
+
+    if (m_resourceCells.empty()) {
+        return;
+    }
+
+    const auto& countryGrid = map.getCountryGrid();
+    const auto& resourceGrid = map.getResourceGrid();
+    float cellSize = static_cast<float>(map.getGridCellSize());
+
+    for (const auto& cell : m_resourceCells) {
+        int x = cell.position.x;
+        int y = cell.position.y;
+
+        if (y < 0 || y >= static_cast<int>(countryGrid.size())) {
+            continue;
+        }
+        if (x < 0 || x >= static_cast<int>(countryGrid[y].size())) {
+            continue;
+        }
+
+        int ownerIndex = countryGrid[y][x];
+        if (ownerIndex < 0) {
+            continue;
+        }
+
+        const Country* owner = nullptr;
+        if (ownerIndex < static_cast<int>(countries.size()) && countries[ownerIndex].getCountryIndex() == ownerIndex) {
+            owner = &countries[ownerIndex];
+        } else {
+            for (const auto& candidate : countries) {
+                if (candidate.getCountryIndex() == ownerIndex) {
+                    owner = &candidate;
+                    break;
+                }
+            }
+        }
+
+        if (!owner) {
+            continue;
+        }
+
+        int requiredTech = getExtractorUnlockTech(cell.type);
+        if (requiredTech != 0 && !TechnologyManager::hasTech(technologyManager, *owner, requiredTech)) {
+            continue;
+        }
+
+        const auto& resourcesInCell = resourceGrid[y][x];
+        auto it = resourcesInCell.find(cell.type);
+        if (it == resourcesInCell.end() || it->second <= 0.0) {
+            continue;
+        }
+
+        sf::Color glyphColor = getExtractorColor(cell.type);
+        float worldX = static_cast<float>(x) * cellSize;
+        float worldY = static_cast<float>(y) * cellSize;
+        float glyphSize = std::max(0.6f, cellSize * 0.6f);
+        float offset = (cellSize - glyphSize) / 2.f;
+
+        sf::Vertex v0(sf::Vector2f(worldX + offset, worldY + offset), glyphColor);
+        sf::Vertex v1(sf::Vector2f(worldX + offset + glyphSize, worldY + offset), glyphColor);
+        sf::Vertex v2(sf::Vector2f(worldX + offset + glyphSize, worldY + offset + glyphSize), glyphColor);
+        sf::Vertex v3(sf::Vector2f(worldX + offset, worldY + offset + glyphSize), glyphColor);
+
+        m_extractorVertices.append(v0);
+        m_extractorVertices.append(v1);
+        m_extractorVertices.append(v2);
+        m_extractorVertices.append(v3);
+    }
+}
+
+sf::Color Renderer::getExtractorColor(Resource::Type type) const {
+    switch (type) {
+        case Resource::Type::GOLD:
+            return sf::Color(255, 215, 0, 220);
+        case Resource::Type::IRON:
+            return sf::Color(190, 190, 190, 220);
+        case Resource::Type::COAL:
+            return sf::Color(60, 60, 60, 220);
+        case Resource::Type::HORSES:
+            return sf::Color(176, 121, 66, 220);
+        case Resource::Type::SALT:
+            return sf::Color(210, 230, 255, 220);
+        default:
+            return sf::Color(255, 255, 255, 200);
+    }
+}
+
+int Renderer::getExtractorUnlockTech(Resource::Type type) const {
+    switch (type) {
+        case Resource::Type::IRON:
+            return 13; // Iron Working
+        case Resource::Type::COAL:
+            return 55; // Railroad
+        case Resource::Type::GOLD:
+            return 34; // Banking
+        case Resource::Type::HORSES:
+            return 18; // Horseback Riding
+        case Resource::Type::SALT:
+            return 16; // Construction
+        default:
+            return 0;
+    }
+}
+
+void Renderer::drawRoadNetwork(const Country& country, const Map& map, const TechnologyManager& technologyManager, const sf::FloatRect& visibleArea) {
+    const auto& roads = country.getRoads();
+    if (roads.empty()) {
+        return;
+    }
+
+    bool hasRail = TechnologyManager::hasTech(technologyManager, country, 55);
+    float cellSize = static_cast<float>(map.getGridCellSize());
+
+    sf::RectangleShape roadSurface(sf::Vector2f(cellSize, cellSize));
+    roadSurface.setFillColor(sf::Color(105, 100, 90, 205));
+
+    float highlightSize = std::max(0.6f, cellSize * 0.5f);
+    sf::RectangleShape roadHighlight(sf::Vector2f(highlightSize, highlightSize));
+    roadHighlight.setOrigin(highlightSize / 2.f, highlightSize / 2.f);
+    sf::Color highlightColor = country.getColor();
+    highlightColor.a = 200;
+    roadHighlight.setFillColor(highlightColor);
+
+    sf::RectangleShape railBase(sf::Vector2f(cellSize, cellSize));
+    railBase.setFillColor(sf::Color(75, 78, 90, 220));
+
+    float glowSize = std::max(0.7f, cellSize * 0.35f);
+    sf::RectangleShape railGlow(sf::Vector2f(glowSize, glowSize));
+    railGlow.setOrigin(glowSize / 2.f, glowSize / 2.f);
+    sf::Color glowColor = highlightColor;
+    glowColor.r = static_cast<sf::Uint8>(std::min(255, glowColor.r + 80));
+    glowColor.g = static_cast<sf::Uint8>(std::min(255, glowColor.g + 80));
+    glowColor.b = static_cast<sf::Uint8>(std::min(255, glowColor.b + 40));
+    glowColor.a = 230;
+    railGlow.setFillColor(glowColor);
+
+    for (const auto& roadPixel : roads) {
+        sf::Vector2f roadWorldPos(roadPixel.x * cellSize, roadPixel.y * cellSize);
+        sf::FloatRect roadBounds(roadWorldPos.x, roadWorldPos.y, cellSize, cellSize);
+        if (!visibleArea.intersects(roadBounds)) {
+            continue;
+        }
+
+        if (hasRail) {
+            railBase.setPosition(roadWorldPos);
+            m_window.draw(railBase);
+
+            railGlow.setPosition(roadWorldPos.x + cellSize / 2.f, roadWorldPos.y + cellSize / 2.f);
+            m_window.draw(railGlow);
+        } else {
+            roadSurface.setPosition(roadWorldPos);
+            m_window.draw(roadSurface);
+
+            roadHighlight.setPosition(roadWorldPos.x + cellSize / 2.f, roadWorldPos.y + cellSize / 2.f);
+            m_window.draw(roadHighlight);
+        }
+    }
 }
