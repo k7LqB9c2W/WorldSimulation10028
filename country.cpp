@@ -820,6 +820,7 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
                     visited.insert(seedCell);
                     std::vector<sf::Vector2i> blobCells;
                     blobCells.reserve(blobTarget);
+                    const int radiusSq = blobRadius * blobRadius; // bias flood fill toward circular shapes
 
                     while (!frontier.empty() && static_cast<int>(blobCells.size()) < blobTarget) {
                         auto [cell, distance] = frontier.front();
@@ -828,6 +829,12 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
                         if (cell.x < 0 || cell.x >= static_cast<int>(isLandGrid[0].size()) ||
                             cell.y < 0 || cell.y >= static_cast<int>(isLandGrid.size()) ||
                             !isLandGrid[cell.y][cell.x]) {
+                            continue;
+                        }
+
+                        sf::Vector2i relativeToSeed = cell - seedCell;
+                        int distSq = relativeToSeed.x * relativeToSeed.x + relativeToSeed.y * relativeToSeed.y;
+                        if (distSq > radiusSq) {
                             continue;
                         }
 
@@ -860,8 +867,8 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
                             }
 
                             sf::Vector2i relative = next - seedCell;
-                            int dot = relative.x * chosenDir.x + relative.y * chosenDir.y;
-                            if (dot < 0) {
+                            int nextDistSq = relative.x * relative.x + relative.y * relative.y;
+                            if (nextDistSq > radiusSq) {
                                 continue;
                             }
 
@@ -2513,3 +2520,4 @@ void Country::attemptFactoryConstruction(const TechnologyManager& techManager,
         tryPlaceFrom(regularCandidates);
     }
 }
+
