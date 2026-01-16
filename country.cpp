@@ -41,7 +41,11 @@ Country::Country(int countryIndex, const sf::Color& color, const sf::Vector2i& s
     m_warCheckCooldown(0),
     m_warCheckDuration(0),
     m_isSeekingWar(false),
-    m_sciencePoints(0.0) // Initialize science points to zero
+    m_sciencePoints(0.0),
+    m_stability(1.0),
+    m_stagnationYears(0),
+    m_fragmentationCooldown(0),
+    m_yearsSinceWar(0)
 {
     m_boundaryPixels.insert(startCell);
     //intiialize war check
@@ -359,6 +363,72 @@ void Country::setPopulation(long long population)
     m_population = population;
 }
 
+double Country::getStability() const {
+    return m_stability;
+}
+
+int Country::getYearsSinceWar() const {
+    return m_yearsSinceWar;
+}
+
+bool Country::isFragmentationReady() const {
+    return m_stability < 0.2 && m_fragmentationCooldown <= 0;
+}
+
+int Country::getFragmentationCooldown() const {
+    return m_fragmentationCooldown;
+}
+
+void Country::setStability(double stability) {
+    m_stability = std::max(0.0, std::min(1.0, stability));
+}
+
+void Country::setFragmentationCooldown(int years) {
+    m_fragmentationCooldown = std::max(0, years);
+}
+
+void Country::setYearsSinceWar(int years) {
+    m_yearsSinceWar = std::max(0, years);
+}
+
+void Country::resetStagnation() {
+    m_stagnationYears = 0;
+}
+
+sf::Vector2i Country::getCapitalLocation() const {
+    if (!m_cities.empty()) {
+        return m_cities.front().getLocation();
+    }
+    return m_startingPixel;
+}
+
+void Country::setStartingPixel(const sf::Vector2i& cell) {
+    m_startingPixel = cell;
+}
+
+void Country::setTerritory(const std::unordered_set<sf::Vector2i>& territory) {
+    m_boundaryPixels = territory;
+}
+
+void Country::setCities(const std::vector<City>& cities) {
+    m_cities = cities;
+    m_hasCity = !m_cities.empty();
+}
+
+void Country::setRoads(const std::vector<sf::Vector2i>& roads) {
+    m_roads = roads;
+    m_roadsToCountries.clear();
+}
+
+void Country::clearRoadNetwork() {
+    m_roads.clear();
+    m_roadsToCountries.clear();
+}
+
+void Country::setFactories(const std::vector<sf::Vector2i>& factories) {
+    m_factories = factories;
+}
+
 // Check if another country is a neighbor
 bool Country::isNeighbor(const Country& other) const {
     for (const auto& cell1 : m_boundaryPixels) {
@@ -385,6 +455,7 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
     // PERFORMANCE OPTIMIZATION: Use static generators to avoid expensive random_device creation
     static std::random_device rd;
     static std::mt19937 gen(rd());
+    long long previousPopulation = m_population;
     std::uniform_int_distribution<> growthDist(10, 25);
     int growth = growthDist(gen);
     
@@ -1067,6 +1138,38 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
         // Update the total death toll
         plagueDeaths += deaths;
     }
+    
+    // Stability system: war, plague, and stagnation reduce stability over time
+    double growthRatio = 0.0;
+    if (previousPopulation > 0) {
+        growthRatio = static_cast<double>(m_population - previousPopulation) / static_cast<double>(previousPopulation);
+    }
+
+    if (growthRatio < 0.001) {
+        m_stagnationYears++;
+    } else {
+        m_stagnationYears = 0;
+    }
+
+    bool plagueAffected = plagueActive && map.isCountryAffectedByPlague(m_countryIndex);
+    double stabilityDelta = 0.0;
+    if (isAtWar()) {
+        stabilityDelta -= 0.05;
+    }
+    if (plagueAffected) {
+        stabilityDelta -= 0.08;
+    }
+    if (m_stagnationYears > 20) {
+        stabilityDelta -= 0.02;
+    }
+    if (!isAtWar() && !plagueAffected) {
+        stabilityDelta += (growthRatio > 0.003) ? 0.02 : 0.005;
+    }
+
+    m_stability = std::max(0.0, std::min(1.0, m_stability + stabilityDelta));
+    if (m_fragmentationCooldown > 0) {
+        m_fragmentationCooldown--;
+    }
     // 🏙️ CITY GROWTH AND FOUNDING SYSTEM
     attemptFactoryConstruction(technologyManager, isLandGrid, countryGrid, gen, news);
     if (!m_factories.empty()) {
@@ -1116,6 +1219,12 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
     }
     else if (m_peaceDuration > 0) {
         decrementPeaceDuration();
+    }
+
+    if (isAtWar()) {
+        m_yearsSinceWar = 0;
+    } else {
+        m_yearsSinceWar = std::min(m_yearsSinceWar + 1, 10000);
     }
 }
 

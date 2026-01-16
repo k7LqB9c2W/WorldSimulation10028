@@ -1,8 +1,10 @@
 // renderer.cpp
 
 #include "renderer.h"
+#include "trade.h"
 #include <string>
 #include <algorithm>
+#include <cmath>
 
 Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& waterColor) :
     m_window(window),
@@ -10,6 +12,7 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
     m_needsUpdate(true),
     m_showWarmongerHighlights(false),
     m_showWarHighlights(false),
+    m_currentYear(0),
     m_techScrollOffset(0),
     m_civicScrollOffset(0),
     m_maxCivicScrollOffset(0),
@@ -70,7 +73,7 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
     m_infoWindowColorSquare.setSize(sf::Vector2f(20, 20));
 }
 
-void Renderer::render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const CultureManager& cultureManager, const Country* selectedCountry, bool showCountryInfo) {
+void Renderer::render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const CultureManager& cultureManager, const TradeManager& tradeManager, const Country* selectedCountry, bool showCountryInfo) {
     m_window.clear();
 
     m_window.draw(m_baseSprite); // Draw the base map (map.png)
@@ -88,6 +91,8 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
     sf::Vector2f viewSize = m_window.getView().getSize();
     sf::FloatRect visibleArea(viewCenter.x - viewSize.x/2, viewCenter.y - viewSize.y/2, viewSize.x, viewSize.y);
 
+    drawPlagueOverlay(map, countries, visibleArea);
+
     // Refresh infrastructure overlays before drawing per-country assets
     updateExtractorVertices(map, countries, technologyManager);
 
@@ -95,6 +100,8 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
     for (const auto& country : countries) {
         drawRoadNetwork(country, map, technologyManager, visibleArea);
     }
+
+    drawTradeRoutes(tradeManager, countries, map, visibleArea);
 
     if (m_extractorVertices.getVertexCount() > 0) {
         m_window.draw(m_extractorVertices);
@@ -104,23 +111,75 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
 
     // Draw cities with viewport culling (on top of infrastructure)
     for (const auto& country : countries) {
+        if (country.getPopulation() <= 0 || country.getCities().empty()) {
+            continue;
+        }
+
+        sf::Vector2i capitalLocation = country.getCapitalLocation();
+        double popPerCity = static_cast<double>(country.getPopulation()) / std::max<size_t>(1, country.getCities().size());
+        float densityScale = 0.0f;
+        if (popPerCity > 0.0) {
+            densityScale = static_cast<float>(std::min(1.0, std::max(0.0, (std::log10(popPerCity + 1.0) - 3.0) / 3.0)));
+        }
+
         for (const auto& city : country.getCities()) {
             sf::Vector2i cityLocation = city.getLocation();
-            sf::Vector2f cityWorldPos(cityLocation.x * map.getGridCellSize(), cityLocation.y * map.getGridCellSize());
-            
+            sf::Vector2f cityCenter((static_cast<float>(cityLocation.x) + 0.5f) * map.getGridCellSize(),
+                                    (static_cast<float>(cityLocation.y) + 0.5f) * map.getGridCellSize());
+
             // Only draw cities that are visible in the current viewport
-            if (visibleArea.contains(cityWorldPos)) {
-                sf::RectangleShape cityShape(sf::Vector2f(3, 3));
-                
-                // 🏙️ MAJOR CITY SYSTEM: Gold squares for major cities, black for regular cities
-                if (city.isMajorCity()) {
-                    cityShape.setFillColor(sf::Color::Yellow); // Gold square for major cities
-                } else {
-                    cityShape.setFillColor(sf::Color::Black); // Black square for regular cities
-                }
-                
-                cityShape.setPosition(cityWorldPos.x - 1, cityWorldPos.y - 1);
-                m_window.draw(cityShape);
+            if (!visibleArea.contains(cityCenter)) {
+                continue;
+            }
+
+            float baseSize = city.isMajorCity() ? std::max(3.0f, map.getGridCellSize() * 3.2f)
+                                                : std::max(2.0f, map.getGridCellSize() * 2.0f);
+            float citySize = baseSize + densityScale * 3.0f;
+            float glowSize = citySize + 2.0f + densityScale * 2.0f;
+
+            sf::Color glowColor = city.isMajorCity() ? sf::Color(255, 210, 120, 70)
+                                                     : sf::Color(120, 120, 120, 40);
+            sf::RectangleShape cityGlow(sf::Vector2f(glowSize, glowSize));
+            cityGlow.setOrigin(glowSize / 2.0f, glowSize / 2.0f);
+            cityGlow.setPosition(cityCenter);
+            cityGlow.setFillColor(glowColor);
+            m_window.draw(cityGlow);
+
+            sf::RectangleShape cityShape(sf::Vector2f(citySize, citySize));
+            cityShape.setOrigin(citySize / 2.0f, citySize / 2.0f);
+
+            if (city.isMajorCity()) {
+                cityShape.setFillColor(sf::Color(255, 210, 80));
+            } else {
+                cityShape.setFillColor(sf::Color(20, 20, 20));
+            }
+
+            cityShape.setPosition(cityCenter);
+            m_window.draw(cityShape);
+
+            if (cityLocation == capitalLocation) {
+                float markerSize = std::max(1.2f, map.getGridCellSize() * 1.2f);
+                float clusterRadius = citySize + 2.0f + densityScale * 2.0f;
+                sf::RectangleShape marker(sf::Vector2f(markerSize, markerSize));
+                marker.setOrigin(markerSize / 2.0f, markerSize / 2.0f);
+                marker.setFillColor(sf::Color(255, 230, 160, 200));
+
+                marker.setPosition(cityCenter.x + clusterRadius, cityCenter.y);
+                m_window.draw(marker);
+
+                marker.setPosition(cityCenter.x - clusterRadius * 0.7f, cityCenter.y + clusterRadius * 0.6f);
+                m_window.draw(marker);
+
+                marker.setPosition(cityCenter.x - clusterRadius * 0.7f, cityCenter.y - clusterRadius * 0.6f);
+                m_window.draw(marker);
+
+                sf::CircleShape ring(clusterRadius);
+                ring.setOrigin(clusterRadius, clusterRadius);
+                ring.setPosition(cityCenter);
+                ring.setFillColor(sf::Color::Transparent);
+                ring.setOutlineColor(sf::Color(255, 220, 120, 120));
+                ring.setOutlineThickness(1.0f);
+                m_window.draw(ring);
             }
         }
     }
@@ -165,6 +224,7 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
 
     // Draw war highlights if the flag is true
     if (m_showWarHighlights) {
+        drawWarFrontlines(countries, map, visibleArea);
         drawWarHighlights(countries, map);
     }
 
@@ -490,6 +550,7 @@ void Renderer::setNeedsUpdate(bool needsUpdate) {
 }
 
 void Renderer::updateYearText(int year) {
+    m_currentYear = year;
     if (year < 0) {
         m_yearText.setString("Year: " + std::to_string(-year) + " BCE");
     }
@@ -880,28 +941,32 @@ void Renderer::drawRoadNetwork(const Country& country, const Map& map, const Tec
 
     bool hasRail = TechnologyManager::hasTech(technologyManager, country, 55);
     float cellSize = static_cast<float>(map.getGridCellSize());
+    float popScale = 0.0f;
+    if (country.getPopulation() > 0) {
+        popScale = static_cast<float>(std::min(1.0, std::max(0.0, (std::log10(static_cast<double>(country.getPopulation()) + 1.0) - 4.0) / 4.0)));
+    }
 
     sf::RectangleShape roadSurface(sf::Vector2f(cellSize, cellSize));
     roadSurface.setFillColor(sf::Color(105, 100, 90, 205));
 
-    float highlightSize = std::max(0.6f, cellSize * 0.5f);
+    float highlightSize = std::max(0.6f, cellSize * (0.4f + 0.3f * popScale));
     sf::RectangleShape roadHighlight(sf::Vector2f(highlightSize, highlightSize));
     roadHighlight.setOrigin(highlightSize / 2.f, highlightSize / 2.f);
     sf::Color highlightColor = country.getColor();
-    highlightColor.a = 200;
+    highlightColor.a = static_cast<sf::Uint8>(140 + 90 * popScale);
     roadHighlight.setFillColor(highlightColor);
 
     sf::RectangleShape railBase(sf::Vector2f(cellSize, cellSize));
     railBase.setFillColor(sf::Color(75, 78, 90, 220));
 
-    float glowSize = std::max(0.7f, cellSize * 0.35f);
+    float glowSize = std::max(0.7f, cellSize * (0.3f + 0.3f * popScale));
     sf::RectangleShape railGlow(sf::Vector2f(glowSize, glowSize));
     railGlow.setOrigin(glowSize / 2.f, glowSize / 2.f);
     sf::Color glowColor = highlightColor;
     glowColor.r = static_cast<sf::Uint8>(std::min(255, glowColor.r + 80));
     glowColor.g = static_cast<sf::Uint8>(std::min(255, glowColor.g + 80));
     glowColor.b = static_cast<sf::Uint8>(std::min(255, glowColor.b + 40));
-    glowColor.a = 230;
+    glowColor.a = static_cast<sf::Uint8>(180 + 60 * popScale);
     railGlow.setFillColor(glowColor);
 
     for (const auto& roadPixel : roads) {
@@ -960,4 +1025,207 @@ void Renderer::drawFactories(const std::vector<Country>& countries, const Map& m
     }
 
     m_factorySprite.setColor(sf::Color::White);
+}
+
+void Renderer::drawTradeRoutes(const TradeManager& tradeManager, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
+    const auto& routes = tradeManager.getTradeRoutes();
+    if (routes.empty()) {
+        return;
+    }
+
+    float cellSize = static_cast<float>(map.getGridCellSize());
+    sf::VertexArray routeLines(sf::Lines);
+
+    for (const auto& route : routes) {
+        if (!route.isActive) {
+            continue;
+        }
+        if (route.fromCountryIndex < 0 || route.toCountryIndex < 0) {
+            continue;
+        }
+        if (route.fromCountryIndex >= static_cast<int>(countries.size()) ||
+            route.toCountryIndex >= static_cast<int>(countries.size())) {
+            continue;
+        }
+
+        const Country& from = countries[route.fromCountryIndex];
+        const Country& to = countries[route.toCountryIndex];
+        if (from.getPopulation() <= 0 || to.getPopulation() <= 0) {
+            continue;
+        }
+
+        sf::Vector2i fromLoc = from.getCapitalLocation();
+        sf::Vector2i toLoc = to.getCapitalLocation();
+        sf::Vector2f start((static_cast<float>(fromLoc.x) + 0.5f) * cellSize,
+                           (static_cast<float>(fromLoc.y) + 0.5f) * cellSize);
+        sf::Vector2f end((static_cast<float>(toLoc.x) + 0.5f) * cellSize,
+                         (static_cast<float>(toLoc.y) + 0.5f) * cellSize);
+
+        sf::FloatRect bounds(std::min(start.x, end.x), std::min(start.y, end.y),
+                             std::max(1.0f, std::abs(end.x - start.x)),
+                             std::max(1.0f, std::abs(end.y - start.y)));
+        if (!visibleArea.intersects(bounds)) {
+            continue;
+        }
+
+        float capacityFactor = static_cast<float>(std::min(1.0, route.capacity / 15.0));
+        float efficiencyFactor = static_cast<float>(std::min(1.0, route.efficiency));
+        sf::Uint8 alpha = static_cast<sf::Uint8>(80 + 140 * capacityFactor * efficiencyFactor);
+        sf::Color routeColor(230, 190, 120, alpha);
+
+        routeLines.append(sf::Vertex(start, routeColor));
+        routeLines.append(sf::Vertex(end, routeColor));
+    }
+
+    if (routeLines.getVertexCount() > 0) {
+        m_window.draw(routeLines);
+    }
+}
+
+void Renderer::drawPlagueOverlay(const Map& map, const std::vector<Country>& countries, const sf::FloatRect& visibleArea) {
+    if (!map.isPlagueActive()) {
+        return;
+    }
+
+    sf::VertexArray plagueVertices(sf::Quads);
+    float cellSize = static_cast<float>(map.getGridCellSize());
+    float timePhase = static_cast<float>(m_currentYear) * 0.15f;
+
+    for (size_t i = 0; i < countries.size(); ++i) {
+        if (!map.isCountryAffectedByPlague(static_cast<int>(i))) {
+            continue;
+        }
+        const Country& country = countries[i];
+        if (country.getPopulation() <= 0) {
+            continue;
+        }
+
+        for (const auto& cell : country.getBoundaryPixels()) {
+            sf::Vector2f worldPos(cell.x * cellSize, cell.y * cellSize);
+            sf::FloatRect cellRect(worldPos.x, worldPos.y, cellSize, cellSize);
+            if (!visibleArea.intersects(cellRect)) {
+                continue;
+            }
+
+            float wave = std::sin((cell.x * 0.15f + cell.y * 0.1f) + timePhase);
+            sf::Uint8 alpha = static_cast<sf::Uint8>(70 + 50 * (0.5f + 0.5f * wave));
+            sf::Color plagueColor(30, 30, 30, alpha);
+
+            plagueVertices.append(sf::Vertex(sf::Vector2f(worldPos.x, worldPos.y), plagueColor));
+            plagueVertices.append(sf::Vertex(sf::Vector2f(worldPos.x + cellSize, worldPos.y), plagueColor));
+            plagueVertices.append(sf::Vertex(sf::Vector2f(worldPos.x + cellSize, worldPos.y + cellSize), plagueColor));
+            plagueVertices.append(sf::Vertex(sf::Vector2f(worldPos.x, worldPos.y + cellSize), plagueColor));
+        }
+    }
+
+    if (plagueVertices.getVertexCount() > 0) {
+        m_window.draw(plagueVertices);
+    }
+}
+
+void Renderer::drawWarFrontlines(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
+    sf::VertexArray frontline(sf::Quads);
+    float cellSize = static_cast<float>(map.getGridCellSize());
+    const auto& countryGrid = map.getCountryGrid();
+
+    std::vector<sf::Vector2f> fortPositions;
+    int frontierCount = 0;
+    const int fortStride = 45;
+
+    for (const auto& country : countries) {
+        if (!country.isAtWar() || country.getPopulation() <= 0) {
+            continue;
+        }
+
+        std::vector<int> enemyIndices;
+        for (const auto* enemy : country.getEnemies()) {
+            if (enemy) {
+                enemyIndices.push_back(enemy->getCountryIndex());
+            }
+        }
+        if (enemyIndices.empty()) {
+            continue;
+        }
+
+        for (const auto& cell : country.getBoundaryPixels()) {
+            if (cell.y < 0 || cell.y >= static_cast<int>(countryGrid.size()) ||
+                cell.x < 0 || cell.x >= static_cast<int>(countryGrid[cell.y].size())) {
+                continue;
+            }
+
+            sf::Vector2f worldPos(cell.x * cellSize, cell.y * cellSize);
+            sf::FloatRect cellRect(worldPos.x, worldPos.y, cellSize, cellSize);
+            if (!visibleArea.intersects(cellRect)) {
+                continue;
+            }
+
+            bool isFrontline = false;
+            const int dirs[4][2] = { {1, 0}, {-1, 0}, {0, 1}, {0, -1} };
+            for (const auto& dir : dirs) {
+                int nx = cell.x + dir[0];
+                int ny = cell.y + dir[1];
+                if (ny < 0 || ny >= static_cast<int>(countryGrid.size()) ||
+                    nx < 0 || nx >= static_cast<int>(countryGrid[ny].size())) {
+                    continue;
+                }
+                int owner = countryGrid[ny][nx];
+                if (owner < 0) {
+                    continue;
+                }
+                for (int enemyIndex : enemyIndices) {
+                    if (owner == enemyIndex) {
+                        isFrontline = true;
+                        break;
+                    }
+                }
+                if (isFrontline) {
+                    break;
+                }
+            }
+
+            if (!isFrontline) {
+                continue;
+            }
+
+            float pulse = std::sin((cell.x + cell.y) * 0.08f + static_cast<float>(m_currentYear) * 0.2f);
+            sf::Uint8 alpha = static_cast<sf::Uint8>(90 + 50 * (0.5f + 0.5f * pulse));
+            sf::Color heatColor(220, 70, 55, alpha);
+
+            frontline.append(sf::Vertex(sf::Vector2f(worldPos.x, worldPos.y), heatColor));
+            frontline.append(sf::Vertex(sf::Vector2f(worldPos.x + cellSize, worldPos.y), heatColor));
+            frontline.append(sf::Vertex(sf::Vector2f(worldPos.x + cellSize, worldPos.y + cellSize), heatColor));
+            frontline.append(sf::Vertex(sf::Vector2f(worldPos.x, worldPos.y + cellSize), heatColor));
+
+            if (frontierCount % fortStride == 0) {
+                fortPositions.emplace_back(worldPos.x + cellSize / 2.0f, worldPos.y + cellSize / 2.0f);
+            }
+            frontierCount++;
+        }
+    }
+
+    if (frontline.getVertexCount() > 0) {
+        m_window.draw(frontline);
+    }
+
+    if (!fortPositions.empty()) {
+        float fortSize = std::max(2.0f, cellSize * 1.4f);
+        sf::RectangleShape fort(sf::Vector2f(fortSize, fortSize));
+        fort.setOrigin(fortSize / 2.0f, fortSize / 2.0f);
+        fort.setFillColor(sf::Color(90, 90, 90, 230));
+        fort.setOutlineColor(sf::Color(40, 20, 20, 220));
+        fort.setOutlineThickness(1.0f);
+
+        sf::CircleShape fortRing(fortSize * 0.9f);
+        fortRing.setOrigin(fortSize * 0.9f, fortSize * 0.9f);
+        fortRing.setFillColor(sf::Color::Transparent);
+        fortRing.setOutlineColor(sf::Color(200, 140, 120, 120));
+        fortRing.setOutlineThickness(1.0f);
+
+        for (const auto& pos : fortPositions) {
+            fort.setPosition(pos);
+            m_window.draw(fort);
+            fortRing.setPosition(pos);
+            m_window.draw(fortRing);
+        }
+    }
 }

@@ -102,7 +102,7 @@ public:
     // Basic barter system (no tech requirements)
     void processBarter(std::vector<Country>& countries, int currentYear, const Map& map, News& news);
     void generateTradeOffers(std::vector<Country>& countries, int currentYear, const Map& map);
-    void executeTradeOffers(std::vector<Country>& countries, News& news);
+    void executeTradeOffers(std::vector<Country>& countries, int currentYear, News& news);
     
     // Currency system (requires Currency tech)
     void processCurrencyTrades(std::vector<Country>& countries, int currentYear, 
@@ -117,7 +117,7 @@ public:
     // Trade routes (requires Navigation tech)
     void establishTradeRoutes(std::vector<Country>& countries, int currentYear,
                              const TechnologyManager& techManager, const Map& map);
-    void processTradeRoutes(std::vector<Country>& countries, News& news);
+    void processTradeRoutes(std::vector<Country>& countries, int currentYear, News& news);
     
     // Financial institutions (requires Banking tech)
     void updateBanking(std::vector<Country>& countries, int currentYear,
@@ -132,6 +132,7 @@ public:
                          const TechnologyManager& techManager) const;
     double calculateTradeDistance(const Country& from, const Country& to) const;
     double getResourcePrice(Resource::Type resource, const Country& country) const;
+    double getTradeScore(int countryA, int countryB, int currentYear) const;
     
     // Technology checks
     bool hasCurrency(const Country& country, const TechnologyManager& techManager) const;
@@ -143,8 +144,14 @@ public:
     void printTradeStatistics(int currentYear) const;
     int getTotalTrades() const { return m_totalTradesCompleted; }
     double getTotalTradeValue() const { return m_totalTradeValue; }
+    const std::vector<TradeRoute>& getTradeRoutes() const { return m_tradeRoutes; }
 
 private:
+    struct TradeRelation {
+        double score = 0.0;
+        int lastYear = 0;
+    };
+
     // Trade offers and routes
     std::vector<TradeOffer> m_activeOffers;
     std::vector<TradeRoute> m_tradeRoutes;
@@ -155,6 +162,7 @@ private:
     int m_totalTradesCompleted = 0;
     double m_totalTradeValue = 0.0;
     int m_nextOfferId = 1;
+    std::unordered_map<long long, TradeRelation> m_tradeRelations;
     
     // Optimization for fast forward
     int m_lastBarterYear = -5000;
@@ -167,6 +175,8 @@ private:
     double calculateBarterhRatio(Resource::Type from, Resource::Type to) const;
     bool validateTradeOffer(const TradeOffer& offer, const std::vector<Country>& countries) const;
     void executeTradeOffer(const TradeOffer& offer, std::vector<Country>& countries, News& news);
+    long long makePairKey(int countryA, int countryB) const;
+    void recordTrade(int countryA, int countryB, int currentYear);
     
     // Resource demand/supply calculations
     double calculateResourceDemand(Resource::Type resource, const Country& country) const;

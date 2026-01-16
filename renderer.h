@@ -10,11 +10,12 @@
 #include "technology.h"
 #include "culture.h"
 
+class TradeManager;
 
 class Renderer {
 public:
     Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& waterColor);
-    void render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const CultureManager& cultureManager, const Country* selectedCountry, bool showCountryInfo);
+    void render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const CultureManager& cultureManager, const TradeManager& tradeManager, const Country* selectedCountry, bool showCountryInfo);
     void toggleWarmongerHighlights();
     void updateYearText(int year);
     void setNeedsUpdate(bool needsUpdate);
@@ -45,6 +46,7 @@ private:
     bool m_showWarmongerHighlights;
     bool m_showWarHighlights;
     bool m_showCountryAddModeText;
+    int m_currentYear;
 
 
     // Country info window variables
@@ -77,6 +79,9 @@ private:
     int getExtractorUnlockTech(Resource::Type type) const;
     void drawRoadNetwork(const Country& country, const Map& map, const TechnologyManager& technologyManager, const sf::FloatRect& visibleArea);
     void drawFactories(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+    void drawTradeRoutes(const TradeManager& tradeManager, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+    void drawPlagueOverlay(const Map& map, const std::vector<Country>& countries, const sf::FloatRect& visibleArea);
+    void drawWarFrontlines(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
 
 };
 

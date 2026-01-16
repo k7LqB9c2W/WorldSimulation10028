@@ -2,6 +2,7 @@
 #include "technology.h"
 #include "culture.h"
 #include "great_people.h"
+#include "trade.h"
 #include <random>
 #include <iostream>
 #include <chrono>
@@ -9,6 +10,8 @@
 #include <limits>
 #include <queue>
 #include <unordered_set>
+#include <cmath>
+#include <algorithm>
 
 Map::Map(const sf::Image& baseImage, const sf::Image& resourceImage, int gridCellSize, const sf::Color& landColor, const sf::Color& waterColor, int regionSize) :
     m_gridCellSize(gridCellSize),
@@ -253,6 +256,10 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
         initializePlagueCluster(countries); // Initialize geographic cluster
     }
 
+    if (m_plagueActive && currentYear > m_plagueStartYear) {
+        updatePlagueSpread(countries);
+    }
+
     // Check if the plague should end
     if (m_plagueActive && (currentYear == m_plagueStartYear + 3)) {
         endPlague(news);
@@ -356,6 +363,388 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
     */
 }
 
+void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& tradeManager, int currentYear, News& news) {
+    if (countries.empty()) {
+        return;
+    }
+
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    std::uniform_real_distribution<> chanceDist(0.0, 1.0);
+
+    const int maxCountries = 400;
+    const int minTerritoryCells = 180;
+    const long long minPopulation = 40000;
+    const int fragmentationCooldown = 150;
+
+    auto trySplitCountry = [&](int countryIndex) -> bool {
+        if (countryIndex < 0 || countryIndex >= static_cast<int>(countries.size())) {
+            return false;
+        }
+        if (static_cast<int>(countries.size()) >= maxCountries) {
+            return false;
+        }
+        if (countries.size() + 1 > countries.capacity()) {
+            return false;
+        }
+
+        const Country& country = countries[countryIndex];
+        if (country.getPopulation() < minPopulation) {
+            return false;
+        }
+
+        const auto& territorySet = country.getBoundaryPixels();
+        if (territorySet.size() < static_cast<size_t>(minTerritoryCells)) {
+            return false;
+        }
+
+        std::vector<sf::Vector2i> territory(territorySet.begin(), territorySet.end());
+        std::unordered_set<sf::Vector2i> groupA;
+        std::unordered_set<sf::Vector2i> groupB;
+
+        auto attemptSplit = [&](const sf::Vector2i& seedA, const sf::Vector2i& seedB) -> bool {
+            std::unordered_map<sf::Vector2i, int> assignment;
+            std::queue<sf::Vector2i> frontier;
+
+            assignment[seedA] = 0;
+            assignment[seedB] = 1;
+            frontier.push(seedA);
+            frontier.push(seedB);
+
+            const int dirs[4][2] = { {1, 0}, {-1, 0}, {0, 1}, {0, -1} };
+            while (!frontier.empty()) {
+                sf::Vector2i current = frontier.front();
+                frontier.pop();
+                int label = assignment[current];
+
+                for (const auto& dir : dirs) {
+                    sf::Vector2i next(current.x + dir[0], current.y + dir[1]);
+                    if (territorySet.count(next) == 0) {
+                        continue;
+                    }
+                    if (assignment.find(next) != assignment.end()) {
+                        continue;
+                    }
+                    assignment[next] = label;
+                    frontier.push(next);
+                }
+            }
+
+            for (const auto& cell : territorySet) {
+                if (assignment.find(cell) != assignment.end()) {
+                    continue;
+                }
+                int distA = std::abs(cell.x - seedA.x) + std::abs(cell.y - seedA.y);
+                int distB = std::abs(cell.x - seedB.x) + std::abs(cell.y - seedB.y);
+                assignment[cell] = (distA <= distB) ? 0 : 1;
+            }
+
+            groupA.clear();
+            groupB.clear();
+            for (const auto& entry : assignment) {
+                if (entry.second == 0) {
+                    groupA.insert(entry.first);
+                } else {
+                    groupB.insert(entry.first);
+                }
+            }
+
+            size_t total = groupA.size() + groupB.size();
+            if (total == 0) {
+                return false;
+            }
+            double ratio = static_cast<double>(groupA.size()) / static_cast<double>(total);
+            return ratio >= 0.3 && ratio <= 0.7;
+        };
+
+        bool splitBuilt = false;
+        for (int attempt = 0; attempt < 4 && !splitBuilt; ++attempt) {
+            std::uniform_int_distribution<size_t> seedDist(0, territory.size() - 1);
+            sf::Vector2i seedA = territory[seedDist(gen)];
+            sf::Vector2i seedB = seedA;
+            int bestDist = -1;
+            for (const auto& cell : territory) {
+                int dist = (cell.x - seedA.x) * (cell.x - seedA.x) + (cell.y - seedA.y) * (cell.y - seedA.y);
+                if (dist > bestDist) {
+                    bestDist = dist;
+                    seedB = cell;
+                }
+            }
+            if (seedA == seedB) {
+                continue;
+            }
+            splitBuilt = attemptSplit(seedA, seedB);
+        }
+
+        if (!splitBuilt || groupA.empty() || groupB.empty()) {
+            return false;
+        }
+
+        sf::Vector2i capital = country.getCapitalLocation();
+        if (groupB.count(capital) > 0) {
+            std::swap(groupA, groupB);
+        }
+
+        double ratio = static_cast<double>(groupB.size()) / static_cast<double>(groupA.size() + groupB.size());
+        long long totalPop = country.getPopulation();
+        long long populationLoss = static_cast<long long>(totalPop * 0.05);
+        long long remainingPop = std::max(0LL, totalPop - populationLoss);
+        long long newPop = static_cast<long long>(remainingPop * ratio);
+        long long oldPop = remainingPop - newPop;
+
+        double totalGold = country.getGold();
+        double goldLoss = totalGold * 0.1;
+        double remainingGold = std::max(0.0, totalGold - goldLoss);
+        double newGold = remainingGold * ratio;
+        double oldGold = remainingGold - newGold;
+
+        double totalScience = country.getSciencePoints();
+        double newScience = totalScience * ratio;
+        double oldScience = totalScience - newScience;
+
+        double totalCulture = country.getCulturePoints();
+        double newCulture = totalCulture * ratio;
+        double oldCulture = totalCulture - newCulture;
+
+        std::vector<City> oldCities;
+        std::vector<City> newCities;
+        for (const auto& city : country.getCities()) {
+            if (groupB.count(city.getLocation()) > 0) {
+                newCities.push_back(city);
+            } else {
+                oldCities.push_back(city);
+            }
+        }
+
+        if (newCities.empty() && !groupB.empty()) {
+            newCities.emplace_back(*groupB.begin());
+        }
+        if (oldCities.empty() && !groupA.empty()) {
+            oldCities.emplace_back(*groupA.begin());
+        }
+
+        sf::Vector2i newStart = newCities.empty() ? *groupB.begin() : newCities.front().getLocation();
+        sf::Vector2i oldStart = oldCities.empty() ? *groupA.begin() : oldCities.front().getLocation();
+
+        std::vector<sf::Vector2i> oldRoads;
+        std::vector<sf::Vector2i> newRoads;
+        for (const auto& road : country.getRoads()) {
+            if (groupB.count(road) > 0) {
+                newRoads.push_back(road);
+            } else if (groupA.count(road) > 0) {
+                oldRoads.push_back(road);
+            }
+        }
+
+        std::vector<sf::Vector2i> oldFactories;
+        std::vector<sf::Vector2i> newFactories;
+        for (const auto& factory : country.getFactories()) {
+            if (groupB.count(factory) > 0) {
+                newFactories.push_back(factory);
+            } else if (groupA.count(factory) > 0) {
+                oldFactories.push_back(factory);
+            }
+        }
+
+        std::uniform_int_distribution<> colorDist(50, 255);
+        sf::Color newColor(colorDist(gen), colorDist(gen), colorDist(gen));
+
+        std::uniform_real_distribution<> growthRateDist(0.0003, 0.001);
+        double growthRate = growthRateDist(gen);
+
+        std::string newName = generate_country_name();
+        while (isNameTaken(countries, newName)) {
+            newName = generate_country_name();
+        }
+        newName += " Republic";
+
+        int newIndex = static_cast<int>(countries.size());
+        Country newCountry(newIndex, newColor, newStart, newPop, growthRate, newName, country.getType(),
+                           country.getScienceType(), country.getCultureType());
+        newCountry.setIdeology(country.getIdeology());
+        newCountry.setStability(0.45);
+        newCountry.setFragmentationCooldown(fragmentationCooldown);
+        newCountry.setYearsSinceWar(0);
+        newCountry.resetStagnation();
+        newCountry.setTerritory(groupB);
+        newCountry.setCities(newCities);
+        newCountry.setRoads(newRoads);
+        newCountry.setFactories(newFactories);
+        newCountry.setGold(newGold);
+        newCountry.setSciencePoints(newScience);
+        newCountry.setCulturePoints(newCulture);
+        newCountry.setStartingPixel(newStart);
+
+        countries.push_back(newCountry);
+
+        Country& updatedCountry = countries[countryIndex];
+        updatedCountry.setPopulation(oldPop);
+        updatedCountry.setGold(oldGold);
+        updatedCountry.setSciencePoints(oldScience);
+        updatedCountry.setCulturePoints(oldCulture);
+        updatedCountry.setStability(0.45);
+        updatedCountry.setFragmentationCooldown(fragmentationCooldown);
+        updatedCountry.setYearsSinceWar(0);
+        updatedCountry.resetStagnation();
+        updatedCountry.setTerritory(groupA);
+        updatedCountry.setCities(oldCities);
+        updatedCountry.setRoads(oldRoads);
+        updatedCountry.setFactories(oldFactories);
+        updatedCountry.setStartingPixel(oldStart);
+
+        const auto& resources = updatedCountry.getResourceManager().getResources();
+        for (const auto& entry : resources) {
+            Resource::Type type = entry.first;
+            double amount = updatedCountry.getResourceManager().getResourceAmount(type);
+            double movedAmount = amount * ratio;
+            if (movedAmount > 0.0) {
+                const_cast<ResourceManager&>(updatedCountry.getResourceManager()).consumeResource(type, movedAmount);
+                const_cast<ResourceManager&>(countries[newIndex].getResourceManager()).addResource(type, movedAmount);
+            }
+        }
+
+        int regionsPerRow = static_cast<int>(m_baseImage.getSize().x) / (m_gridCellSize * m_regionSize);
+        {
+            std::lock_guard<std::mutex> lock(m_gridMutex);
+            for (const auto& cell : groupB) {
+                m_countryGrid[cell.y][cell.x] = newIndex;
+                int regionIndex = static_cast<int>((cell.y / m_regionSize) * regionsPerRow + (cell.x / m_regionSize));
+                m_dirtyRegions.insert(regionIndex);
+            }
+        }
+
+        news.addEvent("Civil war fractures " + updatedCountry.getName() + " into a new rival state: " + newName + "!");
+        return true;
+    };
+
+    if (currentYear % 5 == 0) {
+        int candidateCount = static_cast<int>(countries.size());
+        int splits = 0;
+        for (int i = 0; i < candidateCount && splits < 2; ++i) {
+            Country& country = countries[i];
+            if (country.getPopulation() <= 0) {
+                continue;
+            }
+            if (!country.isFragmentationReady()) {
+                continue;
+            }
+            bool underStress = country.isAtWar() || (m_plagueActive && isCountryAffectedByPlague(i));
+            if (!underStress && country.getStability() > 0.15) {
+                continue;
+            }
+            if (chanceDist(gen) < 0.35 && trySplitCountry(i)) {
+                splits++;
+            }
+        }
+    }
+
+    if (currentYear % 50 == 0) {
+        std::unordered_set<int> unified;
+        int unifications = 0;
+        int candidateCount = static_cast<int>(countries.size());
+        for (int i = 0; i < candidateCount; ++i) {
+            if (unified.count(i) > 0) {
+                continue;
+            }
+            Country& a = countries[i];
+            if (a.getPopulation() <= 0 || a.isAtWar() || a.getYearsSinceWar() < 50 || a.getStability() < 0.6) {
+                continue;
+            }
+
+            for (int j = i + 1; j < candidateCount; ++j) {
+                if (unified.count(j) > 0) {
+                    continue;
+                }
+                Country& b = countries[j];
+                if (b.getPopulation() <= 0 || b.isAtWar() || b.getYearsSinceWar() < 50 || b.getStability() < 0.6) {
+                    continue;
+                }
+                if (!areNeighbors(a, b)) {
+                    continue;
+                }
+                double tradeScore = tradeManager.getTradeScore(a.getCountryIndex(), b.getCountryIndex(), currentYear);
+                if (tradeScore < 6.0) {
+                    continue;
+                }
+                if (chanceDist(gen) > 0.25) {
+                    continue;
+                }
+
+                int leaderIndex = (a.getPopulation() >= b.getPopulation()) ? i : j;
+                int absorbedIndex = (leaderIndex == i) ? j : i;
+                Country& leader = countries[leaderIndex];
+                Country& absorbed = countries[absorbedIndex];
+
+                std::unordered_set<sf::Vector2i> mergedTerritory = leader.getBoundaryPixels();
+                for (const auto& cell : absorbed.getBoundaryPixels()) {
+                    mergedTerritory.insert(cell);
+                }
+
+                std::vector<City> mergedCities = leader.getCities();
+                for (const auto& city : absorbed.getCities()) {
+                    mergedCities.push_back(city);
+                }
+
+                std::vector<sf::Vector2i> mergedRoads = leader.getRoads();
+                mergedRoads.insert(mergedRoads.end(), absorbed.getRoads().begin(), absorbed.getRoads().end());
+
+                std::vector<sf::Vector2i> mergedFactories = leader.getFactories();
+                mergedFactories.insert(mergedFactories.end(), absorbed.getFactories().begin(), absorbed.getFactories().end());
+
+                leader.setTerritory(mergedTerritory);
+                leader.setCities(mergedCities);
+                leader.setRoads(mergedRoads);
+                leader.setFactories(mergedFactories);
+
+                leader.setPopulation(leader.getPopulation() + absorbed.getPopulation());
+                leader.setGold(leader.getGold() + absorbed.getGold());
+                leader.setSciencePoints(leader.getSciencePoints() + absorbed.getSciencePoints());
+                leader.setCulturePoints(leader.getCulturePoints() + absorbed.getCulturePoints());
+                leader.setStability(std::max(leader.getStability(), 0.7));
+                leader.setFragmentationCooldown(fragmentationCooldown);
+
+                for (int r = 0; r < 6; ++r) {
+                    Resource::Type type = static_cast<Resource::Type>(r);
+                    double amount = absorbed.getResourceManager().getResourceAmount(type);
+                    if (amount > 0.0) {
+                        const_cast<ResourceManager&>(leader.getResourceManager()).addResource(type, amount);
+                        const_cast<ResourceManager&>(absorbed.getResourceManager()).consumeResource(type, amount);
+                    }
+                }
+
+                int regionsPerRow = static_cast<int>(m_baseImage.getSize().x) / (m_gridCellSize * m_regionSize);
+                {
+                    std::lock_guard<std::mutex> lock(m_gridMutex);
+                    for (const auto& cell : absorbed.getBoundaryPixels()) {
+                        m_countryGrid[cell.y][cell.x] = leader.getCountryIndex();
+                        int regionIndex = static_cast<int>((cell.y / m_regionSize) * regionsPerRow + (cell.x / m_regionSize));
+                        m_dirtyRegions.insert(regionIndex);
+                    }
+                }
+
+                absorbed.setPopulation(0);
+                absorbed.setGold(0.0);
+                absorbed.setSciencePoints(0.0);
+                absorbed.setCulturePoints(0.0);
+                absorbed.setStability(0.0);
+                absorbed.setTerritory({});
+                absorbed.setCities({});
+                absorbed.clearRoadNetwork();
+                absorbed.setFactories({});
+
+                news.addEvent("Unification: " + leader.getName() + " peacefully integrates " + absorbed.getName() + ".");
+
+                unified.insert(leaderIndex);
+                unified.insert(absorbedIndex);
+                unifications++;
+                if (unifications >= 1) {
+                    return;
+                }
+            }
+        }
+    }
+}
+
 void Map::startPlague(int year, News& news) {
     m_plagueActive = true;
     m_plagueStartYear = year;
@@ -436,6 +825,51 @@ void Map::initializePlagueCluster(const std::vector<Country>& countries) {
                 toProcess.push(neighborIndex);
             }
         }
+    }
+}
+
+void Map::updatePlagueSpread(const std::vector<Country>& countries) {
+    if (!m_plagueActive || m_plagueAffectedCountries.empty()) {
+        return;
+    }
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> spreadDist(0.0, 1.0);
+    std::uniform_real_distribution<> recoveryDist(0.0, 1.0);
+
+    std::unordered_set<int> nextAffected = m_plagueAffectedCountries;
+
+    for (int countryIndex : m_plagueAffectedCountries) {
+        if (countryIndex < 0 || countryIndex >= static_cast<int>(countries.size())) {
+            continue;
+        }
+
+        if (recoveryDist(gen) < 0.15) {
+            nextAffected.erase(countryIndex);
+            continue;
+        }
+
+        for (size_t i = 0; i < countries.size(); ++i) {
+            int neighborIndex = static_cast<int>(i);
+            if (neighborIndex == countryIndex) {
+                continue;
+            }
+            if (countries[i].getPopulation() <= 0) {
+                continue;
+            }
+            if (nextAffected.count(neighborIndex) > 0) {
+                continue;
+            }
+
+            if (areNeighbors(countries[countryIndex], countries[i]) && spreadDist(gen) < 0.35) {
+                nextAffected.insert(neighborIndex);
+            }
+        }
+    }
+
+    if (!nextAffected.empty()) {
+        m_plagueAffectedCountries = std::move(nextAffected);
     }
 }
 

@@ -117,6 +117,8 @@ int main() {
 
     std::vector<Country> countries;
     const int numCountries = 100;
+    const int maxCountries = 400;
+    countries.reserve(maxCountries);
 
     // Show loading screen before initialization
     Renderer tempRenderer(window, map, waterColor);
@@ -361,7 +363,7 @@ int main() {
                     fastForwardText.setString("FAST FORWARD COMPLETE!");
                     fastForwardText.setFillColor(sf::Color::Green);
                     window.clear();
-                    renderer.render(countries, map, news, technologyManager, cultureManager, selectedCountry, showCountryInfo);
+                    renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
                     window.draw(fastForwardText);
                     window.display();
                     sf::sleep(sf::seconds(0.5f));
@@ -452,7 +454,7 @@ int main() {
                                 countdownText.setPosition(window.getSize().x / 2 - 200, window.getSize().y / 2 + 20);
                                 
                                 window.clear();
-                                renderer.render(countries, map, news, technologyManager, cultureManager, selectedCountry, showCountryInfo);
+                                renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
                                 window.draw(loadingBg);
                                 window.draw(loadingText);
                                 window.draw(countdownText);
@@ -480,7 +482,7 @@ int main() {
                                         }
                                         
                                         window.clear();
-                                        renderer.render(countries, map, news, technologyManager, cultureManager, selectedCountry, showCountryInfo);
+                                        renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
                                         window.draw(loadingBg);
                                         window.draw(loadingText);
                                         window.draw(countdownText);
@@ -495,7 +497,7 @@ int main() {
                                 countdownText.setFillColor(sf::Color::White);
                                 
                                 window.clear();
-                                renderer.render(countries, map, news, technologyManager, cultureManager, selectedCountry, showCountryInfo);
+                                renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
                                 window.draw(loadingBg);
                                 window.draw(loadingText);
                                 window.draw(countdownText);
@@ -522,7 +524,7 @@ int main() {
                                 
                                 // Immediate visual update
                                 window.clear();
-                                renderer.render(countries, map, news, technologyManager, cultureManager, selectedCountry, showCountryInfo);
+                                renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
                                 window.display();
                                 
                                 std::cout << "Visual refresh complete!" << std::endl;
@@ -742,6 +744,10 @@ int main() {
                     if (gridPos.x >= 0 && gridPos.x < map.getIsLandGrid()[0].size() &&
                         gridPos.y >= 0 && gridPos.y < map.getIsLandGrid().size() &&
                         map.getIsLandGrid()[gridPos.y][gridPos.x] && map.getCountryGrid()[gridPos.y][gridPos.x] == -1) {
+                        if (static_cast<int>(countries.size()) >= maxCountries) {
+                            std::cout << "dY\"? Max country limit reached (" << maxCountries << ")." << std::endl;
+                            continue;
+                        }
 
                         std::random_device rd;
                         std::mt19937 gen(rd());
@@ -894,6 +900,8 @@ int main() {
             tradeManager.updateTrade(countries, currentYear, map, technologyManager, news);
             auto tradeEnd = std::chrono::high_resolution_clock::now();
             auto tradeTime = std::chrono::duration_cast<std::chrono::milliseconds>(tradeEnd - tradeStart);
+
+            map.processPoliticalEvents(countries, tradeManager, currentYear, news);
             
             auto simEnd = std::chrono::high_resolution_clock::now();
             auto simDuration = std::chrono::duration_cast<std::chrono::microseconds>(simEnd - simStart);
@@ -945,7 +953,7 @@ int main() {
         } else {
             window.setView(enableZoom ? zoomedView : defaultView);
 
-            renderer.render(countries, map, news, technologyManager, cultureManager, selectedCountry, showCountryInfo);
+            renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
             window.display();
 
             renderedFrame = true;

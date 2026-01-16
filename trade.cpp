@@ -34,7 +34,7 @@ void TradeManager::updateTrade(std::vector<Country>& countries, int currentYear,
     
     // Stage 4: Trade routes (requires Navigation tech)
     establishTradeRoutes(countries, currentYear, techManager, map);
-    processTradeRoutes(countries, news);
+    processTradeRoutes(countries, currentYear, news);
     
     // Stage 5: Banking (requires Banking tech)
     updateBanking(countries, currentYear, techManager, news);
@@ -63,7 +63,7 @@ void TradeManager::fastForwardTrade(std::vector<Country>& countries, int startYe
         // Trade routes and banking every 10 years
         if (year % 10 == 0) {
             establishTradeRoutes(countries, year, techManager, map);
-            processTradeRoutes(countries, news);
+            processTradeRoutes(countries, year, news);
             updateBanking(countries, year, techManager, news);
         }
         
@@ -85,7 +85,7 @@ void TradeManager::processBarter(std::vector<Country>& countries, int currentYea
     generateTradeOffers(countries, currentYear, map);
     
     // Execute valid trade offers
-    executeTradeOffers(countries, news);
+    executeTradeOffers(countries, currentYear, news);
 }
 
 void TradeManager::generateTradeOffers(std::vector<Country>& countries, int currentYear, const Map& map) {
@@ -145,7 +145,7 @@ void TradeManager::generateTradeOffers(std::vector<Country>& countries, int curr
     }
 }
 
-void TradeManager::executeTradeOffers(std::vector<Country>& countries, News& news) {
+void TradeManager::executeTradeOffers(std::vector<Country>& countries, int currentYear, News& news) {
     
     std::uniform_real_distribution<> acceptanceDist(0.0, 1.0);
     
@@ -181,6 +181,7 @@ void TradeManager::executeTradeOffers(std::vector<Country>& countries, News& new
         
         if (acceptanceDist(m_rng) < acceptanceChance) {
             executeTradeOffer(offer, countries, news);
+            recordTrade(offer.fromCountryIndex, offer.toCountryIndex, currentYear);
             it = m_activeOffers.erase(it);
         } else {
             ++it;
@@ -238,6 +239,7 @@ void TradeManager::processCurrencyTrades(std::vector<Country>& countries, int cu
                                 
                                 m_totalTradesCompleted++;
                                 m_totalTradeValue += totalCost;
+                                recordTrade(static_cast<int>(i), static_cast<int>(j), currentYear);
                                 
                                 // Add news event
                                 std::string resourceName = [resource]() {
@@ -345,7 +347,7 @@ void TradeManager::establishTradeRoutes(std::vector<Country>& countries, int cur
     }
 }
 
-void TradeManager::processTradeRoutes(std::vector<Country>& countries, News& news) {
+void TradeManager::processTradeRoutes(std::vector<Country>& countries, int currentYear, News& news) {
     
     std::uniform_real_distribution<> tradeDist(0.0, 1.0);
     
@@ -361,6 +363,7 @@ void TradeManager::processTradeRoutes(std::vector<Country>& countries, News& new
         if (country1.getPopulation() <= 0 || country2.getPopulation() <= 0) continue;
         
         // Trade along route based on capacity and efficiency
+        bool tradeHappened = false;
         if (tradeDist(m_rng) < 0.4) { // 40% chance per route per cycle
             
             // Find what each country can export
@@ -382,9 +385,14 @@ void TradeManager::processTradeRoutes(std::vector<Country>& countries, News& new
                         
                         m_totalTradesCompleted++;
                         m_totalTradeValue += tradeAmount * getResourcePrice(resource, country1);
+                        tradeHappened = true;
                     }
                 }
             }
+        }
+
+        if (tradeHappened) {
+            recordTrade(route.fromCountryIndex, route.toCountryIndex, currentYear);
         }
     }
 }
@@ -518,6 +526,27 @@ double TradeManager::getResourcePrice(Resource::Type resource, const Country& co
     return basePrice;
 }
 
+double TradeManager::getTradeScore(int countryA, int countryB, int currentYear) const {
+    if (countryA == countryB) {
+        return 0.0;
+    }
+
+    long long key = makePairKey(countryA, countryB);
+    auto it = m_tradeRelations.find(key);
+    if (it == m_tradeRelations.end()) {
+        return 0.0;
+    }
+
+    const TradeRelation& relation = it->second;
+    int yearsElapsed = currentYear - relation.lastYear;
+    if (yearsElapsed <= 0) {
+        return relation.score;
+    }
+
+    double decay = std::pow(0.92, static_cast<double>(yearsElapsed));
+    return relation.score * decay;
+}
+
 // 🧠 TECHNOLOGY CHECKS
 
 bool TradeManager::hasCurrency(const Country& country, const TechnologyManager& techManager) const {
@@ -555,6 +584,27 @@ double TradeManager::calculateBarterhRatio(Resource::Type from, Resource::Type t
     };
     
     return resourceValues[to] / resourceValues[from];
+}
+
+long long TradeManager::makePairKey(int countryA, int countryB) const {
+    if (countryA > countryB) {
+        std::swap(countryA, countryB);
+    }
+    return (static_cast<long long>(countryA) << 32) | static_cast<unsigned int>(countryB);
+}
+
+void TradeManager::recordTrade(int countryA, int countryB, int currentYear) {
+    if (countryA == countryB) {
+        return;
+    }
+
+    long long key = makePairKey(countryA, countryB);
+    TradeRelation& relation = m_tradeRelations[key];
+    if (relation.lastYear != 0) {
+        relation.score = getTradeScore(countryA, countryB, currentYear);
+    }
+    relation.score += 1.0;
+    relation.lastYear = currentYear;
 }
 
 bool TradeManager::validateTradeOffer(const TradeOffer& offer, const std::vector<Country>& countries) const {

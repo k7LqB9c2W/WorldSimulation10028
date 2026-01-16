@@ -13,6 +13,7 @@
 #include "news.h"
 
 class Country;
+class TradeManager;
 
 namespace std {
     template <>
@@ -56,6 +57,9 @@ public:
     
     // Road building support
     bool isValidRoadPixel(int x, int y) const;
+
+    // Political events
+    void processPoliticalEvents(std::vector<Country>& countries, TradeManager& tradeManager, int currentYear, News& news);
     
     // Fast Forward Mode - simulate multiple years quickly
     void fastForwardSimulation(std::vector<Country>& countries, int& currentYear, int targetYears, News& news, class TechnologyManager& technologyManager);
@@ -96,6 +100,7 @@ private:
     int m_plagueInterval;
     int m_nextPlagueYear;
     std::unordered_set<int> m_plagueAffectedCountries; // Track which countries are affected by current plague
+    void updatePlagueSpread(const std::vector<Country>& countries);
     sf::Image m_spawnZoneImage;
     sf::Color m_spawnZoneColor = sf::Color(255, 132, 255);
 };

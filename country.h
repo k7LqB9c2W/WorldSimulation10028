@@ -132,6 +132,21 @@ public:
     void removeEnemy(Country* enemy);
     void clearEnemies();
     void setPopulation(long long population);
+    double getStability() const;
+    int getYearsSinceWar() const;
+    bool isFragmentationReady() const;
+    int getFragmentationCooldown() const;
+    void setStability(double stability);
+    void setFragmentationCooldown(int years);
+    void setYearsSinceWar(int years);
+    void resetStagnation();
+    sf::Vector2i getCapitalLocation() const;
+    void setStartingPixel(const sf::Vector2i& cell);
+    void setTerritory(const std::unordered_set<sf::Vector2i>& territory);
+    void setCities(const std::vector<City>& cities);
+    void setRoads(const std::vector<sf::Vector2i>& roads);
+    void clearRoadNetwork();
+    void setFactories(const std::vector<sf::Vector2i>& factories);
     
     // NEW LOGISTIC POPULATION SYSTEM
     double computeYearlyFood(const std::vector<std::vector<std::unordered_map<Resource::Type,double>>>& resourceGrid) const;
@@ -282,4 +297,8 @@ private:
     bool m_isContentWithSize = false; // Whether country wants to stop expanding
     int m_contentmentDuration = 0; // How many years to remain content
     int m_expansionStaggerOffset = 0; // Personal offset for burst expansion timing
+    double m_stability = 1.0;
+    int m_stagnationYears = 0;
+    int m_fragmentationCooldown = 0;
+    int m_yearsSinceWar = 0;
 };
