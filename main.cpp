@@ -77,14 +77,17 @@ int main() {
     try {
         std::cout << "🚀 Starting World Simulation..." << std::endl;
         
-        sf::VideoMode videoMode(1920, 1080);
+        const std::string windowTitle = "Country Simulator";
+        sf::VideoMode fullscreenVideoMode(1920, 1080);
+        sf::VideoMode windowedVideoMode(1280, 720);
+        bool isFullscreen = true;
 
-    if (std::find(sf::VideoMode::getFullscreenModes().begin(), sf::VideoMode::getFullscreenModes().end(), videoMode) == sf::VideoMode::getFullscreenModes().end()) {
-        std::cerr << "Error: 1920x1080 fullscreen mode not available." << std::endl;
-        return -1;
-    }
+        if (std::find(sf::VideoMode::getFullscreenModes().begin(), sf::VideoMode::getFullscreenModes().end(), fullscreenVideoMode) == sf::VideoMode::getFullscreenModes().end()) {
+            std::cerr << "Error: 1920x1080 fullscreen mode not available." << std::endl;
+            return -1;
+        }
 
-    sf::RenderWindow window(videoMode, "Country Simulator", sf::Style::Fullscreen);
+        sf::RenderWindow window(fullscreenVideoMode, windowTitle, sf::Style::Fullscreen);
 
     // Performance optimization: Limit frame rate to reduce CPU usage
     window.setFramerateLimit(60);
@@ -166,13 +169,41 @@ int main() {
     
     omp_set_num_threads(omp_get_max_threads());
 
+    const sf::Vector2u mapPixelSize = map.getBaseImage().getSize();
+    auto buildWorldView = [&](const sf::Vector2u& windowSize) {
+        sf::View view(sf::FloatRect(0.f, 0.f, static_cast<float>(mapPixelSize.x), static_cast<float>(mapPixelSize.y)));
+        view.setCenter(static_cast<float>(mapPixelSize.x) * 0.5f, static_cast<float>(mapPixelSize.y) * 0.5f);
+
+        float windowRatio = static_cast<float>(windowSize.x) / static_cast<float>(windowSize.y);
+        float mapRatio = static_cast<float>(mapPixelSize.x) / static_cast<float>(mapPixelSize.y);
+        sf::FloatRect viewport(0.f, 0.f, 1.f, 1.f);
+
+        if (windowRatio > mapRatio) {
+            viewport.width = mapRatio / windowRatio;
+            viewport.left = (1.f - viewport.width) / 2.f;
+        } else if (windowRatio < mapRatio) {
+            viewport.height = windowRatio / mapRatio;
+            viewport.top = (1.f - viewport.height) / 2.f;
+        }
+
+        view.setViewport(viewport);
+        return view;
+    };
+
     // Zoom and panning variables
     bool enableZoom = false;
     float zoomLevel = 1.0f;
-    sf::View defaultView = window.getDefaultView();
+    sf::View defaultView = buildWorldView(window.getSize());
     sf::View zoomedView = defaultView;
+    window.setView(defaultView);
     sf::Vector2f lastMousePos;
     bool isDragging = false;
+    auto withUiView = [&](auto&& drawFn) {
+        sf::View previousView = window.getView();
+        window.setView(window.getDefaultView());
+        drawFn();
+        window.setView(previousView);
+    };
 
     // Country info window variables
     const Country* selectedCountry = nullptr;
@@ -224,7 +255,35 @@ int main() {
                 window.close();
             }
             else if (event.type == sf::Event::KeyPressed) {
-                if (event.key.code == sf::Keyboard::Num5) {
+                if (event.key.code == sf::Keyboard::F11 ||
+                    (event.key.code == sf::Keyboard::Enter && event.key.alt)) {
+                    isFullscreen = !isFullscreen;
+                    sf::VideoMode targetMode = isFullscreen ? fullscreenVideoMode : windowedVideoMode;
+                    sf::Uint32 targetStyle = isFullscreen ? sf::Style::Fullscreen : (sf::Style::Titlebar | sf::Style::Close);
+                    sf::Vector2f previousCenter = enableZoom ? zoomedView.getCenter() : defaultView.getCenter();
+
+                    window.create(targetMode, windowTitle, targetStyle);
+                    window.setFramerateLimit(60);
+                    window.setVerticalSyncEnabled(false);
+                    renderer.handleWindowRecreated(map);
+
+                    defaultView = buildWorldView(window.getSize());
+                    if (enableZoom) {
+                        zoomedView = defaultView;
+                        zoomedView.setSize(defaultView.getSize().x * zoomLevel, defaultView.getSize().y * zoomLevel);
+                        zoomedView.setCenter(previousCenter);
+                        window.setView(zoomedView);
+                    }
+                    else {
+                        window.setView(defaultView);
+                    }
+
+                    isDragging = false;
+                    renderer.setNeedsUpdate(true);
+                    renderer.updateYearText(currentYear);
+                    renderingNeedsUpdate = true;
+                }
+                else if (event.key.code == sf::Keyboard::Num5) {
                     news.toggleWindow();
                 }
                 else if (event.key.code == sf::Keyboard::Num4) {
@@ -272,8 +331,10 @@ int main() {
                         fastForwardText.setString("FAST FORWARDING 100 YEARS...");
                         fastForwardText.setPosition(window.getSize().x / 2 - 300, window.getSize().y / 2);
                         
-                        window.clear();
-                        window.draw(fastForwardText);
+                        withUiView([&] {
+                            window.clear();
+                            window.draw(fastForwardText);
+                        });
                         window.display();
                         
                         std::cout << "🚀 Starting Fast Forward (100 years)..." << std::endl;
@@ -327,8 +388,10 @@ int main() {
                         // Update progress indicator
                         int yearsCompleted = (chunk + 1) * chunkSize;
                         fastForwardText.setString("FAST FORWARD: " + std::to_string(yearsCompleted) + "/100 years");
-                        window.clear();
-                        window.draw(fastForwardText);
+                        withUiView([&] {
+                            window.clear();
+                            window.draw(fastForwardText);
+                        });
                         window.display();
                         
                         // 🛡️ PREVENT SYSTEM OVERLOAD: Small pause between chunks
@@ -342,8 +405,8 @@ int main() {
                     std::cout << "🎨 Refreshing fast forward visuals..." << std::endl;
                     
                     // Mark ALL regions as dirty for complete re-render
-                    int totalRegions = (window.getSize().x / map.getGridCellSize() / map.getRegionSize()) * 
-                                      (window.getSize().y / map.getGridCellSize() / map.getRegionSize());
+                    int totalRegions = (mapPixelSize.x / map.getGridCellSize() / map.getRegionSize()) * 
+                                      (mapPixelSize.y / map.getGridCellSize() / map.getRegionSize());
                     for (int i = 0; i < totalRegions; ++i) {
                         map.insertDirtyRegion(i);
                     }
@@ -364,7 +427,9 @@ int main() {
                     fastForwardText.setFillColor(sf::Color::Green);
                     window.clear();
                     renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
-                    window.draw(fastForwardText);
+                    withUiView([&] {
+                        window.draw(fastForwardText);
+                    });
                     window.display();
                     sf::sleep(sf::seconds(0.5f));
                     
@@ -455,9 +520,11 @@ int main() {
                                 
                                 window.clear();
                                 renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
-                                window.draw(loadingBg);
-                                window.draw(loadingText);
-                                window.draw(countdownText);
+                                withUiView([&] {
+                                    window.draw(loadingBg);
+                                    window.draw(loadingText);
+                                    window.draw(countdownText);
+                                });
                                 window.display();
                                 
                                 // Call mega simulation function with progress callback
@@ -483,9 +550,11 @@ int main() {
                                         
                                         window.clear();
                                         renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
-                                        window.draw(loadingBg);
-                                        window.draw(loadingText);
-                                        window.draw(countdownText);
+                                        withUiView([&] {
+                                            window.draw(loadingBg);
+                                            window.draw(loadingText);
+                                            window.draw(countdownText);
+                                        });
                                         window.display();
                                     });
                                 
@@ -498,9 +567,11 @@ int main() {
                                 
                                 window.clear();
                                 renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
-                                window.draw(loadingBg);
-                                window.draw(loadingText);
-                                window.draw(countdownText);
+                                withUiView([&] {
+                                    window.draw(loadingBg);
+                                    window.draw(loadingText);
+                                    window.draw(countdownText);
+                                });
                                 window.display();
                                 
                                 // Show completion for 2 seconds
@@ -511,8 +582,8 @@ int main() {
                                 std::cout << "Total time jump time: " << totalTime << " seconds" << std::endl;
                                 
                                 // Mark ALL regions as dirty for complete re-render
-                                int totalRegions = (window.getSize().x / map.getGridCellSize() / map.getRegionSize()) * 
-                                                  (window.getSize().y / map.getGridCellSize() / map.getRegionSize());
+                                int totalRegions = (mapPixelSize.x / map.getGridCellSize() / map.getRegionSize()) * 
+                                                  (mapPixelSize.y / map.getGridCellSize() / map.getRegionSize());
                                 for (int i = 0; i < totalRegions; ++i) {
                                     map.insertDirtyRegion(i);
                                 }
@@ -954,7 +1025,6 @@ int main() {
             window.setView(enableZoom ? zoomedView : defaultView);
 
             renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
-            window.display();
 
             renderedFrame = true;
             renderingNeedsUpdate = false;

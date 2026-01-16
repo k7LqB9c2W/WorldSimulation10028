@@ -20,6 +20,7 @@ public:
     void updateYearText(int year);
     void setNeedsUpdate(bool needsUpdate);
     bool needsUpdate() const { return m_needsUpdate; }
+    void handleWindowRecreated(const Map& map);
     void showLoadingScreen();
     void setShowCountryAddModeText(bool show);
     void toggleWarHighlights();

@@ -74,6 +74,8 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
 }
 
 void Renderer::render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const CultureManager& cultureManager, const TradeManager& tradeManager, const Country* selectedCountry, bool showCountryInfo) {
+    sf::View worldView = m_window.getView();
+
     m_window.clear();
 
     m_window.draw(m_baseSprite); // Draw the base map (map.png)
@@ -87,9 +89,9 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
     m_window.draw(m_countrySprite); // Draw the countries
 
     // Performance optimization: Viewport culling - only draw cities that are visible
-    sf::Vector2f viewCenter = m_window.getView().getCenter();
-    sf::Vector2f viewSize = m_window.getView().getSize();
-    sf::FloatRect visibleArea(viewCenter.x - viewSize.x/2, viewCenter.y - viewSize.y/2, viewSize.x, viewSize.y);
+    sf::Vector2f viewCenter = worldView.getCenter();
+    sf::Vector2f viewSize = worldView.getSize();
+    sf::FloatRect visibleArea(viewCenter.x - viewSize.x / 2.f, viewCenter.y - viewSize.y / 2.f, viewSize.x, viewSize.y);
 
     drawPlagueOverlay(map, countries, visibleArea);
 
@@ -184,6 +186,19 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
         }
     }
 
+    // Draw Warmonger highlights if the flag is true
+    if (m_showWarmongerHighlights) {
+        drawWarmongerHighlights(countries, map);
+    }
+
+    // Draw war highlights if the flag is true
+    if (m_showWarHighlights) {
+        drawWarFrontlines(countries, map, visibleArea);
+        drawWarHighlights(countries, map);
+    }
+
+    m_window.setView(m_window.getDefaultView());
+
     m_window.draw(m_yearText); // Draw the year
 
     long long totalPopulation = 0;
@@ -217,17 +232,6 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
         news.render(m_window, m_font);
     }
 
-    // Draw Warmonger highlights if the flag is true
-    if (m_showWarmongerHighlights) {
-        drawWarmongerHighlights(countries, map);
-    }
-
-    // Draw war highlights if the flag is true
-    if (m_showWarHighlights) {
-        drawWarFrontlines(countries, map, visibleArea);
-        drawWarHighlights(countries, map);
-    }
-
     // Draw country info window if a country is selected and the flag is true
     if (showCountryInfo && selectedCountry != nullptr) {
         drawCountryInfo(selectedCountry, technologyManager);
@@ -244,6 +248,7 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
         m_window.draw(countryAddModeText);
     }
 
+    m_window.setView(worldView);
     m_window.display();
 }
 
@@ -557,9 +562,35 @@ void Renderer::updateYearText(int year) {
     else {
         m_yearText.setString("Year: " + std::to_string(year) + " CE");
     }
+    m_yearText.setPosition(static_cast<float>(m_window.getSize().x) / 2.0f - 100.0f, 20.0f);
+}
+
+void Renderer::handleWindowRecreated(const Map& map) {
+    m_baseTexture.loadFromImage(map.getBaseImage());
+    m_baseSprite.setTexture(m_baseTexture, true);
+
+    m_countryTexture.loadFromImage(m_countryImage);
+    m_countrySprite.setTexture(m_countryTexture, true);
+
+    if (m_factoryTexture.loadFromFile("factory.png")) {
+        sf::Vector2u texSize = m_factoryTexture.getSize();
+        m_factorySprite.setTexture(m_factoryTexture);
+        m_factorySprite.setOrigin(static_cast<float>(texSize.x) / 2.f, static_cast<float>(texSize.y) / 2.f);
+        float targetSize = std::max(8.f, static_cast<float>(map.getGridCellSize()) * 12.f);
+        float maxDimension = static_cast<float>(std::max(texSize.x, texSize.y));
+        if (maxDimension > 0.f) {
+            float scale = targetSize / maxDimension;
+            m_factorySprite.setScale(scale, scale);
+        }
+    }
+
+    updateYearText(m_currentYear);
 }
 
 void Renderer::showLoadingScreen() {
+    sf::View previousView = m_window.getView();
+    m_window.setView(m_window.getDefaultView());
+
     sf::Text loadingText;
     loadingText.setFont(m_font);
     loadingText.setCharacterSize(30);
@@ -570,6 +601,7 @@ void Renderer::showLoadingScreen() {
 
     m_window.clear();
     m_window.draw(loadingText);
+    m_window.setView(previousView);
     m_window.display();
 }
 
@@ -648,6 +680,8 @@ void Renderer::setCivicScrollOffset(int offset) {
 }
 
 void Renderer::renderMegaTimeJumpScreen(const std::string& inputText, const sf::Font& font) {
+    sf::View previousView = m_window.getView();
+
     // Clear with a solid dark background (no game world underneath)
     m_window.clear(sf::Color(20, 20, 20));
     
@@ -703,10 +737,13 @@ void Renderer::renderMegaTimeJumpScreen(const std::string& inputText, const sf::
     controlsText.setPosition(m_window.getSize().x / 2 - 120, m_window.getSize().y / 2 + 60);
     m_window.draw(controlsText);
     
+    m_window.setView(previousView);
     m_window.display();
 }
 
 void Renderer::renderCountryAddEditor(const std::string& inputText, int editorState, int maxTechId, int maxCultureId, const sf::Font& font) {
+    sf::View previousView = m_window.getView();
+
     // Clear with a solid dark background
     m_window.clear(sf::Color(15, 15, 15));
     
@@ -823,6 +860,7 @@ void Renderer::renderCountryAddEditor(const std::string& inputText, int editorSt
     progressBar.setFillColor(sf::Color::Green);
     m_window.draw(progressBar);
     
+    m_window.setView(previousView);
     m_window.display();
 }
 
