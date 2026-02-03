@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <random>
 #include <functional>
+#include <cstdint>
 #include "country.h"
 #include "resource.h"
 #include "news.h"
@@ -101,6 +102,13 @@ private:
     int m_nextPlagueYear;
     std::unordered_set<int> m_plagueAffectedCountries; // Track which countries are affected by current plague
     void updatePlagueSpread(const std::vector<Country>& countries);
+
+    // Country adjacency (indexed by Country::getCountryIndex()).
+    int m_countryAdjacencySize = 0;
+    std::vector<std::vector<int>> m_countryAdjacency;
+    void rebuildCountryAdjacency(const std::vector<Country>& countries);
+    const std::vector<int>& getAdjacentCountryIndices(int countryIndex) const;
+
     sf::Image m_spawnZoneImage;
     sf::Color m_spawnZoneColor = sf::Color(255, 132, 255);
 };

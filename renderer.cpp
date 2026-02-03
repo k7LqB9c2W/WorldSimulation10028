@@ -6,12 +6,45 @@
 #include <algorithm>
 #include <cmath>
 
+namespace {
+const char* kCountryOverlayFragmentShader = R"(
+uniform sampler2D palette;
+uniform float paletteSize;
+
+void main()
+{
+    vec4 encoded = texture2D(texture, gl_TexCoord[0].xy);
+    float low = floor(encoded.r * 255.0 + 0.5);
+    float high = floor(encoded.g * 255.0 + 0.5);
+    float id = low + high * 256.0; // 0 = empty, otherwise countryIndex + 1
+
+    if (id < 0.5) {
+        gl_FragColor = vec4(0.0);
+        return;
+    }
+
+    if (id > paletteSize - 0.5) {
+        gl_FragColor = vec4(0.0);
+        return;
+    }
+
+    float u = (id + 0.5) / paletteSize;
+    gl_FragColor = texture2D(palette, vec2(u, 0.5));
+}
+)";
+} // namespace
+
 Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& waterColor) :
     m_window(window),
     m_waterColor(waterColor),
+    m_useGpuCountryOverlay(false),
+    m_countryGridWidth(0),
+    m_countryGridHeight(0),
+    m_countryPaletteSize(0),
     m_needsUpdate(true),
     m_showWarmongerHighlights(false),
     m_showWarHighlights(false),
+    m_showCountryAddModeText(false),
     m_currentYear(0),
     m_techScrollOffset(0),
     m_civicScrollOffset(0),
@@ -35,6 +68,39 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
     m_countryImage.create(map.getBaseImage().getSize().x, map.getBaseImage().getSize().y, sf::Color::Transparent);
     m_countryTexture.loadFromImage(m_countryImage);
     m_countrySprite.setTexture(m_countryTexture);
+
+    const auto& countryGridInit = map.getCountryGrid();
+    if (!countryGridInit.empty() && !countryGridInit[0].empty()) {
+        m_countryGridHeight = static_cast<unsigned int>(countryGridInit.size());
+        m_countryGridWidth = static_cast<unsigned int>(countryGridInit[0].size());
+    }
+
+    if (sf::Shader::isAvailable() && m_countryGridWidth > 0 && m_countryGridHeight > 0) {
+        if (m_countryOverlayShader.loadFromMemory(kCountryOverlayFragmentShader, sf::Shader::Fragment)) {
+            m_useGpuCountryOverlay = true;
+
+            m_countryIdTexture.create(m_countryGridWidth, m_countryGridHeight);
+            m_countryIdTexture.setSmooth(false);
+            {
+                std::vector<sf::Uint8> clearPixels(static_cast<size_t>(m_countryGridWidth) * static_cast<size_t>(m_countryGridHeight) * 4u, 0);
+                for (size_t i = 0; i < clearPixels.size(); i += 4) {
+                    clearPixels[i + 3] = 255;
+                }
+                m_countryIdTexture.update(clearPixels.data());
+            }
+            m_countryIdSprite.setTexture(m_countryIdTexture, true);
+            m_countryIdSprite.setPosition(0.f, 0.f);
+            m_countryIdSprite.setScale(static_cast<float>(map.getGridCellSize()), static_cast<float>(map.getGridCellSize()));
+
+            m_countryPaletteSize = 1;
+            m_countryPaletteTexture.create(1, 1);
+            m_countryPaletteTexture.setSmooth(false);
+            sf::Uint8 transparentPixel[4] = {0, 0, 0, 0};
+            m_countryPaletteTexture.update(transparentPixel);
+            m_countryOverlayShader.setUniform("palette", m_countryPaletteTexture);
+            m_countryOverlayShader.setUniform("paletteSize", static_cast<float>(m_countryPaletteSize));
+        }
+    }
 
     m_extractorVertices.setPrimitiveType(sf::Quads);
     const auto& resourceGridInit = map.getResourceGrid();
@@ -82,11 +148,19 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
 
     if (m_needsUpdate) {
         updateCountryImage(map.getCountryGrid(), countries, map);
-        m_countryTexture.update(m_countryImage);
+        if (!m_useGpuCountryOverlay) {
+            m_countryTexture.update(m_countryImage);
+        }
         m_needsUpdate = false;
     }
 
-    m_window.draw(m_countrySprite); // Draw the countries
+    if (m_useGpuCountryOverlay) {
+        sf::RenderStates states;
+        states.shader = &m_countryOverlayShader;
+        m_window.draw(m_countryIdSprite, states);
+    } else {
+        m_window.draw(m_countrySprite); // Draw the countries
+    }
 
     // Performance optimization: Viewport culling - only draw cities that are visible
     sf::Vector2f viewCenter = worldView.getCenter();
@@ -484,7 +558,112 @@ void Renderer::updateCountryImage(const std::vector<std::vector<int>>& countryGr
 
     int gridCellSize = map.getGridCellSize();
     int regionSize = map.getRegionSize();
-    
+
+    if (m_useGpuCountryOverlay) {
+        unsigned int newPaletteSize = 1;
+        for (const auto& country : countries) {
+            unsigned int idx = static_cast<unsigned int>(std::max(0, country.getCountryIndex())) + 2u;
+            newPaletteSize = std::max(newPaletteSize, idx);
+        }
+
+        if (newPaletteSize != m_countryPaletteSize) {
+            m_countryPaletteSize = newPaletteSize;
+            m_countryPaletteTexture.create(m_countryPaletteSize, 1);
+            m_countryPaletteTexture.setSmooth(false);
+            m_countryPalettePixels.resize(static_cast<size_t>(m_countryPaletteSize) * 4u);
+        } else if (m_countryPalettePixels.size() != static_cast<size_t>(m_countryPaletteSize) * 4u) {
+            m_countryPalettePixels.resize(static_cast<size_t>(m_countryPaletteSize) * 4u);
+        }
+
+        std::fill(m_countryPalettePixels.begin(), m_countryPalettePixels.end(), static_cast<sf::Uint8>(0));
+        for (const auto& country : countries) {
+            int countryIndex = country.getCountryIndex();
+            if (countryIndex < 0) {
+                continue;
+            }
+
+            unsigned int paletteIndex = static_cast<unsigned int>(countryIndex) + 1u; // 0 reserved for empty/transparent
+            if (paletteIndex >= m_countryPaletteSize) {
+                continue;
+            }
+
+            sf::Color color = country.getColor();
+            size_t base = static_cast<size_t>(paletteIndex) * 4u;
+            m_countryPalettePixels[base + 0] = color.r;
+            m_countryPalettePixels[base + 1] = color.g;
+            m_countryPalettePixels[base + 2] = color.b;
+            m_countryPalettePixels[base + 3] = color.a;
+        }
+
+        m_countryPaletteTexture.update(m_countryPalettePixels.data());
+        m_countryOverlayShader.setUniform("palette", m_countryPaletteTexture);
+        m_countryOverlayShader.setUniform("paletteSize", static_cast<float>(m_countryPaletteSize));
+
+        int regionsPerRow = regionSize > 0 ? static_cast<int>(m_countryGridWidth) / regionSize : 0;
+        if (regionsPerRow <= 0) {
+            return;
+        }
+
+        for (int regionIndex : dirtyRegions) {
+            int regionY = regionIndex / regionsPerRow;
+            int regionX = regionIndex % regionsPerRow;
+
+            int startX = regionX * regionSize;
+            int startY = regionY * regionSize;
+            int endX = std::min(startX + regionSize, static_cast<int>(countryGrid[0].size()));
+            int endY = std::min(startY + regionSize, static_cast<int>(countryGrid.size()));
+
+            if (startX >= endX || startY >= endY) {
+                continue;
+            }
+
+            unsigned int updateW = static_cast<unsigned int>(endX - startX);
+            unsigned int updateH = static_cast<unsigned int>(endY - startY);
+            m_countryIdUploadPixels.resize(static_cast<size_t>(updateW) * static_cast<size_t>(updateH) * 4u);
+
+            for (unsigned int y = 0; y < updateH; ++y) {
+                for (unsigned int x = 0; x < updateW; ++x) {
+                    int owner = countryGrid[startY + static_cast<int>(y)][startX + static_cast<int>(x)];
+                    unsigned int encodedId = (owner >= 0) ? static_cast<unsigned int>(owner + 1) : 0u;
+                    sf::Uint8 lo = static_cast<sf::Uint8>(encodedId & 0xFFu);
+                    sf::Uint8 hi = static_cast<sf::Uint8>((encodedId >> 8) & 0xFFu);
+
+                    size_t out = (static_cast<size_t>(y) * static_cast<size_t>(updateW) + static_cast<size_t>(x)) * 4u;
+                    m_countryIdUploadPixels[out + 0] = lo;
+                    m_countryIdUploadPixels[out + 1] = hi;
+                    m_countryIdUploadPixels[out + 2] = 0;
+                    m_countryIdUploadPixels[out + 3] = 255;
+                }
+            }
+
+            m_countryIdTexture.update(
+                m_countryIdUploadPixels.data(),
+                updateW,
+                updateH,
+                static_cast<unsigned int>(startX),
+                static_cast<unsigned int>(startY));
+        }
+
+        m_countryIdSprite.setScale(static_cast<float>(gridCellSize), static_cast<float>(gridCellSize));
+        return;
+    }
+
+    int maxCountryIndex = -1;
+    for (const auto& country : countries) {
+        maxCountryIndex = std::max(maxCountryIndex, country.getCountryIndex());
+    }
+
+    std::vector<sf::Color> colorByCountryIndex;
+    if (maxCountryIndex >= 0) {
+        colorByCountryIndex.assign(static_cast<size_t>(maxCountryIndex + 1), sf::Color::Transparent);
+        for (const auto& country : countries) {
+            int countryIndex = country.getCountryIndex();
+            if (countryIndex >= 0 && countryIndex <= maxCountryIndex) {
+                colorByCountryIndex[static_cast<size_t>(countryIndex)] = country.getColor();
+            }
+        }
+    }
+
     // Clear only the dirty regions instead of the entire image
     for (int regionIndex : dirtyRegions) {
         int regionsPerRow = static_cast<int>(m_countryImage.getSize().x) / (gridCellSize * regionSize);
@@ -499,21 +678,20 @@ void Renderer::updateCountryImage(const std::vector<std::vector<int>>& countryGr
         // Only update pixels in the dirty region
         for (int y = startY; y < endY; ++y) {
             for (int x = startX; x < endX; ++x) {
-                if (y >= 0 && y < static_cast<int>(countryGrid.size()) && 
-                    x >= 0 && x < static_cast<int>(countryGrid[0].size())) {
-                    
-                    int countryIndex = countryGrid[y][x];
-                    sf::Color pixelColor = (countryIndex != -1) ? countries[countryIndex].getColor() : sf::Color::Transparent;
+                int countryIndex = countryGrid[y][x];
+                sf::Color pixelColor = sf::Color::Transparent;
+                if (countryIndex >= 0 && countryIndex < static_cast<int>(colorByCountryIndex.size())) {
+                    pixelColor = colorByCountryIndex[static_cast<size_t>(countryIndex)];
+                }
 
-                    // Set all pixels in the grid cell at once instead of pixel by pixel
-                    for (int i = 0; i < gridCellSize; ++i) {
-                        for (int j = 0; j < gridCellSize; ++j) {
-                            int pixelX = x * gridCellSize + i;
-                            int pixelY = y * gridCellSize + j;
-                            if (pixelX >= 0 && pixelX < static_cast<int>(m_countryImage.getSize().x) && 
-                                pixelY >= 0 && pixelY < static_cast<int>(m_countryImage.getSize().y)) {
-                                m_countryImage.setPixel(pixelX, pixelY, pixelColor);
-                            }
+                // Set all pixels in the grid cell at once instead of pixel by pixel
+                for (int i = 0; i < gridCellSize; ++i) {
+                    for (int j = 0; j < gridCellSize; ++j) {
+                        int pixelX = x * gridCellSize + i;
+                        int pixelY = y * gridCellSize + j;
+                        if (pixelX >= 0 && pixelX < static_cast<int>(m_countryImage.getSize().x) &&
+                            pixelY >= 0 && pixelY < static_cast<int>(m_countryImage.getSize().y)) {
+                            m_countryImage.setPixel(pixelX, pixelY, pixelColor);
                         }
                     }
                 }
@@ -571,6 +749,14 @@ void Renderer::handleWindowRecreated(const Map& map) {
 
     m_countryTexture.loadFromImage(m_countryImage);
     m_countrySprite.setTexture(m_countryTexture, true);
+
+    if (m_useGpuCountryOverlay) {
+        m_countryIdSprite.setTexture(m_countryIdTexture, true);
+        m_countryIdSprite.setPosition(0.f, 0.f);
+        m_countryIdSprite.setScale(static_cast<float>(map.getGridCellSize()), static_cast<float>(map.getGridCellSize()));
+        m_countryOverlayShader.setUniform("palette", m_countryPaletteTexture);
+        m_countryOverlayShader.setUniform("paletteSize", static_cast<float>(m_countryPaletteSize));
+    }
 
     if (m_factoryTexture.loadFromFile("factory.png")) {
         sf::Vector2u texSize = m_factoryTexture.getSize();

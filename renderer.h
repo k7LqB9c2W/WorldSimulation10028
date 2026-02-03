@@ -40,9 +40,24 @@ private:
     sf::Font m_font;
     sf::Text m_yearText;
     sf::Color m_waterColor;
+
+    // Country overlay (CPU fallback)
     sf::Image m_countryImage;
     sf::Texture m_countryTexture;
     sf::Sprite m_countrySprite;
+
+    // Country overlay (GPU path: index texture + palette + shader)
+    bool m_useGpuCountryOverlay;
+    sf::Shader m_countryOverlayShader;
+    sf::Texture m_countryIdTexture;
+    sf::Sprite m_countryIdSprite;
+    sf::Texture m_countryPaletteTexture;
+    std::vector<sf::Uint8> m_countryPalettePixels;
+    std::vector<sf::Uint8> m_countryIdUploadPixels;
+    unsigned int m_countryGridWidth;
+    unsigned int m_countryGridHeight;
+    unsigned int m_countryPaletteSize;
+
     bool m_needsUpdate;
     bool m_showWarmongerHighlights;
     bool m_showWarHighlights;

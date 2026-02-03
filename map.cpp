@@ -767,9 +767,106 @@ void Map::endPlague(News& news) {
     news.addEvent("The Great Plague has ended. Total deaths: " + std::to_string(m_plagueDeathToll));
 }
 
+void Map::rebuildCountryAdjacency(const std::vector<Country>& countries) {
+    int maxCountryIndex = -1;
+    for (const auto& country : countries) {
+        maxCountryIndex = std::max(maxCountryIndex, country.getCountryIndex());
+    }
+
+    int newSize = maxCountryIndex + 1;
+    if (newSize <= 0) {
+        m_countryAdjacencySize = 0;
+        m_countryAdjacency.clear();
+        return;
+    }
+
+    if (m_countryAdjacencySize != newSize) {
+        m_countryAdjacencySize = newSize;
+        m_countryAdjacency.assign(static_cast<size_t>(m_countryAdjacencySize), {});
+    } else {
+        for (auto& neighbors : m_countryAdjacency) {
+            neighbors.clear();
+        }
+    }
+
+    const int height = static_cast<int>(m_countryGrid.size());
+    if (height <= 0) {
+        return;
+    }
+    const int width = static_cast<int>(m_countryGrid[0].size());
+    if (width <= 0) {
+        return;
+    }
+
+    const int wordCount = (m_countryAdjacencySize + 63) / 64;
+    std::vector<std::vector<std::uint64_t>> bits(
+        static_cast<size_t>(m_countryAdjacencySize),
+        std::vector<std::uint64_t>(static_cast<size_t>(wordCount), 0));
+
+    auto addEdge = [&](int a, int b) {
+        if (a < 0 || b < 0 || a >= m_countryAdjacencySize || b >= m_countryAdjacencySize || a == b) {
+            return;
+        }
+
+        int word = b >> 6;
+        std::uint64_t mask = 1ull << (b & 63);
+        if ((bits[a][static_cast<size_t>(word)] & mask) == 0) {
+            bits[a][static_cast<size_t>(word)] |= mask;
+            m_countryAdjacency[static_cast<size_t>(a)].push_back(b);
+        }
+
+        word = a >> 6;
+        mask = 1ull << (a & 63);
+        if ((bits[b][static_cast<size_t>(word)] & mask) == 0) {
+            bits[b][static_cast<size_t>(word)] |= mask;
+            m_countryAdjacency[static_cast<size_t>(b)].push_back(a);
+        }
+    };
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            int owner = m_countryGrid[y][x];
+            if (owner < 0 || owner >= m_countryAdjacencySize) {
+                continue;
+            }
+
+            if (x + 1 < width) {
+                addEdge(owner, m_countryGrid[y][x + 1]);
+            }
+            if (y + 1 < height) {
+                addEdge(owner, m_countryGrid[y + 1][x]);
+            }
+            if (x + 1 < width && y + 1 < height) {
+                addEdge(owner, m_countryGrid[y + 1][x + 1]);
+            }
+            if (x - 1 >= 0 && y + 1 < height) {
+                addEdge(owner, m_countryGrid[y + 1][x - 1]);
+            }
+        }
+    }
+}
+
+const std::vector<int>& Map::getAdjacentCountryIndices(int countryIndex) const {
+    static const std::vector<int> empty;
+    if (countryIndex < 0 || countryIndex >= m_countryAdjacencySize) {
+        return empty;
+    }
+    return m_countryAdjacency[static_cast<size_t>(countryIndex)];
+}
+
 void Map::initializePlagueCluster(const std::vector<Country>& countries) {
     if (countries.empty()) return;
     
+    rebuildCountryAdjacency(countries);
+
+    std::vector<int> countryIndexToVectorIndex(static_cast<size_t>(m_countryAdjacencySize), -1);
+    for (size_t i = 0; i < countries.size(); ++i) {
+        int idx = countries[i].getCountryIndex();
+        if (idx >= 0 && idx < m_countryAdjacencySize) {
+            countryIndexToVectorIndex[static_cast<size_t>(idx)] = static_cast<int>(i);
+        }
+    }
+
     // Select a random country with neighbors as starting point
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -779,10 +876,16 @@ void Map::initializePlagueCluster(const std::vector<Country>& countries) {
     for (size_t i = 0; i < countries.size(); ++i) {
         if (countries[i].getPopulation() <= 0) continue; // Skip dead countries
         
-        // Check if this country has neighbors
+        // Check if this country has any living neighbor
         bool hasNeighbors = false;
-        for (size_t j = 0; j < countries.size(); ++j) {
-            if (i != j && countries[j].getPopulation() > 0 && areNeighbors(countries[i], countries[j])) {
+        int countryIndex = countries[i].getCountryIndex();
+        for (int neighborCountryIndex : getAdjacentCountryIndices(countryIndex)) {
+            if (neighborCountryIndex < 0 || neighborCountryIndex >= m_countryAdjacencySize) {
+                continue;
+            }
+            int neighborVecIndex = countryIndexToVectorIndex[static_cast<size_t>(neighborCountryIndex)];
+            if (neighborVecIndex >= 0 && neighborVecIndex < static_cast<int>(countries.size()) &&
+                countries[static_cast<size_t>(neighborVecIndex)].getPopulation() > 0) {
                 hasNeighbors = true;
                 break;
             }
@@ -813,16 +916,24 @@ void Map::initializePlagueCluster(const std::vector<Country>& countries) {
         int currentCountry = toProcess.front();
         toProcess.pop();
         
-        // Check all potential neighbors
-        for (size_t i = 0; i < countries.size(); ++i) {
-            int neighborIndex = static_cast<int>(i);
-            if (visited.count(neighborIndex) || countries[i].getPopulation() <= 0) continue;
-            
-            // If they are neighbors and plague spreads (70% chance)
-            if (areNeighbors(countries[currentCountry], countries[i]) && spreadDist(gen) < 0.7) {
-                visited.insert(neighborIndex);
-                m_plagueAffectedCountries.insert(neighborIndex);
-                toProcess.push(neighborIndex);
+        int currentCountryIndex = countries[static_cast<size_t>(currentCountry)].getCountryIndex();
+        for (int neighborCountryIndex : getAdjacentCountryIndices(currentCountryIndex)) {
+            if (neighborCountryIndex < 0 || neighborCountryIndex >= m_countryAdjacencySize) {
+                continue;
+            }
+
+            int neighborVecIndex = countryIndexToVectorIndex[static_cast<size_t>(neighborCountryIndex)];
+            if (neighborVecIndex < 0 || neighborVecIndex >= static_cast<int>(countries.size())) {
+                continue;
+            }
+            if (visited.count(neighborVecIndex) || countries[static_cast<size_t>(neighborVecIndex)].getPopulation() <= 0) {
+                continue;
+            }
+
+            if (spreadDist(gen) < 0.7) {
+                visited.insert(neighborVecIndex);
+                m_plagueAffectedCountries.insert(neighborVecIndex);
+                toProcess.push(neighborVecIndex);
             }
         }
     }
@@ -831,6 +942,16 @@ void Map::initializePlagueCluster(const std::vector<Country>& countries) {
 void Map::updatePlagueSpread(const std::vector<Country>& countries) {
     if (!m_plagueActive || m_plagueAffectedCountries.empty()) {
         return;
+    }
+
+    rebuildCountryAdjacency(countries);
+
+    std::vector<int> countryIndexToVectorIndex(static_cast<size_t>(m_countryAdjacencySize), -1);
+    for (size_t i = 0; i < countries.size(); ++i) {
+        int idx = countries[i].getCountryIndex();
+        if (idx >= 0 && idx < m_countryAdjacencySize) {
+            countryIndexToVectorIndex[static_cast<size_t>(idx)] = static_cast<int>(i);
+        }
     }
 
     std::random_device rd;
@@ -850,20 +971,26 @@ void Map::updatePlagueSpread(const std::vector<Country>& countries) {
             continue;
         }
 
-        for (size_t i = 0; i < countries.size(); ++i) {
-            int neighborIndex = static_cast<int>(i);
-            if (neighborIndex == countryIndex) {
-                continue;
-            }
-            if (countries[i].getPopulation() <= 0) {
-                continue;
-            }
-            if (nextAffected.count(neighborIndex) > 0) {
+        int sourceCountryIndex = countries[static_cast<size_t>(countryIndex)].getCountryIndex();
+        for (int neighborCountryIndex : getAdjacentCountryIndices(sourceCountryIndex)) {
+            if (neighborCountryIndex < 0 || neighborCountryIndex >= m_countryAdjacencySize) {
                 continue;
             }
 
-            if (areNeighbors(countries[countryIndex], countries[i]) && spreadDist(gen) < 0.35) {
-                nextAffected.insert(neighborIndex);
+            int neighborVecIndex = countryIndexToVectorIndex[static_cast<size_t>(neighborCountryIndex)];
+            if (neighborVecIndex < 0 || neighborVecIndex >= static_cast<int>(countries.size())) {
+                continue;
+            }
+
+            if (countries[static_cast<size_t>(neighborVecIndex)].getPopulation() <= 0) {
+                continue;
+            }
+            if (nextAffected.count(neighborVecIndex) > 0) {
+                continue;
+            }
+
+            if (spreadDist(gen) < 0.35) {
+                nextAffected.insert(neighborVecIndex);
             }
         }
     }
