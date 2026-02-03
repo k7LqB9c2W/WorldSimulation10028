@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iostream> // Make sure to include iostream if not already present
 #include <cmath> // For std::llround
+#include <unordered_set>
 
 using namespace std;
 
@@ -202,6 +203,59 @@ const std::vector<int>& TechnologyManager::getUnlockedTechnologies(const Country
     }
     static const std::vector<int> emptyVec; // Return an empty vector if not found
     return emptyVec;
+}
+
+const std::vector<int>& TechnologyManager::getSortedTechnologyIds() const {
+    return m_sortedIds;
+}
+
+void TechnologyManager::setUnlockedTechnologiesForEditor(Country& country, const std::vector<int>& techIds, bool includePrerequisites) {
+    std::unordered_set<int> requested;
+    requested.reserve(techIds.size());
+    for (int id : techIds) {
+        if (m_technologies.find(id) != m_technologies.end()) {
+            requested.insert(id);
+        }
+    }
+
+    if (includePrerequisites) {
+        std::vector<int> stack;
+        stack.reserve(requested.size());
+        for (int id : requested) {
+            stack.push_back(id);
+        }
+
+        while (!stack.empty()) {
+            int id = stack.back();
+            stack.pop_back();
+            auto it = m_technologies.find(id);
+            if (it == m_technologies.end()) {
+                continue;
+            }
+            for (int req : it->second.requiredTechs) {
+                if (m_technologies.find(req) == m_technologies.end()) {
+                    continue;
+                }
+                if (requested.insert(req).second) {
+                    stack.push_back(req);
+                }
+            }
+        }
+    }
+
+    std::vector<int> normalized;
+    normalized.reserve(requested.size());
+    for (int id : m_sortedIds) {
+        if (requested.count(id)) {
+            normalized.push_back(id);
+        }
+    }
+
+    m_unlockedTechnologies[country.getCountryIndex()] = normalized;
+    country.resetTechnologyBonuses();
+    for (int id : normalized) {
+        country.applyTechnologyBonus(id);
+    }
 }
 
 // POPULATION SYSTEM HELPER IMPLEMENTATIONS

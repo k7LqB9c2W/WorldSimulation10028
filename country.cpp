@@ -263,6 +263,15 @@ void Country::endWar(int currentYear) {
     }
 }
 
+void Country::clearWarState() {
+    m_isAtWar = false;
+    m_warDuration = 0;
+    m_isWarofAnnihilation = false;
+    m_isWarofConquest = false;
+    m_peaceDuration = 0;
+    clearEnemies();
+}
+
 // Check if the country is currently at war
 bool Country::isAtWar() const {
     return m_isAtWar;
@@ -565,203 +574,150 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
             std::cout << "💥 " << m_name << " launches WAR BURST CONQUEST (radius " << warBurstRadius << ")!" << std::endl;
         }
 
-        // Get enemy indices
-        std::vector<int> enemyIndices;
-        for (Country* enemy : getEnemies()) {
-            enemyIndices.push_back(enemy->getCountryIndex());
-        }
+        Country* primaryEnemy = getEnemies().empty() ? nullptr : getEnemies().front();
+        if (primaryEnemy && primaryEnemy->getPopulation() > 0 && !primaryEnemy->getBoundaryPixels().empty() && !currentBoundaryPixels.empty()) {
+            const int enemyIndex = primaryEnemy->getCountryIndex();
 
-        for (int i = 0; i < growth; ++i) {
-            if (currentBoundaryPixels.empty()) break;
+            int captureBudget = std::clamp(growth * 25, 120, 900);
+            if (m_type == Type::Warmonger) {
+                captureBudget = static_cast<int>(captureBudget * 1.25);
+            }
+            captureBudget = static_cast<int>(captureBudget * (1.0 + std::min(1.0, getTerritoryCaptureBonusRate())));
 
-            std::uniform_int_distribution<size_t> boundaryIndexDist(0, currentBoundaryPixels.size() - 1);
-            size_t boundaryIndex = boundaryIndexDist(gen);
-            sf::Vector2i currentCell = currentBoundaryPixels[boundaryIndex];
+            int maxDepth = 20;
+            if (doWarBurstConquest) {
+                captureBudget = std::min(3000, captureBudget * std::max(2, warBurstRadius));
+                maxDepth = std::max(maxDepth, warBurstRadius * 6);
+            }
 
-            currentBoundaryPixels.erase(currentBoundaryPixels.begin() + boundaryIndex);
+            sf::Vector2i ourCapital = getCapitalLocation();
+            sf::Vector2i enemyCapital = primaryEnemy->getCapitalLocation();
+            sf::Vector2f attackDir(static_cast<float>(enemyCapital.x - ourCapital.x), static_cast<float>(enemyCapital.y - ourCapital.y));
+            float attackDirLen = std::sqrt(attackDir.x * attackDir.x + attackDir.y * attackDir.y);
+            if (attackDirLen > 0.001f) {
+                attackDir.x /= attackDirLen;
+                attackDir.y /= attackDirLen;
+            } else {
+                attackDir = sf::Vector2f(1.0f, 0.0f);
+            }
 
-            int dx = neighborDist(gen);
-            int dy = neighborDist(gen);
-            if (dx == 0 && dy == 0) continue;
+            static const sf::Vector2i dirs8[] = {
+                {1,0}, {-1,0}, {0,1}, {0,-1}, {1,1}, {1,-1}, {-1,1}, {-1,-1}
+            };
 
-            sf::Vector2i newCell = currentCell + sf::Vector2i(dx, dy);
+            sf::Vector2i seedEnemyCell(-1, -1);
+            float bestScore = -1e9f;
+            std::vector<sf::Vector2i> captured;
+            captured.reserve(static_cast<size_t>(captureBudget));
 
-            if (newCell.x >= 0 && newCell.x < static_cast<int>(isLandGrid[0].size()) && newCell.y >= 0 && newCell.y < isLandGrid.size()) {
-                // 🛡️ DEADLOCK FIX: Check enemy territory first without lock
-                bool isEnemyTerritory = false;
-                int currentCellOwner;
-                
-                {
-                    std::lock_guard<std::mutex> lock(gridMutex);
-                    currentCellOwner = countryGrid[newCell.y][newCell.x];
-                }
-                
-                // Check if the new cell belongs to an enemy
-                for (int enemyIndex : enemyIndices) {
-                    if (currentCellOwner == enemyIndex) {
-                        isEnemyTerritory = true;
-                        break;
+            {
+                std::lock_guard<std::mutex> lock(gridMutex);
+
+                const int sampleCount = std::min(250, static_cast<int>(currentBoundaryPixels.size()));
+                for (int s = 0; s < sampleCount; ++s) {
+                    size_t idx = static_cast<size_t>((static_cast<long long>(s) * static_cast<long long>(currentBoundaryPixels.size())) / std::max(1, sampleCount));
+                    const sf::Vector2i base = currentBoundaryPixels[idx];
+
+                    for (const auto& d : dirs8) {
+                        sf::Vector2i probe = base + d;
+                        if (probe.x < 0 || probe.x >= static_cast<int>(isLandGrid[0].size()) ||
+                            probe.y < 0 || probe.y >= static_cast<int>(isLandGrid.size())) {
+                            continue;
+                        }
+                        if (!isLandGrid[probe.y][probe.x]) {
+                            continue;
+                        }
+                        if (countryGrid[probe.y][probe.x] != enemyIndex) {
+                            continue;
+                        }
+
+                        sf::Vector2f rel(static_cast<float>(probe.x - ourCapital.x), static_cast<float>(probe.y - ourCapital.y));
+                        float score = rel.x * attackDir.x + rel.y * attackDir.y;
+                        if (score > bestScore) {
+                            bestScore = score;
+                            seedEnemyCell = probe;
+                        }
                     }
                 }
 
-                if (isEnemyTerritory) {
-                    // Capture the cell (existing logic)
-                    // 🗡️ TECHNOLOGY-ENHANCED CAPTURE MECHANICS
-                    std::uniform_real_distribution<> captureChance(0.0, 1.0);
-                    
-                    // Base capture chance: 60%
-                    double baseCaptureRate = 0.6;
-                    
-                    // Warmonger bonus
-                    double warmongerCaptureBonus = (m_type == Type::Warmonger) ? 0.2 : 0.0;
-                    
-                    // Technology capture bonus
-                    double techCaptureBonus = getTerritoryCaptureBonusRate();
-                    
-                    // Total capture chance
-                    double totalCaptureRate = baseCaptureRate + warmongerCaptureBonus + techCaptureBonus;
-                    totalCaptureRate = std::min(0.95, totalCaptureRate); // Cap at 95%
-                    
-                    if (captureChance(gen) < totalCaptureRate) { // Technology-enhanced capture chance
-                        // 🛡️ DEADLOCK FIX: Separate lock for grid update
-                        {
-                            std::lock_guard<std::mutex> lock(gridMutex);
-                            countryGrid[newCell.y][newCell.x] = m_countryIndex;
+                if (seedEnemyCell.x != -1) {
+                    struct Node { sf::Vector2i cell; int depth; };
+                    std::queue<Node> frontier;
+                    std::unordered_set<sf::Vector2i> visited;
+                    visited.reserve(static_cast<size_t>(captureBudget) * 2u);
+
+                    frontier.push({seedEnemyCell, 0});
+                    visited.insert(seedEnemyCell);
+
+                    while (!frontier.empty() && static_cast<int>(captured.size()) < captureBudget) {
+                        Node node = frontier.front();
+                        frontier.pop();
+
+                        if (countryGrid[node.cell.y][node.cell.x] != enemyIndex) {
+                            continue;
                         }
-                        newBoundaryPixels.push_back(newCell);
 
+                        captured.push_back(node.cell);
+                        if (node.depth >= maxDepth) {
+                            continue;
+                        }
 
-
-                        // 💀 ENHANCED POPULATION LOSS - Territory loss = population loss
-                        for (Country* enemy : getEnemies()) {
-                            if (countryGrid[newCell.y][newCell.x] == enemy->getCountryIndex()) {
-                                // FIXED: Much more reasonable population loss
-                                double randomFactor = static_cast<double>(rand() % 101) / 100.0; // 0.00 to 1.00
-                                long long baseLoss = static_cast<long long>(enemy->getPopulation() * (0.001 + (0.002 * randomFactor))); // 0.1-0.3% per pixel (much lower!)
-                                
-                                enemy->setPopulation(std::max(0LL, enemy->getPopulation() - baseLoss));
-                                
-                                // Remove the lost pixel from enemy's boundary
-                                enemy->m_boundaryPixels.erase(newCell);
-
-                                // If the captured cell contains a city, transfer it to the attacker
-                                for (auto it = enemy->m_cities.begin(); it != enemy->m_cities.end(); ) {
-                                    if (it->getLocation() == newCell) {
-                                        // Transfer city
-                                        addConqueredCity(*it);
-                                        it = enemy->m_cities.erase(it);
-
-                                        // Reduce population by 10% for losing a city
-                                        long long cityPopulationLoss = static_cast<long long>(enemy->getPopulation() * 0.10);
-                                        enemy->setPopulation(std::max(0LL, enemy->getPopulation() - cityPopulationLoss));
-                                        break;
-                                    }
-                                    else {
-                                        ++it;
-                                    }
-                                }
-                                break;
+                        for (int k = 0; k < 4; ++k) {
+                            sf::Vector2i next = node.cell + dirs8[k];
+                            if (next.x < 0 || next.x >= static_cast<int>(isLandGrid[0].size()) ||
+                                next.y < 0 || next.y >= static_cast<int>(isLandGrid.size())) {
+                                continue;
                             }
-                        }
-
-                        // 🛡️ DEADLOCK FIX: Update dirty regions separately
-                        int regionIndex = static_cast<int>((newCell.y / regionSize) * (isLandGrid[0].size() / regionSize) + (newCell.x / regionSize));
-                        {
-                            std::lock_guard<std::mutex> lock(gridMutex);
-                            dirtyRegions.insert(regionIndex);
-                        }
-
-                        // 🚀 OPTIMIZATION: Quick boundary check
-                        bool isNewBoundary = false;
-                        for (int y = -1; y <= 1; ++y) {
-                            for (int x = -1; x <= 1; ++x) {
-                                if (x == 0 && y == 0) continue;
-                                sf::Vector2i neighborCell = newCell + sf::Vector2i(x, y);
-                                if (neighborCell.x >= 0 && neighborCell.x < countryGrid[0].size() && neighborCell.y >= 0 && neighborCell.y < countryGrid.size() && countryGrid[neighborCell.y][neighborCell.x] == -1) {
-                                    isNewBoundary = true;
-                                    break;
-                                }
+                            if (!isLandGrid[next.y][next.x]) {
+                                continue;
                             }
-                            if (isNewBoundary) break;
-                        }
-                        if (isNewBoundary) {
-                            m_boundaryPixels.insert(newCell);
-                        }
-                    }
-                }
-            }
-        }
-        
-        // ⚡💥 HYPER-OPTIMIZED WAR BURST CONQUEST - Lightning fast! 💥⚡
-        if (doWarBurstConquest && !enemyIndices.empty()) {
-            
-            // OPTIMIZATION 1: Pre-calculate target count
-            int targetCaptures = std::min(warBurstRadius * 20, 150); // Simple calculation
-            
-            // OPTIMIZATION 2: Fast enemy territory sampling
-            std::vector<sf::Vector2i> enemyTargets;
-            enemyTargets.reserve(targetCaptures);
-            
-            // OPTIMIZATION 3: Sample only 15 boundary pixels
-            std::vector<sf::Vector2i> warSample;
-            auto it = currentBoundaryPixels.begin();
-            for (int i = 0; i < 15 && it != currentBoundaryPixels.end(); ++i) {
-                warSample.push_back(*it);
-                std::advance(it, std::max(1, static_cast<int>(currentBoundaryPixels.size()) / 15));
-            }
-            
-            // OPTIMIZATION 4: Fast directional enemy search
-            for (const auto& basePixel : warSample) {
-                for (int attempt = 0; attempt < targetCaptures / 15; ++attempt) {
-                    // Random direction within war burst radius
-                    std::uniform_int_distribution<> warDir(-warBurstRadius, warBurstRadius);
-                    int dx = warDir(gen);
-                    int dy = warDir(gen);
-                    
-                    sf::Vector2i targetCell = basePixel + sf::Vector2i(dx, dy);
-                    
-                    // Quick bounds check
-                    if (targetCell.x >= 0 && targetCell.x < static_cast<int>(isLandGrid[0].size()) && 
-                        targetCell.y >= 0 && targetCell.y < isLandGrid.size()) {
-                        
-                        int cellOwner = countryGrid[targetCell.y][targetCell.x]; // Direct access
-                        
-                        // Fast enemy check
-                        for (int enemyIndex : enemyIndices) {
-                            if (cellOwner == enemyIndex) {
-                                enemyTargets.push_back(targetCell);
-                                break;
+                            if (visited.insert(next).second) {
+                                frontier.push({next, node.depth + 1});
                             }
                         }
                     }
-                    
-                    if (enemyTargets.size() >= targetCaptures) break;
-                }
-                if (enemyTargets.size() >= targetCaptures) break;
-            }
-            
-            // OPTIMIZATION 5: Batch capture with high success rate
-            int successfulCaptures = 0;
-            double enhancedCaptureRate = 0.85 + getTerritoryCaptureBonusRate(); // High base rate
-            enhancedCaptureRate = std::min(0.95, enhancedCaptureRate);
-            
-            for (const auto& targetCell : enemyTargets) {
-                std::uniform_real_distribution<> quickCapture(0.0, 1.0);
-                if (quickCapture(gen) < enhancedCaptureRate) {
-                    countryGrid[targetCell.y][targetCell.x] = m_countryIndex;
-                    m_boundaryPixels.insert(targetCell);
-                    
-                    // Fast dirty region marking
-                    int regionSize = map.getRegionSize();
-                    int regionIndex = static_cast<int>((targetCell.y / regionSize) * (isLandGrid[0].size() / regionSize) + (targetCell.x / regionSize));
-                    const_cast<Map&>(map).insertDirtyRegion(regionIndex);
-                    
-                    successfulCaptures++;
+
+                    for (const auto& cell : captured) {
+                        if (countryGrid[cell.y][cell.x] != enemyIndex) {
+                            continue;
+                        }
+                        countryGrid[cell.y][cell.x] = m_countryIndex;
+                        m_boundaryPixels.insert(cell);
+                        primaryEnemy->m_boundaryPixels.erase(cell);
+
+                        int regionIndex = static_cast<int>((cell.y / regionSize) * (isLandGrid[0].size() / regionSize) + (cell.x / regionSize));
+                        dirtyRegions.insert(regionIndex);
+                    }
                 }
             }
-            
-            if (successfulCaptures > 0) {
-                std::cout << "   ⚡💥 " << m_name << " HYPER-FAST war burst: " << successfulCaptures << " enemy pixels!" << std::endl;
+
+            if (!captured.empty()) {
+                int citiesCaptured = 0;
+                std::unordered_set<sf::Vector2i> capturedSet(captured.begin(), captured.end());
+                for (auto itCity = primaryEnemy->m_cities.begin(); itCity != primaryEnemy->m_cities.end();) {
+                    if (capturedSet.count(itCity->getLocation())) {
+                        addConqueredCity(*itCity);
+                        itCity = primaryEnemy->m_cities.erase(itCity);
+                        citiesCaptured++;
+                    } else {
+                        ++itCity;
+                    }
+                }
+
+                long long enemyPop = primaryEnemy->getPopulation();
+                if (enemyPop > 0) {
+                    double lossRate = 0.00003 * static_cast<double>(captured.size());
+                    if (citiesCaptured > 0) {
+                        lossRate += 0.03 * citiesCaptured;
+                    }
+                    lossRate = std::min(0.35, lossRate);
+                    long long loss = static_cast<long long>(static_cast<double>(enemyPop) * lossRate);
+                    primaryEnemy->setPopulation(std::max(0LL, enemyPop - loss));
+                }
+
+                if (doWarBurstConquest) {
+                    std::cout << "   💥 " << m_name << " breakthrough captures " << captured.size() << " cells!" << std::endl;
+                }
             }
         }
     }
@@ -1668,6 +1624,24 @@ void Country::applyTechnologyBonus(int techId) {
     }
 }
 
+void Country::resetTechnologyBonuses() {
+    m_populationGrowthBonus = 0.0;
+    m_plagueResistanceBonus = 0.0;
+    m_militaryStrengthBonus = 0.0;
+    m_territoryCaptureBonusRate = 0.0;
+    m_defensiveBonus = 0.0;
+    m_warDurationReduction = 0.0;
+    m_maxSizeMultiplier = 1.0;
+    m_expansionRateBonus = 0;
+    m_flatMaxSizeBonus = 0;
+    m_burstExpansionRadius = 1;
+    m_burstExpansionFrequency = 0;
+    m_warBurstConquestRadius = 1;
+    m_warBurstConquestFrequency = 0;
+    m_sciencePointsBonus = 0.0;
+    m_researchMultiplier = 1.0;
+}
+
 double Country::getTotalPopulationGrowthRate() const {
     return m_populationGrowthRate + m_populationGrowthBonus;
 }
@@ -1991,6 +1965,7 @@ void Country::absorbCountry(Country& target, std::vector<std::vector<int>>& coun
     
     // Absorb all territory
     const auto& targetPixels = target.getBoundaryPixels();
+    const size_t absorbedTerritory = targetPixels.size();
     for (const auto& pixel : targetPixels) {
         countryGrid[pixel.y][pixel.x] = m_countryIndex;
         m_boundaryPixels.insert(pixel);
@@ -2019,8 +1994,12 @@ void Country::absorbCountry(Country& target, std::vector<std::vector<int>>& coun
     
     // Set target population to 0 to mark for removal
     target.setPopulation(0);
+    target.setTerritory(std::unordered_set<sf::Vector2i>{});
+    target.setCities(std::vector<City>{});
+    target.clearRoadNetwork();
+    target.clearWarState();
     
-    std::cout << "   📊 Absorbed " << gained << " people and " << targetPixels.size() << " territory!" << std::endl;
+    std::cout << "   📊 Absorbed " << gained << " people and " << absorbedTerritory << " territory!" << std::endl;
 }
 
 // Found a new city at a specific location
@@ -2629,4 +2608,3 @@ void Country::attemptFactoryConstruction(const TechnologyManager& techManager,
         tryPlaceFrom(regularCandidates);
     }
 }
-

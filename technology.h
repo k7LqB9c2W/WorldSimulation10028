@@ -22,6 +22,8 @@ public:
     void unlockTechnology(Country& country, int techId);
     const std::unordered_map<int, Technology>& getTechnologies() const;
     const std::vector<int>& getUnlockedTechnologies(const Country& country) const;
+    const std::vector<int>& getSortedTechnologyIds() const;
+    void setUnlockedTechnologiesForEditor(Country& country, const std::vector<int>& techIds, bool includePrerequisites);
     
     // POPULATION SYSTEM HELPERS
     static bool hasTech(const TechnologyManager& tm, const Country& c, int id);

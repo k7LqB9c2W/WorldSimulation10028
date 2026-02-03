@@ -33,6 +33,7 @@ public:
     void setCivicScrollOffset(int offset);
     void renderMegaTimeJumpScreen(const std::string& inputText, const sf::Font& font);
     void renderCountryAddEditor(const std::string& inputText, int editorState, int maxTechId, int maxCultureId, const sf::Font& font);
+    void renderTechEditor(const Country& country, const TechnologyManager& techManager, const std::string& inputText, const sf::Font& font);
 
 private:
     sf::RenderWindow& m_window;
@@ -101,5 +102,7 @@ private:
     void drawTradeRoutes(const TradeManager& tradeManager, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
     void drawPlagueOverlay(const Map& map, const std::vector<Country>& countries, const sf::FloatRect& visibleArea);
     void drawWarFrontlines(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+    void drawWarArrows(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
 
+    sf::Clock m_warArrowClock;
 };

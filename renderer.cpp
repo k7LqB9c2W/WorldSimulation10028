@@ -276,6 +276,9 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
         drawWarHighlights(countries, map);
     }
 
+    // Always show a primary-target war arrow when a country is at war.
+    drawWarArrows(countries, map, visibleArea);
+
     m_window.setView(m_window.getDefaultView());
 
     m_window.draw(m_yearText); // Draw the year
@@ -374,6 +377,110 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
 
     m_window.setView(worldView);
     m_window.display();
+}
+
+void Renderer::drawWarArrows(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
+    const int gridCellSize = map.getGridCellSize();
+    if (gridCellSize <= 0) {
+        return;
+    }
+
+    const float t = m_warArrowClock.getElapsedTime().asSeconds();
+    const float pulse = 0.5f + 0.5f * std::sin(t * 2.0f);
+
+    sf::Color outer(120, 0, 0, static_cast<sf::Uint8>(90 + 80 * pulse));
+    sf::Color inner(255, 40, 40, static_cast<sf::Uint8>(140 + 90 * pulse));
+
+    const float thickness = std::max(8.0f, static_cast<float>(gridCellSize) * 10.0f);
+    const float innerThickness = thickness * 0.55f;
+
+    sf::VertexArray tris(sf::Triangles);
+    tris.clear();
+
+    auto addQuad = [&](const sf::Vector2f& a, const sf::Vector2f& b, float w, const sf::Color& c) {
+        sf::Vector2f d = b - a;
+        float len = std::sqrt(d.x * d.x + d.y * d.y);
+        if (len < 0.001f) {
+            return;
+        }
+        sf::Vector2f dir(d.x / len, d.y / len);
+        sf::Vector2f perp(-dir.y, dir.x);
+        sf::Vector2f off = perp * (w * 0.5f);
+
+        sf::Vector2f p0 = a + off;
+        sf::Vector2f p1 = a - off;
+        sf::Vector2f p2 = b - off;
+        sf::Vector2f p3 = b + off;
+
+        tris.append(sf::Vertex(p0, c));
+        tris.append(sf::Vertex(p1, c));
+        tris.append(sf::Vertex(p2, c));
+        tris.append(sf::Vertex(p0, c));
+        tris.append(sf::Vertex(p2, c));
+        tris.append(sf::Vertex(p3, c));
+    };
+
+    auto addTriangle = [&](const sf::Vector2f& p0, const sf::Vector2f& p1, const sf::Vector2f& p2, const sf::Color& c) {
+        tris.append(sf::Vertex(p0, c));
+        tris.append(sf::Vertex(p1, c));
+        tris.append(sf::Vertex(p2, c));
+    };
+
+    for (const auto& country : countries) {
+        if (!country.isAtWar()) {
+            continue;
+        }
+        const auto& enemies = country.getEnemies();
+        if (enemies.empty() || enemies.front() == nullptr) {
+            continue;
+        }
+        const Country* target = enemies.front();
+        if (target->getPopulation() <= 0 || target->getBoundaryPixels().empty()) {
+            continue;
+        }
+
+        sf::Vector2i aCell = country.getCapitalLocation();
+        sf::Vector2i bCell = target->getCapitalLocation();
+        sf::Vector2f a((static_cast<float>(aCell.x) + 0.5f) * gridCellSize,
+                       (static_cast<float>(aCell.y) + 0.5f) * gridCellSize);
+        sf::Vector2f b((static_cast<float>(bCell.x) + 0.5f) * gridCellSize,
+                       (static_cast<float>(bCell.y) + 0.5f) * gridCellSize);
+
+        sf::Vector2f d = b - a;
+        float len = std::sqrt(d.x * d.x + d.y * d.y);
+        if (len < 20.0f) {
+            continue;
+        }
+
+        float pad = thickness * 0.75f;
+        sf::FloatRect bounds(std::min(a.x, b.x) - pad,
+                             std::min(a.y, b.y) - pad,
+                             std::abs(a.x - b.x) + pad * 2.0f,
+                             std::abs(a.y - b.y) + pad * 2.0f);
+        if (!bounds.intersects(visibleArea)) {
+            continue;
+        }
+
+        sf::Vector2f dir(d.x / len, d.y / len);
+        float headLen = std::min(90.0f, len * 0.22f);
+        float headWidth = thickness * 2.4f;
+        sf::Vector2f headBase = b - dir * headLen;
+
+        // Outer arrow (shadow/outline).
+        addQuad(a, headBase, thickness, outer);
+        sf::Vector2f perp(-dir.y, dir.x);
+        sf::Vector2f hw = perp * (headWidth * 0.5f);
+        addTriangle(b, headBase + hw, headBase - hw, outer);
+
+        // Inner arrow (brighter).
+        addQuad(a, headBase, innerThickness, inner);
+        sf::Vector2f ihw = perp * ((headWidth * 0.5f) * 0.75f);
+        addTriangle(b, headBase + ihw, headBase - ihw, inner);
+    }
+
+    if (tris.getVertexCount() > 0) {
+        m_window.draw(tris);
+    }
 }
 
 void Renderer::drawCountryInfo(const Country* country, const TechnologyManager& techManager) {
@@ -1121,6 +1228,109 @@ void Renderer::renderCountryAddEditor(const std::string& inputText, int editorSt
     progressBar.setFillColor(sf::Color::Green);
     m_window.draw(progressBar);
     
+    m_window.setView(previousView);
+    m_window.display();
+}
+
+void Renderer::renderTechEditor(const Country& country, const TechnologyManager& techManager, const std::string& inputText, const sf::Font& font) {
+    sf::View previousView = m_window.getView();
+
+    m_window.clear(sf::Color(15, 15, 20));
+    m_window.setView(m_window.getDefaultView());
+
+    sf::RectangleShape mainBox(sf::Vector2f(820, 560));
+    mainBox.setPosition(m_window.getSize().x / 2 - 410, m_window.getSize().y / 2 - 280);
+    mainBox.setFillColor(sf::Color(35, 35, 45));
+    mainBox.setOutlineColor(sf::Color(255, 140, 60));
+    mainBox.setOutlineThickness(3);
+    m_window.draw(mainBox);
+
+    sf::Text titleText;
+    titleText.setFont(font);
+    titleText.setCharacterSize(32);
+    titleText.setFillColor(sf::Color(255, 140, 60));
+    titleText.setString("🧠 TECHNOLOGY EDITOR");
+    titleText.setPosition(m_window.getSize().x / 2 - 230, m_window.getSize().y / 2 - 260);
+    m_window.draw(titleText);
+
+    sf::Text countryText;
+    countryText.setFont(font);
+    countryText.setCharacterSize(22);
+    countryText.setFillColor(sf::Color::White);
+    countryText.setString("Country: " + country.getName());
+    countryText.setPosition(m_window.getSize().x / 2 - 390, m_window.getSize().y / 2 - 210);
+    m_window.draw(countryText);
+
+    const auto& unlocked = techManager.getUnlockedTechnologies(country);
+    sf::Text statsText;
+    statsText.setFont(font);
+    statsText.setCharacterSize(18);
+    statsText.setFillColor(sf::Color(220, 220, 220));
+    statsText.setString("Unlocked: " + std::to_string(unlocked.size()) + " techs");
+    statsText.setPosition(m_window.getSize().x / 2 - 390, m_window.getSize().y / 2 - 175);
+    m_window.draw(statsText);
+
+    sf::Text instruction;
+    instruction.setFont(font);
+    instruction.setCharacterSize(18);
+    instruction.setFillColor(sf::Color::White);
+    instruction.setString("Commands: all | clear | add 1,2,3 | remove 5,7 | set 10,11,14\nPress ENTER to apply | ESC to cancel");
+    instruction.setPosition(m_window.getSize().x / 2 - 390, m_window.getSize().y / 2 - 135);
+    m_window.draw(instruction);
+
+    sf::RectangleShape inputBox(sf::Vector2f(760, 54));
+    inputBox.setPosition(m_window.getSize().x / 2 - 380, m_window.getSize().y / 2 - 55);
+    inputBox.setFillColor(sf::Color(55, 55, 65));
+    inputBox.setOutlineColor(sf::Color::Cyan);
+    inputBox.setOutlineThickness(2);
+    m_window.draw(inputBox);
+
+    sf::Text inputDisplay;
+    inputDisplay.setFont(font);
+    inputDisplay.setCharacterSize(22);
+    inputDisplay.setFillColor(sf::Color::Cyan);
+    inputDisplay.setString(inputText.empty() ? "_" : inputText + "_");
+    inputDisplay.setPosition(m_window.getSize().x / 2 - 370, m_window.getSize().y / 2 - 45);
+    m_window.draw(inputDisplay);
+
+    // Show the last few unlocked tech names (lightweight).
+    sf::Text recentText;
+    recentText.setFont(font);
+    recentText.setCharacterSize(16);
+    recentText.setFillColor(sf::Color(200, 200, 200));
+
+    std::string recent = "Recent: ";
+    const auto& techs = techManager.getTechnologies();
+    int shown = 0;
+    for (int i = static_cast<int>(unlocked.size()) - 1; i >= 0 && shown < 6; --i) {
+        auto it = techs.find(unlocked[static_cast<size_t>(i)]);
+        if (it == techs.end()) {
+            continue;
+        }
+        if (shown > 0) {
+            recent += ", ";
+        }
+        recent += it->second.name;
+        shown++;
+    }
+    if (shown == 0) {
+        recent += "<none>";
+    }
+
+    recentText.setString(recent);
+    recentText.setPosition(m_window.getSize().x / 2 - 390, m_window.getSize().y / 2 + 20);
+    m_window.draw(recentText);
+
+    if (paused) {
+        sf::Text pausedText;
+        pausedText.setFont(font);
+        pausedText.setCharacterSize(24);
+        pausedText.setFillColor(sf::Color(255, 255, 0));
+        pausedText.setString("PAUSED");
+        pausedText.setPosition(10, 10);
+        m_window.draw(pausedText);
+    }
+
     m_window.setView(previousView);
     m_window.display();
 }

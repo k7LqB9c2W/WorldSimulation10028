@@ -147,6 +147,8 @@ public:
     void setRoads(const std::vector<sf::Vector2i>& roads);
     void clearRoadNetwork();
     void setFactories(const std::vector<sf::Vector2i>& factories);
+    void clearWarState();
+    void resetTechnologyBonuses();
     
     // NEW LOGISTIC POPULATION SYSTEM
     double computeYearlyFood(const std::vector<std::vector<std::unordered_map<Resource::Type,double>>>& resourceGrid) const;

@@ -119,6 +119,7 @@ private:
     std::vector<std::vector<int>> m_countryAdjacency;
     void rebuildCountryAdjacency(const std::vector<Country>& countries);
     const std::vector<int>& getAdjacentCountryIndices(int countryIndex) const;
+    void markCountryExtinct(std::vector<Country>& countries, int countryIndex, int currentYear, News& news);
 
     sf::Image m_spawnZoneImage;
     sf::Color m_spawnZoneColor = sf::Color(255, 132, 255);

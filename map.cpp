@@ -291,8 +291,22 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
                 // 💀 INSTANT ANNIHILATION - 80% chance for overwhelming superiority
                 std::uniform_real_distribution<> annihilationChance(0.0, 1.0);
                 if (annihilationChance(gen) < 0.8) {
+                    std::vector<sf::Vector2i> absorbedCells;
+                    {
+                        const auto& targetTerritory = countries[annihilationTarget].getBoundaryPixels();
+                        absorbedCells.assign(targetTerritory.begin(), targetTerritory.end());
+                    }
                     countries[i].startWar(countries[annihilationTarget], news);
                     countries[i].absorbCountry(countries[annihilationTarget], m_countryGrid, news);
+                    if (!absorbedCells.empty()) {
+                        int regionsPerRow = m_regionSize > 0 ? static_cast<int>(m_countryGrid[0].size()) / m_regionSize : 0;
+                        if (regionsPerRow > 0) {
+                            for (const auto& cell : absorbedCells) {
+                                int regionIndex = (cell.y / m_regionSize) * regionsPerRow + (cell.x / m_regionSize);
+                                m_dirtyRegions.insert(regionIndex);
+                            }
+                        }
+                    }
                     
                     std::uniform_int_distribution<> delayDist(10, 30); // Shorter delay after annihilation
                     int delay = delayDist(gen);
@@ -353,6 +367,13 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
         countries[i].attemptTechnologySharing(currentYear, countries, technologyManager, *this, news);
     }
 
+    // Clean up extinct countries without erasing (keeps country indices stable).
+    for (int i = 0; i < static_cast<int>(countries.size()); ++i) {
+        if (countries[i].getPopulation() <= 0 || countries[i].getBoundaryPixels().empty()) {
+            markCountryExtinct(countries, i, currentYear, news);
+        }
+    }
+
     // REMOVE THIS ENTIRE BLOCK - Grid update is now handled within Country::update
     /*
     // Update m_countryGrid from tempGrid after processing all countries
@@ -361,6 +382,76 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
         m_countryGrid = tempGrid;
     }
     */
+}
+
+void Map::markCountryExtinct(std::vector<Country>& countries, int countryIndex, int currentYear, News& news) {
+    if (countryIndex < 0 || countryIndex >= static_cast<int>(countries.size())) {
+        return;
+    }
+
+    Country& extinct = countries[static_cast<size_t>(countryIndex)];
+    if (extinct.getPopulation() <= 0 && extinct.getBoundaryPixels().empty() && !extinct.isAtWar() && extinct.getEnemies().empty()) {
+        return; // Already processed
+    }
+    if (extinct.getPopulation() > 0 && !extinct.getBoundaryPixels().empty()) {
+        return;
+    }
+
+    const int extinctId = extinct.getCountryIndex();
+    if (extinctId < 0) {
+        return;
+    }
+
+    const auto& territory = extinct.getBoundaryPixels();
+    if (!territory.empty()) {
+        std::lock_guard<std::mutex> lock(m_gridMutex);
+        const int height = static_cast<int>(m_countryGrid.size());
+        const int width = height > 0 ? static_cast<int>(m_countryGrid[0].size()) : 0;
+        const int regionsPerRow = m_regionSize > 0 ? (width / m_regionSize) : 0;
+
+        for (const auto& cell : territory) {
+            if (cell.x < 0 || cell.y < 0 || cell.x >= width || cell.y >= height) {
+                continue;
+            }
+            if (m_countryGrid[cell.y][cell.x] != extinctId) {
+                continue;
+            }
+
+            m_countryGrid[cell.y][cell.x] = -1;
+            if (regionsPerRow > 0) {
+                int regionIndex = (cell.y / m_regionSize) * regionsPerRow + (cell.x / m_regionSize);
+                m_dirtyRegions.insert(regionIndex);
+            }
+        }
+    }
+
+    // Remove from wars/enemy lists without invalidating pointers.
+    for (auto& other : countries) {
+        if (&other == &extinct) {
+            continue;
+        }
+        if (!other.getEnemies().empty()) {
+            other.removeEnemy(&extinct);
+            if (other.isAtWar() && other.getEnemies().empty()) {
+                other.clearWarState();
+            }
+        }
+    }
+
+    // Clear local state.
+    extinct.clearWarState();
+    extinct.clearEnemies();
+    extinct.setTerritory(std::unordered_set<sf::Vector2i>{});
+    extinct.setCities(std::vector<City>{});
+    extinct.clearRoadNetwork();
+    extinct.setGold(0.0);
+    extinct.setSciencePoints(0.0);
+    extinct.setPopulation(0);
+
+    std::string event = "💀 " + extinct.getName() + " collapses and becomes extinct in " + std::to_string(currentYear);
+    if (currentYear < 0) event += " BCE";
+    else event += " CE";
+    news.addEvent(event);
 }
 
 void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& tradeManager, int currentYear, News& news) {
@@ -1242,35 +1333,39 @@ void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
             }
         }
         
-        // 📊 Remove extinct countries and track superpowers
+        // 📊 Mark extinct countries and track superpowers (keep indices stable by never erasing).
         long long totalWorldPopulation = 0;
-        for (auto it = countries.begin(); it != countries.end();) {
-            totalWorldPopulation += it->getPopulation();
-            
-            // 💀 EXTINCTION CONDITIONS - No territory OR no population
-            bool isExtinct = (it->getPopulation() <= 50) || (it->getBoundaryPixels().empty());
-            
-            if (isExtinct) {
-                extinctCountries.push_back(it->getName() + " (extinct in " + std::to_string(currentYear) + 
-                                         " - Pop: " + std::to_string(it->getPopulation()) + 
-                                         ", Territory: " + std::to_string(it->getBoundaryPixels().size()) + " pixels)");
-                it = countries.erase(it);
-            } else {
-                // Track superpowers - dynamic threshold based on world population
-                long long superpowerThreshold = std::max(100000LL, totalWorldPopulation / 20); // Top 5% or min 100k
-                if (it->getPopulation() > superpowerThreshold) {
-                    bool alreadyTracked = false;
-                    for (const auto& power : superPowers) {
-                        if (power.find(it->getName()) != std::string::npos) {
-                            alreadyTracked = true;
-                            break;
-                        }
-                    }
-                    if (!alreadyTracked) {
-                        superPowers.push_back("🏛️ " + it->getName() + " becomes a superpower (" + std::to_string(it->getPopulation()) + " people in " + std::to_string(currentYear) + ")");
+        for (const auto& country : countries) {
+            totalWorldPopulation += country.getPopulation();
+        }
+
+        long long superpowerThreshold = std::max(100000LL, totalWorldPopulation / 20); // Top 5% or min 100k
+
+        for (int i = 0; i < static_cast<int>(countries.size()); ++i) {
+            Country& country = countries[static_cast<size_t>(i)];
+
+            const bool alreadyExtinct = (country.getPopulation() <= 0) && country.getBoundaryPixels().empty();
+            const bool isExtinct = (country.getPopulation() <= 50) || country.getBoundaryPixels().empty();
+
+            if (!alreadyExtinct && isExtinct) {
+                extinctCountries.push_back(country.getName() + " (extinct in " + std::to_string(currentYear) +
+                                           " - Pop: " + std::to_string(country.getPopulation()) +
+                                           ", Territory: " + std::to_string(country.getBoundaryPixels().size()) + " pixels)");
+                markCountryExtinct(countries, i, currentYear, news);
+                continue;
+            }
+
+            if (!isExtinct && country.getPopulation() > superpowerThreshold) {
+                bool alreadyTracked = false;
+                for (const auto& power : superPowers) {
+                    if (power.find(country.getName()) != std::string::npos) {
+                        alreadyTracked = true;
+                        break;
                     }
                 }
-                ++it;
+                if (!alreadyTracked) {
+                    superPowers.push_back("🏛️ " + country.getName() + " becomes a superpower (" + std::to_string(country.getPopulation()) + " people in " + std::to_string(currentYear) + ")");
+                }
             }
         }
         
@@ -1298,12 +1393,16 @@ void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
     
     // Calculate final world population
     long long finalWorldPopulation = 0;
+    int survivingCountries = 0;
     for (const auto& country : countries) {
         finalWorldPopulation += country.getPopulation();
+        if (country.getPopulation() > 0 && !country.getBoundaryPixels().empty()) {
+            survivingCountries++;
+        }
     }
     
     std::cout << "\n📈 MEGA STATISTICS:" << std::endl;
-    std::cout << "   🏛️ Surviving countries: " << countries.size() << std::endl;
+    std::cout << "   🏛️ Surviving countries: " << survivingCountries << std::endl;
     std::cout << "   💀 Extinct countries: " << extinctCountries.size() << std::endl;
     std::cout << "   🌍 Final world population: " << finalWorldPopulation << std::endl;
     std::cout << "   ⚔️ Total wars: " << totalWars << std::endl;

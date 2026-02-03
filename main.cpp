@@ -5,6 +5,7 @@
 #include <iostream>
 #include <chrono>
 #include <algorithm>
+#include <cctype>
 #include <omp.h>
 #include <csignal>
 #include <exception>
@@ -226,6 +227,11 @@ int main() {
     bool paintStrokeActive = false;
     sf::Vector2i lastPaintCell(-99999, -99999);
     std::vector<int> paintStrokeAffectedCountries;
+
+    // Technology editor variables
+    bool techEditorMode = false;
+    std::string techEditorInput = "";
+    int techEditorCountryIndex = -1;
     
     // Country Add Editor variables
     struct CountryTemplate {
@@ -270,10 +276,28 @@ int main() {
                 window.close();
             }
             else if (event.type == sf::Event::KeyPressed) {
+                if (techEditorMode) {
+                    if (event.key.code == sf::Keyboard::Escape) {
+                        techEditorMode = false;
+                        techEditorInput.clear();
+                    }
+                    continue;
+                }
+                if (megaTimeJumpMode || countryAddEditorMode) {
+                    if (event.key.code == sf::Keyboard::Escape) {
+                        megaTimeJumpMode = false;
+                        megaTimeJumpInput.clear();
+                        countryAddEditorMode = false;
+                        editorInput.clear();
+                        editorState = 0;
+                    }
+                    continue;
+                }
+
                 if (event.key.code == sf::Keyboard::Space) {
                     if (!spacebarDown) {
                         spacebarDown = true;
-                        if (!megaTimeJumpMode && !countryAddEditorMode) {
+                        if (!megaTimeJumpMode && !countryAddEditorMode && !techEditorMode) {
                             paused = !paused;
                             yearClock.restart(); // Prevent immediate year jump after a long pause
                         }
@@ -521,6 +545,16 @@ int main() {
                               << " - Tech/Civic unlock messages are now " 
                               << (currentDebugMode ? "OFF" : "ON") << std::endl;
                 }
+                else if (event.key.code == sf::Keyboard::E && !megaTimeJumpMode && !countryAddEditorMode) { // 🧠 TECHNOLOGY EDITOR
+                    if (selectedCountry != nullptr) {
+                        techEditorMode = true;
+                        techEditorInput = "";
+                        techEditorCountryIndex = selectedCountry->getCountryIndex();
+                        std::cout << "\n🧠 TECHNOLOGY EDITOR ACTIVATED for " << selectedCountry->getName() << "!" << std::endl;
+                    } else {
+                        std::cout << "Select a country first (click one) to edit its technologies." << std::endl;
+                    }
+                }
                 else if (event.key.code == sf::Keyboard::Z) { // 🚀 MEGA TIME JUMP MODE
                     megaTimeJumpMode = true;
                     megaTimeJumpInput = "";
@@ -534,8 +568,140 @@ int main() {
                 }
             }
             else if (event.type == sf::Event::TextEntered) {
+                // Handle text input for Technology Editor
+                if (techEditorMode) {
+                    if (event.text.unicode == 8 && !techEditorInput.empty()) { // Backspace
+                        techEditorInput.pop_back();
+                    }
+                    else if (event.text.unicode == 13) { // Enter key
+                        if (techEditorCountryIndex >= 0 && techEditorCountryIndex < static_cast<int>(countries.size())) {
+                            Country& target = countries[static_cast<size_t>(techEditorCountryIndex)];
+
+                            auto trim = [](std::string s) {
+                                size_t start = s.find_first_not_of(" \t\r\n");
+                                if (start == std::string::npos) return std::string();
+                                size_t end = s.find_last_not_of(" \t\r\n");
+                                return s.substr(start, end - start + 1);
+                            };
+
+                            auto toLower = [](std::string s) {
+                                std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
+                                    return static_cast<char>(std::tolower(c));
+                                });
+                                return s;
+                            };
+
+                            auto parseIds = [](const std::string& s) -> std::vector<int> {
+                                std::vector<int> ids;
+                                std::string token;
+                                for (char ch : s) {
+                                    if (std::isdigit(static_cast<unsigned char>(ch))) {
+                                        token.push_back(ch);
+                                    } else {
+                                        if (!token.empty()) {
+                                            try {
+                                                ids.push_back(std::stoi(token));
+                                            } catch (...) {}
+                                            token.clear();
+                                        }
+                                    }
+                                }
+                                if (!token.empty()) {
+                                    try {
+                                        ids.push_back(std::stoi(token));
+                                    } catch (...) {}
+                                }
+                                return ids;
+                            };
+
+                            std::string raw = trim(techEditorInput);
+                            std::string lower = toLower(raw);
+
+                            bool includePrereqs = true;
+                            std::vector<int> nextTechs;
+
+                            if (lower == "all") {
+                                includePrereqs = false;
+                                const auto& all = technologyManager.getSortedTechnologyIds();
+                                nextTechs.assign(all.begin(), all.end());
+                            }
+                            else if (lower == "clear") {
+                                includePrereqs = false;
+                                nextTechs.clear();
+                            }
+                            else if (lower.rfind("add", 0) == 0) {
+                                std::vector<int> toAdd = parseIds(raw);
+                                const auto& current = technologyManager.getUnlockedTechnologies(target);
+                                nextTechs.assign(current.begin(), current.end());
+                                nextTechs.insert(nextTechs.end(), toAdd.begin(), toAdd.end());
+                                includePrereqs = true;
+                            }
+                            else if (lower.rfind("set", 0) == 0) {
+                                nextTechs = parseIds(raw);
+                                includePrereqs = true;
+                            }
+                            else if (lower.rfind("remove", 0) == 0) {
+                                includePrereqs = false;
+                                std::vector<int> toRemove = parseIds(raw);
+
+                                std::unordered_set<int> removeSet(toRemove.begin(), toRemove.end());
+                                const auto& techs = technologyManager.getTechnologies();
+
+                                bool changed = true;
+                                while (changed) {
+                                    changed = false;
+                                    for (const auto& kv : techs) {
+                                        int id = kv.first;
+                                        if (removeSet.count(id)) {
+                                            continue;
+                                        }
+                                        for (int req : kv.second.requiredTechs) {
+                                            if (removeSet.count(req)) {
+                                                removeSet.insert(id);
+                                                changed = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                const auto& current = technologyManager.getUnlockedTechnologies(target);
+                                nextTechs.reserve(current.size());
+                                for (int id : current) {
+                                    if (!removeSet.count(id)) {
+                                        nextTechs.push_back(id);
+                                    }
+                                }
+                            }
+                            else {
+                                // Default: treat as "set <ids>"
+                                nextTechs = parseIds(raw);
+                                includePrereqs = true;
+                            }
+
+                            technologyManager.setUnlockedTechnologiesForEditor(target, nextTechs, includePrereqs);
+                            renderer.setNeedsUpdate(true);
+                            renderingNeedsUpdate = true;
+                            std::cout << "🧠 Updated technologies for " << target.getName() << " (" 
+                                      << technologyManager.getUnlockedTechnologies(target).size() << " unlocked)" << std::endl;
+                        }
+
+                        techEditorMode = false;
+                        techEditorInput.clear();
+                    }
+                    else if (event.text.unicode == 27) { // Escape key
+                        techEditorMode = false;
+                        techEditorInput.clear();
+                    }
+                    else if ((event.text.unicode >= 32 && event.text.unicode <= 126)) {
+                        char c = static_cast<char>(event.text.unicode);
+                        if (std::isalnum(static_cast<unsigned char>(c)) || c == ',' || c == ' ' ) {
+                            techEditorInput.push_back(c);
+                        }
+                    }
+                }
                 // Handle text input for Mega Time Jump
-                if (megaTimeJumpMode) {
+                else if (megaTimeJumpMode) {
                     if (event.text.unicode >= '0' && event.text.unicode <= '9') {
                         megaTimeJumpInput += static_cast<char>(event.text.unicode);
                     }
@@ -1096,8 +1262,12 @@ int main() {
         // 🔥 NUCLEAR OPTIMIZATION: EVENT-DRIVEN SIMULATION ARCHITECTURE 🔥
         
         // STEP 1: Check if we need to advance simulation (ONCE PER YEAR, NOT 60 TIMES!)
+        bool uiModalActive = megaTimeJumpMode || countryAddEditorMode || techEditorMode;
+        if (uiModalActive) {
+            yearClock.restart(); // Prevent time accumulation causing a jump when closing UI
+        }
         sf::Time currentYearDuration = turboMode ? turboYearDuration : yearDuration;
-        if (((yearClock.getElapsedTime() >= currentYearDuration) && !paused && !paintStrokeActive) || simulationNeedsUpdate) {
+        if (((yearClock.getElapsedTime() >= currentYearDuration) && !paused && !paintStrokeActive && !uiModalActive) || simulationNeedsUpdate) {
             
             // ADVANCE YEAR
             if (!simulationNeedsUpdate) { // Don't advance on forced updates
@@ -1195,6 +1365,14 @@ int main() {
         } else if (countryAddEditorMode) {
             renderer.renderCountryAddEditor(editorInput, editorState, maxTechId, maxCultureId, m_font);
             renderedFrame = true;
+        } else if (techEditorMode) {
+            if (techEditorCountryIndex >= 0 && techEditorCountryIndex < static_cast<int>(countries.size())) {
+                renderer.renderTechEditor(countries[static_cast<size_t>(techEditorCountryIndex)], technologyManager, techEditorInput, m_font);
+                renderedFrame = true;
+            } else {
+                techEditorMode = false;
+                renderedFrame = false;
+            }
         } else {
             window.setView(enableZoom ? zoomedView : defaultView);
 
