@@ -6,6 +6,9 @@
 #include <algorithm>
 #include <cmath>
 
+extern bool turboMode;
+extern bool paused;
+
 namespace {
 const char* kCountryOverlayFragmentShader = R"(
 uniform sampler2D palette;
@@ -290,7 +293,6 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
     m_window.draw(populationText); // Draw the population
 
     // NUCLEAR OPTIMIZATION: Show performance mode indicator
-    extern bool turboMode; // Access from main.cpp
     if (turboMode) {
         sf::Text turboText;
         turboText.setFont(m_font);
@@ -299,6 +301,28 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
         turboText.setString("🚀 TURBO MODE - 10 YEARS/SEC");
         turboText.setPosition(10, static_cast<float>(m_window.getSize().y - 100));
         m_window.draw(turboText);
+    }
+
+    if (paused) {
+        sf::Text pausedText;
+        pausedText.setFont(m_font);
+        pausedText.setCharacterSize(36);
+        pausedText.setFillColor(sf::Color(255, 255, 0));
+        pausedText.setString("PAUSED (Space to resume)");
+
+        sf::FloatRect bounds = pausedText.getLocalBounds();
+        pausedText.setOrigin(bounds.left + bounds.width / 2.0f, bounds.top + bounds.height / 2.0f);
+        pausedText.setPosition(static_cast<float>(m_window.getSize().x) / 2.0f, 70.0f);
+
+        sf::RectangleShape bg(sf::Vector2f(bounds.width + 30.0f, bounds.height + 18.0f));
+        bg.setOrigin((bounds.width + 30.0f) / 2.0f, (bounds.height + 18.0f) / 2.0f);
+        bg.setPosition(pausedText.getPosition());
+        bg.setFillColor(sf::Color(0, 0, 0, 160));
+        bg.setOutlineColor(sf::Color(255, 255, 0, 200));
+        bg.setOutlineThickness(2.0f);
+
+        m_window.draw(bg);
+        m_window.draw(pausedText);
     }
 
     // Render the news window if it's toggled on
@@ -922,6 +946,16 @@ void Renderer::renderMegaTimeJumpScreen(const std::string& inputText, const sf::
     controlsText.setString("Press ENTER to jump, ESC to cancel");
     controlsText.setPosition(m_window.getSize().x / 2 - 120, m_window.getSize().y / 2 + 60);
     m_window.draw(controlsText);
+
+    if (paused) {
+        sf::Text pausedText;
+        pausedText.setFont(font);
+        pausedText.setCharacterSize(24);
+        pausedText.setFillColor(sf::Color(255, 255, 0));
+        pausedText.setString("PAUSED");
+        pausedText.setPosition(10, 10);
+        m_window.draw(pausedText);
+    }
     
     m_window.setView(previousView);
     m_window.display();
@@ -952,6 +986,16 @@ void Renderer::renderCountryAddEditor(const std::string& inputText, int editorSt
     titleText.setString("🏗️ COUNTRY ADD EDITOR");
     titleText.setPosition(m_window.getSize().x / 2 - 180, m_window.getSize().y / 2 - 230);
     m_window.draw(titleText);
+
+    if (paused) {
+        sf::Text pausedText;
+        pausedText.setFont(font);
+        pausedText.setCharacterSize(24);
+        pausedText.setFillColor(sf::Color(255, 255, 0));
+        pausedText.setString("PAUSED");
+        pausedText.setPosition(10, 10);
+        m_window.draw(pausedText);
+    }
     
     std::string stateText;
     std::string instructionText;

@@ -59,6 +59,9 @@ void crashHandler(int signal) {
 // Global performance mode variable
 bool turboMode = false;
 
+// Global paused state (toggled by Spacebar)
+bool paused = false;
+
 // Mega Time Jump GUI variables
 bool megaTimeJumpMode = false;
 std::string megaTimeJumpInput = "";
@@ -198,6 +201,7 @@ int main() {
     window.setView(defaultView);
     sf::Vector2f lastMousePos;
     bool isDragging = false;
+    bool spacebarDown = false;
     auto withUiView = [&](auto&& drawFn) {
         sf::View previousView = window.getView();
         window.setView(window.getDefaultView());
@@ -255,7 +259,16 @@ int main() {
                 window.close();
             }
             else if (event.type == sf::Event::KeyPressed) {
-                if (event.key.code == sf::Keyboard::F11 ||
+                if (event.key.code == sf::Keyboard::Space) {
+                    if (!spacebarDown) {
+                        spacebarDown = true;
+                        if (!megaTimeJumpMode && !countryAddEditorMode) {
+                            paused = !paused;
+                            yearClock.restart(); // Prevent immediate year jump after a long pause
+                        }
+                    }
+                }
+                else if (event.key.code == sf::Keyboard::F11 ||
                     (event.key.code == sf::Keyboard::Enter && event.key.alt)) {
                     isFullscreen = !isFullscreen;
                     sf::VideoMode targetMode = isFullscreen ? fullscreenVideoMode : windowedVideoMode;
@@ -911,6 +924,11 @@ int main() {
             else if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left) {
                 isDragging = false;
             }
+            else if (event.type == sf::Event::KeyReleased) {
+                if (event.key.code == sf::Keyboard::Space) {
+                    spacebarDown = false;
+                }
+            }
             else if (event.type == sf::Event::MouseMoved && isDragging && enableZoom) {
                 sf::Vector2f currentMousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
                 sf::Vector2f delta = lastMousePos - currentMousePos;
@@ -923,7 +941,7 @@ int main() {
         
         // STEP 1: Check if we need to advance simulation (ONCE PER YEAR, NOT 60 TIMES!)
         sf::Time currentYearDuration = turboMode ? turboYearDuration : yearDuration;
-        if (yearClock.getElapsedTime() >= currentYearDuration || simulationNeedsUpdate) {
+        if (((yearClock.getElapsedTime() >= currentYearDuration) && !paused) || simulationNeedsUpdate) {
             
             // ADVANCE YEAR
             if (!simulationNeedsUpdate) { // Don't advance on forced updates
@@ -1064,4 +1082,3 @@ int main() {
         return -2;
     }
 }
-
