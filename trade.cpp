@@ -131,7 +131,7 @@ void TradeManager::generateTradeOffers(std::vector<Country>& countries, int curr
                 // Check if country has the resources to offer
                 if (country1.getResourceManager().getResourceAmount(offeredResource) >= offeredAmount) {
                     
-                    TradeOffer offer(static_cast<int>(i), static_cast<int>(j), offeredResource, offeredAmount,
+                    TradeOffer offer(static_cast<int>(i), neighborIndex, offeredResource, offeredAmount,
                                    requestedResource, requestedAmount, currentYear + validityDist(m_rng), m_nextOfferId++);
                     
                     m_activeOffers.push_back(offer);
