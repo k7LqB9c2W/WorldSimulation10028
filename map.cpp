@@ -1392,6 +1392,162 @@ void Map::insertDirtyRegion(int regionIndex) {
     m_dirtyRegions.insert(regionIndex);
 }
 
+bool Map::paintCells(int countryIndex,
+                     const sf::Vector2i& center,
+                     int radius,
+                     bool erase,
+                     bool allowOverwrite,
+                     std::vector<int>& affectedCountries) {
+    if (radius < 0) {
+        radius = 0;
+    }
+
+    const int height = static_cast<int>(m_countryGrid.size());
+    if (height <= 0) {
+        return false;
+    }
+    const int width = static_cast<int>(m_countryGrid[0].size());
+    if (width <= 0) {
+        return false;
+    }
+
+    const int regionsPerRow = m_regionSize > 0 ? (width / m_regionSize) : 0;
+    if (regionsPerRow <= 0) {
+        return false;
+    }
+
+    const int minX = std::max(0, center.x - radius);
+    const int maxX = std::min(width - 1, center.x + radius);
+    const int minY = std::max(0, center.y - radius);
+    const int maxY = std::min(height - 1, center.y + radius);
+
+    const int r2 = radius * radius;
+    bool anyChanged = false;
+
+    std::lock_guard<std::mutex> lock(m_gridMutex);
+    for (int y = minY; y <= maxY; ++y) {
+        for (int x = minX; x <= maxX; ++x) {
+            const int dx = x - center.x;
+            const int dy = y - center.y;
+            if (dx * dx + dy * dy > r2) {
+                continue;
+            }
+            if (!m_isLandGrid[y][x]) {
+                continue;
+            }
+
+            const int prevOwner = m_countryGrid[y][x];
+            int nextOwner = prevOwner;
+            if (erase) {
+                nextOwner = -1;
+            } else {
+                if (countryIndex < 0) {
+                    continue;
+                }
+                if (prevOwner == -1 || prevOwner == countryIndex) {
+                    nextOwner = countryIndex;
+                } else if (allowOverwrite) {
+                    nextOwner = countryIndex;
+                } else {
+                    continue;
+                }
+            }
+
+            if (nextOwner == prevOwner) {
+                continue;
+            }
+
+            m_countryGrid[y][x] = nextOwner;
+            anyChanged = true;
+
+            if (prevOwner >= 0) {
+                affectedCountries.push_back(prevOwner);
+            }
+            if (nextOwner >= 0) {
+                affectedCountries.push_back(nextOwner);
+            }
+
+            const int regionX = x / m_regionSize;
+            const int regionY = y / m_regionSize;
+            m_dirtyRegions.insert(regionY * regionsPerRow + regionX);
+        }
+    }
+
+    return anyChanged;
+}
+
+void Map::rebuildCountryBoundary(Country& country) {
+    const int idx = country.getCountryIndex();
+    if (idx < 0) {
+        country.setTerritory(std::unordered_set<sf::Vector2i>{});
+        return;
+    }
+
+    std::unordered_set<sf::Vector2i> territory;
+    const int height = static_cast<int>(m_countryGrid.size());
+    const int width = height > 0 ? static_cast<int>(m_countryGrid[0].size()) : 0;
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            if (m_countryGrid[y][x] == idx) {
+                territory.insert(sf::Vector2i(x, y));
+            }
+        }
+    }
+    country.setTerritory(territory);
+}
+
+void Map::rebuildBoundariesForCountries(std::vector<Country>& countries, const std::vector<int>& countryIndices) {
+    if (countries.empty() || countryIndices.empty()) {
+        return;
+    }
+
+    std::vector<int> unique = countryIndices;
+    std::sort(unique.begin(), unique.end());
+    unique.erase(std::unique(unique.begin(), unique.end()), unique.end());
+
+    std::vector<int> valid;
+    valid.reserve(unique.size());
+    for (int idx : unique) {
+        if (idx >= 0 && idx < static_cast<int>(countries.size())) {
+            valid.push_back(idx);
+        }
+    }
+    if (valid.empty()) {
+        return;
+    }
+
+    std::vector<int> indexToSlot(countries.size(), -1);
+    for (size_t slot = 0; slot < valid.size(); ++slot) {
+        indexToSlot[static_cast<size_t>(valid[slot])] = static_cast<int>(slot);
+    }
+
+    std::vector<std::unordered_set<sf::Vector2i>> territories(valid.size());
+
+    const int height = static_cast<int>(m_countryGrid.size());
+    const int width = static_cast<int>(m_countryGrid[0].size());
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            int owner = m_countryGrid[y][x];
+            if (owner < 0 || owner >= static_cast<int>(indexToSlot.size())) {
+                continue;
+            }
+            int slot = indexToSlot[static_cast<size_t>(owner)];
+            if (slot < 0) {
+                continue;
+            }
+            territories[static_cast<size_t>(slot)].insert(sf::Vector2i(x, y));
+        }
+    }
+
+    for (size_t slot = 0; slot < valid.size(); ++slot) {
+        countries[static_cast<size_t>(valid[slot])].setTerritory(territories[slot]);
+    }
+}
+
+void Map::rebuildAdjacency(const std::vector<Country>& countries) {
+    rebuildCountryAdjacency(countries);
+}
+
 std::vector<std::vector<int>>& Map::getCountryGrid() {
     return m_countryGrid;
 }

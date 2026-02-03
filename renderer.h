@@ -19,6 +19,7 @@ public:
     void toggleWarmongerHighlights();
     void updateYearText(int year);
     void setNeedsUpdate(bool needsUpdate);
+    void setPaintHud(bool show, const std::string& text);
     bool needsUpdate() const { return m_needsUpdate; }
     void handleWindowRecreated(const Map& map);
     void showLoadingScreen();
@@ -62,6 +63,8 @@ private:
     bool m_showWarmongerHighlights;
     bool m_showWarHighlights;
     bool m_showCountryAddModeText;
+    bool m_showPaintHud;
+    std::string m_paintHudText;
     int m_currentYear;
 
 
@@ -100,4 +103,3 @@ private:
     void drawWarFrontlines(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
 
 };
-

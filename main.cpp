@@ -4,6 +4,7 @@
 #include <vector>
 #include <iostream>
 #include <chrono>
+#include <algorithm>
 #include <omp.h>
 #include <csignal>
 #include <exception>
@@ -215,6 +216,16 @@ int main() {
 
     // Country add mode variables
     bool countryAddMode = false;
+
+    // Territory paint mode variables
+    bool paintMode = false;
+    bool paintEraseMode = false; // false=Add, true=Erase
+    bool paintAllowOverwrite = false;
+    int paintBrushRadius = 8;
+    int selectedPaintCountryIndex = -1;
+    bool paintStrokeActive = false;
+    sf::Vector2i lastPaintCell(-99999, -99999);
+    std::vector<int> paintStrokeAffectedCountries;
     
     // Country Add Editor variables
     struct CountryTemplate {
@@ -267,6 +278,44 @@ int main() {
                             yearClock.restart(); // Prevent immediate year jump after a long pause
                         }
                     }
+                }
+                else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::Num0) {
+                    paintMode = !paintMode;
+                    if (paintMode) {
+                        countryAddMode = false;
+                        renderer.setShowCountryAddModeText(false);
+                        if (selectedPaintCountryIndex < 0 && selectedCountry != nullptr) {
+                            selectedPaintCountryIndex = selectedCountry->getCountryIndex();
+                        }
+                    } else if (paintStrokeActive) {
+                        paintStrokeActive = false;
+                        lastPaintCell = sf::Vector2i(-99999, -99999);
+                        if (!paintStrokeAffectedCountries.empty()) {
+                            std::sort(paintStrokeAffectedCountries.begin(), paintStrokeAffectedCountries.end());
+                            paintStrokeAffectedCountries.erase(
+                                std::unique(paintStrokeAffectedCountries.begin(), paintStrokeAffectedCountries.end()),
+                                paintStrokeAffectedCountries.end());
+                            map.rebuildBoundariesForCountries(countries, paintStrokeAffectedCountries);
+                            map.rebuildAdjacency(countries);
+                            renderer.setNeedsUpdate(true);
+                        }
+                        paintStrokeAffectedCountries.clear();
+                    }
+                }
+                else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::Num1) {
+                    paintEraseMode = false;
+                }
+                else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::Num2) {
+                    paintEraseMode = true;
+                }
+                else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::R) {
+                    paintAllowOverwrite = !paintAllowOverwrite;
+                }
+                else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::LBracket) {
+                    paintBrushRadius = std::max(1, paintBrushRadius - 1);
+                }
+                else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::RBracket) {
+                    paintBrushRadius = std::min(64, paintBrushRadius + 1);
                 }
                 else if (event.key.code == sf::Keyboard::F11 ||
                     (event.key.code == sf::Keyboard::Enter && event.key.alt)) {
@@ -770,6 +819,11 @@ int main() {
                 }
             }
             else if (event.type == sf::Event::MouseWheelScrolled) {
+                if (paintMode &&
+                    (sf::Keyboard::isKeyPressed(sf::Keyboard::LControl) || sf::Keyboard::isKeyPressed(sf::Keyboard::RControl))) {
+                    int delta = (event.mouseWheelScroll.delta > 0) ? 1 : -1;
+                    paintBrushRadius = std::max(1, std::min(64, paintBrushRadius + delta));
+                }
                 if (showCountryInfo) {
                     if (event.mouseWheelScroll.delta > 0) {
                         // Scrolling up
@@ -813,9 +867,48 @@ int main() {
                     zoomedView.setSize(defaultView.getSize().x * zoomLevel, defaultView.getSize().y * zoomLevel);
                 }
             }
+            else if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Right) {
+                if (paintMode && !megaTimeJumpMode && !countryAddEditorMode) {
+                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+                    sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
+                    sf::Vector2i gridPos = map.pixelToGrid(worldPos);
+                    if (gridPos.x >= 0 && gridPos.x < static_cast<int>(map.getCountryGrid()[0].size()) &&
+                        gridPos.y >= 0 && gridPos.y < static_cast<int>(map.getCountryGrid().size())) {
+                        int owner = map.getCountryGrid()[gridPos.y][gridPos.x];
+                        if (owner >= 0 && owner < static_cast<int>(countries.size())) {
+                            selectedPaintCountryIndex = owner;
+                        }
+                    }
+                }
+            }
             else if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
                 renderingNeedsUpdate = true; // Force render for interaction
-                if (enableZoom) {
+                if (paintMode && !megaTimeJumpMode && !countryAddEditorMode) {
+                    isDragging = false;
+                    paintStrokeActive = false;
+                    paintStrokeAffectedCountries.clear();
+
+                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+                    sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
+                    sf::Vector2i gridPos = map.pixelToGrid(worldPos);
+
+                    if (gridPos.x >= 0 && gridPos.x < static_cast<int>(map.getCountryGrid()[0].size()) &&
+                        gridPos.y >= 0 && gridPos.y < static_cast<int>(map.getCountryGrid().size())) {
+                        int paintCountry = paintEraseMode ? -1 : selectedPaintCountryIndex;
+                        if (paintEraseMode || paintCountry >= 0) {
+                            bool changed = map.paintCells(paintCountry, gridPos, paintBrushRadius, paintEraseMode, paintAllowOverwrite, paintStrokeAffectedCountries);
+                            paintStrokeActive = true;
+                            lastPaintCell = gridPos;
+                            if (changed) {
+                                renderer.setNeedsUpdate(true);
+                                if (!paused) {
+                                    yearClock.restart();
+                                }
+                            }
+                        }
+                    }
+                }
+                else if (enableZoom) {
                     isDragging = true;
                     lastMousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
                 }
@@ -900,6 +993,16 @@ int main() {
                         }
 
                         renderer.setNeedsUpdate(true);
+
+                        // Smooth workflow: auto-select and switch into paint mode for the new country
+                        selectedPaintCountryIndex = newCountryIndex;
+                        selectedCountry = &countries[static_cast<size_t>(newCountryIndex)];
+                        paintMode = true;
+                        paintEraseMode = false;
+                        paintAllowOverwrite = false;
+                        paintBrushRadius = 10;
+                        countryAddMode = false;
+                        renderer.setShowCountryAddModeText(false);
                     }
                 }
                 else {
@@ -923,25 +1026,78 @@ int main() {
             }
             else if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left) {
                 isDragging = false;
+                if (paintStrokeActive) {
+                    paintStrokeActive = false;
+                    lastPaintCell = sf::Vector2i(-99999, -99999);
+                    if (!paintStrokeAffectedCountries.empty()) {
+                        std::sort(paintStrokeAffectedCountries.begin(), paintStrokeAffectedCountries.end());
+                        paintStrokeAffectedCountries.erase(
+                            std::unique(paintStrokeAffectedCountries.begin(), paintStrokeAffectedCountries.end()),
+                            paintStrokeAffectedCountries.end());
+                        map.rebuildBoundariesForCountries(countries, paintStrokeAffectedCountries);
+                        map.rebuildAdjacency(countries);
+                        renderer.setNeedsUpdate(true);
+                    }
+                    paintStrokeAffectedCountries.clear();
+                }
             }
             else if (event.type == sf::Event::KeyReleased) {
                 if (event.key.code == sf::Keyboard::Space) {
                     spacebarDown = false;
                 }
             }
-            else if (event.type == sf::Event::MouseMoved && isDragging && enableZoom) {
-                sf::Vector2f currentMousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
-                sf::Vector2f delta = lastMousePos - currentMousePos;
-                zoomedView.move(delta);
-                lastMousePos = currentMousePos;
+            else if (event.type == sf::Event::MouseMoved) {
+                if (paintStrokeActive && paintMode && !megaTimeJumpMode && !countryAddEditorMode) {
+                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+                    sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
+                    sf::Vector2i gridPos = map.pixelToGrid(worldPos);
+
+                    if (gridPos != lastPaintCell &&
+                        gridPos.x >= 0 && gridPos.x < static_cast<int>(map.getCountryGrid()[0].size()) &&
+                        gridPos.y >= 0 && gridPos.y < static_cast<int>(map.getCountryGrid().size())) {
+                        int paintCountry = paintEraseMode ? -1 : selectedPaintCountryIndex;
+                        if (paintEraseMode || paintCountry >= 0) {
+                            bool changed = map.paintCells(paintCountry, gridPos, paintBrushRadius, paintEraseMode, paintAllowOverwrite, paintStrokeAffectedCountries);
+                            lastPaintCell = gridPos;
+                            if (changed) {
+                                renderer.setNeedsUpdate(true);
+                                if (!paused) {
+                                    yearClock.restart();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (isDragging && enableZoom) {
+                    sf::Vector2f currentMousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+                    sf::Vector2f delta = lastMousePos - currentMousePos;
+                    zoomedView.move(delta);
+                    lastMousePos = currentMousePos;
+                }
             }
         }
+
+        // Paint HUD (shown even when OFF to make controls discoverable)
+        std::string paintCountryName = "<none>";
+        if (selectedPaintCountryIndex >= 0 && selectedPaintCountryIndex < static_cast<int>(countries.size())) {
+            paintCountryName = countries[static_cast<size_t>(selectedPaintCountryIndex)].getName();
+        }
+        std::string paintHud = "Paint: ";
+        paintHud += paintMode ? "ON" : "OFF";
+        paintHud += " (Num0) | ";
+        paintHud += paintEraseMode ? "Erase" : "Add";
+        paintHud += " (1/2) | Radius: " + std::to_string(paintBrushRadius) + " ([/], Ctrl+Wheel) | ";
+        paintHud += "Replace: ";
+        paintHud += paintAllowOverwrite ? "ON" : "OFF";
+        paintHud += " (R) | Country: " + paintCountryName + " (Right Click)";
+        renderer.setPaintHud(true, paintHud);
 
         // 🔥 NUCLEAR OPTIMIZATION: EVENT-DRIVEN SIMULATION ARCHITECTURE 🔥
         
         // STEP 1: Check if we need to advance simulation (ONCE PER YEAR, NOT 60 TIMES!)
         sf::Time currentYearDuration = turboMode ? turboYearDuration : yearDuration;
-        if (((yearClock.getElapsedTime() >= currentYearDuration) && !paused) || simulationNeedsUpdate) {
+        if (((yearClock.getElapsedTime() >= currentYearDuration) && !paused && !paintStrokeActive) || simulationNeedsUpdate) {
             
             // ADVANCE YEAR
             if (!simulationNeedsUpdate) { // Don't advance on forced updates

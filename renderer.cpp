@@ -48,6 +48,8 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
     m_showWarmongerHighlights(false),
     m_showWarHighlights(false),
     m_showCountryAddModeText(false),
+    m_showPaintHud(false),
+    m_paintHudText(""),
     m_currentYear(0),
     m_techScrollOffset(0),
     m_civicScrollOffset(0),
@@ -301,6 +303,30 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
         turboText.setString("🚀 TURBO MODE - 10 YEARS/SEC");
         turboText.setPosition(10, static_cast<float>(m_window.getSize().y - 100));
         m_window.draw(turboText);
+    }
+
+    if (m_showPaintHud && !m_paintHudText.empty()) {
+        float y = 10.0f;
+        if (m_showCountryAddModeText) {
+            y += 30.0f;
+        }
+
+        sf::Text paintHud;
+        paintHud.setFont(m_font);
+        paintHud.setCharacterSize(18);
+        paintHud.setFillColor(sf::Color::White);
+        paintHud.setString(m_paintHudText);
+        paintHud.setPosition(10.0f, y);
+
+        sf::FloatRect bounds = paintHud.getLocalBounds();
+        sf::RectangleShape bg(sf::Vector2f(bounds.width + 20.0f, bounds.height + 14.0f));
+        bg.setPosition(paintHud.getPosition().x - 10.0f, paintHud.getPosition().y - 7.0f);
+        bg.setFillColor(sf::Color(0, 0, 0, 140));
+        bg.setOutlineColor(sf::Color(200, 200, 200, 160));
+        bg.setOutlineThickness(1.0f);
+
+        m_window.draw(bg);
+        m_window.draw(paintHud);
     }
 
     if (paused) {
@@ -754,6 +780,11 @@ void Renderer::drawWarHighlights(const std::vector<Country>& countries, const Ma
 
 void Renderer::setNeedsUpdate(bool needsUpdate) {
     m_needsUpdate = needsUpdate;
+}
+
+void Renderer::setPaintHud(bool show, const std::string& text) {
+    m_showPaintHud = show;
+    m_paintHudText = text;
 }
 
 void Renderer::updateYearText(int year) {

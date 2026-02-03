@@ -55,6 +55,17 @@ public:
     void setCountryGridValue(int x, int y, int value);
     void insertDirtyRegion(int regionIndex);
     void triggerPlague(int year, News& news); // Add this line
+
+    // Territory painting (editor tooling)
+    bool paintCells(int countryIndex,
+                    const sf::Vector2i& center,
+                    int radius,
+                    bool erase,
+                    bool allowOverwrite,
+                    std::vector<int>& affectedCountries);
+    void rebuildCountryBoundary(Country& country);
+    void rebuildBoundariesForCountries(std::vector<Country>& countries, const std::vector<int>& countryIndices);
+    void rebuildAdjacency(const std::vector<Country>& countries);
     
     // Road building support
     bool isValidRoadPixel(int x, int y) const;
