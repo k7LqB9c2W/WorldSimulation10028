@@ -109,8 +109,17 @@ public:
     CultureType getCultureType() const;
     bool canFoundCity() const;
     void checkCityGrowth(int currentYear, News& news); // Check for city upgrades and new cities
-    void buildRoads(std::vector<Country>& allCountries, const class Map& map, 
-                   const class TechnologyManager& techManager, int currentYear, News& news); // Road building system
+    void buildRoads(std::vector<Country>& allCountries,
+                    const class Map& map,
+                    const std::vector<std::vector<bool>>& isLandGrid,
+                    const class TechnologyManager& techManager,
+                    int currentYear,
+                    News& news); // Road building system
+    void buildAirways(std::vector<Country>& allCountries,
+                      const class Map& map,
+                      const class TechnologyManager& techManager,
+                      int currentYear,
+                      News& news); // Airway connections (invisible roads)
     void buildPorts(const std::vector<std::vector<bool>>& isLandGrid,
                     const std::vector<std::vector<int>>& countryGrid,
                     int currentYear,
@@ -119,12 +128,14 @@ public:
     
     // Road system helper functions
     bool canBuildRoadTo(const Country& otherCountry, int currentYear) const;
+    bool canBuildAirwayTo(const Country& otherCountry, int currentYear) const;
     sf::Vector2i getClosestCityTo(const Country& otherCountry) const;
     double calculateDistanceToCountry(const Country& otherCountry) const;
     std::vector<sf::Vector2i> createRoadPath(sf::Vector2i start, sf::Vector2i end, const class Map& map) const;
     const std::vector<sf::Vector2i>& getRoads() const { return m_roads; }
     const std::vector<sf::Vector2i>& getFactories() const { return m_factories; }
     const std::vector<sf::Vector2i>& getPorts() const { return m_ports; }
+    const std::unordered_set<int>& getAirways() const { return m_airways; }
     bool canDeclareWar() const;
     void startWar(Country& target, News& news);
     void endWar(int currentYear = 0);
@@ -267,9 +278,11 @@ private:
     std::vector<sf::Vector2i> m_roads; // All road pixels owned by this country
     std::vector<sf::Vector2i> m_factories; // Factory positions within national territory
     std::vector<sf::Vector2i> m_ports; // Port positions within national territory
+    std::unordered_set<int> m_airways; // Airway connections (other country indices)
     std::unordered_map<int, std::vector<sf::Vector2i>> m_roadsToCountries; // Roads to specific countries
     int m_nextRoadCheckYear = -5000; // When to next check for road building opportunities (initialize to start year)
     int m_nextPortCheckYear = -5000; // When to next check for port building opportunities
+    int m_nextAirwayCheckYear = -5000; // When to next check for airway building opportunities
     bool m_hasCheckedMajorCityUpgrade = false; // Track if we've checked for major city upgrade this population milestone
     int getMaxExpansionPixels(int year) const;
     long long m_prePlaguePopulation;

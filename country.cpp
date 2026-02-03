@@ -97,6 +97,12 @@ Country::Country(int countryIndex, const sf::Color& color, const sf::Vector2i& s
         std::uniform_int_distribution<> initialPortOffset(0, 160);
         m_nextPortCheckYear = -5000 + initialPortOffset(gen);
     }
+
+    // Stagger initial airway-building check year to offset load
+    {
+        std::uniform_int_distribution<> initialAirwayOffset(0, 220);
+        m_nextAirwayCheckYear = -5000 + initialAirwayOffset(gen);
+    }
     
     // 🎯 INITIALIZE EXPANSION CONTENTMENT SYSTEM - reuse existing gen
     
@@ -1150,7 +1156,6 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
         addCulturePoints(1.0 * factoryOutput);
     }
 
-    buildPorts(isLandGrid, countryGrid, currentYear, gen, news);
     checkCityGrowth(currentYear, news);
     
     // 🚀 NUCLEAR OPTIMIZATION: Streamlined city founding
@@ -1169,10 +1174,19 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
     checkIdeologyChange(currentYear, news);
     
     // 🛣️ ROAD BUILDING SYSTEM - Build roads to other countries
-    buildRoads(allCountries, map, technologyManager, currentYear, news);
+    buildRoads(allCountries, map, isLandGrid, technologyManager, currentYear, news);
 
     // ⚓ PORT BUILDING SYSTEM - Build coastal ports (for future boats)
     buildPorts(isLandGrid, countryGrid, currentYear, gen, news);
+
+    // ✈️ AIRWAY CONNECTIONS - Invisible long-range connections (for future air travel)
+    buildAirways(allCountries, map, technologyManager, currentYear, news);
+
+    if (!m_airways.empty()) {
+        double routes = static_cast<double>(m_airways.size());
+        addGold(1.2 * routes);
+        addSciencePoints(0.8 * routes);
+    }
 
     // Decrement war and peace durations
     if (isAtWar()) {
@@ -2396,8 +2410,74 @@ void Country::checkCityGrowth(int currentYear, News& news) {
 }
 
 // 🛣️ ROAD BUILDING SYSTEM - Build roads between friendly countries
-void Country::buildRoads(std::vector<Country>& allCountries, const Map& map, 
-                        const TechnologyManager& techManager, int currentYear, News& news) {
+namespace {
+int countOceanPixelsOnLine(const std::vector<std::vector<bool>>& isLandGrid,
+                          const sf::Vector2i& start,
+                          const sf::Vector2i& end) {
+    int dx = std::abs(end.x - start.x);
+    int dy = std::abs(end.y - start.y);
+    int x = start.x;
+    int y = start.y;
+    int x_inc = (start.x < end.x) ? 1 : -1;
+    int y_inc = (start.y < end.y) ? 1 : -1;
+    int error = dx - dy;
+
+    dx *= 2;
+    dy *= 2;
+
+    int ocean = 0;
+    for (int n = dx + dy; n > 0; --n) {
+        bool land = false;
+        if (y >= 0 && y < static_cast<int>(isLandGrid.size()) &&
+            x >= 0 && x < static_cast<int>(isLandGrid[static_cast<size_t>(y)].size())) {
+            land = isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)];
+        }
+        if (!land) {
+            ocean++;
+        }
+
+        if (error > 0) {
+            x += x_inc;
+            error -= dy;
+        } else {
+            y += y_inc;
+            error += dx;
+        }
+    }
+    return ocean;
+}
+
+bool areCountriesAwareForAirways(const Country& a,
+                                const Country& b,
+                                const Map& map,
+                                const TechnologyManager& techManager) {
+    // Hook point for your awareness system. For now, we approximate "awareness" using
+    // adjacency and long-range communication/navigation tech.
+    if (map.areNeighbors(a, b)) {
+        return true;
+    }
+    if (TechnologyManager::hasTech(techManager, a, 62) && TechnologyManager::hasTech(techManager, b, 62)) { // Radio
+        return true;
+    }
+    if (TechnologyManager::hasTech(techManager, a, 73) && TechnologyManager::hasTech(techManager, b, 73)) { // Satellites
+        return true;
+    }
+    if (TechnologyManager::hasTech(techManager, a, 79) && TechnologyManager::hasTech(techManager, b, 79)) { // Internet
+        return true;
+    }
+    if (TechnologyManager::hasTech(techManager, a, 43) && TechnologyManager::hasTech(techManager, b, 43)) { // Navigation
+        return true;
+    }
+    return false;
+}
+} // namespace
+
+void Country::buildRoads(std::vector<Country>& allCountries,
+                         const Map& map,
+                         const std::vector<std::vector<bool>>& isLandGrid,
+                         const TechnologyManager& techManager,
+                         int currentYear,
+                         News& news) {
     
     // Only build roads if we have Construction or Roads technology
     if (!TechnologyManager::hasTech(techManager, *this, 16) && // Construction
@@ -2435,6 +2515,14 @@ void Country::buildRoads(std::vector<Country>& allCountries, const Map& map,
 	        sf::Vector2i ourClosestCity = getClosestCityTo(otherCountry);
 	        sf::Vector2i theirClosestCity = otherCountry.getClosestCityTo(*this);
         
+        // Prevent unrealistic cross-ocean "roads": reject if the straight-line corridor
+        // crosses too much water (roads only paint land pixels, which can look like
+        // a road spanning oceans when adjacency is noisy).
+        const int oceanPixels = countOceanPixelsOnLine(isLandGrid, ourClosestCity, theirClosestCity);
+        if (oceanPixels > 100) {
+            continue;
+        }
+
         // Create road path using simple line algorithm
         std::vector<sf::Vector2i> roadPath = createRoadPath(ourClosestCity, theirClosestCity, map);
         
@@ -2454,6 +2542,107 @@ void Country::buildRoads(std::vector<Country>& allCountries, const Map& map,
             // Only build one road per check cycle to prevent spam
             break;
         }
+    }
+}
+
+bool Country::canBuildAirwayTo(const Country& otherCountry, int currentYear) const {
+    (void)currentYear;
+    if (otherCountry.getCountryIndex() == m_countryIndex) {
+        return false;
+    }
+    if (otherCountry.getPopulation() <= 0 || otherCountry.getCities().empty()) {
+        return false;
+    }
+    if (m_population <= 0 || m_cities.empty()) {
+        return false;
+    }
+    if (m_airways.find(otherCountry.getCountryIndex()) != m_airways.end()) {
+        return false;
+    }
+    return true;
+}
+
+void Country::buildAirways(std::vector<Country>& allCountries,
+                           const Map& map,
+                           const TechnologyManager& techManager,
+                           int currentYear,
+                           News& news) {
+    if (!TechnologyManager::hasTech(techManager, *this, 61)) { // Flight
+        return;
+    }
+    if (m_population <= 0 || m_cities.empty()) {
+        return;
+    }
+
+    // Drop dead/out-of-range airways.
+    if (!m_airways.empty()) {
+        for (auto it = m_airways.begin(); it != m_airways.end(); ) {
+            const int otherIndex = *it;
+            if (otherIndex < 0 || otherIndex >= static_cast<int>(allCountries.size()) ||
+                allCountries[static_cast<size_t>(otherIndex)].getPopulation() <= 0) {
+                it = m_airways.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    // Only check occasionally for performance.
+    if (currentYear < m_nextAirwayCheckYear) {
+        return;
+    }
+
+    if (allCountries.empty()) {
+        return;
+    }
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    std::uniform_int_distribution<> intervalDist(40, 180);
+    m_nextAirwayCheckYear = currentYear + intervalDist(gen);
+
+    const int majorCities = static_cast<int>(std::count_if(m_cities.begin(), m_cities.end(), [](const City& c) { return c.isMajorCity(); }));
+    const int maxAirways = std::max(1, std::min(6, 1 + majorCities));
+    if (static_cast<int>(m_airways.size()) >= maxAirways) {
+        return;
+    }
+
+    // Try a few random partners to avoid O(n) scanning every time.
+    std::uniform_int_distribution<> pick(0, std::max(0, static_cast<int>(allCountries.size()) - 1));
+    constexpr int kAttempts = 60;
+
+    for (int attempt = 0; attempt < kAttempts; ++attempt) {
+        int idx = pick(gen);
+        if (idx < 0 || idx >= static_cast<int>(allCountries.size())) {
+            continue;
+        }
+        Country& other = allCountries[static_cast<size_t>(idx)];
+        if (!canBuildAirwayTo(other, currentYear)) {
+            continue;
+        }
+
+        if (!TechnologyManager::hasTech(techManager, other, 61)) { // Flight
+            continue;
+        }
+
+        if (!areCountriesAwareForAirways(*this, other, map, techManager)) {
+            continue;
+        }
+
+        // Establish airway (mutual, invisible connection)
+        m_airways.insert(other.getCountryIndex());
+        other.m_airways.insert(m_countryIndex);
+
+        news.addEvent("✈️ AIRWAY ESTABLISHED: " + m_name + " opens an airway connection with " + other.getName() + ".");
+
+        // Small immediate bonus to make it feel impactful.
+        addGold(8.0);
+        addSciencePoints(6.0);
+        other.addGold(8.0);
+        other.addSciencePoints(6.0);
+
+        break;
     }
 }
 

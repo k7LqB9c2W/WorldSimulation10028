@@ -4,6 +4,8 @@
 
 #include <SFML/Graphics.hpp>
 #include <vector>
+#include <unordered_map>
+#include <cstdint>
 #include "country.h"
 #include "map.h"
 #include "news.h"
@@ -100,14 +102,26 @@ private:
     void updateExtractorVertices(const Map& map, const std::vector<Country>& countries, const TechnologyManager& technologyManager);
     sf::Color getExtractorColor(Resource::Type type) const;
     int getExtractorUnlockTech(Resource::Type type) const;
-    void drawRoadNetwork(const Country& country, const Map& map, const TechnologyManager& technologyManager, const sf::FloatRect& visibleArea);
-    void drawFactories(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
-    void drawTradeRoutes(const TradeManager& tradeManager, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
-    void drawPlagueOverlay(const Map& map, const std::vector<Country>& countries, const sf::FloatRect& visibleArea);
-    void drawWarFrontlines(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
-    void drawWarArrows(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+	    void drawRoadNetwork(const Country& country, const Map& map, const TechnologyManager& technologyManager, const sf::FloatRect& visibleArea);
+	    void drawFactories(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+	    void drawPorts(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+	    void drawAirwayPlanes(const std::vector<Country>& countries, const Map& map);
+	    void drawTradeRoutes(const TradeManager& tradeManager, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+	    void drawPlagueOverlay(const Map& map, const std::vector<Country>& countries, const sf::FloatRect& visibleArea);
+	    void drawWarFrontlines(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+	    void drawWarArrows(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
 
-    sf::Clock m_warArrowClock;
-    bool m_showWealthLeaderboard = false;
-    void drawWealthLeaderboard(const std::vector<Country>& countries);
-};
+	    sf::Clock m_warArrowClock;
+	    bool m_showWealthLeaderboard = false;
+	    void drawWealthLeaderboard(const std::vector<Country>& countries);
+
+	    // Airway visuals (plane.png animation)
+	    sf::Texture m_planeTexture;
+	    sf::Sprite m_planeSprite;
+	    sf::Clock m_planeAnimClock;
+	    struct AirwayAnimState {
+	        float t = 0.0f;     // 0..1 along segment
+	        bool forward = true;
+	    };
+	    std::unordered_map<std::uint64_t, AirwayAnimState> m_airwayAnim;
+	};

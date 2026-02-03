@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdint>
 
 extern bool turboMode;
 extern bool paused;
@@ -60,6 +61,18 @@ void main()
     gl_FragColor = texture2D(palette, vec2(u, 0.5));
 }
 )";
+} // namespace
+
+namespace {
+bool tryLoadPlaneTexture(sf::Texture& tex, const char* primary, const char* secondary) {
+    if (tex.loadFromFile(primary)) {
+        return true;
+    }
+    if (secondary && secondary[0] != '\0') {
+        return tex.loadFromFile(secondary);
+    }
+    return false;
+}
 } // namespace
 
 Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& waterColor) :
@@ -165,6 +178,19 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
         }
     }
 
+    if (tryLoadPlaneTexture(m_planeTexture, "plane.png", "Plane.png")) {
+        sf::Vector2u texSize = m_planeTexture.getSize();
+        m_planeSprite.setTexture(m_planeTexture);
+        m_planeSprite.setOrigin(static_cast<float>(texSize.x) * 0.5f, static_cast<float>(texSize.y) * 0.5f);
+        float targetSize = std::max(10.f, static_cast<float>(map.getGridCellSize()) * 14.f);
+        float maxDimension = static_cast<float>(std::max(texSize.x, texSize.y));
+        if (maxDimension > 0.f) {
+            float scale = targetSize / maxDimension;
+            m_planeSprite.setScale(scale, scale);
+        }
+        m_planeSprite.setColor(sf::Color(255, 255, 255, 230));
+    }
+
 
     // Initialize country info window elements
     m_infoWindowBackground.setFillColor(sf::Color(0, 0, 0, 175));
@@ -222,12 +248,14 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
     }
 
     drawTradeRoutes(tradeManager, countries, map, visibleArea);
+    drawAirwayPlanes(countries, map);
 
     if (m_extractorVertices.getVertexCount() > 0) {
         m_window.draw(m_extractorVertices);
     }
 
     drawFactories(countries, map, visibleArea);
+    drawPorts(countries, map, visibleArea);
 
     // Draw cities with viewport culling (on top of infrastructure)
     for (const auto& country : countries) {
@@ -1116,6 +1144,19 @@ void Renderer::handleWindowRecreated(const Map& map) {
         }
     }
 
+    if (tryLoadPlaneTexture(m_planeTexture, "plane.png", "Plane.png")) {
+        sf::Vector2u texSize = m_planeTexture.getSize();
+        m_planeSprite.setTexture(m_planeTexture);
+        m_planeSprite.setOrigin(static_cast<float>(texSize.x) * 0.5f, static_cast<float>(texSize.y) * 0.5f);
+        float targetSize = std::max(10.f, static_cast<float>(map.getGridCellSize()) * 14.f);
+        float maxDimension = static_cast<float>(std::max(texSize.x, texSize.y));
+        if (maxDimension > 0.f) {
+            float scale = targetSize / maxDimension;
+            m_planeSprite.setScale(scale, scale);
+        }
+        m_planeSprite.setColor(sf::Color(255, 255, 255, 230));
+    }
+
     updateYearText(m_currentYear);
 }
 
@@ -1718,6 +1759,216 @@ void Renderer::drawFactories(const std::vector<Country>& countries, const Map& m
     }
 
     m_factorySprite.setColor(sf::Color::White);
+}
+
+void Renderer::drawPorts(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
+    const float cellSize = static_cast<float>(map.getGridCellSize());
+    const float symbolSize = std::max(8.f, cellSize * 12.f);
+    const float half = symbolSize * 0.6f;
+
+    sf::RectangleShape stem(sf::Vector2f(std::max(1.0f, symbolSize * 0.14f), symbolSize * 0.75f));
+    stem.setOrigin(stem.getSize().x * 0.5f, stem.getSize().y * 0.15f);
+
+    sf::RectangleShape cross(sf::Vector2f(symbolSize * 0.46f, std::max(1.0f, symbolSize * 0.12f)));
+    cross.setOrigin(cross.getSize().x * 0.5f, cross.getSize().y * 0.5f);
+
+    sf::CircleShape ring(symbolSize * 0.18f);
+    ring.setOrigin(ring.getRadius(), ring.getRadius());
+    ring.setFillColor(sf::Color::Transparent);
+    ring.setOutlineThickness(std::max(1.0f, symbolSize * 0.08f));
+
+    sf::CircleShape base(symbolSize * 0.32f);
+    base.setOrigin(base.getRadius(), base.getRadius());
+    base.setFillColor(sf::Color::Transparent);
+    base.setOutlineThickness(std::max(1.0f, symbolSize * 0.08f));
+
+    sf::VertexArray flukes(sf::Lines, 4);
+
+    auto drawAnchor = [&](const sf::Vector2f& center, const sf::Color& tint) {
+        sf::Color shadow(0, 0, 0, 170);
+        sf::Vector2f shadowOff(1.2f, 1.2f);
+
+        const float midY = center.y - symbolSize * 0.05f;
+        const float baseY = center.y + symbolSize * 0.28f;
+
+        ring.setOutlineColor(shadow);
+        ring.setPosition(center + shadowOff + sf::Vector2f(0.f, -symbolSize * 0.42f));
+        m_window.draw(ring);
+
+        stem.setFillColor(shadow);
+        stem.setPosition(center + shadowOff);
+        m_window.draw(stem);
+
+        cross.setFillColor(shadow);
+        cross.setPosition(center + shadowOff + sf::Vector2f(0.f, -symbolSize * 0.10f));
+        m_window.draw(cross);
+
+        base.setOutlineColor(shadow);
+        base.setPosition(center + shadowOff + sf::Vector2f(0.f, symbolSize * 0.22f));
+        m_window.draw(base);
+
+        flukes[0].position = center + shadowOff + sf::Vector2f(-symbolSize * 0.36f, baseY);
+        flukes[1].position = center + shadowOff + sf::Vector2f(-symbolSize * 0.10f, midY);
+        flukes[2].position = center + shadowOff + sf::Vector2f(symbolSize * 0.36f, baseY);
+        flukes[3].position = center + shadowOff + sf::Vector2f(symbolSize * 0.10f, midY);
+        flukes[0].color = shadow;
+        flukes[1].color = shadow;
+        flukes[2].color = shadow;
+        flukes[3].color = shadow;
+        m_window.draw(flukes);
+
+        sf::Color main = tint;
+        main.a = 235;
+        ring.setOutlineColor(main);
+        ring.setPosition(center + sf::Vector2f(0.f, -symbolSize * 0.42f));
+        m_window.draw(ring);
+
+        stem.setFillColor(main);
+        stem.setPosition(center);
+        m_window.draw(stem);
+
+        cross.setFillColor(main);
+        cross.setPosition(center + sf::Vector2f(0.f, -symbolSize * 0.10f));
+        m_window.draw(cross);
+
+        base.setOutlineColor(main);
+        base.setPosition(center + sf::Vector2f(0.f, symbolSize * 0.22f));
+        m_window.draw(base);
+
+        flukes[0].position = center + sf::Vector2f(-symbolSize * 0.36f, baseY);
+        flukes[1].position = center + sf::Vector2f(-symbolSize * 0.10f, midY);
+        flukes[2].position = center + sf::Vector2f(symbolSize * 0.36f, baseY);
+        flukes[3].position = center + sf::Vector2f(symbolSize * 0.10f, midY);
+        flukes[0].color = main;
+        flukes[1].color = main;
+        flukes[2].color = main;
+        flukes[3].color = main;
+        m_window.draw(flukes);
+    };
+
+    for (const auto& country : countries) {
+        if (country.getPopulation() <= 0) {
+            continue;
+        }
+        const auto& ports = country.getPorts();
+        if (ports.empty()) {
+            continue;
+        }
+        for (const auto& portPos : ports) {
+            sf::Vector2f worldCenter((static_cast<float>(portPos.x) + 0.5f) * cellSize,
+                                     (static_cast<float>(portPos.y) + 0.5f) * cellSize);
+            sf::FloatRect bounds(worldCenter.x - half, worldCenter.y - half, half * 2.f, half * 2.f);
+            if (!visibleArea.intersects(bounds)) {
+                continue;
+            }
+            drawAnchor(worldCenter, country.getColor());
+        }
+    }
+}
+
+void Renderer::drawAirwayPlanes(const std::vector<Country>& countries, const Map& map) {
+    if (!m_planeTexture.getSize().x || !m_planeTexture.getSize().y) {
+        m_planeAnimClock.restart();
+        return;
+    }
+
+    float dt = m_planeAnimClock.restart().asSeconds();
+    if (dt > 0.10f) {
+        dt = 0.10f;
+    }
+
+    const float cellSize = static_cast<float>(map.getGridCellSize());
+    const float speed = 320.0f * std::max(1.0f, cellSize); // world units per second
+
+    std::vector<std::uint64_t> liveKeys;
+    liveKeys.reserve(128);
+
+    const float pi = 3.14159265358979323846f;
+
+    for (int i = 0; i < static_cast<int>(countries.size()); ++i) {
+        const Country& a = countries[static_cast<size_t>(i)];
+        if (a.getPopulation() <= 0) {
+            continue;
+        }
+
+        for (int j : a.getAirways()) {
+            if (j <= i) {
+                continue;
+            }
+            if (j < 0 || j >= static_cast<int>(countries.size())) {
+                continue;
+            }
+            const Country& b = countries[static_cast<size_t>(j)];
+            if (b.getPopulation() <= 0) {
+                continue;
+            }
+
+            const std::uint64_t key = (static_cast<std::uint64_t>(static_cast<std::uint32_t>(i)) << 32) |
+                                      static_cast<std::uint32_t>(j);
+            liveKeys.push_back(key);
+
+            auto [it, inserted] = m_airwayAnim.insert({key, AirwayAnimState{}});
+            AirwayAnimState& st = it->second;
+            if (inserted) {
+                st.t = static_cast<float>((key % 997u)) / 997.0f;
+                st.forward = ((key & 1u) == 0u);
+            }
+
+            sf::Vector2i aCell = a.getCapitalLocation();
+            sf::Vector2i bCell = b.getCapitalLocation();
+            sf::Vector2f pA((static_cast<float>(aCell.x) + 0.5f) * cellSize,
+                            (static_cast<float>(aCell.y) + 0.5f) * cellSize);
+            sf::Vector2f pB((static_cast<float>(bCell.x) + 0.5f) * cellSize,
+                            (static_cast<float>(bCell.y) + 0.5f) * cellSize);
+
+            sf::Vector2f dSeg = pB - pA;
+            float dist = std::sqrt(dSeg.x * dSeg.x + dSeg.y * dSeg.y);
+            if (dist < 1.0f) {
+                continue;
+            }
+
+            float deltaT = (speed / dist) * dt;
+            if (st.forward) {
+                st.t += deltaT;
+                if (st.t >= 1.0f) {
+                    st.t = 1.0f;
+                    st.forward = false;
+                }
+            } else {
+                st.t -= deltaT;
+                if (st.t <= 0.0f) {
+                    st.t = 0.0f;
+                    st.forward = true;
+                }
+            }
+
+            sf::Vector2f pos = pA + dSeg * st.t;
+            sf::Vector2f dir = st.forward ? (pB - pA) : (pA - pB);
+            float ang = std::atan2(dir.y, dir.x) * 180.0f / pi;
+
+            m_planeSprite.setRotation(ang);
+            m_planeSprite.setPosition(pos);
+            m_window.draw(m_planeSprite);
+        }
+    }
+
+    if (m_airwayAnim.empty()) {
+        return;
+    }
+
+    // Remove stale animation states.
+    if (!liveKeys.empty()) {
+        std::sort(liveKeys.begin(), liveKeys.end());
+        for (auto it = m_airwayAnim.begin(); it != m_airwayAnim.end(); ) {
+            if (!std::binary_search(liveKeys.begin(), liveKeys.end(), it->first)) {
+                it = m_airwayAnim.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    } else {
+        m_airwayAnim.clear();
+    }
 }
 
 void Renderer::drawTradeRoutes(const TradeManager& tradeManager, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
