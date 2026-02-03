@@ -45,6 +45,7 @@ public:
     void startPlague(int year, News& news);
     void endPlague(News& news);
     bool areNeighbors(const Country& country1, const Country& country2) const;
+    bool areCountryIndicesNeighbors(int countryIndex1, int countryIndex2) const;
     bool isPlagueActive() const;
     void initializePlagueCluster(const std::vector<Country>& countries);
     bool isCountryAffectedByPlague(int countryIndex) const;
@@ -53,6 +54,11 @@ public:
     bool loadSpawnZones(const std::string& filename);
     sf::Vector2i getRandomCellInPreferredZones(std::mt19937& gen);
     void setCountryGridValue(int x, int y, int value);
+    // Territory ownership writes must go through these methods so incremental adjacency stays correct.
+    // - `setCountryOwner` locks internally.
+    // - `setCountryOwnerAssumingLocked` expects the caller to already hold `getGridMutex()`.
+    bool setCountryOwner(int x, int y, int newOwner);
+    bool setCountryOwnerAssumingLocked(int x, int y, int newOwner);
     void insertDirtyRegion(int regionIndex);
     void triggerPlague(int year, News& news); // Add this line
 
@@ -66,6 +72,7 @@ public:
     void rebuildCountryBoundary(Country& country);
     void rebuildBoundariesForCountries(std::vector<Country>& countries, const std::vector<int>& countryIndices);
     void rebuildAdjacency(const std::vector<Country>& countries);
+    const std::vector<int>& getAdjacentCountryIndicesPublic(int countryIndex) const;
     
     // Road building support
     bool isValidRoadPixel(int x, int y) const;
@@ -87,6 +94,8 @@ public:
     const std::unordered_set<int>& getDirtyRegions() const;
 
     // Keep these for modification access (non-const versions)
+    // WARNING: Writing directly to the returned grid will bypass incremental adjacency tracking.
+    // Prefer `setCountryOwner*()` for any ownership change.
     std::vector<std::vector<int>>& getCountryGrid();
     std::unordered_set<int>& getDirtyRegions();
 
@@ -117,8 +126,24 @@ private:
     // Country adjacency (indexed by Country::getCountryIndex()).
     int m_countryAdjacencySize = 0;
     std::vector<std::vector<int>> m_countryAdjacency;
+    // Incremental adjacency tracking (border-contact counts).
+    //
+    // Each time a grid cell changes owner, we update the number of border contacts between the
+    // old/new owner and each of the 8 neighboring cells. This maintains:
+    // - `m_countryBorderContactCounts[a][b]`: number of adjacent cell-pairs between country a and b.
+    // - `m_countryAdjacency` / `m_countryAdjacencyBits`: derived neighbor sets for fast iteration / O(1) membership.
+    //
+    // IMPORTANT:
+    // - Any write to `m_countryGrid` must go through `setCountryOwner*()` or adjacency will desync.
+    std::vector<std::vector<int>> m_countryBorderContactCounts;
+    std::vector<std::vector<std::uint64_t>> m_countryAdjacencyBits;
     void rebuildCountryAdjacency(const std::vector<Country>& countries);
     const std::vector<int>& getAdjacentCountryIndices(int countryIndex) const;
+    void ensureAdjacencyStorageForIndex(int countryIndex);
+    void setAdjacencyEdge(int a, int b, bool isNeighbor);
+    void addBorderContact(int a, int b);
+    void removeBorderContact(int a, int b);
+    bool setCountryOwnerAssumingLockedImpl(int x, int y, int newOwner);
     void markCountryExtinct(std::vector<Country>& countries, int countryIndex, int currentYear, News& news);
 
     sf::Image m_spawnZoneImage;

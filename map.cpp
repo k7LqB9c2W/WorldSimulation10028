@@ -231,6 +231,10 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
         int regionIndex = static_cast<int>(startCell.y / m_regionSize * (m_baseImage.getSize().x / m_gridCellSize / m_regionSize) + startCell.x / m_regionSize);
         m_dirtyRegions.insert(regionIndex);
     }
+
+    // Build the initial adjacency/contact counts from the completed grid. From this point forward,
+    // territory changes should go through `setCountryOwner*()` so adjacency stays correct incrementally.
+    rebuildAdjacency(countries);
 }
 
 // Add a helper function to check for name uniqueness
@@ -277,15 +281,26 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
 
             // std::cout << "Year " << currentYear << ": " << countries[i].getName() << " (Warmonger) is checking for war." << std::endl; // Debug: War check start
 
-            // 💀 PRIORITIZE ANNIHILATION - Check for weak neighbors first
-            int annihilationTarget = -1;
-            for (int j = 0; j < countries.size(); ++j) {
-                if (i != j && areNeighbors(countries[i], countries[j]) && 
-                    countries[i].canAnnihilateCountry(countries[j])) {
-                    annihilationTarget = j;
-                    break; // Take the first annihilation opportunity
-                }
-            }
+	            // 💀 PRIORITIZE ANNIHILATION - Check for weak neighbors first
+	            int annihilationTarget = -1;
+	            for (int neighborIndex : getAdjacentCountryIndices(countries[i].getCountryIndex())) {
+	                if (neighborIndex < 0 || neighborIndex >= static_cast<int>(countries.size())) {
+	                    continue;
+	                }
+	                if (neighborIndex == i) {
+	                    continue;
+	                }
+	                if (countries[static_cast<size_t>(neighborIndex)].getCountryIndex() != neighborIndex) {
+	                    continue;
+	                }
+	                if (countries[static_cast<size_t>(neighborIndex)].getPopulation() <= 0) {
+	                    continue;
+	                }
+	                if (countries[i].canAnnihilateCountry(countries[static_cast<size_t>(neighborIndex)])) {
+	                    annihilationTarget = neighborIndex;
+	                    break; // Take the first annihilation opportunity
+	                }
+	            }
             
             if (annihilationTarget != -1) {
                 // 💀 INSTANT ANNIHILATION - 80% chance for overwhelming superiority
@@ -297,7 +312,7 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
                         absorbedCells.assign(targetTerritory.begin(), targetTerritory.end());
                     }
                     countries[i].startWar(countries[annihilationTarget], news);
-                    countries[i].absorbCountry(countries[annihilationTarget], m_countryGrid, news);
+                    countries[i].absorbCountry(countries[annihilationTarget], *this, news);
                     if (!absorbedCells.empty()) {
                         int regionsPerRow = m_regionSize > 0 ? static_cast<int>(m_countryGrid[0].size()) / m_regionSize : 0;
                         if (regionsPerRow > 0) {
@@ -313,13 +328,25 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
                     countries[i].setNextWarCheckYear(currentYear + delay);
                 }
             } else {
-                // 🗡️ NORMAL WAR LOGIC - No annihilation opportunities
-                std::vector<int> potentialTargets;
-                for (int j = 0; j < countries.size(); ++j) {
-                    if (i != j && areNeighbors(countries[i], countries[j]) && countries[i].getMilitaryStrength() > countries[j].getMilitaryStrength()) {
-                        potentialTargets.push_back(j);
-                    }
-                }
+	                // 🗡️ NORMAL WAR LOGIC - No annihilation opportunities
+	                std::vector<int> potentialTargets;
+	                for (int neighborIndex : getAdjacentCountryIndices(countries[i].getCountryIndex())) {
+	                    if (neighborIndex < 0 || neighborIndex >= static_cast<int>(countries.size())) {
+	                        continue;
+	                    }
+	                    if (neighborIndex == i) {
+	                        continue;
+	                    }
+	                    if (countries[static_cast<size_t>(neighborIndex)].getCountryIndex() != neighborIndex) {
+	                        continue;
+	                    }
+	                    if (countries[static_cast<size_t>(neighborIndex)].getPopulation() <= 0) {
+	                        continue;
+	                    }
+	                    if (countries[i].getMilitaryStrength() > countries[static_cast<size_t>(neighborIndex)].getMilitaryStrength()) {
+	                        potentialTargets.push_back(neighborIndex);
+	                    }
+	                }
                 
                 if (potentialTargets.empty()) {
                     std::uniform_int_distribution<> delayDist(25, 75);
@@ -417,7 +444,7 @@ void Map::markCountryExtinct(std::vector<Country>& countries, int countryIndex, 
                 continue;
             }
 
-            m_countryGrid[cell.y][cell.x] = -1;
+            setCountryOwnerAssumingLockedImpl(cell.x, cell.y, -1);
             if (regionsPerRow > 0) {
                 int regionIndex = (cell.y / m_regionSize) * regionsPerRow + (cell.x / m_regionSize);
                 m_dirtyRegions.insert(regionIndex);
@@ -698,7 +725,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
         {
             std::lock_guard<std::mutex> lock(m_gridMutex);
             for (const auto& cell : groupB) {
-                m_countryGrid[cell.y][cell.x] = newIndex;
+                setCountryOwnerAssumingLockedImpl(cell.x, cell.y, newIndex);
                 int regionIndex = static_cast<int>((cell.y / m_regionSize) * regionsPerRow + (cell.x / m_regionSize));
                 m_dirtyRegions.insert(regionIndex);
             }
@@ -742,21 +769,24 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
                 continue;
             }
 
-            for (int j = i + 1; j < candidateCount; ++j) {
-                if (unified.count(j) > 0) {
-                    continue;
-                }
-                Country& b = countries[j];
-                if (b.getPopulation() <= 0 || b.isAtWar() || b.getYearsSinceWar() < 50 || b.getStability() < 0.6) {
-                    continue;
-                }
-                if (!areNeighbors(a, b)) {
-                    continue;
-                }
-                double tradeScore = tradeManager.getTradeScore(a.getCountryIndex(), b.getCountryIndex(), currentYear);
-                if (tradeScore < 6.0) {
-                    continue;
-                }
+	            for (int j : getAdjacentCountryIndices(a.getCountryIndex())) {
+	                if (j <= i || j < 0 || j >= candidateCount) {
+	                    continue;
+	                }
+	                if (countries[static_cast<size_t>(j)].getCountryIndex() != j) {
+	                    continue;
+	                }
+	                if (unified.count(j) > 0) {
+	                    continue;
+	                }
+	                Country& b = countries[static_cast<size_t>(j)];
+	                if (b.getPopulation() <= 0 || b.isAtWar() || b.getYearsSinceWar() < 50 || b.getStability() < 0.6) {
+	                    continue;
+	                }
+	                double tradeScore = tradeManager.getTradeScore(a.getCountryIndex(), b.getCountryIndex(), currentYear);
+	                if (tradeScore < 6.0) {
+	                    continue;
+	                }
                 if (chanceDist(gen) > 0.25) {
                     continue;
                 }
@@ -807,7 +837,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
                 {
                     std::lock_guard<std::mutex> lock(m_gridMutex);
                     for (const auto& cell : absorbed.getBoundaryPixels()) {
-                        m_countryGrid[cell.y][cell.x] = leader.getCountryIndex();
+                        setCountryOwnerAssumingLockedImpl(cell.x, cell.y, leader.getCountryIndex());
                         int regionIndex = static_cast<int>((cell.y / m_regionSize) * regionsPerRow + (cell.x / m_regionSize));
                         m_dirtyRegions.insert(regionIndex);
                     }
@@ -859,6 +889,12 @@ void Map::endPlague(News& news) {
 }
 
 void Map::rebuildCountryAdjacency(const std::vector<Country>& countries) {
+    // Full rebuild (slow path):
+    // Scans the entire grid and rebuilds:
+    // - `m_countryBorderContactCounts` (symmetric border-contact counts)
+    // - `m_countryAdjacencyBits` / `m_countryAdjacency` (derived neighbor sets)
+    //
+    // The incremental path updates these via `setCountryOwner*()` as territory changes.
     int maxCountryIndex = -1;
     for (const auto& country : countries) {
         maxCountryIndex = std::max(maxCountryIndex, country.getCountryIndex());
@@ -868,17 +904,13 @@ void Map::rebuildCountryAdjacency(const std::vector<Country>& countries) {
     if (newSize <= 0) {
         m_countryAdjacencySize = 0;
         m_countryAdjacency.clear();
+        m_countryAdjacencyBits.clear();
+        m_countryBorderContactCounts.clear();
         return;
     }
 
-    if (m_countryAdjacencySize != newSize) {
-        m_countryAdjacencySize = newSize;
-        m_countryAdjacency.assign(static_cast<size_t>(m_countryAdjacencySize), {});
-    } else {
-        for (auto& neighbors : m_countryAdjacency) {
-            neighbors.clear();
-        }
-    }
+    m_countryAdjacencySize = newSize;
+    m_countryAdjacency.assign(static_cast<size_t>(m_countryAdjacencySize), {});
 
     const int height = static_cast<int>(m_countryGrid.size());
     if (height <= 0) {
@@ -890,29 +922,12 @@ void Map::rebuildCountryAdjacency(const std::vector<Country>& countries) {
     }
 
     const int wordCount = (m_countryAdjacencySize + 63) / 64;
-    std::vector<std::vector<std::uint64_t>> bits(
+    m_countryAdjacencyBits.assign(
         static_cast<size_t>(m_countryAdjacencySize),
         std::vector<std::uint64_t>(static_cast<size_t>(wordCount), 0));
-
-    auto addEdge = [&](int a, int b) {
-        if (a < 0 || b < 0 || a >= m_countryAdjacencySize || b >= m_countryAdjacencySize || a == b) {
-            return;
-        }
-
-        int word = b >> 6;
-        std::uint64_t mask = 1ull << (b & 63);
-        if ((bits[a][static_cast<size_t>(word)] & mask) == 0) {
-            bits[a][static_cast<size_t>(word)] |= mask;
-            m_countryAdjacency[static_cast<size_t>(a)].push_back(b);
-        }
-
-        word = a >> 6;
-        mask = 1ull << (a & 63);
-        if ((bits[b][static_cast<size_t>(word)] & mask) == 0) {
-            bits[b][static_cast<size_t>(word)] |= mask;
-            m_countryAdjacency[static_cast<size_t>(b)].push_back(a);
-        }
-    };
+    m_countryBorderContactCounts.assign(
+        static_cast<size_t>(m_countryAdjacencySize),
+        std::vector<int>(static_cast<size_t>(m_countryAdjacencySize), 0));
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
@@ -922,16 +937,16 @@ void Map::rebuildCountryAdjacency(const std::vector<Country>& countries) {
             }
 
             if (x + 1 < width) {
-                addEdge(owner, m_countryGrid[y][x + 1]);
+                addBorderContact(owner, m_countryGrid[y][x + 1]);
             }
             if (y + 1 < height) {
-                addEdge(owner, m_countryGrid[y + 1][x]);
+                addBorderContact(owner, m_countryGrid[y + 1][x]);
             }
             if (x + 1 < width && y + 1 < height) {
-                addEdge(owner, m_countryGrid[y + 1][x + 1]);
+                addBorderContact(owner, m_countryGrid[y + 1][x + 1]);
             }
             if (x - 1 >= 0 && y + 1 < height) {
-                addEdge(owner, m_countryGrid[y + 1][x - 1]);
+                addBorderContact(owner, m_countryGrid[y + 1][x - 1]);
             }
         }
     }
@@ -945,10 +960,142 @@ const std::vector<int>& Map::getAdjacentCountryIndices(int countryIndex) const {
     return m_countryAdjacency[static_cast<size_t>(countryIndex)];
 }
 
+const std::vector<int>& Map::getAdjacentCountryIndicesPublic(int countryIndex) const {
+    return getAdjacentCountryIndices(countryIndex);
+}
+
+void Map::ensureAdjacencyStorageForIndex(int countryIndex) {
+    if (countryIndex < 0) {
+        return;
+    }
+    if (countryIndex < m_countryAdjacencySize) {
+        return;
+    }
+
+    const int oldSize = m_countryAdjacencySize;
+    const int newSize = countryIndex + 1;
+    m_countryAdjacencySize = newSize;
+
+    const int newWordCount = (newSize + 63) / 64;
+
+    m_countryAdjacency.resize(static_cast<size_t>(newSize));
+
+    if (m_countryAdjacencyBits.empty()) {
+        m_countryAdjacencyBits.assign(
+            static_cast<size_t>(newSize),
+            std::vector<std::uint64_t>(static_cast<size_t>(newWordCount), 0));
+    } else {
+        for (auto& row : m_countryAdjacencyBits) {
+            row.resize(static_cast<size_t>(newWordCount), 0);
+        }
+        m_countryAdjacencyBits.resize(
+            static_cast<size_t>(newSize),
+            std::vector<std::uint64_t>(static_cast<size_t>(newWordCount), 0));
+    }
+
+    if (m_countryBorderContactCounts.empty()) {
+        m_countryBorderContactCounts.assign(
+            static_cast<size_t>(newSize),
+            std::vector<int>(static_cast<size_t>(newSize), 0));
+    } else {
+        for (auto& row : m_countryBorderContactCounts) {
+            row.resize(static_cast<size_t>(newSize), 0);
+        }
+        m_countryBorderContactCounts.resize(
+            static_cast<size_t>(newSize),
+            std::vector<int>(static_cast<size_t>(newSize), 0));
+    }
+
+    // Existing adjacency lists/bits remain valid; new countries start empty.
+    (void)oldSize;
+}
+
+void Map::setAdjacencyEdge(int a, int b, bool isNeighbor) {
+    if (a < 0 || b < 0 || a == b) {
+        return;
+    }
+    ensureAdjacencyStorageForIndex(std::max(a, b));
+
+    const size_t wordB = static_cast<size_t>(b >> 6);
+    const std::uint64_t maskB = 1ull << (b & 63);
+    const bool currentlyNeighbor = (m_countryAdjacencyBits[static_cast<size_t>(a)][wordB] & maskB) != 0;
+
+    if (isNeighbor) {
+        if (currentlyNeighbor) {
+            return;
+        }
+        m_countryAdjacencyBits[static_cast<size_t>(a)][wordB] |= maskB;
+
+        const size_t wordA = static_cast<size_t>(a >> 6);
+        const std::uint64_t maskA = 1ull << (a & 63);
+        m_countryAdjacencyBits[static_cast<size_t>(b)][wordA] |= maskA;
+
+        m_countryAdjacency[static_cast<size_t>(a)].push_back(b);
+        m_countryAdjacency[static_cast<size_t>(b)].push_back(a);
+        return;
+    }
+
+    if (!currentlyNeighbor) {
+        return;
+    }
+    m_countryAdjacencyBits[static_cast<size_t>(a)][wordB] &= ~maskB;
+
+    const size_t wordA = static_cast<size_t>(a >> 6);
+    const std::uint64_t maskA = 1ull << (a & 63);
+    m_countryAdjacencyBits[static_cast<size_t>(b)][wordA] &= ~maskA;
+
+    auto& aNeighbors = m_countryAdjacency[static_cast<size_t>(a)];
+    aNeighbors.erase(std::remove(aNeighbors.begin(), aNeighbors.end(), b), aNeighbors.end());
+
+    auto& bNeighbors = m_countryAdjacency[static_cast<size_t>(b)];
+    bNeighbors.erase(std::remove(bNeighbors.begin(), bNeighbors.end(), a), bNeighbors.end());
+}
+
+void Map::addBorderContact(int a, int b) {
+    if (a < 0 || b < 0 || a == b) {
+        return;
+    }
+    ensureAdjacencyStorageForIndex(std::max(a, b));
+
+    int& countAB = m_countryBorderContactCounts[static_cast<size_t>(a)][static_cast<size_t>(b)];
+    const int before = countAB;
+    countAB = before + 1;
+    m_countryBorderContactCounts[static_cast<size_t>(b)][static_cast<size_t>(a)] = countAB;
+
+    if (before == 0) {
+        setAdjacencyEdge(a, b, true);
+    }
+}
+
+void Map::removeBorderContact(int a, int b) {
+    if (a < 0 || b < 0 || a == b) {
+        return;
+    }
+    if (a >= m_countryAdjacencySize || b >= m_countryAdjacencySize) {
+        return;
+    }
+
+    int& countAB = m_countryBorderContactCounts[static_cast<size_t>(a)][static_cast<size_t>(b)];
+    if (countAB <= 0) {
+        return;
+    }
+    countAB -= 1;
+    m_countryBorderContactCounts[static_cast<size_t>(b)][static_cast<size_t>(a)] = countAB;
+
+    if (countAB == 0) {
+        setAdjacencyEdge(a, b, false);
+    }
+}
+
 void Map::initializePlagueCluster(const std::vector<Country>& countries) {
     if (countries.empty()) return;
-    
-    rebuildCountryAdjacency(countries);
+
+    // Adjacency is maintained incrementally via `setCountryOwner*()`; no need to full-scan rebuild here.
+    int maxCountryIndex = -1;
+    for (const auto& country : countries) {
+        maxCountryIndex = std::max(maxCountryIndex, country.getCountryIndex());
+    }
+    ensureAdjacencyStorageForIndex(maxCountryIndex);
 
     std::vector<int> countryIndexToVectorIndex(static_cast<size_t>(m_countryAdjacencySize), -1);
     for (size_t i = 0; i < countries.size(); ++i) {
@@ -1099,31 +1246,24 @@ bool Map::isPlagueActive() const {
     return m_plagueActive;
 }
 
-// 🚀 NUCLEAR OPTIMIZATION: Use boundary pixels instead of scanning entire map
-bool Map::areNeighbors(const Country& country1, const Country& country2) const {
-    int countryIndex2 = country2.getCountryIndex();
-    
-    // Check if any boundary pixel of country1 has country2 as a neighbor
-    const auto& boundaryPixels = country1.getBoundaryPixels();
-    
-    for (const auto& pixel : boundaryPixels) {
-        // Check 8 neighbors around this boundary pixel
-        for (int dy = -1; dy <= 1; ++dy) {
-            for (int dx = -1; dx <= 1; ++dx) {
-                if (dx == 0 && dy == 0) continue;
-                int nx = pixel.x + dx;
-                int ny = pixel.y + dy;
-
-                if (nx >= 0 && nx < static_cast<int>(m_countryGrid[0].size()) && 
-                    ny >= 0 && ny < static_cast<int>(m_countryGrid.size())) {
-                    if (m_countryGrid[ny][nx] == countryIndex2) {
-                        return true; // Found neighboring territory
-                    }
-                }
-            }
-        }
+bool Map::areCountryIndicesNeighbors(int countryIndex1, int countryIndex2) const {
+    if (countryIndex1 < 0 || countryIndex2 < 0 || countryIndex1 == countryIndex2) {
+        return false;
     }
-    return false;
+    if (countryIndex1 >= m_countryAdjacencySize || countryIndex2 >= m_countryAdjacencySize) {
+        return false;
+    }
+    if (m_countryAdjacencyBits.empty()) {
+        return false;
+    }
+
+    const size_t word = static_cast<size_t>(countryIndex2 >> 6);
+    const std::uint64_t mask = 1ull << (countryIndex2 & 63);
+    return (m_countryAdjacencyBits[static_cast<size_t>(countryIndex1)][word] & mask) != 0;
+}
+
+bool Map::areNeighbors(const Country& country1, const Country& country2) const {
+    return areCountryIndicesNeighbors(country1.getCountryIndex(), country2.getCountryIndex());
 }
 
 int Map::getPlagueStartYear() const {
@@ -1273,25 +1413,36 @@ void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
                     if (countries[i].getType() == Country::Type::Warmonger && 
                         !countries[i].isAtWar() && countries[i].getPopulation() > 1000) {
                         
-                        // 💀 FIRST: Check for annihilation opportunities (weak neighbors)
-                        Country* weakestNeighbor = nullptr;
-                        double weakestMilitaryStrength = std::numeric_limits<double>::max();
-                        
-                        for (size_t j = 0; j < countries.size(); ++j) {
-                            if (i != j && areNeighbors(countries[i], countries[j])) {
-                                double targetStrength = countries[j].getMilitaryStrength();
-                                if (targetStrength < weakestMilitaryStrength && 
-                                    countries[i].canAnnihilateCountry(countries[j])) {
-                                    weakestMilitaryStrength = targetStrength;
-                                    weakestNeighbor = &countries[j];
-                                }
-                            }
-                        }
+	                        // 💀 FIRST: Check for annihilation opportunities (weak neighbors)
+	                        Country* weakestNeighbor = nullptr;
+	                        double weakestMilitaryStrength = std::numeric_limits<double>::max();
+	                        
+	                        for (int neighborIndex : getAdjacentCountryIndices(countries[i].getCountryIndex())) {
+	                            if (neighborIndex < 0 || neighborIndex >= static_cast<int>(countries.size())) {
+	                                continue;
+	                            }
+	                            if (static_cast<int>(i) == neighborIndex) {
+	                                continue;
+	                            }
+	                            if (countries[static_cast<size_t>(neighborIndex)].getCountryIndex() != neighborIndex) {
+	                                continue;
+	                            }
+	                            if (countries[static_cast<size_t>(neighborIndex)].getPopulation() <= 0) {
+	                                continue;
+	                            }
+
+	                            double targetStrength = countries[static_cast<size_t>(neighborIndex)].getMilitaryStrength();
+	                            if (targetStrength < weakestMilitaryStrength &&
+	                                countries[i].canAnnihilateCountry(countries[static_cast<size_t>(neighborIndex)])) {
+	                                weakestMilitaryStrength = targetStrength;
+	                                weakestNeighbor = &countries[static_cast<size_t>(neighborIndex)];
+	                            }
+	                        }
                         
                         if (weakestNeighbor) {
                             // 💀 ANNIHILATION ATTACK - Complete absorption
                             countries[i].startWar(*weakestNeighbor, news);
-                            countries[i].absorbCountry(*weakestNeighbor, m_countryGrid, news);
+                            countries[i].absorbCountry(*weakestNeighbor, *this, news);
                             totalWars++;
                             
                             std::string annihilationEvent = "💀 ANNIHILATION: " + countries[i].getName() + 
@@ -1300,18 +1451,26 @@ void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
                             else annihilationEvent += " CE";
                             majorEvents.push_back(annihilationEvent);
                         } else {
-                            // 🗡️ NORMAL WAR - Find the largest neighbor to attack
-                            Country* largestNeighbor = nullptr;
-                            long long largestPop = 0;
-                            
-                            for (size_t j = 0; j < countries.size(); ++j) {
-                                if (i != j && areNeighbors(countries[i], countries[j])) {
-                                    if (countries[j].getPopulation() > largestPop) {
-                                        largestPop = countries[j].getPopulation();
-                                        largestNeighbor = &countries[j];
-                                    }
-                                }
-                            }
+	                            // 🗡️ NORMAL WAR - Find the largest neighbor to attack
+	                            Country* largestNeighbor = nullptr;
+	                            long long largestPop = 0;
+	                            
+	                            for (int neighborIndex : getAdjacentCountryIndices(countries[i].getCountryIndex())) {
+	                                if (neighborIndex < 0 || neighborIndex >= static_cast<int>(countries.size())) {
+	                                    continue;
+	                                }
+	                                if (static_cast<int>(i) == neighborIndex) {
+	                                    continue;
+	                                }
+	                                if (countries[static_cast<size_t>(neighborIndex)].getCountryIndex() != neighborIndex) {
+	                                    continue;
+	                                }
+	                                long long pop = countries[static_cast<size_t>(neighborIndex)].getPopulation();
+	                                if (pop > largestPop) {
+	                                    largestPop = pop;
+	                                    largestNeighbor = &countries[static_cast<size_t>(neighborIndex)];
+	                                }
+	                            }
                             
                             if (largestNeighbor) {
                                 countries[i].startWar(*largestNeighbor, news);
@@ -1484,11 +1643,65 @@ void Country::setNextWarCheckYear(int year) {
 }
 
 void Map::setCountryGridValue(int x, int y, int value) {
-    m_countryGrid[y][x] = value;
+    setCountryOwner(x, y, value);
 }
 
 void Map::insertDirtyRegion(int regionIndex) {
     m_dirtyRegions.insert(regionIndex);
+}
+
+bool Map::setCountryOwner(int x, int y, int newOwner) {
+    std::lock_guard<std::mutex> lock(m_gridMutex);
+    return setCountryOwnerAssumingLockedImpl(x, y, newOwner);
+}
+
+bool Map::setCountryOwnerAssumingLocked(int x, int y, int newOwner) {
+    return setCountryOwnerAssumingLockedImpl(x, y, newOwner);
+}
+
+bool Map::setCountryOwnerAssumingLockedImpl(int x, int y, int newOwner) {
+    // Incremental adjacency maintenance:
+    // When (x,y) changes owner, only the 8 edges incident to that cell can change. We update a symmetric
+    // border-contact count matrix for (oldOwner, neighborOwner) and (newOwner, neighborOwner) for each
+    // of the 8 neighboring cells. Adjacency exists iff the contact count between two countries is > 0.
+    //
+    // This makes neighbor checks O(1) and avoids repeated full-grid scans.
+    const int height = static_cast<int>(m_countryGrid.size());
+    if (y < 0 || y >= height) {
+        return false;
+    }
+    const int width = static_cast<int>(m_countryGrid[0].size());
+    if (x < 0 || x >= width) {
+        return false;
+    }
+
+    const int oldOwner = m_countryGrid[y][x];
+    if (oldOwner == newOwner) {
+        return false;
+    }
+
+    // Ensure the tracking structures can represent any index we touch.
+    ensureAdjacencyStorageForIndex(std::max({ oldOwner, newOwner, 0 }));
+
+    // Update border-contact counts for the 8 edges incident to this cell.
+    // Each edge contributes to a symmetric contact count between the two owners.
+    static const int dxs[8] = { 1, 1, 0, -1, -1, -1, 0, 1 };
+    static const int dys[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
+
+    for (int k = 0; k < 8; ++k) {
+        const int nx = x + dxs[k];
+        const int ny = y + dys[k];
+        if (nx < 0 || ny < 0 || ny >= height || nx >= width) {
+            continue;
+        }
+        const int neighborOwner = m_countryGrid[ny][nx];
+
+        removeBorderContact(oldOwner, neighborOwner);
+        addBorderContact(newOwner, neighborOwner);
+    }
+
+    m_countryGrid[y][x] = newOwner;
+    return true;
 }
 
 bool Map::paintCells(int countryIndex,
@@ -1556,7 +1769,7 @@ bool Map::paintCells(int countryIndex,
                 continue;
             }
 
-            m_countryGrid[y][x] = nextOwner;
+            setCountryOwnerAssumingLockedImpl(x, y, nextOwner);
             anyChanged = true;
 
             if (prevOwner >= 0) {

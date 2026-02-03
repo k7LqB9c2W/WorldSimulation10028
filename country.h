@@ -76,7 +76,7 @@ public:
     void setNextWarCheckYear(int year);
 
     Country(int countryIndex, const sf::Color& color, const sf::Vector2i& startCell, long long initialPopulation, double growthRate, const std::string& name, Type type, ScienceType scienceType, CultureType cultureType);
-    void update(const std::vector<std::vector<bool>>& isLandGrid, std::vector<std::vector<int>>& countryGrid, std::mutex& gridMutex, int gridCellSize, int regionSize, std::unordered_set<int>& dirtyRegions, int currentYear, const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid, News& news, bool plagueActive, long long& plagueDeaths, const Map& map, const class TechnologyManager& technologyManager, std::vector<Country>& allCountries);
+    void update(const std::vector<std::vector<bool>>& isLandGrid, std::vector<std::vector<int>>& countryGrid, std::mutex& gridMutex, int gridCellSize, int regionSize, std::unordered_set<int>& dirtyRegions, int currentYear, const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid, News& news, bool plagueActive, long long& plagueDeaths, Map& map, const class TechnologyManager& technologyManager, std::vector<Country>& allCountries);
     long long getPopulation() const;
     sf::Color getColor() const;
     int getCountryIndex() const;
@@ -193,7 +193,7 @@ public:
     void fastForwardGrowth(int yearIndex, int currentYear, const std::vector<std::vector<bool>>& isLandGrid, 
                           std::vector<std::vector<int>>& countryGrid, 
                           const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid,
-                          News& news, const Map& map, const class TechnologyManager& technologyManager);
+                          News& news, Map& map, const class TechnologyManager& technologyManager);
     void applyPlagueDeaths(long long deaths);
     
     // Technology effects
@@ -209,7 +209,7 @@ public:
     int getBurstExpansionRadius() const;
     int getBurstExpansionFrequency() const;
     bool canAnnihilateCountry(const Country& target) const;
-    void absorbCountry(Country& target, std::vector<std::vector<int>>& countryGrid, News& news);
+    void absorbCountry(Country& target, Map& map, News& news);
     int getWarBurstConquestRadius() const;
     int getWarBurstConquestFrequency() const;
     

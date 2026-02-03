@@ -341,16 +341,15 @@ int main() {
 	                        lastPaintCell = sf::Vector2i(-99999, -99999);
 	                        if (!paintStrokeAffectedCountries.empty()) {
 	                            std::sort(paintStrokeAffectedCountries.begin(), paintStrokeAffectedCountries.end());
-	                            paintStrokeAffectedCountries.erase(
-	                                std::unique(paintStrokeAffectedCountries.begin(), paintStrokeAffectedCountries.end()),
-	                                paintStrokeAffectedCountries.end());
-	                            map.rebuildBoundariesForCountries(countries, paintStrokeAffectedCountries);
-	                            map.rebuildAdjacency(countries);
-	                            economy.onTerritoryChanged(map);
-	                            renderer.setNeedsUpdate(true);
-	                        }
-	                        paintStrokeAffectedCountries.clear();
-	                    }
+		                            paintStrokeAffectedCountries.erase(
+		                                std::unique(paintStrokeAffectedCountries.begin(), paintStrokeAffectedCountries.end()),
+		                                paintStrokeAffectedCountries.end());
+		                            map.rebuildBoundariesForCountries(countries, paintStrokeAffectedCountries);
+		                            economy.onTerritoryChanged(map);
+		                            renderer.setNeedsUpdate(true);
+		                        }
+		                        paintStrokeAffectedCountries.clear();
+		                    }
 	                }
                 else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::Num1) {
                     paintEraseMode = false;
@@ -1280,15 +1279,14 @@ int main() {
                     lastPaintCell = sf::Vector2i(-99999, -99999);
                     if (!paintStrokeAffectedCountries.empty()) {
                         std::sort(paintStrokeAffectedCountries.begin(), paintStrokeAffectedCountries.end());
-                        paintStrokeAffectedCountries.erase(
-                            std::unique(paintStrokeAffectedCountries.begin(), paintStrokeAffectedCountries.end()),
-                            paintStrokeAffectedCountries.end());
-                        map.rebuildBoundariesForCountries(countries, paintStrokeAffectedCountries);
-                        map.rebuildAdjacency(countries);
-                        renderer.setNeedsUpdate(true);
-                    }
-                    paintStrokeAffectedCountries.clear();
-                }
+	                        paintStrokeAffectedCountries.erase(
+	                            std::unique(paintStrokeAffectedCountries.begin(), paintStrokeAffectedCountries.end()),
+	                            paintStrokeAffectedCountries.end());
+	                        map.rebuildBoundariesForCountries(countries, paintStrokeAffectedCountries);
+	                        renderer.setNeedsUpdate(true);
+	                    }
+	                    paintStrokeAffectedCountries.clear();
+	                }
             }
             else if (event.type == sf::Event::KeyReleased) {
                 if (event.key.code == sf::Keyboard::Space) {

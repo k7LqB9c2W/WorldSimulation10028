@@ -473,7 +473,7 @@ bool Country::isNeighbor(const Country& other) const {
 }
 
 // 🔥 NUCLEAR OPTIMIZATION: Update the country's state each year
-void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vector<std::vector<int>>& countryGrid, std::mutex& gridMutex, int gridCellSize, int regionSize, std::unordered_set<int>& dirtyRegions, int currentYear, const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid, News& news, bool plagueActive, long long& plagueDeaths, const Map& map, const TechnologyManager& technologyManager, std::vector<Country>& allCountries) {
+void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vector<std::vector<int>>& countryGrid, std::mutex& gridMutex, int gridCellSize, int regionSize, std::unordered_set<int>& dirtyRegions, int currentYear, const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid, News& news, bool plagueActive, long long& plagueDeaths, Map& map, const TechnologyManager& technologyManager, std::vector<Country>& allCountries) {
     
     // PERFORMANCE OPTIMIZATION: Use static generators to avoid expensive random_device creation
     static std::random_device rd;
@@ -695,7 +695,7 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
                         if (countryGrid[cell.y][cell.x] != enemyIndex) {
                             continue;
                         }
-                        countryGrid[cell.y][cell.x] = m_countryIndex;
+                        map.setCountryOwnerAssumingLocked(cell.x, cell.y, m_countryIndex);
                         m_boundaryPixels.insert(cell);
                         primaryEnemy->m_boundaryPixels.erase(cell);
 
@@ -767,7 +767,7 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
                 if (canExpand) {
                     {
                         std::lock_guard<std::mutex> lock(gridMutex);
-                        countryGrid[newCell.y][newCell.x] = m_countryIndex;
+                        map.setCountryOwnerAssumingLocked(newCell.x, newCell.y, m_countryIndex);
                         int regionIndex = static_cast<int>((newCell.y / regionSize) * (isLandGrid[0].size() / regionSize) + (newCell.x / regionSize));
                         dirtyRegions.insert(regionIndex);
                     }
@@ -951,7 +951,7 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
                                     }
                                 }
 
-                                countryGrid[cell.y][cell.x] = m_countryIndex;
+                                map.setCountryOwnerAssumingLocked(cell.x, cell.y, m_countryIndex);
                                 int regionIndex = static_cast<int>((cell.y / regionSize) * (isLandGrid[0].size() / regionSize) + (cell.x / regionSize));
                                 dirtyRegions.insert(regionIndex);
 
@@ -1039,7 +1039,7 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
             std::lock_guard<std::mutex> lock(gridMutex);
             
             for (const auto& targetCell : burstTargets) {
-                countryGrid[targetCell.y][targetCell.x] = m_countryIndex;
+                map.setCountryOwnerAssumingLocked(targetCell.x, targetCell.y, m_countryIndex);
                 m_boundaryPixels.insert(targetCell);
                 
                 // Batch dirty region marking
@@ -1149,6 +1149,8 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
         addSciencePoints(2.0 * factoryOutput * efficiencyBonus);
         addCulturePoints(1.0 * factoryOutput);
     }
+
+    buildPorts(isLandGrid, countryGrid, currentYear, gen, news);
     checkCityGrowth(currentYear, news);
     
     // 🚀 NUCLEAR OPTIMIZATION: Streamlined city founding
@@ -1271,7 +1273,7 @@ const std::string& Country::getName() const {
 void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vector<std::vector<bool>>& isLandGrid, 
                                std::vector<std::vector<int>>& countryGrid, 
                                const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid,
-                               News& news, const Map& map, const TechnologyManager& technologyManager) {
+                               News& news, Map& map, const TechnologyManager& technologyManager) {
     
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -1340,13 +1342,13 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
                     newCell.y >= 0 && newCell.y < isLandGrid.size() &&
                     isLandGrid[newCell.y][newCell.x] && countryGrid[newCell.y][newCell.x] == -1) {
                     
-                    countryGrid[newCell.y][newCell.x] = m_countryIndex;
+                    map.setCountryOwner(newCell.x, newCell.y, m_countryIndex);
                     m_boundaryPixels.insert(newCell);
                     
                     // 🔥 CRITICAL FIX: Mark region as dirty for visual update!
                     int regionSize = map.getRegionSize();
                     int regionIndex = static_cast<int>((newCell.y / regionSize) * (isLandGrid[0].size() / regionSize) + (newCell.x / regionSize));
-                    const_cast<Map&>(map).insertDirtyRegion(regionIndex);
+                    map.insertDirtyRegion(regionIndex);
                 }
             }
             
@@ -1393,13 +1395,13 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
                 
                 // Batch apply all changes
                 for (const auto& targetCell : burstTargets) {
-                    countryGrid[targetCell.y][targetCell.x] = m_countryIndex;
+                    map.setCountryOwner(targetCell.x, targetCell.y, m_countryIndex);
                     m_boundaryPixels.insert(targetCell);
                     
                     // Fast dirty region marking
                     int regionSize = map.getRegionSize();
                     int regionIndex = static_cast<int>((targetCell.y / regionSize) * (isLandGrid[0].size() / regionSize) + (targetCell.x / regionSize));
-                    const_cast<Map&>(map).insertDirtyRegion(regionIndex);
+                    map.insertDirtyRegion(regionIndex);
                 }
                 
                 if (!burstTargets.empty()) {
@@ -1761,21 +1763,28 @@ double Country::calculateNeighborScienceBonus(const std::vector<Country>& allCou
     // 🚀 STAGGERED PERFORMANCE: Only recalculate neighbors every 20-80 years (random per country) or when territories change
     bool needsRecalculation = (currentYear - m_neighborBonusLastUpdated >= m_neighborRecalculationInterval) || m_cachedNeighborIndices.empty();
     
-    if (needsRecalculation) {
-        m_cachedNeighborIndices.clear();
-        
-        // Find all neighbors (this is the expensive O(n²) part, but now only every 20-80 years per country)
-    for (const auto& otherCountry : allCountries) {
-        if (otherCountry.getCountryIndex() == m_countryIndex) continue; // Skip self
-        
-            // Check if they're neighbors - only do this expensive check during recalculation
-        if (map.areNeighbors(*this, otherCountry)) {
-                m_cachedNeighborIndices.push_back(otherCountry.getCountryIndex());
-            }
-        }
-        m_neighborBonusLastUpdated = currentYear;
-        
-        // 🚀 RANDOM INTERVAL: Generate new random interval for next recalculation (keeps it staggered)
+	    if (needsRecalculation) {
+	        m_cachedNeighborIndices.clear();
+	        
+	        // Find all neighbors using the map adjacency graph (O(degree) instead of O(n²)).
+	        for (int neighborIndex : map.getAdjacentCountryIndicesPublic(m_countryIndex)) {
+	            if (neighborIndex < 0 || neighborIndex >= static_cast<int>(allCountries.size())) {
+	                continue;
+	            }
+	            if (neighborIndex == m_countryIndex) {
+	                continue;
+	            }
+	            if (allCountries[static_cast<size_t>(neighborIndex)].getCountryIndex() != neighborIndex) {
+	                continue;
+	            }
+	            if (allCountries[static_cast<size_t>(neighborIndex)].getPopulation() <= 0) {
+	                continue;
+	            }
+	            m_cachedNeighborIndices.push_back(neighborIndex);
+	        }
+	        m_neighborBonusLastUpdated = currentYear;
+	        
+	        // 🚀 RANDOM INTERVAL: Generate new random interval for next recalculation (keeps it staggered)
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_int_distribution<> intervalDist(20, 80);
@@ -2008,15 +2017,18 @@ bool Country::canAnnihilateCountry(const Country& target) const {
     return true;
 }
 
-void Country::absorbCountry(Country& target, std::vector<std::vector<int>>& countryGrid, News& news) {
+void Country::absorbCountry(Country& target, Map& map, News& news) {
     std::cout << "🗡️💀 " << m_name << " COMPLETELY ANNIHILATES " << target.getName() << "!" << std::endl;
     
     // Absorb all territory
     const auto& targetPixels = target.getBoundaryPixels();
     const size_t absorbedTerritory = targetPixels.size();
-    for (const auto& pixel : targetPixels) {
-        countryGrid[pixel.y][pixel.x] = m_countryIndex;
-        m_boundaryPixels.insert(pixel);
+    {
+        std::lock_guard<std::mutex> lock(map.getGridMutex());
+        for (const auto& pixel : targetPixels) {
+            map.setCountryOwnerAssumingLocked(pixel.x, pixel.y, m_countryIndex);
+            m_boundaryPixels.insert(pixel);
+        }
     }
     
     // Transfer people (world population must not drop from border changes)
@@ -2240,22 +2252,21 @@ void Country::attemptTechnologySharing(int currentYear, std::vector<Country>& al
     std::random_device rd;
     std::mt19937 gen(rd());
     
-    for (size_t i = 0; i < allCountries.size(); ++i) {
-        if (static_cast<int>(i) == m_countryIndex) continue; // Skip ourselves
-        if (allCountries[i].getPopulation() <= 0) continue; // Skip dead countries
-        
-        // Must be neighbors
-        if (!map.areNeighbors(*this, allCountries[i])) continue;
-        
-        // Must be able to share with them (type preferences + war history)
-        if (!canShareTechWith(allCountries[i], currentYear)) continue;
-        
-        // Must have fewer technologies than us
-        const auto& theirTechs = techManager.getUnlockedTechnologies(allCountries[i]);
-        if (theirTechs.size() >= ourTechs.size()) continue;
-        
-        potentialRecipients.push_back(static_cast<int>(i));
-    }
+	    for (int neighborIndex : map.getAdjacentCountryIndicesPublic(m_countryIndex)) {
+	        if (neighborIndex < 0 || neighborIndex >= static_cast<int>(allCountries.size())) continue;
+	        if (neighborIndex == m_countryIndex) continue; // Skip ourselves
+	        if (allCountries[static_cast<size_t>(neighborIndex)].getCountryIndex() != neighborIndex) continue;
+	        if (allCountries[static_cast<size_t>(neighborIndex)].getPopulation() <= 0) continue; // Skip dead countries
+	        
+	        // Must be able to share with them (type preferences + war history)
+	        if (!canShareTechWith(allCountries[static_cast<size_t>(neighborIndex)], currentYear)) continue;
+	        
+	        // Must have fewer technologies than us
+	        const auto& theirTechs = techManager.getUnlockedTechnologies(allCountries[static_cast<size_t>(neighborIndex)]);
+	        if (theirTechs.size() >= ourTechs.size()) continue;
+	        
+	        potentialRecipients.push_back(neighborIndex);
+	    }
     
     if (potentialRecipients.empty()) {
         // Reset timer and return if no valid recipients
@@ -2406,26 +2417,23 @@ void Country::buildRoads(std::vector<Country>& allCountries, const Map& map,
     // Only build roads if we have cities
     if (m_cities.empty()) return;
     
-    // Find potential road partners
-    for (size_t i = 0; i < allCountries.size(); ++i) {
-        Country& otherCountry = allCountries[i];
-        if (otherCountry.getCountryIndex() == m_countryIndex) continue; // Skip ourselves
-        if (otherCountry.getPopulation() <= 0 || otherCountry.getCities().empty()) continue; // Skip dead/cityless countries
-        
-        // Check if we can build roads to this country
-        if (!canBuildRoadTo(otherCountry, currentYear)) continue;
-        
-        // Check if we already have roads to this country
-        if (m_roadsToCountries.find(otherCountry.getCountryIndex()) != m_roadsToCountries.end()) continue;
-        
-        // Only build roads when countries share a land border
-        if (!map.areNeighbors(*this, otherCountry)) {
-            continue;
-        }
+	    // Find potential road partners (neighbors only).
+	    for (int neighborIndex : map.getAdjacentCountryIndicesPublic(m_countryIndex)) {
+	        if (neighborIndex < 0 || neighborIndex >= static_cast<int>(allCountries.size())) continue;
+	        if (neighborIndex == m_countryIndex) continue; // Skip ourselves
+	        Country& otherCountry = allCountries[static_cast<size_t>(neighborIndex)];
+	        if (otherCountry.getCountryIndex() != neighborIndex) continue;
+	        if (otherCountry.getPopulation() <= 0 || otherCountry.getCities().empty()) continue; // Skip dead/cityless countries
+	        
+	        // Check if we can build roads to this country
+	        if (!canBuildRoadTo(otherCountry, currentYear)) continue;
+	        
+	        // Check if we already have roads to this country
+	        if (m_roadsToCountries.find(otherCountry.getCountryIndex()) != m_roadsToCountries.end()) continue;
 
-        // Build road between closest cities
-        sf::Vector2i ourClosestCity = getClosestCityTo(otherCountry);
-        sf::Vector2i theirClosestCity = otherCountry.getClosestCityTo(*this);
+	        // Build road between closest cities
+	        sf::Vector2i ourClosestCity = getClosestCityTo(otherCountry);
+	        sf::Vector2i theirClosestCity = otherCountry.getClosestCityTo(*this);
         
         // Create road path using simple line algorithm
         std::vector<sf::Vector2i> roadPath = createRoadPath(ourClosestCity, theirClosestCity, map);

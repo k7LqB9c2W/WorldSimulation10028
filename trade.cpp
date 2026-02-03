@@ -107,13 +107,12 @@ void TradeManager::generateTradeOffers(std::vector<Country>& countries, int curr
         if (chanceDist(m_rng) < 0.3) { // 30% chance per country per trade cycle
             
             // Find potential trading partners (neighbors only for basic barter)
-            for (size_t j = 0; j < countries.size(); ++j) {
-                if (i == j) continue;
-                Country& country2 = countries[j];
+            for (int neighborIndex : map.getAdjacentCountryIndicesPublic(country1.getCountryIndex())) {
+                if (neighborIndex < 0 || neighborIndex >= static_cast<int>(countries.size())) continue;
+                if (static_cast<int>(i) == neighborIndex) continue;
+                Country& country2 = countries[static_cast<size_t>(neighborIndex)];
+                if (country2.getCountryIndex() != neighborIndex) continue;
                 if (country2.getPopulation() <= 0) continue;
-                
-                // Must be neighbors for basic barter
-                if (!areCountriesNeighbors(country1, country2, map)) continue;
                 
                 // Cannot trade with enemies
                 if (country1.isAtWar() && std::find(country1.getEnemies().begin(), 
