@@ -5,6 +5,7 @@
 #include <string>
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 extern bool turboMode;
 extern bool paused;
@@ -421,6 +422,10 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
         drawCivicList(selectedCountry, cultureManager);
     }
 
+    if (m_showWealthLeaderboard) {
+        drawWealthLeaderboard(countries);
+    }
+
     if (m_showCountryAddModeText) {
         sf::Text countryAddModeText;
         countryAddModeText.setFont(m_font);
@@ -728,8 +733,123 @@ void Renderer::toggleWarmongerHighlights() {
     m_showWarmongerHighlights = !m_showWarmongerHighlights;
 }
 
+void Renderer::toggleWealthLeaderboard() {
+    m_showWealthLeaderboard = !m_showWealthLeaderboard;
+}
+
 void Renderer::toggleWarHighlights() {
     m_showWarHighlights = !m_showWarHighlights;
+}
+
+void Renderer::drawWealthLeaderboard(const std::vector<Country>& countries) {
+    sf::View prev = m_window.getView();
+    m_window.setView(m_window.getDefaultView());
+
+    struct Row {
+        int idx;
+        double wealth;
+        double gdp;
+        double exports;
+        long long pop;
+    };
+
+    std::vector<Row> rows;
+    rows.reserve(countries.size());
+
+    for (int i = 0; i < static_cast<int>(countries.size()); ++i) {
+        const Country& c = countries[static_cast<size_t>(i)];
+        if (c.getPopulation() <= 0) {
+            continue;
+        }
+        rows.push_back({i, c.getWealth(), c.getGDP(), c.getExports(), c.getPopulation()});
+    }
+
+    std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
+        if (a.wealth != b.wealth) return a.wealth > b.wealth;
+        return a.idx < b.idx;
+    });
+
+    const sf::Vector2u ws = m_window.getSize();
+    const float panelW = 760.f;
+    const float panelH = 760.f;
+    const float x = (static_cast<float>(ws.x) - panelW) * 0.5f;
+    const float y = (static_cast<float>(ws.y) - panelH) * 0.5f;
+
+    sf::RectangleShape bg(sf::Vector2f(panelW, panelH));
+    bg.setPosition(x, y);
+    bg.setFillColor(sf::Color(10, 10, 15, 220));
+    bg.setOutlineColor(sf::Color(120, 120, 160, 220));
+    bg.setOutlineThickness(2.f);
+    m_window.draw(bg);
+
+    sf::Text title;
+    title.setFont(m_font);
+    title.setCharacterSize(28);
+    title.setFillColor(sf::Color(255, 220, 60));
+    title.setString("Wealth Leaderboard");
+    title.setPosition(x + 20.f, y + 14.f);
+    m_window.draw(title);
+
+    auto fmtMoney = [](double v) {
+        const double av = std::abs(v);
+        char buf[64];
+        if (av >= 1e12) std::snprintf(buf, sizeof(buf), "%.2fT", v / 1e12);
+        else if (av >= 1e9) std::snprintf(buf, sizeof(buf), "%.2fB", v / 1e9);
+        else if (av >= 1e6) std::snprintf(buf, sizeof(buf), "%.2fM", v / 1e6);
+        else if (av >= 1e3) std::snprintf(buf, sizeof(buf), "%.2fK", v / 1e3);
+        else std::snprintf(buf, sizeof(buf), "%.0f", v);
+        return std::string(buf);
+    };
+
+    sf::Text header;
+    header.setFont(m_font);
+    header.setCharacterSize(16);
+    header.setFillColor(sf::Color(200, 200, 220));
+    header.setString("Rank   Country                           Wealth        GDP        Exports      Pop");
+    header.setPosition(x + 20.f, y + 60.f);
+    m_window.draw(header);
+
+    const int maxRows = 25;
+    float lineY = y + 90.f;
+    const float lineH = 24.f;
+
+    for (int r = 0; r < static_cast<int>(rows.size()) && r < maxRows; ++r) {
+        const Country& c = countries[static_cast<size_t>(rows[r].idx)];
+
+        sf::RectangleShape colorBox(sf::Vector2f(14.f, 14.f));
+        colorBox.setFillColor(c.getColor());
+        colorBox.setPosition(x + 22.f, lineY + 4.f);
+        m_window.draw(colorBox);
+
+        sf::Text t;
+        t.setFont(m_font);
+        t.setCharacterSize(16);
+        t.setFillColor(sf::Color::White);
+
+        std::string s =
+            std::to_string(r + 1) + "     " +
+            c.getName() + "     " +
+            fmtMoney(rows[r].wealth) + "     " +
+            fmtMoney(rows[r].gdp) + "     " +
+            fmtMoney(rows[r].exports) + "     " +
+            std::to_string(rows[r].pop);
+
+        t.setString(s);
+        t.setPosition(x + 44.f, lineY);
+        m_window.draw(t);
+
+        lineY += lineH;
+    }
+
+    sf::Text hint;
+    hint.setFont(m_font);
+    hint.setCharacterSize(14);
+    hint.setFillColor(sf::Color(180, 180, 200));
+    hint.setString("Press L to close");
+    hint.setPosition(x + 20.f, y + panelH - 30.f);
+    m_window.draw(hint);
+
+    m_window.setView(prev);
 }
 
 void Renderer::drawWarmongerHighlights(const std::vector<Country>& countries, const Map& map) {

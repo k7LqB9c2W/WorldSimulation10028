@@ -20,6 +20,7 @@
 #include "great_people.h"
 #include "culture.h" // Include the new culture header
 #include "trade.h" // Include the new trade system
+#include "economy.h"
 
 // 🚨 CRASH DETECTION SYSTEM
 void crashHandler(int signal) {
@@ -154,11 +155,21 @@ int main() {
     // Initialize the Great People Manager
     GreatPeopleManager greatPeopleManager;
     
-    // Initialize the Trade Manager
-    TradeManager tradeManager;
+	    // Initialize the Trade Manager
+	    TradeManager tradeManager;
 
-    Renderer renderer(window, map, waterColor);
-    News news;
+	    // Initialize GPU economy (downsampled econ grid)
+	    EconomyGPU economy;
+	    EconomyGPU::Config econCfg;
+	    econCfg.econCellSize = 6;
+	    econCfg.tradeIters = 12;
+	    econCfg.updateReadbackEveryNYears = 1;
+	    economy.init(map, maxCountries, econCfg);
+	    economy.onTerritoryChanged(map);
+	    economy.onStaticResourcesChanged(map);
+
+	    Renderer renderer(window, map, waterColor);
+	    News news;
 
     int currentYear = -5000;
     sf::Clock yearClock;
@@ -315,9 +326,9 @@ int main() {
                         }
                     }
                 }
-                else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::Num0) {
-                    paintMode = !paintMode;
-                    if (paintMode) {
+	                else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::Num0) {
+	                    paintMode = !paintMode;
+	                    if (paintMode) {
                         countryAddMode = false;
                         renderer.setShowCountryAddModeText(false);
                         forceInvasionMode = false;
@@ -325,21 +336,22 @@ int main() {
                         if (selectedPaintCountryIndex < 0 && selectedCountry != nullptr) {
                             selectedPaintCountryIndex = selectedCountry->getCountryIndex();
                         }
-                    } else if (paintStrokeActive) {
-                        paintStrokeActive = false;
-                        lastPaintCell = sf::Vector2i(-99999, -99999);
-                        if (!paintStrokeAffectedCountries.empty()) {
-                            std::sort(paintStrokeAffectedCountries.begin(), paintStrokeAffectedCountries.end());
-                            paintStrokeAffectedCountries.erase(
-                                std::unique(paintStrokeAffectedCountries.begin(), paintStrokeAffectedCountries.end()),
-                                paintStrokeAffectedCountries.end());
-                            map.rebuildBoundariesForCountries(countries, paintStrokeAffectedCountries);
-                            map.rebuildAdjacency(countries);
-                            renderer.setNeedsUpdate(true);
-                        }
-                        paintStrokeAffectedCountries.clear();
-                    }
-                }
+	                    } else if (paintStrokeActive) {
+	                        paintStrokeActive = false;
+	                        lastPaintCell = sf::Vector2i(-99999, -99999);
+	                        if (!paintStrokeAffectedCountries.empty()) {
+	                            std::sort(paintStrokeAffectedCountries.begin(), paintStrokeAffectedCountries.end());
+	                            paintStrokeAffectedCountries.erase(
+	                                std::unique(paintStrokeAffectedCountries.begin(), paintStrokeAffectedCountries.end()),
+	                                paintStrokeAffectedCountries.end());
+	                            map.rebuildBoundariesForCountries(countries, paintStrokeAffectedCountries);
+	                            map.rebuildAdjacency(countries);
+	                            economy.onTerritoryChanged(map);
+	                            renderer.setNeedsUpdate(true);
+	                        }
+	                        paintStrokeAffectedCountries.clear();
+	                    }
+	                }
                 else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::Num1) {
                     paintEraseMode = false;
                 }
@@ -413,9 +425,12 @@ int main() {
                         zoomLevel = 1.0f;
                     }
                 }
-                else if (event.key.code == sf::Keyboard::Num6) {
-                    renderer.toggleWarHighlights();
-                }
+	                else if (event.key.code == sf::Keyboard::Num6) {
+	                    renderer.toggleWarHighlights();
+	                }
+	                else if (event.key.code == sf::Keyboard::L) {
+	                    renderer.toggleWealthLeaderboard();
+	                }
 
                 else if (event.key.code == sf::Keyboard::Num8) { // Add this block
                     map.triggerPlague(currentYear, news);
@@ -508,8 +523,11 @@ int main() {
                         sf::sleep(sf::milliseconds(50));
                     }
                     
-                    // Final updates
-                    greatPeopleManager.updateEffects(currentYear, countries, news);
+	                    // Final updates
+	                    greatPeopleManager.updateEffects(currentYear, countries, news);
+	                    economy.onTerritoryChanged(map);
+	                    economy.tickYear(currentYear, map, countries, technologyManager);
+	                    economy.applyCountryMetrics(countries);
                     
                     // 🔥 FORCE IMMEDIATE COMPLETE VISUAL REFRESH FOR FAST FORWARD
                     std::cout << "🎨 Refreshing fast forward visuals..." << std::endl;
@@ -833,17 +851,21 @@ int main() {
                                 std::cout << "Forcing complete visual refresh..." << std::endl;
                                 std::cout << "Total time jump time: " << totalTime << " seconds" << std::endl;
                                 
-                                // Mark ALL regions as dirty for complete re-render
-                                int totalRegions = (mapPixelSize.x / map.getGridCellSize() / map.getRegionSize()) * 
-                                                  (mapPixelSize.y / map.getGridCellSize() / map.getRegionSize());
-                                for (int i = 0; i < totalRegions; ++i) {
-                                    map.insertDirtyRegion(i);
-                                }
-                                
-                                // Force immediate renderer update
-                                renderer.updateYearText(currentYear);
-                                renderer.setNeedsUpdate(true);
-                                renderingNeedsUpdate = true;
+	                                // Mark ALL regions as dirty for complete re-render
+	                                int totalRegions = (mapPixelSize.x / map.getGridCellSize() / map.getRegionSize()) * 
+	                                                  (mapPixelSize.y / map.getGridCellSize() / map.getRegionSize());
+	                                for (int i = 0; i < totalRegions; ++i) {
+	                                    map.insertDirtyRegion(i);
+	                                }
+	                                
+	                                economy.onTerritoryChanged(map);
+	                                economy.tickYear(currentYear, map, countries, technologyManager);
+	                                economy.applyCountryMetrics(countries);
+	                                
+	                                // Force immediate renderer update
+	                                renderer.updateYearText(currentYear);
+	                                renderer.setNeedsUpdate(true);
+	                                renderingNeedsUpdate = true;
                                 
                                 // Immediate visual update
                                 window.clear();
@@ -1405,10 +1427,15 @@ int main() {
             // 🏪 TRADE SYSTEM UPDATE
             auto tradeStart = std::chrono::high_resolution_clock::now();
             tradeManager.updateTrade(countries, currentYear, map, technologyManager, news);
-            auto tradeEnd = std::chrono::high_resolution_clock::now();
-            auto tradeTime = std::chrono::duration_cast<std::chrono::milliseconds>(tradeEnd - tradeStart);
+	            auto tradeEnd = std::chrono::high_resolution_clock::now();
+	            auto tradeTime = std::chrono::duration_cast<std::chrono::milliseconds>(tradeEnd - tradeStart);
 
-            map.processPoliticalEvents(countries, tradeManager, currentYear, news);
+	            // GPU economy (downsampled grid fields)
+	            economy.onTerritoryChanged(map);
+	            economy.tickYear(currentYear, map, countries, technologyManager);
+	            economy.applyCountryMetrics(countries);
+
+	            map.processPoliticalEvents(countries, tradeManager, currentYear, news);
             
             auto simEnd = std::chrono::high_resolution_clock::now();
             auto simDuration = std::chrono::duration_cast<std::chrono::microseconds>(simEnd - simStart);

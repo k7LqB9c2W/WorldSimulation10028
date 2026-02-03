@@ -5,7 +5,7 @@ rem ====== Config ======
 set "VSDEVCMD=C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat"
 set "SFML=C:\SFML-2.6.1"
 set "OUT=WorldSimulation.exe"
-set "SRC=main.cpp country.cpp map.cpp renderer.cpp news.cpp technology.cpp culture.cpp great_people.cpp resource.cpp trade.cpp"
+set "SRC=main.cpp country.cpp map.cpp renderer.cpp news.cpp technology.cpp culture.cpp great_people.cpp resource.cpp trade.cpp economy.cpp"
 
 rem ====== Help ======
 if "%~1"=="" goto :usage
@@ -91,10 +91,10 @@ exit /b 0
 :usage
 echo.
 echo Usage:
-echo   build_world.bat release   Build release with MSVC and SFML
-echo   build_world.bat debug     Build debug with MSVC and SFML
-echo   build_world.bat run       Build release then run the app
-echo   build_world.bat clean     Delete build outputs
+echo   build.bat release   Build release with MSVC and SFML
+echo   build.bat debug     Build debug with MSVC and SFML
+echo   build.bat run       Build release then run the app
+echo   build.bat clean     Delete build outputs
 echo.
 echo Edit VSDEVCMD and SFML variables at the top if your paths differ.
 exit /b 1

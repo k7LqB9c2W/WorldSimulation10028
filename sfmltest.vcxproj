@@ -143,6 +143,7 @@
   <ItemGroup>
     <ClCompile Include="country.cpp" />
     <ClCompile Include="culture.cpp" />
+    <ClCompile Include="economy.cpp" />
     <ClCompile Include="great_people.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="map.cpp" />
@@ -155,6 +156,7 @@
   <ItemGroup>
     <ClInclude Include="country.h" />
     <ClInclude Include="culture.h" />
+    <ClInclude Include="economy.h" />
     <ClInclude Include="great_people.h" />
     <ClInclude Include="map.h" />
     <ClInclude Include="news.h" />

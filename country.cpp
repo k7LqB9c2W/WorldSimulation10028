@@ -91,6 +91,12 @@ Country::Country(int countryIndex, const sf::Color& color, const sf::Vector2i& s
         std::uniform_int_distribution<> initialRoadOffset(0, 120);
         m_nextRoadCheckYear = -5000 + initialRoadOffset(gen);
     }
+
+    // Stagger initial port-building check year to offset load
+    {
+        std::uniform_int_distribution<> initialPortOffset(0, 160);
+        m_nextPortCheckYear = -5000 + initialPortOffset(gen);
+    }
     
     // 🎯 INITIALIZE EXPANSION CONTENTMENT SYSTEM - reuse existing gen
     
@@ -436,6 +442,14 @@ void Country::clearRoadNetwork() {
 
 void Country::setFactories(const std::vector<sf::Vector2i>& factories) {
     m_factories = factories;
+}
+
+void Country::setPorts(const std::vector<sf::Vector2i>& ports) {
+    m_ports = ports;
+}
+
+void Country::clearPorts() {
+    m_ports.clear();
 }
 
 // Check if another country is a neighbor
@@ -1155,6 +1169,9 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
     // 🛣️ ROAD BUILDING SYSTEM - Build roads to other countries
     buildRoads(allCountries, map, technologyManager, currentYear, news);
 
+    // ⚓ PORT BUILDING SYSTEM - Build coastal ports (for future boats)
+    buildPorts(isLandGrid, countryGrid, currentYear, gen, news);
+
     // Decrement war and peace durations
     if (isAtWar()) {
         decrementWarDuration();
@@ -1183,6 +1200,37 @@ void Country::update(const std::vector<std::vector<bool>>& isLandGrid, std::vect
         m_yearsSinceWar = std::min(m_yearsSinceWar + 1, 10000);
     }
 }
+
+namespace {
+bool isCoastalLandCell(const std::vector<std::vector<bool>>& isLandGrid, int x, int y) {
+    if (y < 0 || y >= static_cast<int>(isLandGrid.size())) {
+        return false;
+    }
+    if (x < 0 || x >= static_cast<int>(isLandGrid[y].size())) {
+        return false;
+    }
+    if (!isLandGrid[y][x]) {
+        return false;
+    }
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            if (dx == 0 && dy == 0) continue;
+            const int nx = x + dx;
+            const int ny = y + dy;
+            if (ny < 0 || ny >= static_cast<int>(isLandGrid.size())) {
+                continue;
+            }
+            if (nx < 0 || nx >= static_cast<int>(isLandGrid[ny].size())) {
+                continue;
+            }
+            if (!isLandGrid[ny][nx]) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+} // namespace
 
 // Get the current population
 long long Country::getPopulation() const {
@@ -2397,6 +2445,148 @@ void Country::buildRoads(std::vector<Country>& allCountries, const Map& map,
             
             // Only build one road per check cycle to prevent spam
             break;
+        }
+    }
+}
+
+void Country::buildPorts(const std::vector<std::vector<bool>>& isLandGrid,
+                         const std::vector<std::vector<int>>& countryGrid,
+                         int currentYear,
+                         std::mt19937& gen,
+                         News& news) {
+    if (m_population <= 0 || m_cities.empty()) {
+        return;
+    }
+
+    // Clean up ports that are no longer valid/owned.
+    if (!m_ports.empty()) {
+        m_ports.erase(std::remove_if(m_ports.begin(), m_ports.end(), [&](const sf::Vector2i& p) {
+            if (p.y < 0 || p.y >= static_cast<int>(isLandGrid.size())) {
+                return true;
+            }
+            if (p.x < 0 || p.x >= static_cast<int>(isLandGrid[p.y].size())) {
+                return true;
+            }
+            if (!isLandGrid[p.y][p.x]) {
+                return true;
+            }
+            if (countryGrid[p.y][p.x] != m_countryIndex) {
+                return true;
+            }
+            return !isCoastalLandCell(isLandGrid, p.x, p.y);
+        }), m_ports.end());
+    }
+
+    // Only check for port building occasionally for performance.
+    if (currentYear < m_nextPortCheckYear) {
+        return;
+    }
+
+    std::uniform_int_distribution<> intervalDist(30, 160);
+    m_nextPortCheckYear = currentYear + intervalDist(gen);
+
+    // Limit number of ports per country for now (future boats can scale this up).
+    int majorCities = 0;
+    for (const auto& city : m_cities) {
+        if (city.isMajorCity()) {
+            majorCities++;
+        }
+    }
+    const int maxPorts = std::max(1, std::min(5, 1 + majorCities));
+    if (static_cast<int>(m_ports.size()) >= maxPorts) {
+        return;
+    }
+
+    auto spacingOk = [&](const sf::Vector2i& pos) {
+        for (const auto& port : m_ports) {
+            int dx = pos.x - port.x;
+            int dy = pos.y - port.y;
+            if (dx * dx + dy * dy < 20 * 20) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    auto canPlace = [&](const sf::Vector2i& pos) {
+        if (pos.y < 0 || pos.y >= static_cast<int>(isLandGrid.size())) {
+            return false;
+        }
+        if (pos.x < 0 || pos.x >= static_cast<int>(isLandGrid[pos.y].size())) {
+            return false;
+        }
+        if (!isLandGrid[pos.y][pos.x]) {
+            return false;
+        }
+        if (countryGrid[pos.y][pos.x] != m_countryIndex) {
+            return false;
+        }
+        if (!isCoastalLandCell(isLandGrid, pos.x, pos.y)) {
+            return false;
+        }
+        return spacingOk(pos);
+    };
+
+    auto tryNear = [&](const sf::Vector2i& base, int radius) {
+        if (radius <= 0) {
+            return false;
+        }
+        std::uniform_int_distribution<> off(-radius, radius);
+        constexpr int kTries = 260;
+        for (int i = 0; i < kTries; ++i) {
+            int dx = off(gen);
+            int dy = off(gen);
+            if (dx * dx + dy * dy > radius * radius) {
+                continue;
+            }
+            sf::Vector2i candidate(base.x + dx, base.y + dy);
+            if (!canPlace(candidate)) {
+                continue;
+            }
+            m_ports.push_back(candidate);
+            news.addEvent("⚓ PORT BUILT: " + m_name + " constructs a coastal port.");
+            return true;
+        }
+        return false;
+    };
+
+    std::vector<sf::Vector2i> majorBases;
+    std::vector<sf::Vector2i> regularBases;
+    majorBases.reserve(m_cities.size());
+    regularBases.reserve(m_cities.size());
+    for (const auto& city : m_cities) {
+        if (city.isMajorCity()) {
+            majorBases.push_back(city.getLocation());
+        } else {
+            regularBases.push_back(city.getLocation());
+        }
+    }
+
+    std::shuffle(majorBases.begin(), majorBases.end(), gen);
+    std::shuffle(regularBases.begin(), regularBases.end(), gen);
+
+    // Try major cities first, then regular cities, then boundary sampling.
+    for (const auto& base : majorBases) {
+        if (tryNear(base, 70)) {
+            return;
+        }
+    }
+    for (const auto& base : regularBases) {
+        if (tryNear(base, 50)) {
+            return;
+        }
+    }
+
+    if (m_boundaryPixels.empty()) {
+        return;
+    }
+    for (int attempt = 0; attempt < 400; ++attempt) {
+        auto it = m_boundaryPixels.begin();
+        std::advance(it, gen() % m_boundaryPixels.size());
+        if (canPlace(*it)) {
+            m_ports.push_back(*it);
+            news.addEvent("⚓ PORT BUILT: " + m_name + " establishes a coastal port.");
+            return;
         }
     }
 }

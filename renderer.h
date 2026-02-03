@@ -17,6 +17,7 @@ public:
     Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& waterColor);
     void render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const CultureManager& cultureManager, const TradeManager& tradeManager, const Country* selectedCountry, bool showCountryInfo);
     void toggleWarmongerHighlights();
+    void toggleWealthLeaderboard();
     void updateYearText(int year);
     void setNeedsUpdate(bool needsUpdate);
     void setPaintHud(bool show, const std::string& text);
@@ -107,4 +108,6 @@ private:
     void drawWarArrows(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
 
     sf::Clock m_warArrowClock;
+    bool m_showWealthLeaderboard = false;
+    void drawWealthLeaderboard(const std::vector<Country>& countries);
 };

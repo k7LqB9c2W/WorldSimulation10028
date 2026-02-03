@@ -86,6 +86,15 @@ public:
     void addGold(double amount);
     void subtractGold(double amount);
     void setGold(double amount);
+
+    // Economy (GPU econ grid aggregation)
+    double getWealth() const { return m_wealth; }
+    double getGDP() const { return m_gdp; }
+    double getExports() const { return m_exports; }
+    void setWealth(double v) { m_wealth = v; }
+    void setGDP(double v) { m_gdp = v; }
+    void setExports(double v) { m_exports = v; }
+
     double getMilitaryStrength() const;
     // Add a member variable to store science points
     double getSciencePoints() const;
@@ -102,6 +111,11 @@ public:
     void checkCityGrowth(int currentYear, News& news); // Check for city upgrades and new cities
     void buildRoads(std::vector<Country>& allCountries, const class Map& map, 
                    const class TechnologyManager& techManager, int currentYear, News& news); // Road building system
+    void buildPorts(const std::vector<std::vector<bool>>& isLandGrid,
+                    const std::vector<std::vector<int>>& countryGrid,
+                    int currentYear,
+                    std::mt19937& gen,
+                    News& news); // Coastal port system (preps for boats)
     
     // Road system helper functions
     bool canBuildRoadTo(const Country& otherCountry, int currentYear) const;
@@ -110,6 +124,7 @@ public:
     std::vector<sf::Vector2i> createRoadPath(sf::Vector2i start, sf::Vector2i end, const class Map& map) const;
     const std::vector<sf::Vector2i>& getRoads() const { return m_roads; }
     const std::vector<sf::Vector2i>& getFactories() const { return m_factories; }
+    const std::vector<sf::Vector2i>& getPorts() const { return m_ports; }
     bool canDeclareWar() const;
     void startWar(Country& target, News& news);
     void endWar(int currentYear = 0);
@@ -147,6 +162,8 @@ public:
     void setRoads(const std::vector<sf::Vector2i>& roads);
     void clearRoadNetwork();
     void setFactories(const std::vector<sf::Vector2i>& factories);
+    void setPorts(const std::vector<sf::Vector2i>& ports);
+    void clearPorts();
     void clearWarState();
     void resetTechnologyBonuses();
     
@@ -230,6 +247,9 @@ private:
     std::vector<City> m_cities;
     bool m_hasCity;
     double m_gold;
+    double m_wealth = 0.0;  // national net worth proxy (aggregated from econ grid)
+    double m_gdp = 0.0;     // yearly value-added proxy (estimated from capital formation)
+    double m_exports = 0.0; // yearly exports proxy (cross-border inventory gradients)
     double m_militaryStrength;  // Add military strength member
     Type m_type; // Add a member variable to store the country type
     ScienceType m_scienceType;
@@ -246,8 +266,10 @@ private:
     // ROAD BUILDING SYSTEM
     std::vector<sf::Vector2i> m_roads; // All road pixels owned by this country
     std::vector<sf::Vector2i> m_factories; // Factory positions within national territory
+    std::vector<sf::Vector2i> m_ports; // Port positions within national territory
     std::unordered_map<int, std::vector<sf::Vector2i>> m_roadsToCountries; // Roads to specific countries
     int m_nextRoadCheckYear = -5000; // When to next check for road building opportunities (initialize to start year)
+    int m_nextPortCheckYear = -5000; // When to next check for port building opportunities
     bool m_hasCheckedMajorCityUpgrade = false; // Track if we've checked for major city upgrade this population milestone
     int getMaxExpansionPixels(int year) const;
     long long m_prePlaguePopulation;
