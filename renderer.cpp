@@ -13,6 +13,9 @@ namespace {
 const char* kCountryOverlayFragmentShader = R"(
 uniform sampler2D palette;
 uniform float paletteSize;
+uniform float showHover;
+uniform float hoveredId;
+uniform vec2 idTexel;
 
 void main()
 {
@@ -23,6 +26,27 @@ void main()
 
     if (id < 0.5) {
         gl_FragColor = vec4(0.0);
+        return;
+    }
+
+    if (showHover > 0.5 && abs(id - hoveredId) < 0.5) {
+        vec2 uv = gl_TexCoord[0].xy;
+        vec4 eL = texture2D(texture, uv + vec2(-idTexel.x, 0.0));
+        vec4 eR = texture2D(texture, uv + vec2(idTexel.x, 0.0));
+        vec4 eU = texture2D(texture, uv + vec2(0.0, -idTexel.y));
+        vec4 eD = texture2D(texture, uv + vec2(0.0, idTexel.y));
+
+        float l = floor(eL.r * 255.0 + 0.5) + floor(eL.g * 255.0 + 0.5) * 256.0;
+        float r = floor(eR.r * 255.0 + 0.5) + floor(eR.g * 255.0 + 0.5) * 256.0;
+        float u = floor(eU.r * 255.0 + 0.5) + floor(eU.g * 255.0 + 0.5) * 256.0;
+        float d = floor(eD.r * 255.0 + 0.5) + floor(eD.g * 255.0 + 0.5) * 256.0;
+
+        bool edge = (abs(l - id) > 0.5) || (abs(r - id) > 0.5) || (abs(u - id) > 0.5) || (abs(d - id) > 0.5);
+        if (edge) {
+            gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        } else {
+            gl_FragColor = vec4(1.0, 1.0, 1.0, 0.95);
+        }
         return;
     }
 
@@ -50,6 +74,7 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
     m_showCountryAddModeText(false),
     m_showPaintHud(false),
     m_paintHudText(""),
+    m_hoveredCountryIndex(-1),
     m_currentYear(0),
     m_techScrollOffset(0),
     m_civicScrollOffset(0),
@@ -104,6 +129,12 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
             m_countryPaletteTexture.update(transparentPixel);
             m_countryOverlayShader.setUniform("palette", m_countryPaletteTexture);
             m_countryOverlayShader.setUniform("paletteSize", static_cast<float>(m_countryPaletteSize));
+            m_countryOverlayShader.setUniform("showHover", 0.f);
+            m_countryOverlayShader.setUniform("hoveredId", 0.f);
+            if (m_countryGridWidth > 0 && m_countryGridHeight > 0) {
+                m_countryOverlayShader.setUniform("idTexel", sf::Glsl::Vec2(1.f / static_cast<float>(m_countryGridWidth),
+                                                                           1.f / static_cast<float>(m_countryGridHeight)));
+            }
         }
     }
 
@@ -162,6 +193,13 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
     if (m_useGpuCountryOverlay) {
         sf::RenderStates states;
         states.shader = &m_countryOverlayShader;
+        if (m_hoveredCountryIndex >= 0) {
+            m_countryOverlayShader.setUniform("showHover", 1.f);
+            m_countryOverlayShader.setUniform("hoveredId", static_cast<float>(m_hoveredCountryIndex + 1));
+        } else {
+            m_countryOverlayShader.setUniform("showHover", 0.f);
+            m_countryOverlayShader.setUniform("hoveredId", 0.f);
+        }
         m_window.draw(m_countryIdSprite, states);
     } else {
         m_window.draw(m_countrySprite); // Draw the countries
@@ -278,6 +316,24 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
 
     // Always show a primary-target war arrow when a country is at war.
     drawWarArrows(countries, map, visibleArea);
+
+    // CPU fallback hover marker (GPU path handles full highlight via shader).
+    if (!m_useGpuCountryOverlay && m_hoveredCountryIndex >= 0 &&
+        m_hoveredCountryIndex < static_cast<int>(countries.size()) &&
+        countries[static_cast<size_t>(m_hoveredCountryIndex)].getCountryIndex() == m_hoveredCountryIndex &&
+        countries[static_cast<size_t>(m_hoveredCountryIndex)].getPopulation() > 0) {
+        sf::Vector2i cap = countries[static_cast<size_t>(m_hoveredCountryIndex)].getCapitalLocation();
+        sf::Vector2f pos((static_cast<float>(cap.x) + 0.5f) * map.getGridCellSize(),
+                         (static_cast<float>(cap.y) + 0.5f) * map.getGridCellSize());
+        float r = std::max(4.0f, static_cast<float>(map.getGridCellSize()) * 6.0f);
+        sf::CircleShape marker(r);
+        marker.setOrigin(r, r);
+        marker.setPosition(pos);
+        marker.setFillColor(sf::Color(255, 255, 255, 60));
+        marker.setOutlineColor(sf::Color::Black);
+        marker.setOutlineThickness(std::max(1.0f, r * 0.18f));
+        m_window.draw(marker);
+    }
 
     m_window.setView(m_window.getDefaultView());
 
@@ -889,6 +945,10 @@ void Renderer::setNeedsUpdate(bool needsUpdate) {
     m_needsUpdate = needsUpdate;
 }
 
+void Renderer::setHoveredCountryIndex(int countryIndex) {
+    m_hoveredCountryIndex = countryIndex;
+}
+
 void Renderer::setPaintHud(bool show, const std::string& text) {
     m_showPaintHud = show;
     m_paintHudText = text;
@@ -918,6 +978,10 @@ void Renderer::handleWindowRecreated(const Map& map) {
         m_countryIdSprite.setScale(static_cast<float>(map.getGridCellSize()), static_cast<float>(map.getGridCellSize()));
         m_countryOverlayShader.setUniform("palette", m_countryPaletteTexture);
         m_countryOverlayShader.setUniform("paletteSize", static_cast<float>(m_countryPaletteSize));
+        if (m_countryGridWidth > 0 && m_countryGridHeight > 0) {
+            m_countryOverlayShader.setUniform("idTexel", sf::Glsl::Vec2(1.f / static_cast<float>(m_countryGridWidth),
+                                                                       1.f / static_cast<float>(m_countryGridHeight)));
+        }
     }
 
     if (m_factoryTexture.loadFromFile("factory.png")) {

@@ -6,6 +6,7 @@
 #include <chrono>
 #include <algorithm>
 #include <cctype>
+#include <unordered_set>
 #include <omp.h>
 #include <csignal>
 #include <exception>
@@ -228,6 +229,11 @@ int main() {
     sf::Vector2i lastPaintCell(-99999, -99999);
     std::vector<int> paintStrokeAffectedCountries;
 
+    // Forced invasion editor variables
+    bool forceInvasionMode = false;
+    int forcedInvasionAttackerIndex = -1;
+    int hoveredCountryIndex = -1;
+
     // Technology editor variables
     bool techEditorMode = false;
     std::string techEditorInput = "";
@@ -294,6 +300,12 @@ int main() {
                     continue;
                 }
 
+                if (forceInvasionMode && event.key.code == sf::Keyboard::Escape) {
+                    forceInvasionMode = false;
+                    forcedInvasionAttackerIndex = -1;
+                    continue;
+                }
+
                 if (event.key.code == sf::Keyboard::Space) {
                     if (!spacebarDown) {
                         spacebarDown = true;
@@ -308,6 +320,8 @@ int main() {
                     if (paintMode) {
                         countryAddMode = false;
                         renderer.setShowCountryAddModeText(false);
+                        forceInvasionMode = false;
+                        forcedInvasionAttackerIndex = -1;
                         if (selectedPaintCountryIndex < 0 && selectedCountry != nullptr) {
                             selectedPaintCountryIndex = selectedCountry->getCountryIndex();
                         }
@@ -340,6 +354,16 @@ int main() {
                 }
                 else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::RBracket) {
                     paintBrushRadius = std::min(64, paintBrushRadius + 1);
+                }
+                else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::I) {
+                    forceInvasionMode = !forceInvasionMode;
+                    forcedInvasionAttackerIndex = -1;
+                    if (forceInvasionMode) {
+                        paintMode = false;
+                        paintStrokeActive = false;
+                        countryAddMode = false;
+                        renderer.setShowCountryAddModeText(false);
+                    }
                 }
                 else if (event.key.code == sf::Keyboard::F11 ||
                     (event.key.code == sf::Keyboard::Enter && event.key.alt)) {
@@ -1049,7 +1073,44 @@ int main() {
             }
             else if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
                 renderingNeedsUpdate = true; // Force render for interaction
-                if (paintMode && !megaTimeJumpMode && !countryAddEditorMode) {
+                if (forceInvasionMode && !megaTimeJumpMode && !countryAddEditorMode && !techEditorMode && !paintMode) {
+                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+                    sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
+                    sf::Vector2i gridPos = map.pixelToGrid(worldPos);
+
+                    int owner = -1;
+                    if (gridPos.x >= 0 && gridPos.x < static_cast<int>(map.getCountryGrid()[0].size()) &&
+                        gridPos.y >= 0 && gridPos.y < static_cast<int>(map.getCountryGrid().size())) {
+                        owner = map.getCountryGrid()[gridPos.y][gridPos.x];
+                    }
+
+                    if (owner >= 0 && owner < static_cast<int>(countries.size()) &&
+                        countries[static_cast<size_t>(owner)].getCountryIndex() == owner &&
+                        countries[static_cast<size_t>(owner)].getPopulation() > 0 &&
+                        !countries[static_cast<size_t>(owner)].getBoundaryPixels().empty()) {
+                        if (forcedInvasionAttackerIndex < 0) {
+                            forcedInvasionAttackerIndex = owner;
+                            selectedCountry = &countries[static_cast<size_t>(owner)];
+                            showCountryInfo = true;
+                        } else if (owner != forcedInvasionAttackerIndex) {
+                            Country& attacker = countries[static_cast<size_t>(forcedInvasionAttackerIndex)];
+                            Country& defender = countries[static_cast<size_t>(owner)];
+
+                            attacker.clearWarState();
+                            attacker.startWar(defender, news);
+                            attacker.setWarofConquest(true);
+                            attacker.setWarofAnnihilation(false);
+                            attacker.setWarDuration(120);
+
+                            news.addEvent("⚔️ FORCED INVASION: " + attacker.getName() + " invades " + defender.getName() + "!");
+
+                            forceInvasionMode = false;
+                            forcedInvasionAttackerIndex = -1;
+                            renderer.setNeedsUpdate(true);
+                        }
+                    }
+                }
+                else if (paintMode && !megaTimeJumpMode && !countryAddEditorMode) {
                     isDragging = false;
                     paintStrokeActive = false;
                     paintStrokeAffectedCountries.clear();
@@ -1213,6 +1274,26 @@ int main() {
                 }
             }
             else if (event.type == sf::Event::MouseMoved) {
+                // Hover tracking (for highlight + selection tools)
+                if (!megaTimeJumpMode && !countryAddEditorMode && !techEditorMode) {
+                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+                    sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
+                    sf::Vector2i gridPos = map.pixelToGrid(worldPos);
+                    if (gridPos.x >= 0 && gridPos.x < static_cast<int>(map.getCountryGrid()[0].size()) &&
+                        gridPos.y >= 0 && gridPos.y < static_cast<int>(map.getCountryGrid().size())) {
+                        int owner = map.getCountryGrid()[gridPos.y][gridPos.x];
+                        if (owner >= 0 && owner < static_cast<int>(countries.size()) &&
+                            countries[static_cast<size_t>(owner)].getCountryIndex() == owner &&
+                            countries[static_cast<size_t>(owner)].getPopulation() > 0) {
+                            hoveredCountryIndex = owner;
+                        } else {
+                            hoveredCountryIndex = -1;
+                        }
+                    } else {
+                        hoveredCountryIndex = -1;
+                    }
+                }
+
                 if (paintStrokeActive && paintMode && !megaTimeJumpMode && !countryAddEditorMode) {
                     sf::Vector2i mousePos = sf::Mouse::getPosition(window);
                     sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
@@ -1244,6 +1325,8 @@ int main() {
             }
         }
 
+        renderer.setHoveredCountryIndex(hoveredCountryIndex);
+
         // Paint HUD (shown even when OFF to make controls discoverable)
         std::string paintCountryName = "<none>";
         if (selectedPaintCountryIndex >= 0 && selectedPaintCountryIndex < static_cast<int>(countries.size())) {
@@ -1257,6 +1340,15 @@ int main() {
         paintHud += "Replace: ";
         paintHud += paintAllowOverwrite ? "ON" : "OFF";
         paintHud += " (R) | Country: " + paintCountryName + " (Right Click)";
+
+        if (forceInvasionMode) {
+            paintHud += " | Invade: ON (I)";
+            if (forcedInvasionAttackerIndex >= 0 && forcedInvasionAttackerIndex < static_cast<int>(countries.size())) {
+                paintHud += " Attacker: " + countries[static_cast<size_t>(forcedInvasionAttackerIndex)].getName() + " -> click target";
+            } else {
+                paintHud += " click attacker";
+            }
+        }
         renderer.setPaintHud(true, paintHud);
 
         // 🔥 NUCLEAR OPTIMIZATION: EVENT-DRIVEN SIMULATION ARCHITECTURE 🔥

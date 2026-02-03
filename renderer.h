@@ -20,6 +20,7 @@ public:
     void updateYearText(int year);
     void setNeedsUpdate(bool needsUpdate);
     void setPaintHud(bool show, const std::string& text);
+    void setHoveredCountryIndex(int countryIndex);
     bool needsUpdate() const { return m_needsUpdate; }
     void handleWindowRecreated(const Map& map);
     void showLoadingScreen();
@@ -66,6 +67,7 @@ private:
     bool m_showCountryAddModeText;
     bool m_showPaintHud;
     std::string m_paintHudText;
+    int m_hoveredCountryIndex;
     int m_currentYear;
 
 
