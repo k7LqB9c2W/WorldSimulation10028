@@ -58,7 +58,9 @@ void main() {
     float food = st.r * maxFood;
     float mat  = st.g * maxMat;
     float cons = st.b * maxCons;
-    float cap  = st.a * maxCap;
+    float capLogDen = log(1.0 + maxCap);
+    float capN = clamp(st.a, 0.0, 1.0);
+    float cap  = exp(capN * capLogDen) - 1.0;
 
     vec4 infra = texture2D(infraTex, uv);
     float access = clamp(infra.r, 0.05, 1.0);
@@ -91,7 +93,8 @@ void main() {
     cons = clamp(cons, 0.0, maxCons);
     cap  = clamp(cap,  0.0, maxCap);
 
-    gl_FragColor = vec4(food / maxFood, mat / maxMat, cons / maxCons, cap / maxCap);
+    float capOutN = log(1.0 + cap) / capLogDen;
+    gl_FragColor = vec4(food / maxFood, mat / maxMat, cons / maxCons, capOutN);
 }
 )";
 
@@ -150,7 +153,9 @@ void main() {
     float food = st.r * maxFood;
     float mat  = st.g * maxMat;
     float cons = st.b * maxCons;
-    float cap  = st.a * maxCap;
+    float capLogDen = log(1.0 + maxCap);
+    float capN = clamp(st.a, 0.0, 1.0);
+    float cap  = exp(capN * capLogDen) - 1.0;
 
     float wealth = food * 1.0 + mat * 1.5 + cons * 2.2 + cap * 3.0;
     float t = wealth / (maxFood + maxMat * 1.5 + maxCons * 2.2 + maxCap * 3.0);
@@ -314,6 +319,16 @@ void EconomyGPU::tickYear(int year,
         flipState();
     }
 
+    // Readback & aggregate per-country metrics occasionally.
+    // Do this immediately after production/consumption (before diffusion) so exports
+    // are measured before trade smoothing reduces border gradients.
+    const int everyN = std::max(1, m_cfg.updateReadbackEveryNYears);
+    if (!m_hasAnyReadback || (year - m_lastReadbackYear) >= everyN) {
+        computeCountryMetricsCPU(year);
+        m_lastReadbackYear = year;
+        m_hasAnyReadback = true;
+    }
+
     // Pass B: trade diffusion (approximate)
     {
         m_tradeShader.setUniform("infraTex", m_priceA.getTexture());
@@ -348,14 +363,6 @@ void EconomyGPU::tickYear(int year,
         states.shader = &m_debugHeatmapShader;
         m_debugWealthHeatmap.draw(sprite, states);
         m_debugWealthHeatmap.display();
-    }
-
-    // Readback & aggregate per-country metrics occasionally.
-    const int everyN = std::max(1, m_cfg.updateReadbackEveryNYears);
-    if (!m_hasAnyReadback || (year - m_lastReadbackYear) >= everyN) {
-        computeCountryMetricsCPU(year);
-        m_lastReadbackYear = year;
-        m_hasAnyReadback = true;
     }
 }
 
@@ -667,6 +674,7 @@ void EconomyGPU::computeCountryMetricsCPU(int year) {
     const float kExport = 0.06f;
 
     // Wealth + GDP
+    const float capLogDen = std::log1p(m_cfg.maxCapital);
     for (size_t i = 0; i < cellCount; ++i) {
         const size_t idx = i * 4u;
 
@@ -678,13 +686,15 @@ void EconomyGPU::computeCountryMetricsCPU(int year) {
         const float food = (static_cast<float>(pixels[idx + 0]) / 255.0f) * m_cfg.maxInvFood;
         const float mat = (static_cast<float>(pixels[idx + 1]) / 255.0f) * m_cfg.maxInvMat;
         const float cons = (static_cast<float>(pixels[idx + 2]) / 255.0f) * m_cfg.maxInvCons;
-        const float cap = (static_cast<float>(pixels[idx + 3]) / 255.0f) * m_cfg.maxCapital;
+        const float capN = static_cast<float>(pixels[idx + 3]) / 255.0f;
+        const float cap = static_cast<float>(std::expm1(static_cast<double>(capN) * static_cast<double>(capLogDen)));
 
         const double wealthCell = static_cast<double>(food * wFood + mat * wMat + cons * wCons + cap * wCap);
         m_countryWealth[static_cast<size_t>(id)] += wealthCell;
 
         if (m_hasPrevReadback) {
-            const float capPrev = (static_cast<float>(m_prevStatePixels[idx + 3]) / 255.0f) * m_cfg.maxCapital;
+            const float capPrevN = static_cast<float>(m_prevStatePixels[idx + 3]) / 255.0f;
+            const float capPrev = static_cast<float>(std::expm1(static_cast<double>(capPrevN) * static_cast<double>(capLogDen)));
             const float dCap = std::max(0.0f, cap - capPrev);
 
             const float inv = std::max(0.02f, m_countryInvestRate[static_cast<size_t>(id)]);
