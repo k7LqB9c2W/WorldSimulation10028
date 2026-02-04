@@ -55,6 +55,7 @@ void main() {
     vec4 res = texture2D(resourceTex, uv);
     float foodPot = res.r;
     float matPot = res.g;
+    float consPot = res.b;
 
     vec4 st = texture2D(stateTex, uv);
     float food = st.r * maxFood;
@@ -72,10 +73,11 @@ void main() {
 
     float years = max(0.0, dtYears);
     float foodProd = foodPot * workforce * access * capacity * prod * 25.0 * years;
-    float matProd  = matPot  * workforce * access * capacity * prod * 18.0 * years;
+    float matProd  = max(matPot, 0.12) * workforce * access * capacity * prod * 22.0 * years;
 
-    float convert = min(mat, workforce * access * prod * 10.0 * years);
-    float consProd = convert * (0.6 + 0.8 * prodF);
+    float convert = min(mat, workforce * access * prod * 14.0 * years);
+    float servicesProd = consPot * workforce * access * capacity * (0.45 + 0.55 * prodF) * 16.0 * years;
+    float consProd = convert * (0.7 + 0.9 * prodF) + servicesProd;
 
     food += foodProd;
     mat  += matProd - convert;
@@ -317,8 +319,8 @@ void EconomyGPU::tickYear(int year,
         m_prodConsumeShader.setUniform("maxCons", m_cfg.maxInvCons);
         m_prodConsumeShader.setUniform("maxCap", m_cfg.maxCapital);
         m_prodConsumeShader.setUniform("dtYears", 1.0f);
-        m_prodConsumeShader.setUniform("baseFoodDemand", 1.0f);
-        m_prodConsumeShader.setUniform("baseConsDemand", 1.0f);
+        m_prodConsumeShader.setUniform("baseFoodDemand", 0.18f);
+        m_prodConsumeShader.setUniform("baseConsDemand", 0.06f);
         m_prodConsumeShader.setUniform("stateTex", sf::Shader::CurrentTexture);
 
         sf::Sprite sprite(stateSrcTexture());
@@ -408,8 +410,8 @@ void EconomyGPU::tickStepGpuOnly(int year,
         m_prodConsumeShader.setUniform("maxCons", m_cfg.maxInvCons);
         m_prodConsumeShader.setUniform("maxCap", m_cfg.maxCapital);
         m_prodConsumeShader.setUniform("dtYears", years);
-        m_prodConsumeShader.setUniform("baseFoodDemand", 1.0f);
-        m_prodConsumeShader.setUniform("baseConsDemand", 1.0f);
+        m_prodConsumeShader.setUniform("baseFoodDemand", 0.18f);
+        m_prodConsumeShader.setUniform("baseConsDemand", 0.06f);
         m_prodConsumeShader.setUniform("stateTex", sf::Shader::CurrentTexture);
 
         sf::Sprite sprite(stateSrcTexture());
@@ -494,6 +496,9 @@ void EconomyGPU::tickMegaChunkGpuOnly(int endYear,
 
 void EconomyGPU::readbackMetrics(int year) {
     if (!m_initialized) {
+        return;
+    }
+    if (m_hasAnyReadback && year <= m_lastReadbackYear) {
         return;
     }
     computeCountryMetricsCPU(year);
@@ -709,6 +714,7 @@ void EconomyGPU::rebuildResourcePotential(const Map& map) {
                 const double avgMat = sumMat / static_cast<double>(samples);
                 foodPot = clamp01(static_cast<float>(avgFood / 102.4)); // inland ~0.5, coastal ~1.0
                 matPot = clamp01(static_cast<float>(avgMat / 3.0));     // tuned to typical hotspot magnitudes
+                matPot = std::max(matPot, 0.08f + 0.12f * foodPot);     // baseline material throughput for non-hotspot cells
             }
 
             const float consBase = 0.10f;
@@ -812,6 +818,8 @@ void EconomyGPU::computeCountryMetricsCPU(int year) {
     const float wCap = 3.0f;
     const float kCapFromVA = 0.05f;
     const float kExport = 0.06f;
+    const double cellAreaScale = static_cast<double>(m_cfg.econCellSize) * static_cast<double>(m_cfg.econCellSize);
+    const double edgeScale = static_cast<double>(m_cfg.econCellSize);
 
     // Wealth + GDP
     for (size_t i = 0; i < cellCount; ++i) {
@@ -829,7 +837,7 @@ void EconomyGPU::computeCountryMetricsCPU(int year) {
         const float cap = (capN * capN) * m_cfg.maxCapital;
 
         const double wealthCell = static_cast<double>(food * wFood + mat * wMat + cons * wCons + cap * wCap);
-        m_countryWealth[static_cast<size_t>(id)] += wealthCell;
+        m_countryWealth[static_cast<size_t>(id)] += wealthCell * cellAreaScale;
 
         if (m_hasPrevReadback) {
             const float capPrevN = static_cast<float>(m_prevStatePixels[idx + 3]) / 255.0f;
@@ -838,7 +846,8 @@ void EconomyGPU::computeCountryMetricsCPU(int year) {
 
             const float inv = std::max(0.02f, m_countryInvestRate[static_cast<size_t>(id)]);
             const float va = dCap / (kCapFromVA * inv);
-            m_countryGDP[static_cast<size_t>(id)] += static_cast<double>(va) / static_cast<double>(yearsElapsed);
+            m_countryGDP[static_cast<size_t>(id)] +=
+                (static_cast<double>(va) / static_cast<double>(yearsElapsed)) * cellAreaScale;
         }
     }
 
@@ -883,7 +892,24 @@ void EconomyGPU::computeCountryMetricsCPU(int year) {
                 const float dm = std::max(0.0f, mC - mN);
                 const float dc = std::max(0.0f, cC - cN);
 
-                const double expValue = static_cast<double>((df * wFood + dm * wMat + dc * wCons) * (kExport * a));
+                float exportSignal = (df * wFood + dm * wMat + dc * wCons);
+                if (exportSignal < 0.01f && m_resourcePixels.size() == m_countryIdPixels.size()) {
+                    const float fPC = static_cast<float>(m_resourcePixels[idx + 0]) / 255.0f;
+                    const float mPC = static_cast<float>(m_resourcePixels[idx + 1]) / 255.0f;
+                    const float cPC = static_cast<float>(m_resourcePixels[idx + 2]) / 255.0f;
+
+                    const float fPN = static_cast<float>(m_resourcePixels[nIdx + 0]) / 255.0f;
+                    const float mPN = static_cast<float>(m_resourcePixels[nIdx + 1]) / 255.0f;
+                    const float cPN = static_cast<float>(m_resourcePixels[nIdx + 2]) / 255.0f;
+
+                    const float dpf = std::max(0.0f, fPC - fPN);
+                    const float dpm = std::max(0.0f, mPC - mPN);
+                    const float dpc = std::max(0.0f, cPC - cPN);
+
+                    exportSignal = dpf * (wFood * 18.0f) + dpm * (wMat * 22.0f) + dpc * (wCons * 12.0f);
+                }
+
+                const double expValue = static_cast<double>(exportSignal * (kExport * a)) * edgeScale;
                 m_countryExports[static_cast<size_t>(id)] += expValue;
             };
 
