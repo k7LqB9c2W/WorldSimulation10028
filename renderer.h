@@ -124,6 +124,16 @@ private:
 	    };
 		    std::unordered_map<std::uint64_t, AirwayAnimState> m_airwayAnim;
 
+        // Shipping visuals (containership.png animation)
+        sf::Texture m_shipTexture;
+        sf::Sprite m_shipSprite;
+        sf::Clock m_shipAnimClock;
+        struct ShipAnimState {
+            float s = 0.0f;     // 0..totalLen along polyline (world units)
+            bool forward = true;
+        };
+        std::unordered_map<std::uint64_t, ShipAnimState> m_shipAnim;
+
 		    // Globe view
 		    sf::RenderTexture m_worldCompositeRT;
 		    float m_worldCompositeScale = 1.0f;
@@ -146,6 +156,7 @@ private:
 		    void drawFactories(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
 		    void drawPorts(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
 		    void drawAirwayPlanes(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map);
+            void drawShippingShips(sf::RenderTarget& target, const TradeManager& tradeManager, const Map& map, const sf::FloatRect& visibleArea);
 		    void drawTradeRoutes(sf::RenderTarget& target, const TradeManager& tradeManager, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
 		    void drawPlagueOverlay(sf::RenderTarget& target, const Map& map, const std::vector<Country>& countries, const sf::FloatRect& visibleArea);
 		    void drawWarFrontlines(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);

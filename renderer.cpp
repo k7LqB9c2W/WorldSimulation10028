@@ -264,6 +264,18 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
         m_planeSprite.setColor(sf::Color(255, 255, 255, 230));
     }
 
+    if (tryLoadPlaneTexture(m_shipTexture, "containership.png", "ContainerShip.png")) {
+        sf::Vector2u texSize = m_shipTexture.getSize();
+        m_shipSprite.setTexture(m_shipTexture);
+        m_shipSprite.setOrigin(static_cast<float>(texSize.x) * 0.5f, static_cast<float>(texSize.y) * 0.5f);
+        float targetH = std::max(5.f, static_cast<float>(map.getGridCellSize()) * 6.f);
+        if (texSize.y > 0u) {
+            float scale = targetH / static_cast<float>(texSize.y);
+            m_shipSprite.setScale(scale, scale);
+        }
+        m_shipSprite.setColor(sf::Color(255, 255, 255, 235));
+    }
+
 
     // Initialize country info window elements
     m_infoWindowBackground.setFillColor(sf::Color(0, 0, 0, 175));
@@ -354,6 +366,7 @@ void Renderer::render(const std::vector<Country>& countries,
 
     drawFactories(*worldTarget, countries, map, visibleArea);
     drawPorts(*worldTarget, countries, map, visibleArea);
+    drawShippingShips(*worldTarget, tradeManager, map, visibleArea);
 
     // Draw cities with viewport culling (on top of infrastructure)
     for (const auto& country : countries) {
@@ -1483,6 +1496,18 @@ void Renderer::handleWindowRecreated(const Map& map) {
 	        m_planeSprite.setColor(sf::Color(255, 255, 255, 230));
 	    }
 
+    if (tryLoadPlaneTexture(m_shipTexture, "containership.png", "ContainerShip.png")) {
+        sf::Vector2u texSize = m_shipTexture.getSize();
+        m_shipSprite.setTexture(m_shipTexture);
+        m_shipSprite.setOrigin(static_cast<float>(texSize.x) * 0.5f, static_cast<float>(texSize.y) * 0.5f);
+        float targetH = std::max(5.f, static_cast<float>(map.getGridCellSize()) * 6.f);
+        if (texSize.y > 0u) {
+            float scale = targetH / static_cast<float>(texSize.y);
+            m_shipSprite.setScale(scale, scale);
+        }
+        m_shipSprite.setColor(sf::Color(255, 255, 255, 235));
+    }
+
 	    // Globe/star caches depend on window size and GPU resources.
 	    m_starWindowSize = sf::Vector2u(0u, 0u);
 	    m_starVerts.clear();
@@ -2298,6 +2323,135 @@ void Renderer::drawAirwayPlanes(sf::RenderTarget& target, const std::vector<Coun
         }
     } else {
         m_airwayAnim.clear();
+    }
+}
+
+void Renderer::drawShippingShips(sf::RenderTarget& target, const TradeManager& tradeManager, const Map& map, const sf::FloatRect& visibleArea) {
+    if (!m_shipTexture.getSize().x || !m_shipTexture.getSize().y) {
+        m_shipAnimClock.restart();
+        return;
+    }
+
+    float dt = m_shipAnimClock.restart().asSeconds();
+    if (dt > 0.10f) {
+        dt = 0.10f;
+    }
+
+    const float cellSize = static_cast<float>(map.getGridCellSize());
+    const float speed = (320.0f * std::max(1.0f, cellSize)) * 0.25f; // ~0.25x plane speed
+
+    const auto& routes = tradeManager.getShippingRoutes();
+    if (routes.empty()) {
+        if (!m_shipAnim.empty()) {
+            m_shipAnim.clear();
+        }
+        return;
+    }
+
+    std::vector<std::uint64_t> liveKeys;
+    liveKeys.reserve(128);
+    const float pi = 3.14159265358979323846f;
+
+    for (const auto& route : routes) {
+        if (!route.isActive) continue;
+        if (route.navPath.size() < 2) continue;
+        if (route.cumulativeLen.size() != route.navPath.size()) continue;
+        if (route.totalLen <= 0.0f) continue;
+
+        const int a = route.fromCountryIndex;
+        const int b = route.toCountryIndex;
+        if (a < 0 || b < 0) continue;
+
+        const std::uint32_t lo = static_cast<std::uint32_t>(std::min(a, b));
+        const std::uint32_t hi = static_cast<std::uint32_t>(std::max(a, b));
+        const std::uint64_t key = (static_cast<std::uint64_t>(lo) << 32) | static_cast<std::uint64_t>(hi);
+        liveKeys.push_back(key);
+
+        auto [it, inserted] = m_shipAnim.insert({key, ShipAnimState{}});
+        ShipAnimState& st = it->second;
+
+        const float totalWorldLen = route.totalLen * cellSize;
+        if (inserted) {
+            float seed = static_cast<float>((key % 1009u)) / 1009.0f;
+            st.s = seed * totalWorldLen;
+            st.forward = ((key & 1u) == 0u);
+        }
+
+        const float travel = speed * dt;
+        if (st.forward) {
+            st.s += travel;
+            if (st.s >= totalWorldLen) {
+                st.s = totalWorldLen;
+                st.forward = false;
+            }
+        } else {
+            st.s -= travel;
+            if (st.s <= 0.0f) {
+                st.s = 0.0f;
+                st.forward = true;
+            }
+        }
+
+        const float sNav = (cellSize > 0.0f) ? (st.s / cellSize) : st.s;
+        auto ub = std::upper_bound(route.cumulativeLen.begin(), route.cumulativeLen.end(), sNav);
+        size_t seg = 0;
+        if (ub == route.cumulativeLen.begin()) {
+            seg = 0;
+        } else {
+            seg = static_cast<size_t>((ub - route.cumulativeLen.begin()) - 1);
+        }
+        if (seg >= route.navPath.size() - 1) {
+            seg = route.navPath.size() - 2;
+        }
+
+        const float segStart = route.cumulativeLen[seg];
+        const float segEnd = route.cumulativeLen[seg + 1];
+        const float denom = std::max(0.0001f, segEnd - segStart);
+        float t = (sNav - segStart) / denom;
+        if (t < 0.0f) t = 0.0f;
+        if (t > 1.0f) t = 1.0f;
+
+        auto nodeToWorld = [&](const Vector2i& n) -> sf::Vector2f {
+            float cx = (static_cast<float>(n.x) * static_cast<float>(route.navStep) + static_cast<float>(route.navStep) * 0.5f) * cellSize;
+            float cy = (static_cast<float>(n.y) * static_cast<float>(route.navStep) + static_cast<float>(route.navStep) * 0.5f) * cellSize;
+            return sf::Vector2f(cx, cy);
+        };
+
+        sf::Vector2f p0 = nodeToWorld(route.navPath[seg]);
+        sf::Vector2f p1 = nodeToWorld(route.navPath[seg + 1]);
+        sf::Vector2f pos = p0 + (p1 - p0) * t;
+
+        if (!visibleArea.contains(pos)) {
+            continue;
+        }
+
+        sf::Vector2f dir = (p1 - p0);
+        if (!st.forward) {
+            dir = -dir;
+        }
+        float ang = std::atan2(dir.y, dir.x) * 180.0f / pi;
+
+        m_shipSprite.setRotation(ang);
+        m_shipSprite.setPosition(pos);
+        target.draw(m_shipSprite);
+    }
+
+    if (m_shipAnim.empty()) {
+        return;
+    }
+
+    // Remove stale animation states.
+    if (!liveKeys.empty()) {
+        std::sort(liveKeys.begin(), liveKeys.end());
+        for (auto it = m_shipAnim.begin(); it != m_shipAnim.end(); ) {
+            if (!std::binary_search(liveKeys.begin(), liveKeys.end(), it->first)) {
+                it = m_shipAnim.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    } else {
+        m_shipAnim.clear();
     }
 }
 

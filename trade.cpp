@@ -9,6 +9,20 @@
 #include <iostream>
 #include <cmath>
 #include <SFML/Graphics.hpp>
+#include <queue>
+#include <limits>
+
+namespace {
+constexpr int kDefaultSeaNavStep = 6;             // Downsample factor for sea navigation grid
+constexpr int kMaxDockSearchRadiusPx = 18;        // How far (in pixels) to search for a navigable water nav-cell near a port
+constexpr int kMaxDockCandidates = 6;             // Per-port dock candidates
+constexpr int kMaxShippingPartnerAttempts = 45;   // Random partner attempts per country per establish tick
+constexpr int kMaxAStarNodeExpansions = 220000;   // Hard cap to prevent pathological spikes
+
+inline int clampi(int v, int lo, int hi) {
+    return (v < lo) ? lo : (v > hi ? hi : v);
+}
+} // namespace
 
 TradeManager::TradeManager() : m_rng(std::random_device{}()) {
     std::cout << "🏪 Trade & Economic Exchange Framework initialized!" << std::endl;
@@ -54,6 +68,7 @@ void TradeManager::updateTrade(std::vector<Country>& countries, int currentYear,
     
     // Stage 4: Trade routes (requires Navigation tech)
     establishTradeRoutes(countries, currentYear, techManager, map);
+    establishShippingRoutes(countries, currentYear, techManager, map, news);
     processTradeRoutes(countries, currentYear, news);
     
     // Stage 5: Banking (requires Banking tech)
@@ -84,11 +99,394 @@ void TradeManager::fastForwardTrade(std::vector<Country>& countries, int startYe
         // Trade routes and banking every 10 years
         if (year % 10 == 0) {
             establishTradeRoutes(countries, year, techManager, map);
+            establishShippingRoutes(countries, year, techManager, map, news);
             processTradeRoutes(countries, year, news);
             updateBanking(countries, year, techManager, news);
         }
         
         applyTraderBonuses(countries, techManager);
+    }
+}
+
+std::uint64_t TradeManager::makeU64PairKey(int a, int b) const {
+    std::uint32_t lo = static_cast<std::uint32_t>(std::min(a, b));
+    std::uint32_t hi = static_cast<std::uint32_t>(std::max(a, b));
+    return (static_cast<std::uint64_t>(lo) << 32) | static_cast<std::uint64_t>(hi);
+}
+
+bool TradeManager::hasShippingRoute(int a, int b) const {
+    if (a < 0 || b < 0) {
+        return false;
+    }
+    if (a == b) {
+        return false;
+    }
+    return (m_shippingRouteKeys.find(makeU64PairKey(a, b)) != m_shippingRouteKeys.end());
+}
+
+void TradeManager::ensureSeaNavGrid(const Map& map) {
+    if (m_seaNav.ready) {
+        return;
+    }
+
+    const auto& isLandGrid = map.getIsLandGrid();
+    if (isLandGrid.empty() || isLandGrid[0].empty()) {
+        return;
+    }
+
+    m_seaNav.step = kDefaultSeaNavStep;
+    const int srcH = static_cast<int>(isLandGrid.size());
+    const int srcW = static_cast<int>(isLandGrid[0].size());
+    m_seaNav.width = (srcW + m_seaNav.step - 1) / m_seaNav.step;
+    m_seaNav.height = (srcH + m_seaNav.step - 1) / m_seaNav.step;
+
+    const int navW = m_seaNav.width;
+    const int navH = m_seaNav.height;
+    const int navN = navW * navH;
+    m_seaNav.water.assign(static_cast<size_t>(navN), 0u);
+    m_seaNav.componentId.assign(static_cast<size_t>(navN), -1);
+
+    // Build strict water-only nav cells: a nav cell is navigable only if the entire underlying block is water.
+    for (int ny = 0; ny < navH; ++ny) {
+        const int y0 = ny * m_seaNav.step;
+        const int y1 = std::min(srcH, (ny + 1) * m_seaNav.step);
+        for (int nx = 0; nx < navW; ++nx) {
+            const int x0 = nx * m_seaNav.step;
+            const int x1 = std::min(srcW, (nx + 1) * m_seaNav.step);
+
+            bool allWater = true;
+            for (int y = y0; y < y1 && allWater; ++y) {
+                const auto& row = isLandGrid[static_cast<size_t>(y)];
+                for (int x = x0; x < x1; ++x) {
+                    if (row[static_cast<size_t>(x)]) {
+                        allWater = false;
+                        break;
+                    }
+                }
+            }
+            if (allWater) {
+                m_seaNav.water[static_cast<size_t>(ny * navW + nx)] = 1u;
+            }
+        }
+    }
+
+    // Connected components for fast "no route possible" rejection.
+    int nextComp = 0;
+    std::vector<int> q;
+    q.reserve(4096);
+
+    for (int idx = 0; idx < navN; ++idx) {
+        if (m_seaNav.water[static_cast<size_t>(idx)] == 0u) {
+            continue;
+        }
+        if (m_seaNav.componentId[static_cast<size_t>(idx)] != -1) {
+            continue;
+        }
+
+        const int compId = nextComp++;
+        m_seaNav.componentId[static_cast<size_t>(idx)] = compId;
+        q.clear();
+        q.push_back(idx);
+
+        for (size_t qi = 0; qi < q.size(); ++qi) {
+            const int cur = q[qi];
+            const int cx = cur % navW;
+            const int cy = cur / navW;
+
+            const int nx[4] = { cx + 1, cx - 1, cx, cx };
+            const int ny[4] = { cy, cy, cy + 1, cy - 1 };
+            for (int k = 0; k < 4; ++k) {
+                const int x = nx[k];
+                const int y = ny[k];
+                if (x < 0 || x >= navW || y < 0 || y >= navH) {
+                    continue;
+                }
+                const int nidx = y * navW + x;
+                if (m_seaNav.water[static_cast<size_t>(nidx)] == 0u) {
+                    continue;
+                }
+                if (m_seaNav.componentId[static_cast<size_t>(nidx)] != -1) {
+                    continue;
+                }
+                m_seaNav.componentId[static_cast<size_t>(nidx)] = compId;
+                q.push_back(nidx);
+            }
+        }
+    }
+
+    m_seaNav.ready = true;
+}
+
+std::vector<Vector2i> TradeManager::findDockCandidates(const Vector2i& portCell, const Map& map) const {
+    std::vector<Vector2i> docks;
+    if (!m_seaNav.ready || m_seaNav.width <= 0 || m_seaNav.height <= 0) {
+        return docks;
+    }
+
+    const auto& isLandGrid = map.getIsLandGrid();
+    if (isLandGrid.empty() || isLandGrid[0].empty()) {
+        return docks;
+    }
+
+    const int srcH = static_cast<int>(isLandGrid.size());
+    const int srcW = static_cast<int>(isLandGrid[0].size());
+
+    const int px = portCell.x;
+    const int py = portCell.y;
+    if (px < 0 || px >= srcW || py < 0 || py >= srcH) {
+        return docks;
+    }
+
+    struct Candidate {
+        int dist2;
+        Vector2i nav;
+    };
+    std::vector<Candidate> cand;
+    cand.reserve(64);
+
+    const int R = kMaxDockSearchRadiusPx;
+    const int r2 = R * R;
+    const int y0 = clampi(py - R, 0, srcH - 1);
+    const int y1 = clampi(py + R, 0, srcH - 1);
+    const int x0 = clampi(px - R, 0, srcW - 1);
+    const int x1 = clampi(px + R, 0, srcW - 1);
+
+    std::unordered_set<int> seen;
+    seen.reserve(static_cast<size_t>(kMaxDockCandidates) * 2u);
+
+    for (int y = y0; y <= y1; ++y) {
+        for (int x = x0; x <= x1; ++x) {
+            const int dx = x - px;
+            const int dy = y - py;
+            const int d2 = dx * dx + dy * dy;
+            if (d2 > r2) {
+                continue;
+            }
+            if (isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) {
+                continue;
+            }
+
+            const int navX = x / m_seaNav.step;
+            const int navY = y / m_seaNav.step;
+            if (navX < 0 || navX >= m_seaNav.width || navY < 0 || navY >= m_seaNav.height) {
+                continue;
+            }
+            const int idx = navY * m_seaNav.width + navX;
+            if (m_seaNav.water[static_cast<size_t>(idx)] == 0u) {
+                continue;
+            }
+            if (!seen.insert(idx).second) {
+                continue;
+            }
+            cand.push_back({d2, Vector2i(navX, navY)});
+        }
+    }
+
+    if (cand.empty()) {
+        return docks;
+    }
+
+    std::sort(cand.begin(), cand.end(), [](const Candidate& a, const Candidate& b) {
+        return a.dist2 < b.dist2;
+    });
+
+    const int take = std::min(static_cast<int>(cand.size()), kMaxDockCandidates);
+    docks.reserve(static_cast<size_t>(take));
+    for (int i = 0; i < take; ++i) {
+        docks.push_back(cand[static_cast<size_t>(i)].nav);
+    }
+    return docks;
+}
+
+bool TradeManager::findSeaPathCached(const Vector2i& startNav, const Vector2i& goalNav, std::vector<Vector2i>& outPath) {
+    if (!m_seaNav.ready || m_seaNav.width <= 0 || m_seaNav.height <= 0) {
+        return false;
+    }
+
+    const int navW = m_seaNav.width;
+    const int aIdx = startNav.y * navW + startNav.x;
+    const int bIdx = goalNav.y * navW + goalNav.x;
+    if (aIdx < 0 || bIdx < 0) {
+        return false;
+    }
+
+    const std::uint32_t lo = static_cast<std::uint32_t>(std::min(aIdx, bIdx));
+    const std::uint32_t hi = static_cast<std::uint32_t>(std::max(aIdx, bIdx));
+    const std::uint64_t key = (static_cast<std::uint64_t>(lo) << 32) | static_cast<std::uint64_t>(hi);
+
+    auto it = m_seaPathCache.find(key);
+    if (it != m_seaPathCache.end()) {
+        outPath = it->second;
+        if (aIdx != static_cast<int>(lo)) {
+            std::reverse(outPath.begin(), outPath.end());
+        }
+        return !outPath.empty();
+    }
+
+    std::vector<Vector2i> path;
+    if (!aStarSea(startNav, goalNav, path)) {
+        return false;
+    }
+
+    m_seaPathCache.emplace(key, (aIdx == static_cast<int>(lo)) ? path : std::vector<Vector2i>(path.rbegin(), path.rend()));
+    outPath = std::move(path);
+    return !outPath.empty();
+}
+
+bool TradeManager::aStarSea(const Vector2i& startNav, const Vector2i& goalNav, std::vector<Vector2i>& outPath) {
+    outPath.clear();
+    if (!m_seaNav.ready) {
+        return false;
+    }
+
+    const int navW = m_seaNav.width;
+    const int navH = m_seaNav.height;
+    if (startNav.x < 0 || startNav.x >= navW || startNav.y < 0 || startNav.y >= navH) {
+        return false;
+    }
+    if (goalNav.x < 0 || goalNav.x >= navW || goalNav.y < 0 || goalNav.y >= navH) {
+        return false;
+    }
+
+    const int startIdx = startNav.y * navW + startNav.x;
+    const int goalIdx = goalNav.y * navW + goalNav.x;
+    if (startIdx == goalIdx) {
+        outPath.push_back(startNav);
+        return true;
+    }
+    if (m_seaNav.water[static_cast<size_t>(startIdx)] == 0u || m_seaNav.water[static_cast<size_t>(goalIdx)] == 0u) {
+        return false;
+    }
+
+    const int compA = m_seaNav.componentId[static_cast<size_t>(startIdx)];
+    const int compB = m_seaNav.componentId[static_cast<size_t>(goalIdx)];
+    if (compA < 0 || compB < 0 || compA != compB) {
+        return false;
+    }
+
+    const int N = navW * navH;
+    if (static_cast<int>(m_astarParent.size()) != N) {
+        m_astarParent.assign(static_cast<size_t>(N), -1);
+        m_astarG.assign(static_cast<size_t>(N), 0);
+        m_astarStamp.assign(static_cast<size_t>(N), 0);
+        m_astarCurStamp = 1;
+    }
+
+    // Stamp overflow guard.
+    if (m_astarCurStamp == std::numeric_limits<int>::max()) {
+        std::fill(m_astarStamp.begin(), m_astarStamp.end(), 0);
+        m_astarCurStamp = 1;
+    } else {
+        ++m_astarCurStamp;
+    }
+    const int stamp = m_astarCurStamp;
+
+    struct Node {
+        int idx;
+        int f;
+        int g;
+    };
+    struct Cmp {
+        bool operator()(const Node& a, const Node& b) const { return a.f > b.f; }
+    };
+    std::priority_queue<Node, std::vector<Node>, Cmp> open;
+
+    auto heuristic = [&](int idx) -> int {
+        const int x = idx % navW;
+        const int y = idx / navW;
+        return std::abs(x - goalNav.x) + std::abs(y - goalNav.y);
+    };
+
+    m_astarStamp[static_cast<size_t>(startIdx)] = stamp;
+    m_astarParent[static_cast<size_t>(startIdx)] = -1;
+    m_astarG[static_cast<size_t>(startIdx)] = 0;
+    open.push({startIdx, heuristic(startIdx), 0});
+
+    int expansions = 0;
+    bool found = false;
+
+    while (!open.empty()) {
+        Node cur = open.top();
+        open.pop();
+
+        if (cur.idx == goalIdx) {
+            found = true;
+            break;
+        }
+
+        if (++expansions > kMaxAStarNodeExpansions) {
+            return false;
+        }
+
+        const int cx = cur.idx % navW;
+        const int cy = cur.idx / navW;
+
+        const int nx[4] = { cx + 1, cx - 1, cx, cx };
+        const int ny[4] = { cy, cy, cy + 1, cy - 1 };
+
+        for (int k = 0; k < 4; ++k) {
+            const int x = nx[k];
+            const int y = ny[k];
+            if (x < 0 || x >= navW || y < 0 || y >= navH) {
+                continue;
+            }
+            const int nidx = y * navW + x;
+            if (m_seaNav.water[static_cast<size_t>(nidx)] == 0u) {
+                continue;
+            }
+
+            const int newG = cur.g + 1;
+            if (m_astarStamp[static_cast<size_t>(nidx)] != stamp) {
+                m_astarStamp[static_cast<size_t>(nidx)] = stamp;
+                m_astarG[static_cast<size_t>(nidx)] = newG;
+                m_astarParent[static_cast<size_t>(nidx)] = cur.idx;
+                open.push({nidx, newG + heuristic(nidx), newG});
+            } else if (newG < m_astarG[static_cast<size_t>(nidx)]) {
+                m_astarG[static_cast<size_t>(nidx)] = newG;
+                m_astarParent[static_cast<size_t>(nidx)] = cur.idx;
+                open.push({nidx, newG + heuristic(nidx), newG});
+            }
+        }
+    }
+
+    if (!found) {
+        return false;
+    }
+
+    // Reconstruct.
+    std::vector<int> rev;
+    rev.reserve(512);
+    for (int at = goalIdx; at != -1; at = m_astarParent[static_cast<size_t>(at)]) {
+        rev.push_back(at);
+        if (at == startIdx) {
+            break;
+        }
+    }
+    if (rev.empty() || rev.back() != startIdx) {
+        return false;
+    }
+    std::reverse(rev.begin(), rev.end());
+
+    outPath.reserve(rev.size());
+    for (int idx : rev) {
+        outPath.emplace_back(idx % navW, idx / navW);
+    }
+    return !outPath.empty();
+}
+
+void TradeManager::fillRouteLengths(ShippingRoute& route) const {
+    route.cumulativeLen.clear();
+    route.totalLen = 0.0f;
+    if (route.navPath.empty()) {
+        return;
+    }
+    route.cumulativeLen.resize(route.navPath.size(), 0.0f);
+    for (size_t i = 1; i < route.navPath.size(); ++i) {
+        const int dx = route.navPath[i].x - route.navPath[i - 1].x;
+        const int dy = route.navPath[i].y - route.navPath[i - 1].y;
+        const float seg = std::sqrt(static_cast<float>(dx * dx + dy * dy)) * static_cast<float>(route.navStep);
+        route.totalLen += seg;
+        route.cumulativeLen[i] = route.totalLen;
     }
 }
 
@@ -369,6 +767,196 @@ void TradeManager::establishTradeRoutes(std::vector<Country>& countries, int cur
     }
 }
 
+void TradeManager::establishShippingRoutes(std::vector<Country>& countries, int currentYear,
+                                          const TechnologyManager& techManager, const Map& map, News& news) {
+    // Only establish new shipping routes occasionally for performance.
+    if (currentYear % 25 != 0) {
+        return;
+    }
+
+    ensureSeaNavGrid(map);
+    if (!m_seaNav.ready) {
+        return;
+    }
+
+    // Drop dead/invalid routes (ports can be removed when territory changes).
+    if (!m_shippingRoutes.empty()) {
+        for (auto& r : m_shippingRoutes) {
+            if (!r.isActive) continue;
+            if (r.fromCountryIndex < 0 || r.toCountryIndex < 0 ||
+                r.fromCountryIndex >= static_cast<int>(countries.size()) ||
+                r.toCountryIndex >= static_cast<int>(countries.size())) {
+                r.isActive = false;
+                continue;
+            }
+            const Country& a = countries[static_cast<size_t>(r.fromCountryIndex)];
+            const Country& b = countries[static_cast<size_t>(r.toCountryIndex)];
+            if (a.getPopulation() <= 0 || b.getPopulation() <= 0) {
+                r.isActive = false;
+                continue;
+            }
+            auto portStillExists = [](const Country& c, const Vector2i& p) {
+                for (const auto& sp : c.getPorts()) {
+                    if (sp.x == p.x && sp.y == p.y) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            if (!portStillExists(a, r.fromPortCell) || !portStillExists(b, r.toPortCell)) {
+                r.isActive = false;
+            }
+        }
+        // Rebuild membership set (keeps trade bonus correct even if many were invalidated).
+        m_shippingRouteKeys.clear();
+        for (const auto& r : m_shippingRoutes) {
+            if (r.isActive) {
+                m_shippingRouteKeys.insert(makeU64PairKey(r.fromCountryIndex, r.toCountryIndex));
+            }
+        }
+    }
+
+    if (countries.size() < 2) {
+        return;
+    }
+
+    // Count existing active routes per country to enforce caps.
+    std::vector<int> routeCounts(countries.size(), 0);
+    for (const auto& r : m_shippingRoutes) {
+        if (!r.isActive) continue;
+        if (r.fromCountryIndex >= 0 && r.fromCountryIndex < static_cast<int>(routeCounts.size())) {
+            routeCounts[static_cast<size_t>(r.fromCountryIndex)]++;
+        }
+        if (r.toCountryIndex >= 0 && r.toCountryIndex < static_cast<int>(routeCounts.size())) {
+            routeCounts[static_cast<size_t>(r.toCountryIndex)]++;
+        }
+    }
+
+    std::uniform_real_distribution<> chanceDist(0.0, 1.0);
+    std::uniform_int_distribution<> pick(0, std::max(0, static_cast<int>(countries.size()) - 1));
+
+    auto hasShipbuilding = [&](const Country& c) {
+        return TechnologyManager::hasTech(techManager, c, 12); // Shipbuilding
+    };
+    auto hasNavigation = [&](const Country& c) {
+        return TechnologyManager::hasTech(techManager, c, 43); // Navigation
+    };
+
+    for (size_t i = 0; i < countries.size(); ++i) {
+        const Country& a = countries[i];
+        if (a.getPopulation() <= 0) continue;
+        if (!hasNavigation(a) || !hasShipbuilding(a)) continue;
+        if (a.getPorts().empty()) continue;
+
+        // Limit attempts to spread load (not every country tries every establish tick).
+        if (chanceDist(m_rng) > 0.35) {
+            continue;
+        }
+
+        int majorCities = 0;
+        for (const auto& city : a.getCities()) {
+            if (city.isMajorCity()) majorCities++;
+        }
+        const int maxRoutesA = std::max(1, std::min(4, 1 + majorCities));
+        if (routeCounts[i] >= maxRoutesA) {
+            continue;
+        }
+
+        for (int attempt = 0; attempt < kMaxShippingPartnerAttempts; ++attempt) {
+            const int j = pick(m_rng);
+            if (j < 0 || j >= static_cast<int>(countries.size())) continue;
+            if (j == static_cast<int>(i)) continue;
+
+            const Country& b = countries[static_cast<size_t>(j)];
+            if (b.getPopulation() <= 0) continue;
+            if (!hasNavigation(b) || !hasShipbuilding(b)) continue;
+            if (b.getPorts().empty()) continue;
+            int majorCitiesB = 0;
+            for (const auto& city : b.getCities()) {
+                if (city.isMajorCity()) majorCitiesB++;
+            }
+            const int maxRoutesB = std::max(1, std::min(4, 1 + majorCitiesB));
+            if (routeCounts[static_cast<size_t>(j)] >= maxRoutesB) continue;
+            if (hasShippingRoute(static_cast<int>(i), j)) continue;
+
+            // Choose the best port-to-port dock pair that is on the same sea component.
+            Vector2i bestStartNav;
+            Vector2i bestGoalNav;
+            Vector2i bestPortA;
+            Vector2i bestPortB;
+            int bestScore = std::numeric_limits<int>::max();
+            bool foundDockPair = false;
+
+            for (const auto& pa : a.getPorts()) {
+                const Vector2i portA(pa.x, pa.y);
+                const auto docksA = findDockCandidates(portA, map);
+                if (docksA.empty()) continue;
+
+                for (const auto& pb : b.getPorts()) {
+                    const Vector2i portB(pb.x, pb.y);
+                    const auto docksB = findDockCandidates(portB, map);
+                    if (docksB.empty()) continue;
+
+                    for (const auto& da : docksA) {
+                        const int aNavIdx = da.y * m_seaNav.width + da.x;
+                        const int aComp = m_seaNav.componentId[static_cast<size_t>(aNavIdx)];
+                        if (aComp < 0) continue;
+
+                        for (const auto& db : docksB) {
+                            const int bNavIdx = db.y * m_seaNav.width + db.x;
+                            const int bComp = m_seaNav.componentId[static_cast<size_t>(bNavIdx)];
+                            if (bComp != aComp) continue;
+
+                            const int dx = da.x - db.x;
+                            const int dy = da.y - db.y;
+                            const int d2 = dx * dx + dy * dy;
+                            if (d2 < bestScore) {
+                                bestScore = d2;
+                                bestStartNav = da;
+                                bestGoalNav = db;
+                                bestPortA = portA;
+                                bestPortB = portB;
+                                foundDockPair = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!foundDockPair) {
+                continue;
+            }
+
+            std::vector<Vector2i> navPath;
+            if (!findSeaPathCached(bestStartNav, bestGoalNav, navPath)) {
+                continue;
+            }
+            if (navPath.size() < 2) {
+                continue;
+            }
+
+            ShippingRoute route;
+            route.fromCountryIndex = static_cast<int>(i);
+            route.toCountryIndex = j;
+            route.fromPortCell = bestPortA;
+            route.toPortCell = bestPortB;
+            route.navStep = m_seaNav.step;
+            route.navPath = std::move(navPath);
+            route.establishedYear = currentYear;
+            route.isActive = true;
+            fillRouteLengths(route);
+
+            m_shippingRoutes.push_back(std::move(route));
+            m_shippingRouteKeys.insert(makeU64PairKey(static_cast<int>(i), j));
+            routeCounts[i]++;
+            routeCounts[static_cast<size_t>(j)]++;
+
+            news.addEvent("🚢 SHIPPING ROUTE ESTABLISHED: " + a.getName() + " opens a shipping lane with " + b.getName() + ".");
+            break; // Only one new route per country per establish tick.
+        }
+    }
+}
+
 void TradeManager::processTradeRoutes(std::vector<Country>& countries, int currentYear, News& news) {
     
     std::uniform_real_distribution<> tradeDist(0.0, 1.0);
@@ -383,7 +971,9 @@ void TradeManager::processTradeRoutes(std::vector<Country>& countries, int curre
         Country& country2 = countries[route.toCountryIndex];
         
         if (country1.getPopulation() <= 0 || country2.getPopulation() <= 0) continue;
-        
+
+        const double shipBonus = hasShippingRoute(route.fromCountryIndex, route.toCountryIndex) ? 1.25 : 1.0;
+
         // Trade along route based on capacity and efficiency
         bool tradeHappened = false;
         if (tradeDist(m_rng) < 0.4) { // 40% chance per route per cycle
@@ -396,7 +986,7 @@ void TradeManager::processTradeRoutes(std::vector<Country>& countries, int curre
                 double demand2 = calculateResourceDemand(resource, country2);
                 
                 if (supply1 > 1.2 && demand2 > 0.8) {
-                    double tradeAmount = std::min(route.capacity * route.efficiency, 
+                    double tradeAmount = std::min(route.capacity * route.efficiency * shipBonus, 
                                                 std::min(supply1 - 1.0, demand2 * 0.5));
                     
                     if (tradeAmount > 0.5 && 

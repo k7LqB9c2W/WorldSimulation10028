@@ -3,8 +3,10 @@
 
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
 #include <random>
+#include <cstdint>
 #include "resource.h"
 
 // Forward declarations
@@ -53,6 +55,25 @@ struct TradeRoute {
     TradeRoute(int from, int to, double cap, double dist, int year)
         : fromCountryIndex(from), toCountryIndex(to), capacity(cap), 
           distance(dist), establishedYear(year) {}
+};
+
+// Shipping route structure for water-only port-to-port logistics.
+struct ShippingRoute {
+    int fromCountryIndex = -1;
+    int toCountryIndex = -1;
+    Vector2i fromPortCell;
+    Vector2i toPortCell;
+
+    // Downsampled navigation grid parameters used for navPath.
+    int navStep = 6;
+
+    // Path over nav grid coordinates (water-only). Each node is a cell in the nav grid.
+    std::vector<Vector2i> navPath;
+    std::vector<float> cumulativeLen; // same size as navPath; cumulativeLen[0]=0; totalLen=cumulativeLen.back()
+    float totalLen = 0.0f;
+
+    bool isActive = true;
+    int establishedYear = -5000;
 };
 
 // Market structure for advanced economy
@@ -118,7 +139,11 @@ public:
     void establishTradeRoutes(std::vector<Country>& countries, int currentYear,
                              const TechnologyManager& techManager, const Map& map);
     void processTradeRoutes(std::vector<Country>& countries, int currentYear, News& news);
-    
+
+    // Shipping routes (water-only, requires Shipbuilding + Navigation tech)
+    void establishShippingRoutes(std::vector<Country>& countries, int currentYear,
+                                 const TechnologyManager& techManager, const Map& map, News& news);
+
     // Financial institutions (requires Banking tech)
     void updateBanking(std::vector<Country>& countries, int currentYear,
                       const TechnologyManager& techManager, News& news);
@@ -145,6 +170,7 @@ public:
     int getTotalTrades() const { return m_totalTradesCompleted; }
     double getTotalTradeValue() const { return m_totalTradeValue; }
     const std::vector<TradeRoute>& getTradeRoutes() const { return m_tradeRoutes; }
+    const std::vector<ShippingRoute>& getShippingRoutes() const { return m_shippingRoutes; }
 
     // Per-country export value proxy derived from executed TradeManager transfers (barter/currency/routes).
     // Values are only updated when trade is processed; use the year getter to see how fresh they are.
@@ -157,9 +183,19 @@ private:
         int lastYear = 0;
     };
 
+    struct SeaNavGrid {
+        int step = 6;
+        int width = 0;
+        int height = 0;
+        bool ready = false;
+        std::vector<std::uint8_t> water; // 1 if navigable water
+        std::vector<int> componentId;    // same size as water; -1 if not water
+    };
+
     // Trade offers and routes
     std::vector<TradeOffer> m_activeOffers;
     std::vector<TradeRoute> m_tradeRoutes;
+    std::vector<ShippingRoute> m_shippingRoutes;
     std::vector<Market> m_markets;
     std::vector<Bank> m_banks;
     
@@ -176,7 +212,20 @@ private:
     // Export value proxy (in "gold-equivalent" units) for the last processed trade year.
     int m_lastCountryExportsYear = -5000;
     std::vector<double> m_countryExportsValue;
-    
+
+    // Shipping route membership for O(1) trade bonuses.
+    std::unordered_set<std::uint64_t> m_shippingRouteKeys;
+
+    // Sea navigation (downsampled, cached).
+    SeaNavGrid m_seaNav;
+    std::unordered_map<std::uint64_t, std::vector<Vector2i>> m_seaPathCache;
+
+    // A* scratch (reused to avoid allocations).
+    std::vector<int> m_astarParent;
+    std::vector<int> m_astarG;
+    std::vector<int> m_astarStamp;
+    int m_astarCurStamp = 1;
+
     // Random number generation
     mutable std::mt19937 m_rng;
 
@@ -197,4 +246,13 @@ private:
     // Market operations
     void updateMarketSupplyDemand(Market& market, const std::vector<Country>& countries);
     void processMarketTrades(Market& market, std::vector<Country>& countries, News& news);
+
+    // Shipping helpers
+    void ensureSeaNavGrid(const Map& map);
+    std::vector<Vector2i> findDockCandidates(const Vector2i& portCell, const Map& map) const;
+    bool findSeaPathCached(const Vector2i& startNav, const Vector2i& goalNav, std::vector<Vector2i>& outPath);
+    bool aStarSea(const Vector2i& startNav, const Vector2i& goalNav, std::vector<Vector2i>& outPath);
+    void fillRouteLengths(ShippingRoute& route) const;
+    std::uint64_t makeU64PairKey(int a, int b) const;
+    bool hasShippingRoute(int a, int b) const;
 };
