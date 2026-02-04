@@ -13,6 +13,14 @@ extern bool paused;
 
 namespace {
 const char* kCountryOverlayFragmentShader = R"(
+// Compatibility: support both legacy GLSL (texture2D) and newer GLSL (texture).
+#if __VERSION__ >= 130
+    #define TEX_SAMPLE texture
+#else
+    #define TEX_SAMPLE texture2D
+#endif
+
+uniform sampler2D u_countryIdTex;
 uniform sampler2D palette;
 uniform float paletteSize;
 uniform float showHover;
@@ -21,7 +29,7 @@ uniform vec2 idTexel;
 
 void main()
 {
-    vec4 encoded = texture2D(texture, gl_TexCoord[0].xy);
+    vec4 encoded = TEX_SAMPLE(u_countryIdTex, gl_TexCoord[0].xy);
     float low = floor(encoded.r * 255.0 + 0.5);
     float high = floor(encoded.g * 255.0 + 0.5);
     float id = low + high * 256.0; // 0 = empty, otherwise countryIndex + 1
@@ -33,10 +41,10 @@ void main()
 
     if (showHover > 0.5 && abs(id - hoveredId) < 0.5) {
         vec2 uv = gl_TexCoord[0].xy;
-        vec4 eL = texture2D(texture, uv + vec2(-idTexel.x, 0.0));
-        vec4 eR = texture2D(texture, uv + vec2(idTexel.x, 0.0));
-        vec4 eU = texture2D(texture, uv + vec2(0.0, -idTexel.y));
-        vec4 eD = texture2D(texture, uv + vec2(0.0, idTexel.y));
+        vec4 eL = TEX_SAMPLE(u_countryIdTex, uv + vec2(-idTexel.x, 0.0));
+        vec4 eR = TEX_SAMPLE(u_countryIdTex, uv + vec2(idTexel.x, 0.0));
+        vec4 eU = TEX_SAMPLE(u_countryIdTex, uv + vec2(0.0, -idTexel.y));
+        vec4 eD = TEX_SAMPLE(u_countryIdTex, uv + vec2(0.0, idTexel.y));
 
         float l = floor(eL.r * 255.0 + 0.5) + floor(eL.g * 255.0 + 0.5) * 256.0;
         float r = floor(eR.r * 255.0 + 0.5) + floor(eR.g * 255.0 + 0.5) * 256.0;
@@ -58,7 +66,7 @@ void main()
     }
 
     float u = (id + 0.5) / paletteSize;
-    gl_FragColor = texture2D(palette, vec2(u, 0.5));
+    gl_FragColor = TEX_SAMPLE(palette, vec2(u, 0.5));
 }
 )";
 } // namespace
@@ -145,6 +153,7 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
             m_countryOverlayShader.setUniform("paletteSize", static_cast<float>(m_countryPaletteSize));
             m_countryOverlayShader.setUniform("showHover", 0.f);
             m_countryOverlayShader.setUniform("hoveredId", 0.f);
+            m_countryOverlayShader.setUniform("u_countryIdTex", sf::Shader::CurrentTexture);
             if (m_countryGridWidth > 0 && m_countryGridHeight > 0) {
                 m_countryOverlayShader.setUniform("idTexel", sf::Glsl::Vec2(1.f / static_cast<float>(m_countryGridWidth),
                                                                            1.f / static_cast<float>(m_countryGridHeight)));
@@ -825,7 +834,7 @@ void Renderer::drawWealthLeaderboard(const std::vector<Country>& countries) {
         else if (av >= 1e9) std::snprintf(buf, sizeof(buf), "%.2fB", v / 1e9);
         else if (av >= 1e6) std::snprintf(buf, sizeof(buf), "%.2fM", v / 1e6);
         else if (av >= 1e3) std::snprintf(buf, sizeof(buf), "%.2fK", v / 1e3);
-        else std::snprintf(buf, sizeof(buf), "%.0f", v);
+        else std::snprintf(buf, sizeof(buf), "%.2f", v);
         return std::string(buf);
     };
 

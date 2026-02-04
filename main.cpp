@@ -161,12 +161,15 @@ int main() {
 	    // Initialize GPU economy (downsampled econ grid)
 	    EconomyGPU economy;
 	    EconomyGPU::Config econCfg;
-	    econCfg.econCellSize = 6;
-	    econCfg.tradeIters = 12;
-	    econCfg.updateReadbackEveryNYears = 1;
-	    economy.init(map, maxCountries, econCfg);
-	    economy.onTerritoryChanged(map);
-	    economy.onStaticResourcesChanged(map);
+		    econCfg.econCellSize = 6;
+		    econCfg.tradeIters = 12;
+		    econCfg.updateReadbackEveryNYears = 1;
+		    economy.init(map, maxCountries, econCfg);
+		    if (!economy.isInitialized()) {
+		        std::cout << "⚠️ EconomyGPU disabled (shaders unavailable/init failed). Wealth/GDP/exports will stay 0." << std::endl;
+		    }
+		    economy.onTerritoryChanged(map);
+		    economy.onStaticResourcesChanged(map);
 
 	    Renderer renderer(window, map, waterColor);
 	    News news;
@@ -424,15 +427,20 @@ int main() {
                         zoomLevel = 1.0f;
                     }
                 }
-	                else if (event.key.code == sf::Keyboard::Num6) {
-	                    renderer.toggleWarHighlights();
-	                }
-	                else if (event.key.code == sf::Keyboard::L) {
-	                    renderer.toggleWealthLeaderboard();
-	                }
+		                else if (event.key.code == sf::Keyboard::Num6) {
+		                    renderer.toggleWarHighlights();
+		                }
+		                else if (event.key.code == sf::Keyboard::L) {
+		                    // Ensure GPU economy metrics are up-to-date before showing the leaderboard.
+		                    // (GDP requires at least two readbacks at different years; mega-jumps now do a baseline readback.)
+		                    economy.onTerritoryChanged(map);
+		                    economy.readbackMetrics(currentYear);
+		                    economy.applyCountryMetrics(countries);
+		                    renderer.toggleWealthLeaderboard();
+		                }
 
-                else if (event.key.code == sf::Keyboard::Num8) { // Add this block
-                    map.triggerPlague(currentYear, news);
+	                else if (event.key.code == sf::Keyboard::Num8) { // Add this block
+	                    map.triggerPlague(currentYear, news);
                 }
                 else if (event.key.code == sf::Keyboard::T) { // TURBO MODE TOGGLE
                     turboMode = !turboMode;
@@ -796,8 +804,14 @@ int main() {
                                 });
                                 window.display();
                                 
+                                // Baseline readback before mega-jump so GDP can be estimated from capital formation
+                                // across the jump interval (end readback happens after the jump completes).
+                                economy.onTerritoryChanged(map);
+                                economy.readbackMetrics(currentYear);
+                                economy.applyCountryMetrics(countries);
+
                                 // Call mega simulation function with progress callback
-                                map.megaTimeJump(countries, currentYear, targetYear, news, technologyManager, cultureManager, greatPeopleManager, 
+                                map.megaTimeJump(countries, currentYear, targetYear, news, technologyManager, cultureManager, greatPeopleManager,
                                     [&](int currentSimYear, int targetSimYear, float estimatedSecondsRemaining) {
                                         // 🏪 MEGA TIME JUMP TRADE PROCESSING
                                         if (currentSimYear % 10 == 0) { // Every 10 years during mega jump
@@ -825,6 +839,11 @@ int main() {
                                             window.draw(countdownText);
                                         });
                                         window.display();
+                                    },
+                                    [&](int currentSimYear, int chunkYears) {
+                                        // GPU economy fast-forward aligned to mega chunks.
+                                        economy.onTerritoryChanged(map);
+                                        economy.tickMegaChunkGpuOnly(currentSimYear, chunkYears, map, countries, technologyManager, /*yearsPerStep*/10, /*tradeItersPerStep*/3);
                                     });
                                 
                                 // Show completion message
@@ -858,7 +877,7 @@ int main() {
 	                                }
 	                                
 	                                economy.onTerritoryChanged(map);
-	                                economy.tickYear(currentYear, map, countries, technologyManager);
+	                                economy.readbackMetrics(currentYear);
 	                                economy.applyCountryMetrics(countries);
 	                                
 	                                // Force immediate renderer update

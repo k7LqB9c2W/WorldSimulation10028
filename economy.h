@@ -23,6 +23,7 @@ public:
     EconomyGPU() = default;
 
     void init(const Map& map, int maxCountries, const Config& cfg);
+    bool isInitialized() const { return m_initialized; }
     void onTerritoryChanged(const Map& map);
     void onStaticResourcesChanged(const Map& map);
 
@@ -30,6 +31,30 @@ public:
                   const Map& map,
                   const std::vector<Country>& countries,
                   const TechnologyManager& tech);
+
+    // GPU-only simulation step used for fast-forward/mega jumps.
+    // - `dtYears` scales production/consumption/investment inside the shader.
+    // - `tradeItersOverride` lets fast-forward reduce diffusion iterations for performance.
+    // - No CPU readback is performed (wealth/GDP/exports remain unchanged until readbackMetrics()).
+    void tickStepGpuOnly(int year,
+                         const Map& map,
+                         const std::vector<Country>& countries,
+                         const TechnologyManager& tech,
+                         float dtYears,
+                         int tradeItersOverride,
+                         bool generateDebugHeatmap = false);
+
+    // Convenience: advance the GPU economy by `yearsInChunk` using `yearsPerStep` substeps (e.g., 10-year steps).
+    void tickMegaChunkGpuOnly(int endYear,
+                              int yearsInChunk,
+                              const Map& map,
+                              const std::vector<Country>& countries,
+                              const TechnologyManager& tech,
+                              int yearsPerStep = 10,
+                              int tradeItersPerStep = 3);
+
+    // CPU readback/aggregation without advancing the simulation.
+    void readbackMetrics(int year);
 
     void applyCountryMetrics(std::vector<Country>& countries) const;
 

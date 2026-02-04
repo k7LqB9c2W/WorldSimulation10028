@@ -87,7 +87,8 @@ public:
     void megaTimeJump(std::vector<Country>& countries, int& currentYear, int targetYear, News& news, 
                       class TechnologyManager& techManager, class CultureManager& cultureManager, 
                       class GreatPeopleManager& greatPeopleManager, 
-                      std::function<void(int, int, float)> progressCallback = nullptr);
+                      std::function<void(int, int, float)> progressCallback = nullptr,
+                      std::function<void(int, int)> chunkCompletedCallback = nullptr);
 
     // Keep these for read-only access (const versions)
     const std::vector<std::vector<int>>& getCountryGrid() const;

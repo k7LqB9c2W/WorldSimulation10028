@@ -1274,7 +1274,8 @@ int Map::getPlagueStartYear() const {
 void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int targetYear, News& news, 
                        TechnologyManager& techManager, CultureManager& cultureManager, 
                        GreatPeopleManager& greatPeopleManager, 
-                       std::function<void(int, int, float)> progressCallback) {
+                       std::function<void(int, int, float)> progressCallback,
+                       std::function<void(int, int)> chunkCompletedCallback) {
     
     std::cout << "\nBEGINNING MEGA SIMULATION OF HUMAN HISTORY!" << std::endl;
     
@@ -1540,6 +1541,10 @@ void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
         if (currentMilestone > lastMilestone && currentMilestone >= 1000000) { // Only track millions and above
             majorEvents.push_back("🌍 World population reaches " + std::to_string(currentMilestone) + " in " + std::to_string(currentYear));
             lastMilestone = currentMilestone;
+        }
+
+        if (chunkCompletedCallback) {
+            chunkCompletedCallback(currentYear, chunkYears);
         }
     }
     

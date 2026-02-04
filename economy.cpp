@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <iostream>
 #include <limits>
 
 namespace {
@@ -20,6 +21,7 @@ uniform float maxFood;
 uniform float maxMat;
 uniform float maxCons;
 uniform float maxCap;
+uniform float dtYears;
 
 uniform float baseFoodDemand;
 uniform float baseConsDemand;
@@ -58,9 +60,8 @@ void main() {
     float food = st.r * maxFood;
     float mat  = st.g * maxMat;
     float cons = st.b * maxCons;
-    float capLogDen = log(1.0 + maxCap);
     float capN = clamp(st.a, 0.0, 1.0);
-    float cap  = exp(capN * capLogDen) - 1.0;
+    float cap  = (capN * capN) * maxCap;
 
     vec4 infra = texture2D(infraTex, uv);
     float access = clamp(infra.r, 0.05, 1.0);
@@ -69,18 +70,19 @@ void main() {
     float workforce = popF;
     float prod = (0.6 + 0.8 * prodF) * stability;
 
-    float foodProd = foodPot * workforce * access * capacity * prod * 25.0;
-    float matProd  = matPot  * workforce * access * capacity * prod * 18.0;
+    float years = max(0.0, dtYears);
+    float foodProd = foodPot * workforce * access * capacity * prod * 25.0 * years;
+    float matProd  = matPot  * workforce * access * capacity * prod * 18.0 * years;
 
-    float convert = min(mat, workforce * access * prod * 10.0);
+    float convert = min(mat, workforce * access * prod * 10.0 * years);
     float consProd = convert * (0.6 + 0.8 * prodF);
 
     food += foodProd;
     mat  += matProd - convert;
     cons += consProd;
 
-    float foodDem = baseFoodDemand * popF * 30.0;
-    float consDem = baseConsDemand * popF * 18.0;
+    float foodDem = baseFoodDemand * popF * 30.0 * years;
+    float consDem = baseConsDemand * popF * 18.0 * years;
 
     food = max(0.0, food - foodDem);
     cons = max(0.0, cons - consDem);
@@ -93,7 +95,7 @@ void main() {
     cons = clamp(cons, 0.0, maxCons);
     cap  = clamp(cap,  0.0, maxCap);
 
-    float capOutN = log(1.0 + cap) / capLogDen;
+    float capOutN = (maxCap > 0.0) ? sqrt(cap / maxCap) : 0.0;
     gl_FragColor = vec4(food / maxFood, mat / maxMat, cons / maxCons, capOutN);
 }
 )";
@@ -153,9 +155,8 @@ void main() {
     float food = st.r * maxFood;
     float mat  = st.g * maxMat;
     float cons = st.b * maxCons;
-    float capLogDen = log(1.0 + maxCap);
     float capN = clamp(st.a, 0.0, 1.0);
-    float cap  = exp(capN * capLogDen) - 1.0;
+    float cap  = (capN * capN) * maxCap;
 
     float wealth = food * 1.0 + mat * 1.5 + cons * 2.2 + cap * 3.0;
     float t = wealth / (maxFood + maxMat * 1.5 + maxCons * 2.2 + maxCap * 3.0);
@@ -227,9 +228,15 @@ void EconomyGPU::init(const Map& map, int maxCountries, const Config& cfg) {
     }
     m_debugWealthHeatmap.setSmooth(false);
 
-    if (!m_prodConsumeShader.loadFromMemory(kProdConsumeFragmentShader, sf::Shader::Fragment) ||
-        !m_tradeShader.loadFromMemory(kTradeFragmentShader, sf::Shader::Fragment) ||
-        !m_debugHeatmapShader.loadFromMemory(kDebugWealthHeatmapFragmentShader, sf::Shader::Fragment)) {
+    const bool okProd = m_prodConsumeShader.loadFromMemory(kProdConsumeFragmentShader, sf::Shader::Fragment);
+    const bool okTrade = m_tradeShader.loadFromMemory(kTradeFragmentShader, sf::Shader::Fragment);
+    const bool okHeat = m_debugHeatmapShader.loadFromMemory(kDebugWealthHeatmapFragmentShader, sf::Shader::Fragment);
+    if (!okProd || !okTrade || !okHeat) {
+        std::cout << "EconomyGPU: shader compile failed:"
+                  << " prodConsume=" << (okProd ? "ok" : "FAIL")
+                  << " trade=" << (okTrade ? "ok" : "FAIL")
+                  << " heatmap=" << (okHeat ? "ok" : "FAIL")
+                  << std::endl;
         m_initialized = false;
         return;
     }
@@ -245,9 +252,9 @@ void EconomyGPU::init(const Map& map, int maxCountries, const Config& cfg) {
     m_accessCPU.assign(static_cast<size_t>(m_econW) * static_cast<size_t>(m_econH), 1.0f);
 
     // Clear state & infra.
-    m_stateA.clear(sf::Color::Black);
+    m_stateA.clear(sf::Color(0, 0, 0, 0));
     m_stateA.display();
-    m_stateB.clear(sf::Color::Black);
+    m_stateB.clear(sf::Color(0, 0, 0, 0));
     m_stateB.display();
     m_stateSrcIsA = true;
 
@@ -269,6 +276,9 @@ void EconomyGPU::init(const Map& map, int maxCountries, const Config& cfg) {
     rebuildResourcePotential(map);
 
     m_initialized = true;
+    std::cout << "EconomyGPU: initialized (" << m_econW << "x" << m_econH
+              << ", maxCountries=" << m_maxCountries << ", econCellSize=" << m_cfg.econCellSize << ")"
+              << std::endl;
 }
 
 void EconomyGPU::onTerritoryChanged(const Map& map) {
@@ -306,14 +316,16 @@ void EconomyGPU::tickYear(int year,
         m_prodConsumeShader.setUniform("maxMat", m_cfg.maxInvMat);
         m_prodConsumeShader.setUniform("maxCons", m_cfg.maxInvCons);
         m_prodConsumeShader.setUniform("maxCap", m_cfg.maxCapital);
+        m_prodConsumeShader.setUniform("dtYears", 1.0f);
         m_prodConsumeShader.setUniform("baseFoodDemand", 1.0f);
         m_prodConsumeShader.setUniform("baseConsDemand", 1.0f);
         m_prodConsumeShader.setUniform("stateTex", sf::Shader::CurrentTexture);
 
         sf::Sprite sprite(stateSrcTexture());
-        stateDst().clear(sf::Color::Black);
+        stateDst().clear(sf::Color(0, 0, 0, 0));
         sf::RenderStates states;
         states.shader = &m_prodConsumeShader;
+        states.blendMode = sf::BlendNone;
         stateDst().draw(sprite, states);
         stateDst().display();
         flipState();
@@ -340,9 +352,10 @@ void EconomyGPU::tickYear(int year,
 
         for (int i = 0; i < std::max(0, m_cfg.tradeIters); ++i) {
             sf::Sprite sprite(stateSrcTexture());
-            stateDst().clear(sf::Color::Black);
+            stateDst().clear(sf::Color(0, 0, 0, 0));
             sf::RenderStates states;
             states.shader = &m_tradeShader;
+            states.blendMode = sf::BlendNone;
             stateDst().draw(sprite, states);
             stateDst().display();
             flipState();
@@ -361,9 +374,131 @@ void EconomyGPU::tickYear(int year,
         m_debugWealthHeatmap.clear(sf::Color::Transparent);
         sf::RenderStates states;
         states.shader = &m_debugHeatmapShader;
+        states.blendMode = sf::BlendNone;
         m_debugWealthHeatmap.draw(sprite, states);
         m_debugWealthHeatmap.display();
     }
+}
+
+void EconomyGPU::tickStepGpuOnly(int year,
+                                 const Map&,
+                                 const std::vector<Country>& countries,
+                                 const TechnologyManager& tech,
+                                 float dtYears,
+                                 int tradeItersOverride,
+                                 bool generateDebugHeatmap) {
+    if (!m_initialized) {
+        return;
+    }
+
+    const int iters = std::max(0, tradeItersOverride);
+    const float years = std::max(0.0f, dtYears);
+
+    rebuildCountryStats(countries, tech);
+
+    // Pass A: production + consumption (scaled by dtYears)
+    {
+        m_prodConsumeShader.setUniform("countryIdTex", m_countryIdTex);
+        m_prodConsumeShader.setUniform("resourceTex", m_resourcePotential);
+        m_prodConsumeShader.setUniform("countryStatsTex", m_countryStatsTex);
+        m_prodConsumeShader.setUniform("infraTex", m_priceA.getTexture());
+        m_prodConsumeShader.setUniform("paletteSize", static_cast<float>(m_maxCountries + 1));
+        m_prodConsumeShader.setUniform("maxFood", m_cfg.maxInvFood);
+        m_prodConsumeShader.setUniform("maxMat", m_cfg.maxInvMat);
+        m_prodConsumeShader.setUniform("maxCons", m_cfg.maxInvCons);
+        m_prodConsumeShader.setUniform("maxCap", m_cfg.maxCapital);
+        m_prodConsumeShader.setUniform("dtYears", years);
+        m_prodConsumeShader.setUniform("baseFoodDemand", 1.0f);
+        m_prodConsumeShader.setUniform("baseConsDemand", 1.0f);
+        m_prodConsumeShader.setUniform("stateTex", sf::Shader::CurrentTexture);
+
+        sf::Sprite sprite(stateSrcTexture());
+        stateDst().clear(sf::Color(0, 0, 0, 0));
+        sf::RenderStates states;
+        states.shader = &m_prodConsumeShader;
+        states.blendMode = sf::BlendNone;
+        stateDst().draw(sprite, states);
+        stateDst().display();
+        flipState();
+    }
+
+    // Pass B: diffusion (scaled for dtYears but using fewer iterations).
+    if (iters > 0) {
+        const float baseFlow = 0.06f;
+        const float totalFlow = 1.0f - std::pow(1.0f - baseFlow, years);
+        const float perIterFlow = 1.0f - std::pow(std::max(0.0f, 1.0f - totalFlow), 1.0f / static_cast<float>(iters));
+
+        m_tradeShader.setUniform("infraTex", m_priceA.getTexture());
+        m_tradeShader.setUniform("texelStep",
+                                 sf::Glsl::Vec2(1.0f / static_cast<float>(m_econW),
+                                               1.0f / static_cast<float>(m_econH)));
+        m_tradeShader.setUniform("kFlow", perIterFlow);
+        m_tradeShader.setUniform("stateTex", sf::Shader::CurrentTexture);
+
+        for (int i = 0; i < iters; ++i) {
+            sf::Sprite sprite(stateSrcTexture());
+            stateDst().clear(sf::Color(0, 0, 0, 0));
+            sf::RenderStates states;
+            states.shader = &m_tradeShader;
+            states.blendMode = sf::BlendNone;
+            stateDst().draw(sprite, states);
+            stateDst().display();
+            flipState();
+        }
+    }
+
+    if (generateDebugHeatmap) {
+        m_debugHeatmapShader.setUniform("stateTex", sf::Shader::CurrentTexture);
+        m_debugHeatmapShader.setUniform("maxFood", m_cfg.maxInvFood);
+        m_debugHeatmapShader.setUniform("maxMat", m_cfg.maxInvMat);
+        m_debugHeatmapShader.setUniform("maxCons", m_cfg.maxInvCons);
+        m_debugHeatmapShader.setUniform("maxCap", m_cfg.maxCapital);
+
+        sf::Sprite sprite(stateSrcTexture());
+        m_debugWealthHeatmap.clear(sf::Color::Transparent);
+        sf::RenderStates states;
+        states.shader = &m_debugHeatmapShader;
+        states.blendMode = sf::BlendNone;
+        m_debugWealthHeatmap.draw(sprite, states);
+        m_debugWealthHeatmap.display();
+    }
+
+    (void)year;
+}
+
+void EconomyGPU::tickMegaChunkGpuOnly(int endYear,
+                                      int yearsInChunk,
+                                      const Map& map,
+                                      const std::vector<Country>& countries,
+                                      const TechnologyManager& tech,
+                                      int yearsPerStep,
+                                      int tradeItersPerStep) {
+    if (!m_initialized) {
+        return;
+    }
+    if (yearsInChunk <= 0) {
+        return;
+    }
+
+    const int step = std::max(1, yearsPerStep);
+    int remaining = yearsInChunk;
+    int simYear = endYear - yearsInChunk;
+
+    while (remaining > 0) {
+        const int thisStep = std::min(step, remaining);
+        simYear += thisStep;
+        tickStepGpuOnly(simYear, map, countries, tech, static_cast<float>(thisStep), tradeItersPerStep, /*heatmap*/false);
+        remaining -= thisStep;
+    }
+}
+
+void EconomyGPU::readbackMetrics(int year) {
+    if (!m_initialized) {
+        return;
+    }
+    computeCountryMetricsCPU(year);
+    m_lastReadbackYear = year;
+    m_hasAnyReadback = true;
 }
 
 void EconomyGPU::applyCountryMetrics(std::vector<Country>& countries) const {
@@ -444,15 +579,20 @@ void EconomyGPU::rebuildCountryId(const Map& map) {
                 }
             }
 
+            // Prefer any owned land over "empty" so sparse early territories still register.
+            // Only fall back to 0 when the block has no owned pixels at all.
             int bestId = 0;
             int bestCount = -1;
             for (int id : touched) {
                 int v = counts[static_cast<size_t>(id)];
-                if (v > bestCount) {
+                if (id != 0 && v > bestCount) {
                     bestCount = v;
                     bestId = id;
                 }
                 counts[static_cast<size_t>(id)] = 0;
+            }
+            if (bestCount < 0) {
+                bestId = 0;
             }
 
             const sf::Uint8 low = static_cast<sf::Uint8>(bestId & 255);
@@ -674,7 +814,6 @@ void EconomyGPU::computeCountryMetricsCPU(int year) {
     const float kExport = 0.06f;
 
     // Wealth + GDP
-    const float capLogDen = std::log1p(m_cfg.maxCapital);
     for (size_t i = 0; i < cellCount; ++i) {
         const size_t idx = i * 4u;
 
@@ -687,14 +826,14 @@ void EconomyGPU::computeCountryMetricsCPU(int year) {
         const float mat = (static_cast<float>(pixels[idx + 1]) / 255.0f) * m_cfg.maxInvMat;
         const float cons = (static_cast<float>(pixels[idx + 2]) / 255.0f) * m_cfg.maxInvCons;
         const float capN = static_cast<float>(pixels[idx + 3]) / 255.0f;
-        const float cap = static_cast<float>(std::expm1(static_cast<double>(capN) * static_cast<double>(capLogDen)));
+        const float cap = (capN * capN) * m_cfg.maxCapital;
 
         const double wealthCell = static_cast<double>(food * wFood + mat * wMat + cons * wCons + cap * wCap);
         m_countryWealth[static_cast<size_t>(id)] += wealthCell;
 
         if (m_hasPrevReadback) {
             const float capPrevN = static_cast<float>(m_prevStatePixels[idx + 3]) / 255.0f;
-            const float capPrev = static_cast<float>(std::expm1(static_cast<double>(capPrevN) * static_cast<double>(capLogDen)));
+            const float capPrev = (capPrevN * capPrevN) * m_cfg.maxCapital;
             const float dCap = std::max(0.0f, cap - capPrev);
 
             const float inv = std::max(0.02f, m_countryInvestRate[static_cast<size_t>(id)]);
