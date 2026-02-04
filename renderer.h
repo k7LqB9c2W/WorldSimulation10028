@@ -14,10 +14,12 @@
 
 class TradeManager;
 
+enum class ViewMode { Flat2D, Globe };
+
 class Renderer {
 public:
     Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& waterColor);
-    void render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const CultureManager& cultureManager, const TradeManager& tradeManager, const Country* selectedCountry, bool showCountryInfo);
+    void render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const CultureManager& cultureManager, const TradeManager& tradeManager, const Country* selectedCountry, bool showCountryInfo, ViewMode viewMode);
     void toggleWarmongerHighlights();
     void toggleWealthLeaderboard();
     void updateYearText(int year);
@@ -38,6 +40,13 @@ public:
     void renderMegaTimeJumpScreen(const std::string& inputText, const sf::Font& font);
     void renderCountryAddEditor(const std::string& inputText, int editorState, int maxTechId, int maxCultureId, const sf::Font& font);
     void renderTechEditor(const Country& country, const TechnologyManager& techManager, const std::string& inputText, const sf::Font& font);
+
+    void resetGlobeView();
+    void addGlobeRotation(float deltaYawRadians, float deltaPitchRadians);
+    void addGlobeRadiusScale(float delta);
+    sf::FloatRect getViewToggleButtonBounds() const;
+    bool globeScreenToMapPixel(sf::Vector2i mousePx, const Map& map, sf::Vector2f& outMapPixel) const;
+    bool globeScreenToGrid(sf::Vector2i mousePx, const Map& map, sf::Vector2i& outGrid) const;
 
 private:
     sf::RenderWindow& m_window;
@@ -95,25 +104,15 @@ private:
 
     void updateCountryImage(const std::vector<std::vector<int>>& countryGrid, const std::vector<Country>& countries, const Map& map);
     void drawCountryInfo(const Country* country, const TechnologyManager& techManager);
-    void drawWarmongerHighlights(const std::vector<Country>& countries, const Map& map);
-    void drawWarHighlights(const std::vector<Country>& countries, const Map& map);
     void drawTechList(const Country* country, const TechnologyManager& techManager, float x, float y, float width, float height);
     void drawCivicList(const Country* country, const CultureManager& cultureManager);
     void updateExtractorVertices(const Map& map, const std::vector<Country>& countries, const TechnologyManager& technologyManager);
     sf::Color getExtractorColor(Resource::Type type) const;
     int getExtractorUnlockTech(Resource::Type type) const;
-	    void drawRoadNetwork(const Country& country, const Map& map, const TechnologyManager& technologyManager, const sf::FloatRect& visibleArea);
-	    void drawFactories(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
-	    void drawPorts(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
-	    void drawAirwayPlanes(const std::vector<Country>& countries, const Map& map);
-	    void drawTradeRoutes(const TradeManager& tradeManager, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
-	    void drawPlagueOverlay(const Map& map, const std::vector<Country>& countries, const sf::FloatRect& visibleArea);
-	    void drawWarFrontlines(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
-	    void drawWarArrows(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
 
-	    sf::Clock m_warArrowClock;
-	    bool m_showWealthLeaderboard = false;
-	    void drawWealthLeaderboard(const std::vector<Country>& countries);
+		    sf::Clock m_warArrowClock;
+		    bool m_showWealthLeaderboard = false;
+		    void drawWealthLeaderboard(const std::vector<Country>& countries);
 
 	    // Airway visuals (plane.png animation)
 	    sf::Texture m_planeTexture;
@@ -123,5 +122,32 @@ private:
 	        float t = 0.0f;     // 0..1 along segment
 	        bool forward = true;
 	    };
-	    std::unordered_map<std::uint64_t, AirwayAnimState> m_airwayAnim;
-	};
+		    std::unordered_map<std::uint64_t, AirwayAnimState> m_airwayAnim;
+
+		    // Globe view
+		    sf::RenderTexture m_worldCompositeRT;
+		    float m_worldCompositeScale = 1.0f;
+		    sf::Shader m_globeShader;
+		    bool m_globeShaderReady = false;
+		    sf::VertexArray m_starVerts;
+		    sf::Vector2u m_starWindowSize{ 0u, 0u };
+		    float m_globeYaw = 0.0f;
+		    float m_globePitch = 0.0f;
+		    float m_globeRadiusScale = 0.45f;
+
+		    bool ensureWorldComposite(const Map& map);
+		    void ensureStarfield();
+		    sf::Vector2f globeCenter() const;
+		    float globeRadiusPx() const;
+
+		    void drawWarmongerHighlights(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map);
+		    void drawWarHighlights(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map);
+		    void drawRoadNetwork(sf::RenderTarget& target, const Country& country, const Map& map, const TechnologyManager& technologyManager, const sf::FloatRect& visibleArea);
+		    void drawFactories(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+		    void drawPorts(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+		    void drawAirwayPlanes(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map);
+		    void drawTradeRoutes(sf::RenderTarget& target, const TradeManager& tradeManager, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+		    void drawPlagueOverlay(sf::RenderTarget& target, const Map& map, const std::vector<Country>& countries, const sf::FloatRect& visibleArea);
+		    void drawWarFrontlines(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+		    void drawWarArrows(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+		};

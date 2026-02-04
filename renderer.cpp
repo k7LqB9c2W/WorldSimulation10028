@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdint>
+#include <random>
 
 extern bool turboMode;
 extern bool paused;
@@ -67,6 +68,69 @@ void main()
 
     float u = (id + 0.5) / paletteSize;
     gl_FragColor = TEX_SAMPLE(palette, vec2(u, 0.5));
+}
+	)";
+	} // namespace
+
+namespace {
+const char* kGlobeFragmentShader = R"(
+#if __VERSION__ >= 130
+    #define TEX_SAMPLE texture
+#else
+    #define TEX_SAMPLE texture2D
+#endif
+
+uniform sampler2D u_worldTex;
+uniform float u_yaw;
+uniform float u_pitch;
+uniform vec3 u_lightDir;
+uniform float u_ambient;
+
+const float PI = 3.14159265358979323846264;
+
+vec3 rotY(vec3 v, float a) {
+    float c = cos(a);
+    float s = sin(a);
+    return vec3(c * v.x + s * v.z, v.y, -s * v.x + c * v.z);
+}
+
+vec3 rotX(vec3 v, float a) {
+    float c = cos(a);
+    float s = sin(a);
+    return vec3(v.x, c * v.y - s * v.z, s * v.y + c * v.z);
+}
+
+void main() {
+    vec2 uv = gl_TexCoord[0].xy;
+    vec2 p = uv * 2.0 - 1.0;
+    p.y = -p.y;
+
+    float r2 = dot(p, p);
+    if (r2 > 1.0) {
+        discard;
+    }
+
+    float z = sqrt(max(0.0, 1.0 - r2));
+    vec3 nView = normalize(vec3(p.x, p.y, z));
+
+    vec3 n = rotX(rotY(nView, u_yaw), u_pitch);
+    float lon = atan(n.x, n.z);
+    float lat = asin(clamp(n.y, -1.0, 1.0));
+
+    float tu = lon / (2.0 * PI) + 0.5;
+    float tv = 0.5 - lat / PI;
+    tu = fract(tu);
+    tv = clamp(tv, 0.0, 1.0);
+
+    vec4 col = TEX_SAMPLE(u_worldTex, vec2(tu, tv));
+
+    vec3 L = normalize(u_lightDir);
+    float diff = max(0.0, dot(nView, L));
+    float shade = u_ambient + (1.0 - u_ambient) * diff;
+    float rim = pow(1.0 - nView.z, 2.0);
+    vec3 outRgb = col.rgb * shade + vec3(0.12, 0.14, 0.18) * rim;
+
+    gl_FragColor = vec4(outRgb, col.a);
 }
 )";
 } // namespace
@@ -187,10 +251,10 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
         }
     }
 
-    if (tryLoadPlaneTexture(m_planeTexture, "plane.png", "Plane.png")) {
-        sf::Vector2u texSize = m_planeTexture.getSize();
-        m_planeSprite.setTexture(m_planeTexture);
-        m_planeSprite.setOrigin(static_cast<float>(texSize.x) * 0.5f, static_cast<float>(texSize.y) * 0.5f);
+	    if (tryLoadPlaneTexture(m_planeTexture, "plane.png", "Plane.png")) {
+	        sf::Vector2u texSize = m_planeTexture.getSize();
+	        m_planeSprite.setTexture(m_planeTexture);
+	        m_planeSprite.setOrigin(static_cast<float>(texSize.x) * 0.5f, static_cast<float>(texSize.y) * 0.5f);
         float targetSize = std::max(10.f, static_cast<float>(map.getGridCellSize()) * 14.f);
         float maxDimension = static_cast<float>(std::max(texSize.x, texSize.y));
         if (maxDimension > 0.f) {
@@ -211,12 +275,42 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
     m_infoWindowColorSquare.setSize(sf::Vector2f(20, 20));
 }
 
-void Renderer::render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const CultureManager& cultureManager, const TradeManager& tradeManager, const Country* selectedCountry, bool showCountryInfo) {
+void Renderer::render(const std::vector<Country>& countries,
+                      const Map& map,
+                      News& news,
+                      const TechnologyManager& technologyManager,
+                      const CultureManager& cultureManager,
+                      const TradeManager& tradeManager,
+                      const Country* selectedCountry,
+                      bool showCountryInfo,
+                      ViewMode viewMode) {
     sf::View worldView = m_window.getView();
 
-    m_window.clear();
+    bool globeMode = false;
+    sf::View drawView = worldView;
+    sf::FloatRect visibleArea;
+    sf::RenderTarget* worldTarget = &m_window;
 
-    m_window.draw(m_baseSprite); // Draw the base map (map.png)
+    if (viewMode == ViewMode::Globe && ensureWorldComposite(map) && m_globeShaderReady) {
+        globeMode = true;
+        const sf::Vector2u mapSize = map.getBaseImage().getSize();
+        drawView = sf::View(sf::FloatRect(0.f, 0.f, static_cast<float>(mapSize.x), static_cast<float>(mapSize.y)));
+        drawView.setCenter(static_cast<float>(mapSize.x) * 0.5f, static_cast<float>(mapSize.y) * 0.5f);
+        visibleArea = sf::FloatRect(0.f, 0.f, static_cast<float>(mapSize.x), static_cast<float>(mapSize.y));
+        worldTarget = &m_worldCompositeRT;
+
+        m_worldCompositeRT.setView(drawView);
+        m_worldCompositeRT.clear(sf::Color::Transparent);
+    } else {
+        sf::Vector2f viewCenter = worldView.getCenter();
+        sf::Vector2f viewSize = worldView.getSize();
+        visibleArea = sf::FloatRect(viewCenter.x - viewSize.x / 2.f, viewCenter.y - viewSize.y / 2.f, viewSize.x, viewSize.y);
+
+        m_window.clear();
+    }
+
+    worldTarget->setView(drawView);
+    worldTarget->draw(m_baseSprite); // Draw the base map (map.png)
 
     if (m_needsUpdate) {
         updateCountryImage(map.getCountryGrid(), countries, map);
@@ -236,35 +330,30 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
             m_countryOverlayShader.setUniform("showHover", 0.f);
             m_countryOverlayShader.setUniform("hoveredId", 0.f);
         }
-        m_window.draw(m_countryIdSprite, states);
+        worldTarget->draw(m_countryIdSprite, states);
     } else {
-        m_window.draw(m_countrySprite); // Draw the countries
+        worldTarget->draw(m_countrySprite); // Draw the countries
     }
 
-    // Performance optimization: Viewport culling - only draw cities that are visible
-    sf::Vector2f viewCenter = worldView.getCenter();
-    sf::Vector2f viewSize = worldView.getSize();
-    sf::FloatRect visibleArea(viewCenter.x - viewSize.x / 2.f, viewCenter.y - viewSize.y / 2.f, viewSize.x, viewSize.y);
-
-    drawPlagueOverlay(map, countries, visibleArea);
+    drawPlagueOverlay(*worldTarget, map, countries, visibleArea);
 
     // Refresh infrastructure overlays before drawing per-country assets
     updateExtractorVertices(map, countries, technologyManager);
 
     // Draw roads/rails first (so they appear under cities)
     for (const auto& country : countries) {
-        drawRoadNetwork(country, map, technologyManager, visibleArea);
+        drawRoadNetwork(*worldTarget, country, map, technologyManager, visibleArea);
     }
 
-    drawTradeRoutes(tradeManager, countries, map, visibleArea);
-    drawAirwayPlanes(countries, map);
+    drawTradeRoutes(*worldTarget, tradeManager, countries, map, visibleArea);
+    drawAirwayPlanes(*worldTarget, countries, map);
 
     if (m_extractorVertices.getVertexCount() > 0) {
-        m_window.draw(m_extractorVertices);
+        worldTarget->draw(m_extractorVertices);
     }
 
-    drawFactories(countries, map, visibleArea);
-    drawPorts(countries, map, visibleArea);
+    drawFactories(*worldTarget, countries, map, visibleArea);
+    drawPorts(*worldTarget, countries, map, visibleArea);
 
     // Draw cities with viewport culling (on top of infrastructure)
     for (const auto& country : countries) {
@@ -300,7 +389,7 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
             cityGlow.setOrigin(glowSize / 2.0f, glowSize / 2.0f);
             cityGlow.setPosition(cityCenter);
             cityGlow.setFillColor(glowColor);
-            m_window.draw(cityGlow);
+            worldTarget->draw(cityGlow);
 
             sf::RectangleShape cityShape(sf::Vector2f(citySize, citySize));
             cityShape.setOrigin(citySize / 2.0f, citySize / 2.0f);
@@ -312,7 +401,7 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
             }
 
             cityShape.setPosition(cityCenter);
-            m_window.draw(cityShape);
+            worldTarget->draw(cityShape);
 
             if (cityLocation == capitalLocation) {
                 float markerSize = std::max(1.2f, map.getGridCellSize() * 1.2f);
@@ -322,13 +411,13 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
                 marker.setFillColor(sf::Color(255, 230, 160, 200));
 
                 marker.setPosition(cityCenter.x + clusterRadius, cityCenter.y);
-                m_window.draw(marker);
+                worldTarget->draw(marker);
 
                 marker.setPosition(cityCenter.x - clusterRadius * 0.7f, cityCenter.y + clusterRadius * 0.6f);
-                m_window.draw(marker);
+                worldTarget->draw(marker);
 
                 marker.setPosition(cityCenter.x - clusterRadius * 0.7f, cityCenter.y - clusterRadius * 0.6f);
-                m_window.draw(marker);
+                worldTarget->draw(marker);
 
                 sf::CircleShape ring(clusterRadius);
                 ring.setOrigin(clusterRadius, clusterRadius);
@@ -336,24 +425,24 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
                 ring.setFillColor(sf::Color::Transparent);
                 ring.setOutlineColor(sf::Color(255, 220, 120, 120));
                 ring.setOutlineThickness(1.0f);
-                m_window.draw(ring);
+                worldTarget->draw(ring);
             }
         }
     }
 
     // Draw Warmonger highlights if the flag is true
     if (m_showWarmongerHighlights) {
-        drawWarmongerHighlights(countries, map);
+        drawWarmongerHighlights(*worldTarget, countries, map);
     }
 
     // Draw war highlights if the flag is true
     if (m_showWarHighlights) {
-        drawWarFrontlines(countries, map, visibleArea);
-        drawWarHighlights(countries, map);
+        drawWarFrontlines(*worldTarget, countries, map, visibleArea);
+        drawWarHighlights(*worldTarget, countries, map);
     }
 
     // Always show a primary-target war arrow when a country is at war.
-    drawWarArrows(countries, map, visibleArea);
+    drawWarArrows(*worldTarget, countries, map, visibleArea);
 
     // CPU fallback hover marker (GPU path handles full highlight via shader).
     if (!m_useGpuCountryOverlay && m_hoveredCountryIndex >= 0 &&
@@ -370,7 +459,43 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
         marker.setFillColor(sf::Color(255, 255, 255, 60));
         marker.setOutlineColor(sf::Color::Black);
         marker.setOutlineThickness(std::max(1.0f, r * 0.18f));
-        m_window.draw(marker);
+        worldTarget->draw(marker);
+    }
+
+    if (globeMode) {
+        m_worldCompositeRT.display();
+        ensureStarfield();
+
+        m_window.setView(m_window.getDefaultView());
+        m_window.clear(sf::Color::Black);
+        if (m_starVerts.getVertexCount() > 0) {
+            m_window.draw(m_starVerts);
+        }
+
+        const float r = globeRadiusPx();
+        sf::CircleShape globe(r, 180);
+        globe.setOrigin(r, r);
+        globe.setPosition(globeCenter());
+        globe.setTexture(&m_worldCompositeRT.getTexture());
+        globe.setFillColor(sf::Color::White);
+
+        m_globeShader.setUniform("u_worldTex", sf::Shader::CurrentTexture);
+        m_globeShader.setUniform("u_yaw", m_globeYaw);
+        m_globeShader.setUniform("u_pitch", m_globePitch);
+        m_globeShader.setUniform("u_lightDir", sf::Glsl::Vec3(-0.35f, 0.20f, 1.0f));
+        m_globeShader.setUniform("u_ambient", 0.28f);
+
+        sf::RenderStates states;
+        states.shader = &m_globeShader;
+        m_window.draw(globe, states);
+
+        sf::CircleShape outline(r, 180);
+        outline.setOrigin(r, r);
+        outline.setPosition(globeCenter());
+        outline.setFillColor(sf::Color::Transparent);
+        outline.setOutlineThickness(std::max(1.0f, r * 0.01f));
+        outline.setOutlineColor(sf::Color(255, 255, 255, 60));
+        m_window.draw(outline);
     }
 
     m_window.setView(m_window.getDefaultView());
@@ -463,21 +588,43 @@ void Renderer::render(const std::vector<Country>& countries, const Map& map, New
         drawWealthLeaderboard(countries);
     }
 
-    if (m_showCountryAddModeText) {
-        sf::Text countryAddModeText;
-        countryAddModeText.setFont(m_font);
-        countryAddModeText.setCharacterSize(24);
-        countryAddModeText.setFillColor(sf::Color::White);
-        countryAddModeText.setPosition(10, 10);
-        countryAddModeText.setString("Country Add Mode");
-        m_window.draw(countryAddModeText);
-    }
+	    if (m_showCountryAddModeText) {
+	        sf::Text countryAddModeText;
+	        countryAddModeText.setFont(m_font);
+	        countryAddModeText.setCharacterSize(24);
+	        countryAddModeText.setFillColor(sf::Color::White);
+	        countryAddModeText.setPosition(10, 10);
+	        countryAddModeText.setString("Country Add Mode");
+	        m_window.draw(countryAddModeText);
+	    }
 
-    m_window.setView(worldView);
-    m_window.display();
-}
+	    // View toggle button (top-right)
+	    {
+	        const sf::FloatRect rect = getViewToggleButtonBounds();
+	        sf::RectangleShape btn(sf::Vector2f(rect.width, rect.height));
+	        btn.setPosition(rect.left, rect.top);
+	        btn.setFillColor(sf::Color(0, 0, 0, 160));
+	        btn.setOutlineColor(sf::Color(220, 220, 220, 160));
+	        btn.setOutlineThickness(1.0f);
 
-void Renderer::drawWarArrows(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
+	        sf::Text label;
+	        label.setFont(m_font);
+	        label.setCharacterSize(18);
+	        label.setFillColor(sf::Color::White);
+	        label.setString(viewMode == ViewMode::Globe ? "2D (G)" : "Globe (G)");
+	        sf::FloatRect lb = label.getLocalBounds();
+	        label.setPosition(rect.left + (rect.width - lb.width) * 0.5f - lb.left,
+	                          rect.top + (rect.height - lb.height) * 0.5f - lb.top - 1.0f);
+
+	        m_window.draw(btn);
+	        m_window.draw(label);
+	    }
+
+	    m_window.setView(worldView);
+	    m_window.display();
+	}
+
+void Renderer::drawWarArrows(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
     const int gridCellSize = map.getGridCellSize();
     if (gridCellSize <= 0) {
         return;
@@ -577,7 +724,7 @@ void Renderer::drawWarArrows(const std::vector<Country>& countries, const Map& m
     }
 
     if (tris.getVertexCount() > 0) {
-        m_window.draw(tris);
+        target.draw(tris);
     }
 }
 
@@ -889,7 +1036,7 @@ void Renderer::drawWealthLeaderboard(const std::vector<Country>& countries) {
     m_window.setView(prev);
 }
 
-void Renderer::drawWarmongerHighlights(const std::vector<Country>& countries, const Map& map) {
+void Renderer::drawWarmongerHighlights(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map) {
     int gridCellSize = map.getGridCellSize();
 
     for (const auto& country : countries) {
@@ -913,7 +1060,7 @@ void Renderer::drawWarmongerHighlights(const std::vector<Country>& countries, co
                 border.setOutlineThickness(2.0f);
                 border.setFillColor(sf::Color::Transparent);
 
-                m_window.draw(border);
+                target.draw(border);
             }
         }
     }
@@ -1070,7 +1217,7 @@ void Renderer::updateCountryImage(const std::vector<std::vector<int>>& countryGr
     }
 }
 
-void Renderer::drawWarHighlights(const std::vector<Country>& countries, const Map& map) {
+void Renderer::drawWarHighlights(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map) {
     int gridCellSize = map.getGridCellSize();
 
     for (const auto& country : countries) {
@@ -1093,7 +1240,7 @@ void Renderer::drawWarHighlights(const std::vector<Country>& countries, const Ma
             border.setOutlineThickness(2.0f);
             border.setFillColor(sf::Color::Transparent);
 
-            m_window.draw(border);
+            target.draw(border);
         }
     }
 }
@@ -1120,6 +1267,176 @@ void Renderer::updateYearText(int year) {
         m_yearText.setString("Year: " + std::to_string(year) + " CE");
     }
     m_yearText.setPosition(static_cast<float>(m_window.getSize().x) / 2.0f - 100.0f, 20.0f);
+}
+
+sf::FloatRect Renderer::getViewToggleButtonBounds() const {
+    const float w = 120.0f;
+    const float h = 34.0f;
+    const float pad = 12.0f;
+    return sf::FloatRect(static_cast<float>(m_window.getSize().x) - w - pad, pad, w, h);
+}
+
+void Renderer::resetGlobeView() {
+    m_globeYaw = 0.0f;
+    m_globePitch = 0.0f;
+    m_globeRadiusScale = 0.45f;
+}
+
+void Renderer::addGlobeRotation(float deltaYawRadians, float deltaPitchRadians) {
+    m_globeYaw += deltaYawRadians;
+    m_globePitch += deltaPitchRadians;
+
+    const float pi = 3.14159265358979323846f;
+    if (m_globeYaw > pi) {
+        m_globeYaw -= 2.0f * pi;
+    } else if (m_globeYaw < -pi) {
+        m_globeYaw += 2.0f * pi;
+    }
+
+    const float maxPitch = 1.35f;
+    m_globePitch = std::max(-maxPitch, std::min(maxPitch, m_globePitch));
+}
+
+void Renderer::addGlobeRadiusScale(float delta) {
+    m_globeRadiusScale = std::max(0.25f, std::min(0.49f, m_globeRadiusScale + delta));
+}
+
+sf::Vector2f Renderer::globeCenter() const {
+    return sf::Vector2f(static_cast<float>(m_window.getSize().x) * 0.5f,
+                        static_cast<float>(m_window.getSize().y) * 0.5f + 20.0f);
+}
+
+float Renderer::globeRadiusPx() const {
+    const float w = static_cast<float>(m_window.getSize().x);
+    const float h = static_cast<float>(m_window.getSize().y);
+    return std::min(w, h) * m_globeRadiusScale;
+}
+
+void Renderer::ensureStarfield() {
+    const sf::Vector2u sz = m_window.getSize();
+    if (m_starWindowSize == sz && m_starVerts.getVertexCount() > 0) {
+        return;
+    }
+    m_starWindowSize = sz;
+
+    const int w = static_cast<int>(sz.x);
+    const int h = static_cast<int>(sz.y);
+    if (w <= 0 || h <= 0) {
+        m_starVerts.clear();
+        return;
+    }
+
+    const int desired = std::max(800, std::min(3000, (w * h) / 2500));
+
+    std::mt19937 rng(1337u);
+    std::uniform_real_distribution<float> xDist(0.0f, static_cast<float>(w));
+    std::uniform_real_distribution<float> yDist(0.0f, static_cast<float>(h));
+    std::uniform_int_distribution<int> brightDist(150, 255);
+    std::uniform_int_distribution<int> alphaDist(60, 200);
+
+    m_starVerts.setPrimitiveType(sf::Points);
+    m_starVerts.resize(static_cast<size_t>(desired));
+    for (int i = 0; i < desired; ++i) {
+        sf::Vertex v;
+        v.position = sf::Vector2f(xDist(rng), yDist(rng));
+        int b = brightDist(rng);
+        int a = alphaDist(rng);
+        v.color = sf::Color(static_cast<sf::Uint8>(b), static_cast<sf::Uint8>(b), static_cast<sf::Uint8>(b), static_cast<sf::Uint8>(a));
+        m_starVerts[static_cast<size_t>(i)] = v;
+    }
+}
+
+bool Renderer::ensureWorldComposite(const Map& map) {
+    if (!sf::Shader::isAvailable()) {
+        return false;
+    }
+
+    const sf::Vector2u mapSize = map.getBaseImage().getSize();
+    if (mapSize.x == 0 || mapSize.y == 0) {
+        return false;
+    }
+
+    const unsigned int maxTex = sf::Texture::getMaximumSize();
+    const unsigned int cap = std::min(maxTex, 4096u);
+
+    float scale = 1.0f;
+    if (mapSize.x > cap || mapSize.y > cap) {
+        scale = std::min(static_cast<float>(cap) / static_cast<float>(mapSize.x),
+                         static_cast<float>(cap) / static_cast<float>(mapSize.y));
+        scale = std::max(0.01f, std::min(1.0f, scale));
+    }
+
+    const unsigned int w = std::max(1u, static_cast<unsigned int>(std::lround(static_cast<double>(mapSize.x) * scale)));
+    const unsigned int h = std::max(1u, static_cast<unsigned int>(std::lround(static_cast<double>(mapSize.y) * scale)));
+
+    if (m_worldCompositeRT.getSize().x != w || m_worldCompositeRT.getSize().y != h) {
+        if (!m_worldCompositeRT.create(w, h)) {
+            return false;
+        }
+        m_worldCompositeRT.setSmooth(true);
+    }
+    m_worldCompositeScale = scale;
+
+    if (!m_globeShaderReady) {
+        m_globeShaderReady = m_globeShader.loadFromMemory(kGlobeFragmentShader, sf::Shader::Fragment);
+    }
+    return m_globeShaderReady;
+}
+
+bool Renderer::globeScreenToMapPixel(sf::Vector2i mousePx, const Map& map, sf::Vector2f& outMapPixel) const {
+    const float r = globeRadiusPx();
+    if (r <= 1.0f) {
+        return false;
+    }
+
+    const sf::Vector2f c = globeCenter();
+    const float x = (static_cast<float>(mousePx.x) + 0.5f - c.x) / r;
+    const float y = (static_cast<float>(mousePx.y) + 0.5f - c.y) / r;
+
+    const float r2 = x * x + y * y;
+    if (r2 > 1.0f) {
+        return false;
+    }
+
+    const float z = std::sqrt(std::max(0.0f, 1.0f - r2));
+    float vx = x;
+    float vy = -y;
+    float vz = z;
+
+    const float cy = std::cos(m_globeYaw);
+    const float sy = std::sin(m_globeYaw);
+    float rx = cy * vx + sy * vz;
+    float ry = vy;
+    float rz = -sy * vx + cy * vz;
+
+    const float cx = std::cos(m_globePitch);
+    const float sx = std::sin(m_globePitch);
+    float fx = rx;
+    float fy = cx * ry - sx * rz;
+    float fz = sx * ry + cx * rz;
+
+    const float pi = 3.14159265358979323846f;
+    float lon = std::atan2(fx, fz);
+    float lat = std::asin(std::max(-1.0f, std::min(1.0f, fy)));
+
+    float u = lon / (2.0f * pi) + 0.5f;
+    u = u - std::floor(u);
+    float v = 0.5f - lat / pi;
+    v = std::max(0.0f, std::min(1.0f, v));
+
+    const sf::Vector2u mapSize = map.getBaseImage().getSize();
+    outMapPixel.x = u * static_cast<float>(mapSize.x);
+    outMapPixel.y = v * static_cast<float>(mapSize.y);
+    return true;
+}
+
+bool Renderer::globeScreenToGrid(sf::Vector2i mousePx, const Map& map, sf::Vector2i& outGrid) const {
+    sf::Vector2f mapPixel;
+    if (!globeScreenToMapPixel(mousePx, map, mapPixel)) {
+        return false;
+    }
+    outGrid = map.pixelToGrid(mapPixel);
+    return true;
 }
 
 void Renderer::handleWindowRecreated(const Map& map) {
@@ -1163,10 +1480,14 @@ void Renderer::handleWindowRecreated(const Map& map) {
             float scale = targetSize / maxDimension;
             m_planeSprite.setScale(scale, scale);
         }
-        m_planeSprite.setColor(sf::Color(255, 255, 255, 230));
-    }
+	        m_planeSprite.setColor(sf::Color(255, 255, 255, 230));
+	    }
 
-    updateYearText(m_currentYear);
+	    // Globe/star caches depend on window size and GPU resources.
+	    m_starWindowSize = sf::Vector2u(0u, 0u);
+	    m_starVerts.clear();
+
+	    updateYearText(m_currentYear);
 }
 
 void Renderer::showLoadingScreen() {
@@ -1676,7 +1997,7 @@ int Renderer::getExtractorUnlockTech(Resource::Type type) const {
     }
 }
 
-void Renderer::drawRoadNetwork(const Country& country, const Map& map, const TechnologyManager& technologyManager, const sf::FloatRect& visibleArea) {
+void Renderer::drawRoadNetwork(sf::RenderTarget& target, const Country& country, const Map& map, const TechnologyManager& technologyManager, const sf::FloatRect& visibleArea) {
     const auto& roads = country.getRoads();
     if (roads.empty()) {
         return;
@@ -1721,21 +2042,21 @@ void Renderer::drawRoadNetwork(const Country& country, const Map& map, const Tec
 
         if (hasRail) {
             railBase.setPosition(roadWorldPos);
-            m_window.draw(railBase);
+            target.draw(railBase);
 
             railGlow.setPosition(roadWorldPos.x + cellSize / 2.f, roadWorldPos.y + cellSize / 2.f);
-            m_window.draw(railGlow);
+            target.draw(railGlow);
         } else {
             roadSurface.setPosition(roadWorldPos);
-            m_window.draw(roadSurface);
+            target.draw(roadSurface);
 
             roadHighlight.setPosition(roadWorldPos.x + cellSize / 2.f, roadWorldPos.y + cellSize / 2.f);
-            m_window.draw(roadHighlight);
+            target.draw(roadHighlight);
         }
     }
 }
 
-void Renderer::drawFactories(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
+void Renderer::drawFactories(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
     if (!m_factoryTexture.getSize().x || !m_factoryTexture.getSize().y) {
         return;
     }
@@ -1763,14 +2084,14 @@ void Renderer::drawFactories(const std::vector<Country>& countries, const Map& m
 
             m_factorySprite.setColor(tint);
             m_factorySprite.setPosition(worldCenter);
-            m_window.draw(m_factorySprite);
+            target.draw(m_factorySprite);
         }
     }
 
     m_factorySprite.setColor(sf::Color::White);
 }
 
-void Renderer::drawPorts(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
+void Renderer::drawPorts(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
     const float cellSize = static_cast<float>(map.getGridCellSize());
     const float symbolSize = std::max(8.f, cellSize * 12.f);
     const float half = symbolSize * 0.6f;
@@ -1802,19 +2123,19 @@ void Renderer::drawPorts(const std::vector<Country>& countries, const Map& map, 
 
         ring.setOutlineColor(shadow);
         ring.setPosition(center + shadowOff + sf::Vector2f(0.f, -symbolSize * 0.42f));
-        m_window.draw(ring);
+        target.draw(ring);
 
         stem.setFillColor(shadow);
         stem.setPosition(center + shadowOff);
-        m_window.draw(stem);
+        target.draw(stem);
 
         cross.setFillColor(shadow);
         cross.setPosition(center + shadowOff + sf::Vector2f(0.f, -symbolSize * 0.10f));
-        m_window.draw(cross);
+        target.draw(cross);
 
         base.setOutlineColor(shadow);
         base.setPosition(center + shadowOff + sf::Vector2f(0.f, symbolSize * 0.22f));
-        m_window.draw(base);
+        target.draw(base);
 
         flukes[0].position = center + shadowOff + sf::Vector2f(-symbolSize * 0.36f, baseY);
         flukes[1].position = center + shadowOff + sf::Vector2f(-symbolSize * 0.10f, midY);
@@ -1824,25 +2145,25 @@ void Renderer::drawPorts(const std::vector<Country>& countries, const Map& map, 
         flukes[1].color = shadow;
         flukes[2].color = shadow;
         flukes[3].color = shadow;
-        m_window.draw(flukes);
+        target.draw(flukes);
 
         sf::Color main = tint;
         main.a = 235;
         ring.setOutlineColor(main);
         ring.setPosition(center + sf::Vector2f(0.f, -symbolSize * 0.42f));
-        m_window.draw(ring);
+        target.draw(ring);
 
         stem.setFillColor(main);
         stem.setPosition(center);
-        m_window.draw(stem);
+        target.draw(stem);
 
         cross.setFillColor(main);
         cross.setPosition(center + sf::Vector2f(0.f, -symbolSize * 0.10f));
-        m_window.draw(cross);
+        target.draw(cross);
 
         base.setOutlineColor(main);
         base.setPosition(center + sf::Vector2f(0.f, symbolSize * 0.22f));
-        m_window.draw(base);
+        target.draw(base);
 
         flukes[0].position = center + sf::Vector2f(-symbolSize * 0.36f, baseY);
         flukes[1].position = center + sf::Vector2f(-symbolSize * 0.10f, midY);
@@ -1852,7 +2173,7 @@ void Renderer::drawPorts(const std::vector<Country>& countries, const Map& map, 
         flukes[1].color = main;
         flukes[2].color = main;
         flukes[3].color = main;
-        m_window.draw(flukes);
+        target.draw(flukes);
     };
 
     for (const auto& country : countries) {
@@ -1875,7 +2196,7 @@ void Renderer::drawPorts(const std::vector<Country>& countries, const Map& map, 
     }
 }
 
-void Renderer::drawAirwayPlanes(const std::vector<Country>& countries, const Map& map) {
+void Renderer::drawAirwayPlanes(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map) {
     if (!m_planeTexture.getSize().x || !m_planeTexture.getSize().y) {
         m_planeAnimClock.restart();
         return;
@@ -1957,7 +2278,7 @@ void Renderer::drawAirwayPlanes(const std::vector<Country>& countries, const Map
 
             m_planeSprite.setRotation(ang);
             m_planeSprite.setPosition(pos);
-            m_window.draw(m_planeSprite);
+            target.draw(m_planeSprite);
         }
     }
 
@@ -1980,7 +2301,7 @@ void Renderer::drawAirwayPlanes(const std::vector<Country>& countries, const Map
     }
 }
 
-void Renderer::drawTradeRoutes(const TradeManager& tradeManager, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
+void Renderer::drawTradeRoutes(sf::RenderTarget& target, const TradeManager& tradeManager, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
     const auto& routes = tradeManager.getTradeRoutes();
     if (routes.empty()) {
         return;
@@ -2031,11 +2352,11 @@ void Renderer::drawTradeRoutes(const TradeManager& tradeManager, const std::vect
     }
 
     if (routeLines.getVertexCount() > 0) {
-        m_window.draw(routeLines);
+        target.draw(routeLines);
     }
 }
 
-void Renderer::drawPlagueOverlay(const Map& map, const std::vector<Country>& countries, const sf::FloatRect& visibleArea) {
+void Renderer::drawPlagueOverlay(sf::RenderTarget& target, const Map& map, const std::vector<Country>& countries, const sf::FloatRect& visibleArea) {
     if (!map.isPlagueActive()) {
         return;
     }
@@ -2072,11 +2393,11 @@ void Renderer::drawPlagueOverlay(const Map& map, const std::vector<Country>& cou
     }
 
     if (plagueVertices.getVertexCount() > 0) {
-        m_window.draw(plagueVertices);
+        target.draw(plagueVertices);
     }
 }
 
-void Renderer::drawWarFrontlines(const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
+void Renderer::drawWarFrontlines(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
     sf::VertexArray frontline(sf::Quads);
     float cellSize = static_cast<float>(map.getGridCellSize());
     const auto& countryGrid = map.getCountryGrid();
@@ -2157,7 +2478,7 @@ void Renderer::drawWarFrontlines(const std::vector<Country>& countries, const Ma
     }
 
     if (frontline.getVertexCount() > 0) {
-        m_window.draw(frontline);
+        target.draw(frontline);
     }
 
     if (!fortPositions.empty()) {
@@ -2176,9 +2497,9 @@ void Renderer::drawWarFrontlines(const std::vector<Country>& countries, const Ma
 
         for (const auto& pos : fortPositions) {
             fort.setPosition(pos);
-            m_window.draw(fort);
+            target.draw(fort);
             fortRing.setPosition(pos);
-            m_window.draw(fortRing);
+            target.draw(fortRing);
         }
     }
 }

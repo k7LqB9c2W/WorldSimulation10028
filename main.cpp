@@ -6,6 +6,7 @@
 #include <chrono>
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <unordered_set>
 #include <omp.h>
 #include <csignal>
@@ -228,18 +229,24 @@ int main() {
     };
 
     // Zoom and panning variables
-    bool enableZoom = false;
-    float zoomLevel = 1.0f;
-    sf::View defaultView = buildWorldView(window.getSize());
-    sf::View zoomedView = defaultView;
-    window.setView(defaultView);
-    sf::Vector2f lastMousePos;
-    bool isDragging = false;
-    bool spacebarDown = false;
-    auto withUiView = [&](auto&& drawFn) {
-        sf::View previousView = window.getView();
-        window.setView(window.getDefaultView());
-        drawFn();
+	    bool enableZoom = false;
+	    float zoomLevel = 1.0f;
+	    sf::View defaultView = buildWorldView(window.getSize());
+	    sf::View zoomedView = defaultView;
+	    window.setView(defaultView);
+	    ViewMode viewMode = ViewMode::Flat2D;
+	    sf::Vector2f lastMousePos;
+	    bool isDragging = false;
+	    bool spacebarDown = false;
+	    bool globeRightDragActive = false;
+	    bool globeRightDragRotating = false;
+	    bool globeRightClickPendingPick = false;
+	    sf::Vector2i globeRightPressPos(0, 0);
+	    sf::Vector2i globeLastMousePos(0, 0);
+	    auto withUiView = [&](auto&& drawFn) {
+	        sf::View previousView = window.getView();
+	        window.setView(window.getDefaultView());
+	        drawFn();
         window.setView(previousView);
     };
 
@@ -343,9 +350,17 @@ int main() {
 	    } megaTimeJumpThreadGuard{ megaTimeJumpThread, megaTimeJumpCancelRequested };
 
 	    while (window.isOpen()) {
-        frameClock.restart(); // Start frame timing
-        
+	        frameClock.restart(); // Start frame timing
+	        
 	        sf::Event event;
+	        auto tryGetGridUnderMouse = [&](const sf::Vector2i& mousePos, sf::Vector2i& outGrid) -> bool {
+	            if (viewMode == ViewMode::Globe) {
+	                return renderer.globeScreenToGrid(mousePos, map, outGrid);
+	            }
+	            sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
+	            outGrid = map.pixelToGrid(worldPos);
+	            return true;
+	        };
 	        while (window.pollEvent(event)) {
 	            if (megaTimeJumpRunning) {
 	                if (event.type == sf::Event::Closed) {
@@ -662,7 +677,7 @@ int main() {
                     fastForwardText.setString("FAST FORWARD COMPLETE!");
                     fastForwardText.setFillColor(sf::Color::Green);
                     window.clear();
-                    renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
+                    renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo, viewMode);
                     withUiView([&] {
                         window.draw(fastForwardText);
                     });
@@ -705,17 +720,24 @@ int main() {
                         std::cout << "Select a country first (click one) to edit its technologies." << std::endl;
                     }
                 }
-                else if (event.key.code == sf::Keyboard::Z) { // 🚀 MEGA TIME JUMP MODE
-                    megaTimeJumpMode = true;
-                    megaTimeJumpInput = "";
-                    std::cout << "\n🚀 MEGA TIME JUMP MODE ACTIVATED!" << std::endl;
-                }
-                else if (event.key.code == sf::Keyboard::M) { // 🏗️ COUNTRY ADD EDITOR MODE
-                    countryAddEditorMode = true;
-                    editorInput = "";
-                    editorState = 0;
-                    std::cout << "\n🏗️ COUNTRY ADD EDITOR ACTIVATED!" << std::endl;
-                }
+	                else if (event.key.code == sf::Keyboard::Z) { // 🚀 MEGA TIME JUMP MODE
+	                    megaTimeJumpMode = true;
+	                    megaTimeJumpInput = "";
+	                    std::cout << "\n🚀 MEGA TIME JUMP MODE ACTIVATED!" << std::endl;
+	                }
+	                else if (event.key.code == sf::Keyboard::G && !megaTimeJumpMode && !countryAddEditorMode && !techEditorMode) { // 🌍 TOGGLE GLOBE VIEW
+	                    viewMode = (viewMode == ViewMode::Flat2D) ? ViewMode::Globe : ViewMode::Flat2D;
+	                    if (viewMode == ViewMode::Globe) {
+	                        renderer.resetGlobeView();
+	                    }
+	                    renderingNeedsUpdate = true;
+	                }
+	                else if (event.key.code == sf::Keyboard::M) { // 🏗️ COUNTRY ADD EDITOR MODE
+	                    countryAddEditorMode = true;
+	                    editorInput = "";
+	                    editorState = 0;
+	                    std::cout << "\n🏗️ COUNTRY ADD EDITOR ACTIVATED!" << std::endl;
+	                }
             }
             else if (event.type == sf::Event::TextEntered) {
                 // Handle text input for Technology Editor
@@ -1119,7 +1141,7 @@ int main() {
                     int delta = (event.mouseWheelScroll.delta > 0) ? 1 : -1;
                     paintBrushRadius = std::max(1, std::min(64, paintBrushRadius + delta));
                 }
-                if (showCountryInfo) {
+	                if (showCountryInfo) {
                     if (event.mouseWheelScroll.delta > 0) {
                         // Scrolling up
                         if (sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::RShift)) {
@@ -1150,12 +1172,16 @@ int main() {
                             renderer.setCivicScrollOffset(newOffset);
                         }
                     }
-                }
-                else if (enableZoom) {
-                    if (event.mouseWheelScroll.delta > 0) {
-                        zoomLevel *= 0.9f;
-                    }
-                    else {
+	                }
+	                else if (viewMode == ViewMode::Globe) {
+	                    renderer.addGlobeRadiusScale(event.mouseWheelScroll.delta * 0.02f);
+	                    renderingNeedsUpdate = true;
+	                }
+	                else if (enableZoom) {
+	                    if (event.mouseWheelScroll.delta > 0) {
+	                        zoomLevel *= 0.9f;
+	                    }
+	                    else {
                         zoomLevel *= 1.1f;
                     }
                     zoomLevel = std::max(0.5f, std::min(zoomLevel, 3.0f));
@@ -1163,11 +1189,21 @@ int main() {
                 }
             }
             else if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Right) {
+                if (viewMode == ViewMode::Globe) {
+                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+                    globeRightDragActive = true;
+                    globeRightDragRotating = false;
+                    globeRightClickPendingPick = paintMode && !megaTimeJumpMode && !countryAddEditorMode;
+                    globeRightPressPos = mousePos;
+                    globeLastMousePos = mousePos;
+                    continue;
+                }
+
                 if (paintMode && !megaTimeJumpMode && !countryAddEditorMode) {
                     sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-                    sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
-                    sf::Vector2i gridPos = map.pixelToGrid(worldPos);
-                    if (gridPos.x >= 0 && gridPos.x < static_cast<int>(map.getCountryGrid()[0].size()) &&
+                    sf::Vector2i gridPos;
+                    if (tryGetGridUnderMouse(mousePos, gridPos) &&
+                        gridPos.x >= 0 && gridPos.x < static_cast<int>(map.getCountryGrid()[0].size()) &&
                         gridPos.y >= 0 && gridPos.y < static_cast<int>(map.getCountryGrid().size())) {
                         int owner = map.getCountryGrid()[gridPos.y][gridPos.x];
                         if (owner >= 0 && owner < static_cast<int>(countries.size())) {
@@ -1178,10 +1214,25 @@ int main() {
             }
             else if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
                 renderingNeedsUpdate = true; // Force render for interaction
-                if (forceInvasionMode && !megaTimeJumpMode && !countryAddEditorMode && !techEditorMode && !paintMode) {
+                {
                     sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-                    sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
-                    sf::Vector2i gridPos = map.pixelToGrid(worldPos);
+                    const sf::FloatRect toggleRect = renderer.getViewToggleButtonBounds();
+                    if (!megaTimeJumpMode && !countryAddEditorMode && !techEditorMode &&
+                        toggleRect.contains(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y))) {
+                        viewMode = (viewMode == ViewMode::Flat2D) ? ViewMode::Globe : ViewMode::Flat2D;
+                        if (viewMode == ViewMode::Globe) {
+                            renderer.resetGlobeView();
+                        }
+                        renderingNeedsUpdate = true;
+                        continue;
+                    }
+                }
+	                if (forceInvasionMode && !megaTimeJumpMode && !countryAddEditorMode && !techEditorMode && !paintMode) {
+	                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+	                    sf::Vector2i gridPos;
+	                    if (!tryGetGridUnderMouse(mousePos, gridPos)) {
+	                        continue;
+	                    }
 
                     int owner = -1;
                     if (gridPos.x >= 0 && gridPos.x < static_cast<int>(map.getCountryGrid()[0].size()) &&
@@ -1215,14 +1266,16 @@ int main() {
                         }
                     }
                 }
-                else if (paintMode && !megaTimeJumpMode && !countryAddEditorMode) {
+	                else if (paintMode && !megaTimeJumpMode && !countryAddEditorMode) {
                     isDragging = false;
                     paintStrokeActive = false;
                     paintStrokeAffectedCountries.clear();
 
-                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-                    sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
-                    sf::Vector2i gridPos = map.pixelToGrid(worldPos);
+	                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+	                    sf::Vector2i gridPos;
+	                    if (!tryGetGridUnderMouse(mousePos, gridPos)) {
+	                        continue;
+	                    }
 
                     if (gridPos.x >= 0 && gridPos.x < static_cast<int>(map.getCountryGrid()[0].size()) &&
                         gridPos.y >= 0 && gridPos.y < static_cast<int>(map.getCountryGrid().size())) {
@@ -1239,16 +1292,18 @@ int main() {
                             }
                         }
                     }
-                }
-                else if (enableZoom) {
-                    isDragging = true;
-                    lastMousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
-                }
-                else if (countryAddMode) {
-                    // Add new country
-                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-                    sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
-                    sf::Vector2i gridPos = map.pixelToGrid(worldPos);
+	                }
+	                else if (viewMode == ViewMode::Flat2D && enableZoom) {
+	                    isDragging = true;
+	                    lastMousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+	                }
+	                else if (countryAddMode) {
+	                    // Add new country
+	                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+	                    sf::Vector2i gridPos;
+	                    if (!tryGetGridUnderMouse(mousePos, gridPos)) {
+	                        continue;
+	                    }
 
                     if (gridPos.x >= 0 && gridPos.x < map.getIsLandGrid()[0].size() &&
                         gridPos.y >= 0 && gridPos.y < map.getIsLandGrid().size() &&
@@ -1337,15 +1392,18 @@ int main() {
                         renderer.setShowCountryAddModeText(false);
                     }
                 }
-                else {
-                    // Check if a country is clicked
-                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-                    sf::Vector2f worldPos = window.mapPixelToCoords(mousePos); // Get coordinates in the world
-                    sf::Vector2i gridPos = map.pixelToGrid(worldPos);
+	                else {
+	                    // Check if a country is clicked
+	                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+	                    sf::Vector2i gridPos;
+	                    if (!tryGetGridUnderMouse(mousePos, gridPos)) {
+	                        showCountryInfo = false;
+	                        continue;
+	                    }
 
-                    if (gridPos.x >= 0 && gridPos.x < map.getCountryGrid()[0].size() &&
-                        gridPos.y >= 0 && gridPos.y < map.getCountryGrid().size()) {
-                        int countryIndex = map.getCountryGrid()[gridPos.y][gridPos.x];
+	                    if (gridPos.x >= 0 && gridPos.x < map.getCountryGrid()[0].size() &&
+	                        gridPos.y >= 0 && gridPos.y < map.getCountryGrid().size()) {
+	                        int countryIndex = map.getCountryGrid()[gridPos.y][gridPos.x];
                         if (countryIndex != -1) {
                             selectedCountry = &countries[countryIndex];
                             showCountryInfo = true;
@@ -1369,8 +1427,27 @@ int main() {
 	                        map.rebuildBoundariesForCountries(countries, paintStrokeAffectedCountries);
 	                        renderer.setNeedsUpdate(true);
 	                    }
-	                    paintStrokeAffectedCountries.clear();
-	                }
+		                    paintStrokeAffectedCountries.clear();
+		                }
+            }
+            else if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Right) {
+                if (viewMode == ViewMode::Globe && globeRightDragActive) {
+                    globeRightDragActive = false;
+                    if (globeRightClickPendingPick && !globeRightDragRotating) {
+                        sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+                        sf::Vector2i gridPos;
+                        if (tryGetGridUnderMouse(mousePos, gridPos) &&
+                            gridPos.x >= 0 && gridPos.x < static_cast<int>(map.getCountryGrid()[0].size()) &&
+                            gridPos.y >= 0 && gridPos.y < static_cast<int>(map.getCountryGrid().size())) {
+                            int owner = map.getCountryGrid()[gridPos.y][gridPos.x];
+                            if (owner >= 0 && owner < static_cast<int>(countries.size())) {
+                                selectedPaintCountryIndex = owner;
+                            }
+                        }
+                    }
+                    globeRightClickPendingPick = false;
+                    globeRightDragRotating = false;
+                }
             }
             else if (event.type == sf::Event::KeyReleased) {
                 if (event.key.code == sf::Keyboard::Space) {
@@ -1378,12 +1455,28 @@ int main() {
                 }
             }
             else if (event.type == sf::Event::MouseMoved) {
+                if (viewMode == ViewMode::Globe && globeRightDragActive) {
+                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+                    sf::Vector2i fromPress(mousePos.x - globeRightPressPos.x, mousePos.y - globeRightPressPos.y);
+                    if (!globeRightDragRotating && (std::abs(fromPress.x) + std::abs(fromPress.y) >= 4)) {
+                        globeRightDragRotating = true;
+                        globeRightClickPendingPick = false;
+                    }
+                    if (globeRightDragRotating) {
+                        sf::Vector2i delta(mousePos.x - globeLastMousePos.x, mousePos.y - globeLastMousePos.y);
+                        renderer.addGlobeRotation(static_cast<float>(delta.x) * 0.006f,
+                                                 static_cast<float>(delta.y) * 0.006f);
+                        renderingNeedsUpdate = true;
+                    }
+                    globeLastMousePos = mousePos;
+                }
+
                 // Hover tracking (for highlight + selection tools)
                 if (!megaTimeJumpMode && !countryAddEditorMode && !techEditorMode) {
                     sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-                    sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
-                    sf::Vector2i gridPos = map.pixelToGrid(worldPos);
-                    if (gridPos.x >= 0 && gridPos.x < static_cast<int>(map.getCountryGrid()[0].size()) &&
+                    sf::Vector2i gridPos;
+                    if (tryGetGridUnderMouse(mousePos, gridPos) &&
+                        gridPos.x >= 0 && gridPos.x < static_cast<int>(map.getCountryGrid()[0].size()) &&
                         gridPos.y >= 0 && gridPos.y < static_cast<int>(map.getCountryGrid().size())) {
                         int owner = map.getCountryGrid()[gridPos.y][gridPos.x];
                         if (owner >= 0 && owner < static_cast<int>(countries.size()) &&
@@ -1400,8 +1493,10 @@ int main() {
 
                 if (paintStrokeActive && paintMode && !megaTimeJumpMode && !countryAddEditorMode) {
                     sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-                    sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
-                    sf::Vector2i gridPos = map.pixelToGrid(worldPos);
+                    sf::Vector2i gridPos;
+                    if (!tryGetGridUnderMouse(mousePos, gridPos)) {
+                        continue;
+                    }
 
                     if (gridPos != lastPaintCell &&
                         gridPos.x >= 0 && gridPos.x < static_cast<int>(map.getCountryGrid()[0].size()) &&
@@ -1420,13 +1515,13 @@ int main() {
                     }
                 }
 
-                if (isDragging && enableZoom) {
+                if (viewMode == ViewMode::Flat2D && isDragging && enableZoom) {
                     sf::Vector2f currentMousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window));
                     sf::Vector2f delta = lastMousePos - currentMousePos;
                     zoomedView.move(delta);
                     lastMousePos = currentMousePos;
                 }
-	            }
+		            }
 	        }
 
 	        if (megaTimeJumpRunning) {
@@ -1753,7 +1848,7 @@ int main() {
         } else {
             window.setView(enableZoom ? zoomedView : defaultView);
 
-            renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
+            renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo, viewMode);
 
             renderedFrame = true;
             renderingNeedsUpdate = false;
