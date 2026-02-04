@@ -423,6 +423,10 @@ sf::Vector2i Country::getCapitalLocation() const {
     return m_startingPixel;
 }
 
+sf::Vector2i Country::getStartingPixel() const {
+    return m_startingPixel;
+}
+
 void Country::setStartingPixel(const sf::Vector2i& cell) {
     m_startingPixel = cell;
 }
@@ -1287,10 +1291,8 @@ const std::string& Country::getName() const {
 void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vector<std::vector<bool>>& isLandGrid, 
                                std::vector<std::vector<int>>& countryGrid, 
                                const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid,
-                               News& news, Map& map, const TechnologyManager& technologyManager) {
-    
-    std::random_device rd;
-    std::mt19937 gen(rd());
+                               News& news, Map& map, const TechnologyManager& technologyManager,
+                               std::mt19937& gen, bool plagueAffected) {
     
     // NEW LOGISTIC POPULATION SYSTEM FOR FAST FORWARD - Do not multiply growth
     double kMult = TechnologyManager::techKMultiplier(technologyManager, *this);
@@ -1302,7 +1304,20 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
     if (m_type == Type::Pacifist) typeMult = 0.95;
     r *= typeMult;
     
-    stepLogistic(r, resourceGrid, kMult, 1.0);
+    if (plagueAffected) {
+        r *= 0.1;
+    }
+
+    // Use Map cached aggregates for carrying capacity (much faster, closer to normal-mode timing).
+    double foodSum = map.getCountryFoodSum(m_countryIndex);
+    const sf::Vector2i start = getStartingPixel();
+    if (map.getCellOwner(start.x, start.y) == m_countryIndex) {
+        const double rawFood = map.getCellFood(start.x, start.y);
+        if (rawFood < 417.0) {
+            foodSum += (417.0 - rawFood);
+        }
+    }
+    stepLogisticFromFoodSum(r, foodSum, kMult, 1.0);
 
     attemptFactoryConstruction(technologyManager, isLandGrid, countryGrid, gen, news);
     if (!m_factories.empty()) {
@@ -1314,12 +1329,22 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
     }
 
     
-    // Add science and culture points (simplified)
-    addSciencePoints(calculateScienceGeneration());  // Normal rate - no artificial multiplier
-    addCulturePoints(5.0 * m_cultureMultiplier);
+    // Add science points (same as normal update cadence).
+    addSciencePoints(calculateScienceGeneration());
+
+    // Culture point generation (match normal update shape).
+    double culturePointIncrease = 1.0;
+    std::uniform_real_distribution<> u01(0.0, 1.0);
+    if (m_cultureType == CultureType::MC) {
+        culturePointIncrease *= (1.1 + u01(gen) * (2.0 - 1.1));
+    } else if (m_cultureType == CultureType::LC) {
+        culturePointIncrease *= (0.1 + u01(gen) * (0.35 - 0.1));
+    }
+    addCulturePoints(culturePointIncrease * m_cultureMultiplier);
     
     // 🚀 ENHANCED FAST FORWARD EXPANSION - Use same advanced mechanics as normal update
-    if (yearIndex % 2 == 0 && !m_isContentWithSize) { // Every 2 years, respect contentment
+    (void)yearIndex;
+    if (!plagueAffected && (currentYear % 2 == 0) && !m_isContentWithSize) { // Every 2 years, respect contentment
         
         // Use technology-enhanced expansion rate (same as normal update)
         std::uniform_int_distribution<> growthDist(20, 40); // Higher base for fast forward
@@ -1370,7 +1395,7 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
             int burstRadius = getBurstExpansionRadius();
             int burstFreq = getBurstExpansionFrequency();
             
-            if (burstFreq > 0 && (yearIndex + m_expansionStaggerOffset) % burstFreq == 0 && burstRadius > 1) {
+            if (burstFreq > 0 && (currentYear + m_expansionStaggerOffset) % burstFreq == 0 && burstRadius > 1) {
                 
                 // HYPER OPTIMIZATION: Direct random placement instead of nested loops
                 int targetPixels = std::min(burstRadius * 15, 80); // Simple calculation
@@ -1426,7 +1451,7 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
     }
     
     // Simplified city founding - every 20 years
-    if (yearIndex % 20 == 0 && m_population >= 10000 && canFoundCity() && !m_boundaryPixels.empty()) {
+    if (!plagueAffected && (currentYear % 20 == 0) && m_population >= 10000 && canFoundCity() && !m_boundaryPixels.empty()) {
         auto it = m_boundaryPixels.begin();
         std::advance(it, gen() % m_boundaryPixels.size());
         foundCity(*it, news);
@@ -1434,10 +1459,10 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
     }
     
     // Update gold from cities
-    m_gold += m_cities.size() * 5.0; // 5x rate for fast forward
+    m_gold += m_cities.size() * 1.0;
     
-    // 🏛️ FAST FORWARD IDEOLOGY CHANGES - Every 10 years
-    if (yearIndex % 10 == 0) {
+    // Ideology changes - keep cadence calendar-based (avoids chunk artifacts).
+    if (currentYear % 10 == 0) {
         checkIdeologyChange(currentYear, news);
     }
 }
@@ -1799,10 +1824,9 @@ double Country::calculateNeighborScienceBonus(const std::vector<Country>& allCou
 	        m_neighborBonusLastUpdated = currentYear;
 	        
 	        // 🚀 RANDOM INTERVAL: Generate new random interval for next recalculation (keeps it staggered)
-        std::random_device rd;
-        std::mt19937 gen(rd());
+        static thread_local std::mt19937 tlGen(std::random_device{}());
         std::uniform_int_distribution<> intervalDist(20, 80);
-        m_neighborRecalculationInterval = intervalDist(gen);
+        m_neighborRecalculationInterval = intervalDist(tlGen);
     }
     
     // Now calculate bonus using cached neighbor list (much faster!)
@@ -2211,6 +2235,19 @@ long long Country::stepLogistic(double r,
     double techKMultiplier, double climateKMultiplier) {
     
     const double baseK = std::max(1.0, computeYearlyFood(resourceGrid) * 1200.0);
+    const double K = baseK * techKMultiplier * climateKMultiplier;
+
+    const double pop = static_cast<double>(m_population);
+    const double d = r * pop * (1.0 - pop / K);
+    long long delta = static_cast<long long>(std::llround(d));
+    long long np = m_population + delta;
+    if (np < 0) np = 0;
+    m_population = np;
+    return delta;
+}
+
+long long Country::stepLogisticFromFoodSum(double r, double yearlyFoodSum, double techKMultiplier, double climateKMultiplier) {
+    const double baseK = std::max(1.0, yearlyFoodSum * 1200.0);
     const double K = baseK * techKMultiplier * climateKMultiplier;
 
     const double pop = static_cast<double>(m_population);

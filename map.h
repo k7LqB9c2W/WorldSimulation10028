@@ -51,7 +51,7 @@ public:
     void initializePlagueCluster(const std::vector<Country>& countries);
     bool isCountryAffectedByPlague(int countryIndex) const;
     int getPlagueStartYear() const;
-    void updatePlagueDeaths(int deaths);
+    void updatePlagueDeaths(long long deaths);
     bool loadSpawnZones(const std::string& filename);
     sf::Vector2i getRandomCellInPreferredZones(std::mt19937& gen);
     void setCountryGridValue(int x, int y, int value);
@@ -104,6 +104,12 @@ public:
 
     const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& getResourceGrid() const;
 
+    // Fast cached accessors (used by fast-forward / mega time jump).
+    double getCellFood(int x, int y) const;
+    int getCellOwner(int x, int y) const;
+    double getCountryFoodSum(int countryIndex) const;
+    int getCountryLandCellCount(int countryIndex) const;
+
 private:
     std::vector<std::vector<int>> m_countryGrid;
     std::vector<std::vector<bool>> m_isLandGrid;
@@ -118,6 +124,16 @@ private:
     std::vector<std::vector<std::unordered_map<Resource::Type, double>>> m_resourceGrid;
     std::unordered_map<sf::Color, Resource::Type> m_resourceColors;
     void initializeResourceGrid();
+
+    // Cached FOOD values per cell (y * width + x). 0 for non-land.
+    std::vector<double> m_cellFood;
+    void rebuildCellFoodCache();
+
+    // Incremental per-country aggregates (kept consistent via setCountryOwnerAssumingLockedImpl).
+    std::vector<int> m_countryLandCellCount;
+    std::vector<double> m_countryFoodSum;
+    void ensureCountryAggregateCapacityForIndex(int idx);
+
     bool m_plagueActive;
     int m_plagueStartYear;
     long long m_plagueDeathToll;

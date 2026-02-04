@@ -167,6 +167,7 @@ public:
     void setYearsSinceWar(int years);
     void resetStagnation();
     sf::Vector2i getCapitalLocation() const;
+    sf::Vector2i getStartingPixel() const;
     void setStartingPixel(const sf::Vector2i& cell);
     void setTerritory(const std::unordered_set<sf::Vector2i>& territory);
     void setCities(const std::vector<City>& cities);
@@ -181,6 +182,7 @@ public:
     // NEW LOGISTIC POPULATION SYSTEM
     double computeYearlyFood(const std::vector<std::vector<std::unordered_map<Resource::Type,double>>>& resourceGrid) const;
     long long stepLogistic(double r, const std::vector<std::vector<std::unordered_map<Resource::Type,double>>>& resourceGrid, double techKMultiplier, double climateKMultiplier);
+    long long stepLogisticFromFoodSum(double r, double yearlyFoodSum, double techKMultiplier, double climateKMultiplier);
     double getPlagueMortalityMultiplier(const class TechnologyManager& tm) const;
     
     // Resets military strength to its base value (based on the country type).
@@ -204,7 +206,8 @@ public:
     void fastForwardGrowth(int yearIndex, int currentYear, const std::vector<std::vector<bool>>& isLandGrid, 
                           std::vector<std::vector<int>>& countryGrid, 
                           const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid,
-                          News& news, Map& map, const class TechnologyManager& technologyManager);
+                          News& news, Map& map, const class TechnologyManager& technologyManager,
+                          std::mt19937& gen, bool plagueAffected = false);
     void applyPlagueDeaths(long long deaths);
     
     // Technology effects

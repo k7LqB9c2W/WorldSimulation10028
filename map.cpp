@@ -47,6 +47,7 @@ Map::Map(const sf::Image& baseImage, const sf::Image& resourceImage, int gridCel
     };
 
     initializeResourceGrid();
+    rebuildCellFoodCache();
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> plagueIntervalDist(600, 700);
@@ -118,6 +119,85 @@ void Map::initializeResourceGrid() {
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     std::cout << "✅ RESOURCES INITIALIZED in " << duration.count() << " ms" << std::endl;
+}
+
+void Map::rebuildCellFoodCache() {
+    const int height = static_cast<int>(m_resourceGrid.size());
+    const int width = (height > 0) ? static_cast<int>(m_resourceGrid[0].size()) : 0;
+    m_cellFood.assign(static_cast<size_t>(height * width), 0.0);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            if (!m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) {
+                continue;
+            }
+            const auto& cell = m_resourceGrid[static_cast<size_t>(y)][static_cast<size_t>(x)];
+            auto it = cell.find(Resource::Type::FOOD);
+            if (it != cell.end()) {
+                m_cellFood[static_cast<size_t>(y * width + x)] = it->second;
+            }
+        }
+    }
+}
+
+void Map::ensureCountryAggregateCapacityForIndex(int idx) {
+    if (idx < 0) {
+        return;
+    }
+    const size_t need = static_cast<size_t>(idx) + 1u;
+    if (m_countryLandCellCount.size() < need) {
+        m_countryLandCellCount.resize(need, 0);
+        m_countryFoodSum.resize(need, 0.0);
+    }
+}
+
+double Map::getCellFood(int x, int y) const {
+    const int height = static_cast<int>(m_countryGrid.size());
+    if (y < 0 || y >= height) {
+        return 0.0;
+    }
+    const int width = height > 0 ? static_cast<int>(m_countryGrid[0].size()) : 0;
+    if (x < 0 || x >= width) {
+        return 0.0;
+    }
+    const size_t idx = static_cast<size_t>(y * width + x);
+    if (idx >= m_cellFood.size()) {
+        return 0.0;
+    }
+    return m_cellFood[idx];
+}
+
+int Map::getCellOwner(int x, int y) const {
+    const int height = static_cast<int>(m_countryGrid.size());
+    if (y < 0 || y >= height) {
+        return -1;
+    }
+    const int width = height > 0 ? static_cast<int>(m_countryGrid[0].size()) : 0;
+    if (x < 0 || x >= width) {
+        return -1;
+    }
+    return m_countryGrid[static_cast<size_t>(y)][static_cast<size_t>(x)];
+}
+
+double Map::getCountryFoodSum(int countryIndex) const {
+    if (countryIndex < 0) {
+        return 0.0;
+    }
+    const size_t idx = static_cast<size_t>(countryIndex);
+    if (idx >= m_countryFoodSum.size()) {
+        return 0.0;
+    }
+    return m_countryFoodSum[idx];
+}
+
+int Map::getCountryLandCellCount(int countryIndex) const {
+    if (countryIndex < 0) {
+        return 0;
+    }
+    const size_t idx = static_cast<size_t>(countryIndex);
+    if (idx >= m_countryLandCellCount.size()) {
+        return 0;
+    }
+    return m_countryLandCellCount[idx];
 }
 
 // Place the function definition in the .cpp file:
@@ -226,7 +306,7 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
         Country::ScienceType scienceType = static_cast<Country::ScienceType>(scienceTypeDist(gen));
         Country::CultureType cultureType = static_cast<Country::CultureType>(cultureTypeDist(gen));
         countries.emplace_back(i, countryColor, startCell, initialPopulation, growthRate, countryName, countryType, scienceType, cultureType);
-        m_countryGrid[startCell.y][startCell.x] = i;
+        setCountryOwnerAssumingLockedImpl(startCell.x, startCell.y, i);
 
         int regionIndex = static_cast<int>(startCell.y / m_regionSize * (m_baseImage.getSize().x / m_gridCellSize / m_regionSize) + startCell.x / m_regionSize);
         m_dirtyRegions.insert(regionIndex);
@@ -1348,6 +1428,11 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
         reportedProgressOnce = true;
     };
 
+    std::vector<size_t> lastTechCountPerCountry(countries.size(), 0u);
+    for (size_t i = 0; i < countries.size(); ++i) {
+        lastTechCountPerCountry[i] = techManager.getUnlockedTechnologies(countries[i]).size();
+    }
+
     for (int chunkStart = 0; chunkStart < totalYears; chunkStart += megaChunkSize) {
         if (cancelRequested && cancelRequested->load(std::memory_order_relaxed)) {
             canceled = true;
@@ -1393,7 +1478,9 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
                 endPlague(news);
             }
             
-            // 🚀 MEGA COUNTRY UPDATES - Realistic growth and expansion
+            // MEGA COUNTRY UPDATES - calendar-based cadence (avoids chunk-boundary artifacts).
+            const int simYearIndex = currentYear - startYear;
+
             for (size_t i = 0; i < countries.size(); ++i) {
                 if ((i & 63u) == 0u) {
                     if (cancelRequested && cancelRequested->load(std::memory_order_relaxed)) {
@@ -1403,57 +1490,44 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
                 }
                 if (countries[i].getPopulation() <= 0) continue; // Skip dead countries
                 
-                // 📈 ACCELERATED POPULATION GROWTH (every year)
-                long long currentPop = countries[i].getPopulation();
-                
-                if (!m_plagueActive) {
-                    // 🗺️ TERRITORIAL EXPANSION - More frequent for mega simulation
-                    if (year % 3 == 0) { // Every 3 years instead of every 5
-                        countries[i].fastForwardGrowth(year, currentYear, m_isLandGrid, m_countryGrid, m_resourceGrid, news, *this, techManager);
-                    }
-                    
-                    // Let the fastForwardGrowth function handle population growth naturally
-                    // based on territory size, resources, and food availability
-                } else if (isCountryAffectedByPlague(static_cast<int>(i))) {
-                    // NEW TECH-DEPENDENT PLAGUE SYSTEM - Only affect countries in plague cluster
+                const bool plagueAffected = m_plagueActive && isCountryAffectedByPlague(static_cast<int>(i));
+
+                // Population growth, science/culture generation, and expansion (fast but calendar-aligned).
+                countries[i].fastForwardGrowth(simYearIndex, currentYear, m_isLandGrid, m_countryGrid, m_resourceGrid,
+                                               news, *this, techManager, gen, plagueAffected);
+
+                if (plagueAffected) {
+                    // Plague effects: mortality hit (mirrors normal-mode magnitude).
+                    const long long currentPop = countries[i].getPopulation();
                     double baseDeathRate = 0.05; // 5% typical country hit
-                    long long deaths = static_cast<long long>(std::llround(currentPop * baseDeathRate * countries[i].getPlagueMortalityMultiplier(techManager)));
-                    deaths = std::min(deaths, currentPop); // Clamp deaths to population
+                    long long deaths = static_cast<long long>(std::llround(static_cast<double>(currentPop) * baseDeathRate *
+                                                                          countries[i].getPlagueMortalityMultiplier(techManager)));
+                    deaths = std::min(deaths, currentPop);
                     countries[i].applyPlagueDeaths(deaths);
-                    m_plagueDeathToll += deaths;
+                    updatePlagueDeaths(deaths);
                 }
                 
-                // 🚀 MEGA OPTIMIZATION: Reduced frequency tech/culture progression (every 25 years instead of 10)
-                if (year % 25 == 0) { // Much less frequent = much faster mega time jumps
-                    // Apply neighbor science bonus first
-                    double neighborBonus = countries[i].calculateNeighborScienceBonus(countries, *this, techManager, year);
-                    if (neighborBonus > 0) {
-                        countries[i].addSciencePoints(neighborBonus * 1.5); // Reduced from 2.5 to 1.5 for realism
+                // Tech/culture progression: more frequent than before, still amortized.
+                if (currentYear % 5 == 0) {
+                    // Neighbor science bonus proxy for knowledge diffusion.
+                    double neighborBonus = countries[i].calculateNeighborScienceBonus(countries, *this, techManager, currentYear);
+                    if (neighborBonus > 0.0) {
+                        countries[i].addSciencePoints(neighborBonus * 1.1);
                     }
-                    
-                    // Update tech/culture multiple times to compensate for reduced frequency
-                    for (int techRounds = 0; techRounds < 3; ++techRounds) {
-                        techManager.updateCountry(countries[i]);
-                        cultureManager.updateCountry(countries[i]);
+
+                    techManager.updateCountry(countries[i]);
+                    cultureManager.updateCountry(countries[i]);
+
+                    const size_t currentTechCount = techManager.getUnlockedTechnologies(countries[i]).size();
+                    if (currentTechCount > lastTechCountPerCountry[i]) {
+                        totalTechBreakthroughs += static_cast<int>(currentTechCount - lastTechCountPerCountry[i]);
+                        lastTechCountPerCountry[i] = currentTechCount;
                     }
-                    
-                    // Count actual tech unlocks for statistics
-                    static size_t lastTechCount = 0;
-                    size_t currentTechCount = techManager.getUnlockedTechnologies(countries[i]).size();
-                    if (currentTechCount > lastTechCount) {
-                        totalTechBreakthroughs += (currentTechCount - lastTechCount);
-                        lastTechCount = currentTechCount;
-                    }
-                }
-                
-                // 🏛️ MEGA TIME JUMP IDEOLOGY CHANGES - Every 30 years (OPTIMIZATION)
-                if (year % 30 == 0) {
-                    countries[i].checkIdeologyChange(currentYear, news);
                 }
             }
             
             // 🗡️ MEGA WAR SIMULATION - Epic conflicts every 50 years instead of 25 (OPTIMIZATION)
-            if (year % 50 == 0) {
+            if (currentYear % 50 == 0) {
                 for (size_t i = 0; i < countries.size(); ++i) {
                     if (countries[i].getType() == Country::Type::Warmonger && 
                         !countries[i].isAtWar() && countries[i].getPopulation() > 1000) {
@@ -1534,8 +1608,8 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
                 break;
             }
             
-            // 👑 MEGA GREAT PEOPLE - Every 10 years
-            if (year % 10 == 0) {
+            // MEGA GREAT PEOPLE - closer to normal cadence, still amortized.
+            if (currentYear % 5 == 0) {
                 greatPeopleManager.updateEffects(currentYear, countries, news);
             }
         }
@@ -1655,7 +1729,7 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
     return true;
 }
 
-void Map::updatePlagueDeaths(int deaths) {
+void Map::updatePlagueDeaths(long long deaths) {
     m_plagueDeathToll += deaths;
 }
 
@@ -1741,6 +1815,29 @@ bool Map::setCountryOwnerAssumingLockedImpl(int x, int y, int newOwner) {
     const int oldOwner = m_countryGrid[y][x];
     if (oldOwner == newOwner) {
         return false;
+    }
+
+    // Incremental per-country aggregates (food sum and land cell count).
+    // These are used by fast-forward / mega simulation to compute carrying capacity cheaply.
+    const size_t cellIdx = static_cast<size_t>(y * width + x);
+    const double cellFood = (cellIdx < m_cellFood.size()) ? m_cellFood[cellIdx] : 0.0;
+
+    if (oldOwner >= 0) {
+        ensureCountryAggregateCapacityForIndex(oldOwner);
+        m_countryLandCellCount[static_cast<size_t>(oldOwner)] -= 1;
+        m_countryFoodSum[static_cast<size_t>(oldOwner)] -= cellFood;
+        if (m_countryLandCellCount[static_cast<size_t>(oldOwner)] < 0) {
+            m_countryLandCellCount[static_cast<size_t>(oldOwner)] = 0;
+        }
+        if (m_countryFoodSum[static_cast<size_t>(oldOwner)] < 0.0) {
+            // Guard against numeric drift.
+            m_countryFoodSum[static_cast<size_t>(oldOwner)] = 0.0;
+        }
+    }
+    if (newOwner >= 0) {
+        ensureCountryAggregateCapacityForIndex(newOwner);
+        m_countryLandCellCount[static_cast<size_t>(newOwner)] += 1;
+        m_countryFoodSum[static_cast<size_t>(newOwner)] += cellFood;
     }
 
     // Ensure the tracking structures can represent any index we touch.
@@ -1976,7 +2073,7 @@ void Map::fastForwardSimulation(std::vector<Country>& countries, int& currentYea
         for (size_t i = 0; i < countries.size(); ++i) {
             // Simplified population growth and expansion
             if (!m_plagueActive) {
-                countries[i].fastForwardGrowth(year, currentYear, m_isLandGrid, m_countryGrid, m_resourceGrid, news, *this, technologyManager);
+                countries[i].fastForwardGrowth(year, currentYear, m_isLandGrid, m_countryGrid, m_resourceGrid, news, *this, technologyManager, gen, false);
             } else if (isCountryAffectedByPlague(static_cast<int>(i))) {
                 // NEW TECH-DEPENDENT PLAGUE SYSTEM - Only affect countries in plague cluster
                 double baseDeathRate = 0.05; // 5% typical country hit
