@@ -1271,11 +1271,12 @@ int Map::getPlagueStartYear() const {
 }
 
 // MEGA TIME JUMP - SIMULATE THOUSANDS OF YEARS OF HISTORY
-void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int targetYear, News& news, 
-                       TechnologyManager& techManager, CultureManager& cultureManager, 
-                       GreatPeopleManager& greatPeopleManager, 
+bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int targetYear, News& news,
+                       TechnologyManager& techManager, CultureManager& cultureManager,
+                       GreatPeopleManager& greatPeopleManager,
                        std::function<void(int, int, float)> progressCallback,
-                       std::function<void(int, int)> chunkCompletedCallback) {
+                       std::function<void(int, int)> chunkCompletedCallback,
+                       const std::atomic<bool>* cancelRequested) {
     
     std::cout << "\nBEGINNING MEGA SIMULATION OF HUMAN HISTORY!" << std::endl;
     
@@ -1284,6 +1285,7 @@ void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
     
     int totalYears = targetYear - currentYear;
     int startYear = currentYear;
+    bool canceled = false;
     
     // Track major historical events
     std::vector<std::string> majorEvents;
@@ -1292,6 +1294,7 @@ void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
     int totalWars = 0;
     int totalPlagues = 0;
     int totalTechBreakthroughs = 0;
+    long long lastMilestone = 0;
     
     std::cout << "SIMULATION PARAMETERS:" << std::endl;
     std::cout << "   Years to simulate: " << totalYears << std::endl;
@@ -1315,30 +1318,65 @@ void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
     
     std::cout << "\nBEGINNING MEGA CHUNKS (" << totalChunks << " chunks of " << megaChunkSize << " years each)..." << std::endl;
     
+    const auto progressInterval = std::chrono::milliseconds(200);
+    auto lastProgressReport = std::chrono::steady_clock::now();
+    bool reportedProgressOnce = false;
+
+    auto maybeReportProgress = [&](bool force) {
+        if (!progressCallback) {
+            return;
+        }
+        const auto now = std::chrono::steady_clock::now();
+        if (!force && reportedProgressOnce && (now - lastProgressReport) < progressInterval) {
+            return;
+        }
+
+        float etaSeconds = -1.0f;
+        const int doneYears = currentYear - startYear;
+        if (totalYears > 0) {
+            const float frac = std::clamp(static_cast<float>(doneYears) / static_cast<float>(totalYears), 0.0f, 1.0f);
+            if (frac > 0.0001f) {
+                const auto nowHr = std::chrono::high_resolution_clock::now();
+                const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(nowHr - startTime);
+                const double elapsedSeconds = elapsedMs.count() / 1000.0;
+                etaSeconds = static_cast<float>(elapsedSeconds * (1.0 / frac - 1.0));
+            }
+        }
+
+        progressCallback(currentYear, targetYear, etaSeconds);
+        lastProgressReport = now;
+        reportedProgressOnce = true;
+    };
+
     for (int chunkStart = 0; chunkStart < totalYears; chunkStart += megaChunkSize) {
+        if (cancelRequested && cancelRequested->load(std::memory_order_relaxed)) {
+            canceled = true;
+            break;
+        }
         int chunkYears = std::min(megaChunkSize, totalYears - chunkStart);
         chunksProcessed++;
         
-        // Calculate ETA
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(currentTime - startTime);
-        float progressPercent = (float)chunkStart / totalYears * 100.0f;
-        float etaSeconds = elapsed.count() * (100.0f / progressPercent - 1.0f);
-        
-        // Call progress callback if provided
-        if (progressCallback && chunkStart > 0) {
-            progressCallback(currentYear, targetYear, etaSeconds);
-        }
+        maybeReportProgress(false);
+
+        const float progressPercent = (totalYears > 0)
+            ? (static_cast<float>(chunkStart) / static_cast<float>(totalYears) * 100.0f)
+            : 100.0f;
         
         std::cout << "MEGA CHUNK " << chunksProcessed << "/" << totalChunks 
                   << " (" << std::fixed << std::setprecision(1) << progressPercent << "%) - "
                   << "Years " << currentYear << " to " << (currentYear + chunkYears)
-                  << " | ETA: " << std::setprecision(0) << etaSeconds << "s" << std::endl;
+                  << std::endl;
         
         // Process this chunk
         for (int year = 0; year < chunkYears; ++year) {
+            if (cancelRequested && cancelRequested->load(std::memory_order_relaxed)) {
+                canceled = true;
+                break;
+            }
             currentYear++;
             if (currentYear == 0) currentYear = 1; // Skip year 0
+
+            maybeReportProgress(false);
             
             // 🦠 CONSISTENT PLAGUE TIMING - Same as normal mode (600-700 years)
             if (currentYear == m_nextPlagueYear && !m_plagueActive) {
@@ -1357,6 +1395,12 @@ void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
             
             // 🚀 MEGA COUNTRY UPDATES - Realistic growth and expansion
             for (size_t i = 0; i < countries.size(); ++i) {
+                if ((i & 63u) == 0u) {
+                    if (cancelRequested && cancelRequested->load(std::memory_order_relaxed)) {
+                        canceled = true;
+                        break;
+                    }
+                }
                 if (countries[i].getPopulation() <= 0) continue; // Skip dead countries
                 
                 // 📈 ACCELERATED POPULATION GROWTH (every year)
@@ -1486,11 +1530,17 @@ void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
                     }
                 }
             }
+            if (canceled) {
+                break;
+            }
             
             // 👑 MEGA GREAT PEOPLE - Every 10 years
             if (year % 10 == 0) {
                 greatPeopleManager.updateEffects(currentYear, countries, news);
             }
+        }
+        if (canceled) {
+            break;
         }
         
         // 📊 Mark extinct countries and track superpowers (keep indices stable by never erasing).
@@ -1530,7 +1580,6 @@ void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
         }
         
         // Track world population milestones naturally
-        static long long lastMilestone = 0;
         // Only track significant natural milestones (powers of 10)
         long long currentMilestone = 1;
         while (currentMilestone <= totalWorldPopulation) {
@@ -1546,6 +1595,14 @@ void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
         if (chunkCompletedCallback) {
             chunkCompletedCallback(currentYear, chunkYears);
         }
+    }
+
+    maybeReportProgress(true);
+
+    if (canceled) {
+        std::cout << "\n🛑🛑🛑 MEGA TIME JUMP CANCELED 🛑🛑🛑" << std::endl;
+        std::cout << "⏱️ Stopped at year " << currentYear << std::endl;
+        return false;
     }
     
     auto endTime = std::chrono::high_resolution_clock::now();
@@ -1595,6 +1652,7 @@ void Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
     if (currentYear < 0) std::cout << " BCE";
     else std::cout << " CE";
     std::cout << "! The world has changed dramatically!" << std::endl;
+    return true;
 }
 
 void Map::updatePlagueDeaths(int deaths) {

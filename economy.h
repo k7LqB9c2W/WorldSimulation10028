@@ -35,14 +35,15 @@ public:
     // GPU-only simulation step used for fast-forward/mega jumps.
     // - `dtYears` scales production/consumption/investment inside the shader.
     // - `tradeItersOverride` lets fast-forward reduce diffusion iterations for performance.
-    // - No CPU readback is performed (wealth/GDP/exports remain unchanged until readbackMetrics()).
+    // - No CPU readback is performed unless `readbackMetricsBeforeDiffusion` is true.
     void tickStepGpuOnly(int year,
                          const Map& map,
                          const std::vector<Country>& countries,
                          const TechnologyManager& tech,
                          float dtYears,
                          int tradeItersOverride,
-                         bool generateDebugHeatmap = false);
+                         bool generateDebugHeatmap = false,
+                         bool readbackMetricsBeforeDiffusion = false);
 
     // Convenience: advance the GPU economy by `yearsInChunk` using `yearsPerStep` substeps (e.g., 10-year steps).
     void tickMegaChunkGpuOnly(int endYear,
@@ -56,7 +57,8 @@ public:
     // CPU readback/aggregation without advancing the simulation.
     void readbackMetrics(int year);
 
-    void applyCountryMetrics(std::vector<Country>& countries) const;
+    void applyCountryMetrics(std::vector<Country>& countries,
+                             const std::vector<double>* tradeExportsValue = nullptr) const;
 
     const sf::Texture& getDebugWealthHeatmapTexture() const;
 

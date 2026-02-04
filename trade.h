@@ -146,6 +146,11 @@ public:
     double getTotalTradeValue() const { return m_totalTradeValue; }
     const std::vector<TradeRoute>& getTradeRoutes() const { return m_tradeRoutes; }
 
+    // Per-country export value proxy derived from executed TradeManager transfers (barter/currency/routes).
+    // Values are only updated when trade is processed; use the year getter to see how fresh they are.
+    int getLastCountryExportsYear() const { return m_lastCountryExportsYear; }
+    const std::vector<double>& getLastCountryExports() const { return m_countryExportsValue; }
+
 private:
     struct TradeRelation {
         double score = 0.0;
@@ -167,11 +172,17 @@ private:
     // Optimization for fast forward
     int m_lastBarterYear = -5000;
     int m_lastMarketUpdateYear = -5000;
+
+    // Export value proxy (in "gold-equivalent" units) for the last processed trade year.
+    int m_lastCountryExportsYear = -5000;
+    std::vector<double> m_countryExportsValue;
     
     // Random number generation
     mutable std::mt19937 m_rng;
-    
+
     // Helper functions
+    void beginExportsYear(int year, size_t countryCount);
+    void addExportValue(int exporterIndex, double value);
     double calculateBarterhRatio(Resource::Type from, Resource::Type to) const;
     bool validateTradeOffer(const TradeOffer& offer, const std::vector<Country>& countries) const;
     void executeTradeOffer(const TradeOffer& offer, std::vector<Country>& countries, News& news);

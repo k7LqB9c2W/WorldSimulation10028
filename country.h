@@ -260,7 +260,7 @@ private:
     double m_gold;
     double m_wealth = 0.0;  // national net worth proxy (aggregated from econ grid)
     double m_gdp = 0.0;     // yearly value-added proxy (estimated from capital formation)
-    double m_exports = 0.0; // yearly exports proxy (cross-border inventory gradients)
+    double m_exports = 0.0; // yearly exports proxy (border-flow proxy + TradeManager export value)
     double m_militaryStrength;  // Add military strength member
     Type m_type; // Add a member variable to store the country type
     ScienceType m_scienceType;

@@ -12,6 +12,10 @@
 #include <exception>
 #include <stdexcept>
 #include <sstream>
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
 #include "country.h"
 #include "renderer.h"
 #include "map.h"
@@ -156,10 +160,10 @@ int main() {
     GreatPeopleManager greatPeopleManager;
     
 	    // Initialize the Trade Manager
-	    TradeManager tradeManager;
+		    TradeManager tradeManager;
 
-	    // Initialize GPU economy (downsampled econ grid)
-	    EconomyGPU economy;
+		    // Initialize GPU economy (downsampled econ grid)
+		    EconomyGPU economy;
 	    EconomyGPU::Config econCfg;
 		    econCfg.econCellSize = 6;
 		    econCfg.tradeIters = 12;
@@ -171,8 +175,21 @@ int main() {
 		    economy.onTerritoryChanged(map);
 		    economy.onStaticResourcesChanged(map);
 
-	    Renderer renderer(window, map, waterColor);
-	    News news;
+		    Renderer renderer(window, map, waterColor);
+		    News news;
+
+		    auto tradeExportsForYear = [&](int year) -> const std::vector<double>* {
+		        const auto& v = tradeManager.getLastCountryExports();
+		        if (v.empty()) {
+		            return nullptr;
+		        }
+		        const int y = tradeManager.getLastCountryExportsYear();
+		        const int dy = year - y;
+		        if (dy >= 0 && dy <= 12) { // trade updates can be sparse during fast-forward/mega jump
+		            return &v;
+		        }
+		        return nullptr;
+		    };
 
     int currentYear = -5000;
     sf::Clock yearClock;
@@ -284,18 +301,68 @@ int main() {
     countryAddModeText.setFont(m_font);
     countryAddModeText.setCharacterSize(24);
     countryAddModeText.setFillColor(sf::Color::White);
-    countryAddModeText.setPosition(10, 10);
-    countryAddModeText.setString("Country Add Mode");
+	    countryAddModeText.setPosition(10, 10);
+	    countryAddModeText.setString("Country Add Mode");
 
-    while (window.isOpen()) {
+	    // Mega time jump (background worker) state
+	    bool megaTimeJumpRunning = false;
+	    bool megaTimeJumpPendingClose = false;
+	    int megaTimeJumpStartYear = 0;
+	    int megaTimeJumpTargetYear = 0;
+	    std::thread megaTimeJumpThread;
+	    std::atomic<bool> megaTimeJumpCancelRequested{ false };
+	    std::atomic<bool> megaTimeJumpDone{ false };
+	    std::atomic<bool> megaTimeJumpCanceled{ false };
+	    std::atomic<bool> megaTimeJumpFailed{ false };
+	    std::atomic<int> megaTimeJumpProgressYear{ 0 };
+	    std::atomic<float> megaTimeJumpEtaSeconds{ -1.0f };
+	    std::mutex megaTimeJumpErrorMutex;
+	    std::string megaTimeJumpError;
+	    std::mutex megaTimeJumpChunkMutex;
+	    std::condition_variable megaTimeJumpChunkCv;
+	    int megaTimeJumpGpuChunkTicket = 0;
+	    int megaTimeJumpGpuChunkAck = 0;
+	    int megaTimeJumpGpuChunkEndYear = 0;
+	    int megaTimeJumpGpuChunkYears = 0;
+	    bool megaTimeJumpGpuChunkActive = false;
+	    int megaTimeJumpGpuChunkActiveTicket = 0;
+	    int megaTimeJumpGpuChunkRemainingYears = 0;
+	    int megaTimeJumpGpuChunkSimYear = 0;
+	    bool megaTimeJumpGpuChunkNeedsTerritorySync = false;
+	    const int megaTimeJumpGpuYearsPerStep = 10;
+	    const int megaTimeJumpGpuTradeItersPerStep = 3;
+	    struct MegaTimeJumpThreadGuard {
+	        std::thread& thread;
+	        std::atomic<bool>& cancel;
+	        ~MegaTimeJumpThreadGuard() {
+	            cancel.store(true, std::memory_order_relaxed);
+	            if (thread.joinable()) {
+	                thread.join();
+	            }
+	        }
+	    } megaTimeJumpThreadGuard{ megaTimeJumpThread, megaTimeJumpCancelRequested };
+
+	    while (window.isOpen()) {
         frameClock.restart(); // Start frame timing
         
-        sf::Event event;
-        while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) {
-                window.close();
-            }
-            else if (event.type == sf::Event::KeyPressed) {
+	        sf::Event event;
+	        while (window.pollEvent(event)) {
+	            if (megaTimeJumpRunning) {
+	                if (event.type == sf::Event::Closed) {
+	                    megaTimeJumpPendingClose = true;
+	                    megaTimeJumpCancelRequested.store(true, std::memory_order_relaxed);
+	                    megaTimeJumpChunkCv.notify_all();
+	                } else if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape) {
+	                    megaTimeJumpCancelRequested.store(true, std::memory_order_relaxed);
+	                    megaTimeJumpChunkCv.notify_all();
+	                }
+	                continue;
+	            }
+
+	            if (event.type == sf::Event::Closed) {
+	                window.close();
+	            }
+	            else if (event.type == sf::Event::KeyPressed) {
                 if (techEditorMode) {
                     if (event.key.code == sf::Keyboard::Escape) {
                         techEditorMode = false;
@@ -430,14 +497,32 @@ int main() {
 		                else if (event.key.code == sf::Keyboard::Num6) {
 		                    renderer.toggleWarHighlights();
 		                }
-		                else if (event.key.code == sf::Keyboard::L) {
-		                    // Ensure GPU economy metrics are up-to-date before showing the leaderboard.
-		                    // (GDP requires at least two readbacks at different years; mega-jumps now do a baseline readback.)
-		                    economy.onTerritoryChanged(map);
-		                    economy.readbackMetrics(currentYear);
-		                    economy.applyCountryMetrics(countries);
-		                    renderer.toggleWealthLeaderboard();
-		                }
+			                else if (event.key.code == sf::Keyboard::L) {
+			                    // Ensure GPU economy metrics are up-to-date before showing the leaderboard.
+			                    // (GDP requires at least two readbacks at different years; mega-jumps now do a baseline readback.)
+			                    economy.onTerritoryChanged(map);
+			                    economy.readbackMetrics(currentYear);
+			                    economy.applyCountryMetrics(countries, tradeExportsForYear(currentYear));
+			                    if (TechnologyManager::getDebugMode()) {
+			                        double sumWealth = 0.0, sumGDP = 0.0, sumExports = 0.0;
+			                        int alive = 0;
+			                        for (const auto& c : countries) {
+			                            if (c.getPopulation() <= 0) continue;
+			                            alive++;
+			                            sumWealth += c.getWealth();
+			                            sumGDP += c.getGDP();
+			                            sumExports += c.getExports();
+			                        }
+			                        std::cout << "📈 Economy debug @ year " << currentYear
+			                                  << " (alive=" << alive << ")"
+			                                  << " totals: wealth=" << sumWealth
+			                                  << " gdp=" << sumGDP
+			                                  << " exports=" << sumExports
+			                                  << " (tradeExportsYear=" << tradeManager.getLastCountryExportsYear() << ")"
+			                                  << std::endl;
+			                    }
+			                    renderer.toggleWealthLeaderboard();
+			                }
 
 	                else if (event.key.code == sf::Keyboard::Num8) { // Add this block
 	                    map.triggerPlague(currentYear, news);
@@ -446,11 +531,11 @@ int main() {
                     turboMode = !turboMode;
                     renderingNeedsUpdate = true; // Update display
                 }
-                else if (event.key.code == sf::Keyboard::F) { // 🛡️ CRASH-SAFE FAST FORWARD MODE
-                    std::cout << "🔍 OPERATION: Fast Forward requested" << std::endl;
-                    std::cout << "📊 MEMORY STATUS: Starting Fast Forward operation" << std::endl;
-                    std::cout << "   Current Year: " << currentYear << std::endl;
-                    std::cout << "   Country Count: " << countries.size() << std::endl;
+	                else if (event.key.code == sf::Keyboard::F) { // 🛡️ CRASH-SAFE FAST FORWARD MODE
+	                    std::cout << "🔍 OPERATION: Fast Forward requested" << std::endl;
+	                    std::cout << "📊 MEMORY STATUS: Starting Fast Forward operation" << std::endl;
+	                    std::cout << "   Current Year: " << currentYear << std::endl;
+	                    std::cout << "   Country Count: " << countries.size() << std::endl;
                     
                     try {
                         sf::Clock fastForwardClock;
@@ -469,11 +554,16 @@ int main() {
                         });
                         window.display();
                         
-                        std::cout << "🚀 Starting Fast Forward (100 years)..." << std::endl;
-                    
-                    // 🛡️ CRASH FIX: Process in small chunks to avoid memory overflow
-                    const int totalYears = 100;
-                    const int chunkSize = 10; // Process 10 years at a time
+	                        std::cout << "🚀 Starting Fast Forward (100 years)..." << std::endl;
+	                    
+	                        // Baseline readback before fast-forward so GDP can be measured over the jump.
+	                        economy.onTerritoryChanged(map);
+	                        economy.readbackMetrics(currentYear);
+	                        economy.applyCountryMetrics(countries, tradeExportsForYear(currentYear));
+
+	                    // 🛡️ CRASH FIX: Process in small chunks to avoid memory overflow
+	                    const int totalYears = 100;
+	                    const int chunkSize = 10; // Process 10 years at a time
                     
                     for (int chunk = 0; chunk < totalYears / chunkSize; ++chunk) {
                         
@@ -485,11 +575,22 @@ int main() {
                         try {
                             // Perform map simulation for this chunk
                             std::cout << "   📍 Map simulation..." << std::endl;
-                            map.fastForwardSimulation(countries, currentYear, chunkSize, news, technologyManager);
-                            
-                            // 🏪 FAST FORWARD TRADE PROCESSING
-                            std::cout << "   💰 Trade simulation..." << std::endl;
-                            tradeManager.fastForwardTrade(countries, currentYear, currentYear + chunkSize, map, technologyManager, news);
+	                            map.fastForwardSimulation(countries, currentYear, chunkSize, news, technologyManager);
+	                            
+	                            // 🏪 FAST FORWARD TRADE PROCESSING
+	                            std::cout << "   💰 Trade simulation..." << std::endl;
+	                            tradeManager.fastForwardTrade(countries, startYear, currentYear, map, technologyManager, news);
+
+	                            // GPU economy fast-forward aligned to simulation years (accumulates GDP/exports per step).
+	                            economy.onTerritoryChanged(map);
+	                            economy.tickStepGpuOnly(currentYear,
+	                                                    map,
+	                                                    countries,
+	                                                    technologyManager,
+	                                                    static_cast<float>(std::max(1, currentYear - startYear)),
+	                                                    /*tradeItersOverride*/3,
+	                                                    /*heatmap*/false,
+	                                                    /*readbackMetricsBeforeDiffusion*/true);
                             
                             // 🚀 OPTIMIZED TECH/CULTURE: Batch processing and reduced frequency
                             std::cout << "   🧠 Tech/Culture updates for " << countries.size() << " countries..." << std::endl;
@@ -530,14 +631,14 @@ int main() {
                         sf::sleep(sf::milliseconds(50));
                     }
                     
-	                    // Final updates
-	                    greatPeopleManager.updateEffects(currentYear, countries, news);
-	                    economy.onTerritoryChanged(map);
-	                    economy.tickYear(currentYear, map, countries, technologyManager);
-	                    economy.applyCountryMetrics(countries);
-                    
-                    // 🔥 FORCE IMMEDIATE COMPLETE VISUAL REFRESH FOR FAST FORWARD
-                    std::cout << "🎨 Refreshing fast forward visuals..." << std::endl;
+		                    // Final updates
+		                    greatPeopleManager.updateEffects(currentYear, countries, news);
+		                    economy.onTerritoryChanged(map);
+		                    economy.readbackMetrics(currentYear);
+		                    economy.applyCountryMetrics(countries, tradeExportsForYear(currentYear));
+	                    
+	                    // 🔥 FORCE IMMEDIATE COMPLETE VISUAL REFRESH FOR FAST FORWARD
+	                    std::cout << "🎨 Refreshing fast forward visuals..." << std::endl;
                     
                     // Mark ALL regions as dirty for complete re-render
                     int totalRegions = (mapPixelSize.x / map.getGridCellSize() / map.getRegionSize()) * 
@@ -760,145 +861,109 @@ int main() {
                     else if (event.text.unicode == 8 && !megaTimeJumpInput.empty()) { // Backspace
                         megaTimeJumpInput.pop_back();
                     }
-                    else if (event.text.unicode == 13) { // Enter key
-                        if (!megaTimeJumpInput.empty()) {
-                            int targetYear = std::stoi(megaTimeJumpInput);
-                            
-                            // Validate year range
-                            if (targetYear >= -5000 && targetYear <= 2025 && targetYear > currentYear) {
-                                megaTimeJumpMode = false;
-                                
-                                int yearsToSimulate = targetYear - currentYear;
-                                std::cout << "SIMULATING " << yearsToSimulate << " YEARS OF HISTORY!" << std::endl;
-                                std::cout << "From " << currentYear << " to " << targetYear << std::endl;
-                                
-                                // Initialize timing and display
-                                sf::Clock megaClock;
-                                sf::Clock updateClock;
-                                std::vector<float> sampleTimes;
-                                
-                                // Show loading screen
-                                sf::RectangleShape loadingBg(sf::Vector2f(window.getSize().x, window.getSize().y));
-                                loadingBg.setFillColor(sf::Color(0, 0, 0, 200));
-                                
-                                sf::Text loadingText;
-                                loadingText.setFont(m_font);
-                                loadingText.setCharacterSize(48);
-                                loadingText.setFillColor(sf::Color::White);
-                                loadingText.setString("TIME JUMPING TO " + std::to_string(targetYear) + "...");
-                                loadingText.setPosition(window.getSize().x / 2 - 350, window.getSize().y / 2 - 40);
-                                
-                                sf::Text countdownText;
-                                countdownText.setFont(m_font);
-                                countdownText.setCharacterSize(36);
-                                countdownText.setFillColor(sf::Color::Cyan);
-                                countdownText.setString("Estimating time...");
-                                countdownText.setPosition(window.getSize().x / 2 - 200, window.getSize().y / 2 + 20);
-                                
-                                window.clear();
-                                renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
-                                withUiView([&] {
-                                    window.draw(loadingBg);
-                                    window.draw(loadingText);
-                                    window.draw(countdownText);
-                                });
-                                window.display();
-                                
-                                // Baseline readback before mega-jump so GDP can be estimated from capital formation
-                                // across the jump interval (end readback happens after the jump completes).
-                                economy.onTerritoryChanged(map);
-                                economy.readbackMetrics(currentYear);
-                                economy.applyCountryMetrics(countries);
+	                    else if (event.text.unicode == 13) { // Enter key
+	                        if (!megaTimeJumpInput.empty()) {
+	                            int targetYear = 0;
+	                            try {
+	                                targetYear = std::stoi(megaTimeJumpInput);
+	                            } catch (...) {
+	                                megaTimeJumpMode = false;
+	                                megaTimeJumpInput.clear();
+	                                break;
+	                            }
 
-                                // Call mega simulation function with progress callback
-                                map.megaTimeJump(countries, currentYear, targetYear, news, technologyManager, cultureManager, greatPeopleManager,
-                                    [&](int currentSimYear, int targetSimYear, float estimatedSecondsRemaining) {
-                                        // 🏪 MEGA TIME JUMP TRADE PROCESSING
-                                        if (currentSimYear % 10 == 0) { // Every 10 years during mega jump
-                                            tradeManager.fastForwardTrade(countries, currentSimYear, currentSimYear + 10, map, technologyManager, news);
-                                        }
-                                        // Update display with progress
-                                        int yearsCompleted = currentSimYear - (targetYear - yearsToSimulate);
-                                        loadingText.setString("TIME JUMPING TO " + std::to_string(targetYear) + " (" + 
-                                                            std::to_string(yearsCompleted) + "/" + std::to_string(yearsToSimulate) + " years)");
-                                        
-                                        int secondsRemaining = static_cast<int>(estimatedSecondsRemaining);
-                                        if (secondsRemaining <= 0) {
-                                            countdownText.setString("Almost done!");
-                                        } else if (secondsRemaining == 1) {
-                                            countdownText.setString("~1 second remaining");
-                                        } else {
-                                            countdownText.setString("~" + std::to_string(secondsRemaining) + " seconds remaining");
-                                        }
-                                        
-                                        window.clear();
-                                        renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
-                                        withUiView([&] {
-                                            window.draw(loadingBg);
-                                            window.draw(loadingText);
-                                            window.draw(countdownText);
-                                        });
-                                        window.display();
-                                    },
-                                    [&](int currentSimYear, int chunkYears) {
-                                        // GPU economy fast-forward aligned to mega chunks.
-                                        economy.onTerritoryChanged(map);
-                                        economy.tickMegaChunkGpuOnly(currentSimYear, chunkYears, map, countries, technologyManager, /*yearsPerStep*/10, /*tradeItersPerStep*/3);
-                                    });
-                                
-                                // Show completion message
-                                float totalTime = megaClock.getElapsedTime().asSeconds();
-                                loadingText.setString("TIME JUMP COMPLETE!");
-                                loadingText.setFillColor(sf::Color::Green);
-                                countdownText.setString("Completed in " + std::to_string(static_cast<int>(totalTime)) + " seconds");
-                                countdownText.setFillColor(sf::Color::White);
-                                
-                                window.clear();
-                                renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
-                                withUiView([&] {
-                                    window.draw(loadingBg);
-                                    window.draw(loadingText);
-                                    window.draw(countdownText);
-                                });
-                                window.display();
-                                
-                                // Show completion for 2 seconds
-                                sf::sleep(sf::seconds(2));
-                                
-                                // FORCE IMMEDIATE COMPLETE VISUAL REFRESH
-                                std::cout << "Forcing complete visual refresh..." << std::endl;
-                                std::cout << "Total time jump time: " << totalTime << " seconds" << std::endl;
-                                
-	                                // Mark ALL regions as dirty for complete re-render
-	                                int totalRegions = (mapPixelSize.x / map.getGridCellSize() / map.getRegionSize()) * 
-	                                                  (mapPixelSize.y / map.getGridCellSize() / map.getRegionSize());
-	                                for (int i = 0; i < totalRegions; ++i) {
-	                                    map.insertDirtyRegion(i);
+	                            // Validate year range
+	                            if (targetYear >= -5000 && targetYear <= 2025 && targetYear > currentYear) {
+	                                megaTimeJumpMode = false;
+
+	                                megaTimeJumpStartYear = currentYear;
+	                                megaTimeJumpTargetYear = targetYear;
+	                                megaTimeJumpRunning = true;
+	                                megaTimeJumpPendingClose = false;
+
+		                                megaTimeJumpCancelRequested.store(false, std::memory_order_relaxed);
+		                                megaTimeJumpDone.store(false, std::memory_order_relaxed);
+		                                megaTimeJumpCanceled.store(false, std::memory_order_relaxed);
+		                                megaTimeJumpFailed.store(false, std::memory_order_relaxed);
+		                                megaTimeJumpProgressYear.store(currentYear, std::memory_order_relaxed);
+		                                megaTimeJumpEtaSeconds.store(-1.0f, std::memory_order_relaxed);
+		                                {
+		                                    std::lock_guard<std::mutex> lock(megaTimeJumpChunkMutex);
+		                                    megaTimeJumpGpuChunkTicket = 0;
+		                                    megaTimeJumpGpuChunkAck = 0;
+		                                    megaTimeJumpGpuChunkEndYear = currentYear;
+		                                    megaTimeJumpGpuChunkYears = 0;
+		                                }
+		                                megaTimeJumpGpuChunkActive = false;
+		                                megaTimeJumpGpuChunkActiveTicket = 0;
+		                                megaTimeJumpGpuChunkRemainingYears = 0;
+		                                megaTimeJumpGpuChunkSimYear = currentYear;
+		                                megaTimeJumpGpuChunkNeedsTerritorySync = false;
+
+		                                {
+		                                    std::lock_guard<std::mutex> lock(megaTimeJumpErrorMutex);
+		                                    megaTimeJumpError.clear();
+		                                }
+
+	                                if (megaTimeJumpThread.joinable()) {
+	                                    megaTimeJumpThread.join();
 	                                }
-	                                
-	                                economy.onTerritoryChanged(map);
-	                                economy.readbackMetrics(currentYear);
-	                                economy.applyCountryMetrics(countries);
-	                                
-	                                // Force immediate renderer update
-	                                renderer.updateYearText(currentYear);
-	                                renderer.setNeedsUpdate(true);
-	                                renderingNeedsUpdate = true;
-                                
-                                // Immediate visual update
-                                window.clear();
-                                renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo);
-                                window.display();
-                                
-                                std::cout << "Visual refresh complete!" << std::endl;
-                                
-                                std::cout << "MEGA TIME JUMP COMPLETE! Welcome to " << currentYear << "!" << std::endl;
-                            }
-                            else {
-                                megaTimeJumpMode = false; // Cancel on invalid input
-                            }
-                        }
-                    }
+
+		                                const int yearsToSimulate = megaTimeJumpTargetYear - megaTimeJumpStartYear;
+		                                std::cout << "SIMULATING " << yearsToSimulate << " YEARS OF HISTORY!" << std::endl;
+		                                std::cout << "From " << megaTimeJumpStartYear << " to " << megaTimeJumpTargetYear << std::endl;
+
+		                                // Baseline readback before mega-jump so GDP can be estimated from capital formation
+		                                // across the jump interval (end readback happens after the jump completes).
+		                                economy.onTerritoryChanged(map);
+		                                economy.readbackMetrics(currentYear);
+		                                economy.applyCountryMetrics(countries, tradeExportsForYear(currentYear));
+
+		                                megaTimeJumpThread = std::thread([&] {
+		                                    try {
+		                                        const bool completed = map.megaTimeJump(
+		                                            countries, currentYear, megaTimeJumpTargetYear, news,
+		                                            technologyManager, cultureManager, greatPeopleManager,
+		                                            [&](int currentSimYear, int targetSimYear, float estimatedSecondsRemaining) {
+		                                                (void)targetSimYear;
+		                                                megaTimeJumpProgressYear.store(currentSimYear, std::memory_order_relaxed);
+		                                                megaTimeJumpEtaSeconds.store(estimatedSecondsRemaining, std::memory_order_relaxed);
+		                                            },
+		                                            [&](int currentSimYear, int chunkYears) {
+		                                                const int chunkStartYear = currentSimYear - chunkYears;
+		                                                tradeManager.fastForwardTrade(countries, chunkStartYear, currentSimYear, map, technologyManager, news);
+
+		                                                // Request GPU economy chunk processing on the UI thread (SFML/OpenGL context).
+		                                                std::unique_lock<std::mutex> lock(megaTimeJumpChunkMutex);
+		                                                megaTimeJumpGpuChunkTicket++;
+		                                                megaTimeJumpGpuChunkEndYear = currentSimYear;
+		                                                megaTimeJumpGpuChunkYears = chunkYears;
+		                                                megaTimeJumpChunkCv.notify_all();
+		                                                megaTimeJumpChunkCv.wait(lock, [&] {
+		                                                    return megaTimeJumpGpuChunkAck >= megaTimeJumpGpuChunkTicket ||
+		                                                           megaTimeJumpCancelRequested.load(std::memory_order_relaxed);
+		                                                });
+		                                            },
+		                                            &megaTimeJumpCancelRequested);
+
+		                                        megaTimeJumpCanceled.store(!completed, std::memory_order_relaxed);
+		                                    } catch (const std::exception& e) {
+	                                        megaTimeJumpFailed.store(true, std::memory_order_relaxed);
+	                                        std::lock_guard<std::mutex> lock(megaTimeJumpErrorMutex);
+	                                        megaTimeJumpError = e.what();
+	                                    } catch (...) {
+	                                        megaTimeJumpFailed.store(true, std::memory_order_relaxed);
+	                                        std::lock_guard<std::mutex> lock(megaTimeJumpErrorMutex);
+	                                        megaTimeJumpError = "Unknown error";
+	                                    }
+
+	                                    megaTimeJumpDone.store(true, std::memory_order_relaxed);
+	                                });
+	                            } else {
+	                                megaTimeJumpMode = false; // Cancel on invalid input
+	                            }
+	                        }
+	                    }
                     else if (event.text.unicode == 27) { // Escape key
                         megaTimeJumpMode = false;
                         megaTimeJumpInput = "";
@@ -1361,13 +1426,189 @@ int main() {
                     zoomedView.move(delta);
                     lastMousePos = currentMousePos;
                 }
-            }
-        }
+	            }
+	        }
 
-        renderer.setHoveredCountryIndex(hoveredCountryIndex);
+	        if (megaTimeJumpRunning) {
+	            // Process GPU economy updates for the jump on the UI thread (SFML/OpenGL context).
+	            if (megaTimeJumpCancelRequested.load(std::memory_order_relaxed)) {
+	                {
+	                    std::lock_guard<std::mutex> lock(megaTimeJumpChunkMutex);
+	                    if (megaTimeJumpGpuChunkAck < megaTimeJumpGpuChunkTicket) {
+	                        megaTimeJumpGpuChunkAck = megaTimeJumpGpuChunkTicket;
+	                    }
+	                }
+	                megaTimeJumpGpuChunkActive = false;
+	                megaTimeJumpGpuChunkNeedsTerritorySync = false;
+	                megaTimeJumpChunkCv.notify_all();
+	            }
 
-        // Paint HUD (shown even when OFF to make controls discoverable)
-        std::string paintCountryName = "<none>";
+	            {
+	                std::lock_guard<std::mutex> lock(megaTimeJumpChunkMutex);
+	                if (!megaTimeJumpGpuChunkActive && megaTimeJumpGpuChunkTicket > megaTimeJumpGpuChunkAck) {
+	                    megaTimeJumpGpuChunkActive = true;
+	                    megaTimeJumpGpuChunkActiveTicket = megaTimeJumpGpuChunkTicket;
+	                    megaTimeJumpGpuChunkRemainingYears = megaTimeJumpGpuChunkYears;
+	                    megaTimeJumpGpuChunkSimYear = megaTimeJumpGpuChunkEndYear - megaTimeJumpGpuChunkYears;
+	                    megaTimeJumpGpuChunkNeedsTerritorySync = true;
+	                }
+	            }
+
+	            if (megaTimeJumpGpuChunkActive && megaTimeJumpGpuChunkNeedsTerritorySync) {
+	                economy.onTerritoryChanged(map);
+	                megaTimeJumpGpuChunkNeedsTerritorySync = false;
+	            }
+
+	            if (megaTimeJumpGpuChunkActive && !megaTimeJumpCancelRequested.load(std::memory_order_relaxed)) {
+	                const int step = std::max(1, megaTimeJumpGpuYearsPerStep);
+	                const int thisStep = std::min(step, megaTimeJumpGpuChunkRemainingYears);
+	                if (thisStep > 0) {
+	                    megaTimeJumpGpuChunkSimYear += thisStep;
+	                    economy.tickStepGpuOnly(megaTimeJumpGpuChunkSimYear,
+	                                            map,
+	                                            countries,
+	                                            technologyManager,
+	                                            static_cast<float>(thisStep),
+	                                            megaTimeJumpGpuTradeItersPerStep,
+	                                            /*heatmap*/false,
+	                                            /*readbackMetricsBeforeDiffusion*/true);
+	                    megaTimeJumpGpuChunkRemainingYears -= thisStep;
+	                }
+
+	                if (megaTimeJumpGpuChunkRemainingYears <= 0) {
+	                    {
+	                        std::lock_guard<std::mutex> lock(megaTimeJumpChunkMutex);
+	                        megaTimeJumpGpuChunkAck = megaTimeJumpGpuChunkActiveTicket;
+	                    }
+	                    megaTimeJumpGpuChunkActive = false;
+	                    megaTimeJumpChunkCv.notify_all();
+	                }
+	            }
+
+	            if (megaTimeJumpDone.load(std::memory_order_relaxed)) {
+	                if (megaTimeJumpThread.joinable()) {
+	                    megaTimeJumpThread.join();
+	                }
+
+	                megaTimeJumpRunning = false;
+	                megaTimeJumpDone.store(false, std::memory_order_relaxed);
+	                megaTimeJumpGpuChunkActive = false;
+	                megaTimeJumpGpuChunkNeedsTerritorySync = false;
+
+	                // Prevent an immediate real-time year jump after a long background run.
+	                yearClock.restart();
+
+	                if (megaTimeJumpPendingClose) {
+	                    window.close();
+	                    continue;
+	                }
+
+	                if (megaTimeJumpFailed.load(std::memory_order_relaxed)) {
+	                    std::string err;
+	                    {
+	                        std::lock_guard<std::mutex> lock(megaTimeJumpErrorMutex);
+	                        err = megaTimeJumpError;
+	                    }
+	                    std::cout << "🚨 MEGA TIME JUMP FAILED: " << err << std::endl;
+	                } else {
+	                    const bool wasCanceled = megaTimeJumpCanceled.load(std::memory_order_relaxed);
+	                    std::cout << (wasCanceled ? "🛑 MEGA TIME JUMP CANCELED" : "✅ MEGA TIME JUMP COMPLETE")
+	                              << "! Welcome to " << currentYear << "!" << std::endl;
+
+	                    // Force a full visual refresh and update economy metrics after the jump.
+	                    int totalRegions = (mapPixelSize.x / map.getGridCellSize() / map.getRegionSize()) *
+	                                      (mapPixelSize.y / map.getGridCellSize() / map.getRegionSize());
+	                    for (int i = 0; i < totalRegions; ++i) {
+	                        map.insertDirtyRegion(i);
+	                    }
+
+	                    economy.onTerritoryChanged(map);
+	                    economy.readbackMetrics(currentYear);
+	                    economy.applyCountryMetrics(countries, tradeExportsForYear(currentYear));
+
+	                    renderer.updateYearText(currentYear);
+	                    renderer.setNeedsUpdate(true);
+	                    renderingNeedsUpdate = true;
+	                }
+	            } else {
+	                const int simYear = megaTimeJumpProgressYear.load(std::memory_order_relaxed);
+	                const int totalYears = megaTimeJumpTargetYear - megaTimeJumpStartYear;
+	                const int yearsDone = std::clamp(simYear - megaTimeJumpStartYear, 0, std::max(0, totalYears));
+
+	                const float eta = megaTimeJumpEtaSeconds.load(std::memory_order_relaxed);
+	                const bool canceling = megaTimeJumpCancelRequested.load(std::memory_order_relaxed);
+
+	                sf::RectangleShape bg(sf::Vector2f(window.getSize().x, window.getSize().y));
+	                bg.setFillColor(sf::Color(20, 20, 20));
+
+	                sf::Text title;
+	                title.setFont(m_font);
+	                title.setCharacterSize(42);
+	                title.setFillColor(sf::Color::Yellow);
+	                title.setString("MEGA TIME JUMP");
+	                title.setPosition(50, 40);
+
+	                sf::Text line1;
+	                line1.setFont(m_font);
+	                line1.setCharacterSize(28);
+	                line1.setFillColor(sf::Color::White);
+	                line1.setString("Target: " + std::to_string(megaTimeJumpTargetYear) + " | Current: " + std::to_string(simYear));
+	                line1.setPosition(50, 120);
+
+	                sf::Text line2;
+	                line2.setFont(m_font);
+	                line2.setCharacterSize(28);
+	                line2.setFillColor(sf::Color::Cyan);
+	                if (totalYears > 0) {
+	                    line2.setString("Progress: " + std::to_string(yearsDone) + "/" + std::to_string(totalYears) + " years");
+	                } else {
+	                    line2.setString("Progress: 0/0 years");
+	                }
+	                line2.setPosition(50, 170);
+
+	                sf::Text line3;
+	                line3.setFont(m_font);
+	                line3.setCharacterSize(24);
+	                line3.setFillColor(sf::Color(200, 200, 200));
+	                if (canceling) {
+	                    line3.setString("Canceling... (ESC)");
+	                } else if (eta >= 0.0f) {
+	                    std::string s = "ETA: ~" + std::to_string(static_cast<int>(eta)) + "s | Press ESC to cancel";
+	                    if (megaTimeJumpGpuChunkActive) {
+	                        s += " | Updating economy...";
+	                    }
+	                    line3.setString(s);
+	                } else {
+	                    std::string s = "Estimating... | Press ESC to cancel";
+	                    if (megaTimeJumpGpuChunkActive) {
+	                        s += " | Updating economy...";
+	                    }
+	                    line3.setString(s);
+	                }
+	                line3.setPosition(50, 220);
+
+	                window.setView(window.getDefaultView());
+	                window.clear();
+	                window.draw(bg);
+	                window.draw(title);
+	                window.draw(line1);
+	                window.draw(line2);
+	                window.draw(line3);
+	                window.display();
+
+	                float frameTime = frameClock.getElapsedTime().asSeconds();
+	                if (frameTime < targetFrameTime) {
+	                    sf::sleep(sf::seconds(targetFrameTime - frameTime));
+	                }
+	            }
+
+	            continue;
+	        }
+
+	        renderer.setHoveredCountryIndex(hoveredCountryIndex);
+
+	        // Paint HUD (shown even when OFF to make controls discoverable)
+	        std::string paintCountryName = "<none>";
         if (selectedPaintCountryIndex >= 0 && selectedPaintCountryIndex < static_cast<int>(countries.size())) {
             paintCountryName = countries[static_cast<size_t>(selectedPaintCountryIndex)].getName();
         }
@@ -1447,10 +1688,10 @@ int main() {
 	            auto tradeEnd = std::chrono::high_resolution_clock::now();
 	            auto tradeTime = std::chrono::duration_cast<std::chrono::milliseconds>(tradeEnd - tradeStart);
 
-	            // GPU economy (downsampled grid fields)
-	            economy.onTerritoryChanged(map);
-	            economy.tickYear(currentYear, map, countries, technologyManager);
-	            economy.applyCountryMetrics(countries);
+		            // GPU economy (downsampled grid fields)
+		            economy.onTerritoryChanged(map);
+		            economy.tickYear(currentYear, map, countries, technologyManager);
+		            economy.applyCountryMetrics(countries, tradeExportsForYear(currentYear));
 
 	            map.processPoliticalEvents(countries, tradeManager, currentYear, news);
             

@@ -14,6 +14,24 @@ TradeManager::TradeManager() : m_rng(std::random_device{}()) {
     std::cout << "🏪 Trade & Economic Exchange Framework initialized!" << std::endl;
 }
 
+void TradeManager::beginExportsYear(int year, size_t countryCount) {
+    m_lastCountryExportsYear = year;
+    m_countryExportsValue.assign(countryCount, 0.0);
+}
+
+void TradeManager::addExportValue(int exporterIndex, double value) {
+    if (exporterIndex < 0) {
+        return;
+    }
+    if (value <= 0.0) {
+        return;
+    }
+    if (static_cast<size_t>(exporterIndex) >= m_countryExportsValue.size()) {
+        return;
+    }
+    m_countryExportsValue[static_cast<size_t>(exporterIndex)] += value;
+}
+
 // 🔥 MAIN TRADE UPDATE - Highly optimized for all game modes
 void TradeManager::updateTrade(std::vector<Country>& countries, int currentYear, const Map& map, 
                               const TechnologyManager& techManager, News& news) {
@@ -23,6 +41,8 @@ void TradeManager::updateTrade(std::vector<Country>& countries, int currentYear,
     if (currentYear - lastTradeYear < 2) return; // Process every 2 years
     lastTradeYear = currentYear;
     
+    beginExportsYear(currentYear, countries.size());
+
     // Stage 1: Basic Barter (always available)
     processBarter(countries, currentYear, map, news);
     
@@ -49,6 +69,7 @@ void TradeManager::fastForwardTrade(std::vector<Country>& countries, int startYe
     
     // Process trades in 10-year chunks for optimal performance
     for (int year = startYear; year < endYear; year += 10) {
+        beginExportsYear(year, countries.size());
         // Accelerated barter processing
         if (year % 5 == 0) { // Every 5 years during fast forward
             processBarter(countries, year, map, news);
@@ -231,6 +252,8 @@ void TradeManager::processCurrencyTrades(std::vector<Country>& countries, int cu
                                 // Execute currency trade
                                 const_cast<ResourceManager&>(seller.getResourceManager()).consumeResource(resource, tradeAmount);
                                 const_cast<ResourceManager&>(buyer.getResourceManager()).addResource(resource, tradeAmount);
+
+                                addExportValue(static_cast<int>(i), totalCost);
                                 
                                 // Transfer gold
                                 const_cast<Country&>(buyer).subtractGold(totalCost);
@@ -383,7 +406,9 @@ void TradeManager::processTradeRoutes(std::vector<Country>& countries, int curre
                         const_cast<ResourceManager&>(country2.getResourceManager()).addResource(resource, tradeAmount);
                         
                         m_totalTradesCompleted++;
-                        m_totalTradeValue += tradeAmount * getResourcePrice(resource, country1);
+                        const double value = tradeAmount * getResourcePrice(resource, country1);
+                        m_totalTradeValue += value;
+                        addExportValue(route.fromCountryIndex, value);
                         tradeHappened = true;
                     }
                 }
@@ -631,6 +656,11 @@ void TradeManager::executeTradeOffer(const TradeOffer& offer, std::vector<Countr
     
     const_cast<ResourceManager&>(toCountry.getResourceManager()).consumeResource(offer.requestedResource, offer.requestedAmount);
     const_cast<ResourceManager&>(fromCountry.getResourceManager()).addResource(offer.requestedResource, offer.requestedAmount);
+
+    // Count exports for both directions in this barter exchange.
+    // Use each country's own price function as a local value proxy.
+    addExportValue(offer.fromCountryIndex, offer.offeredAmount * getResourcePrice(offer.offeredResource, fromCountry));
+    addExportValue(offer.toCountryIndex, offer.requestedAmount * getResourcePrice(offer.requestedResource, toCountry));
     
     m_totalTradesCompleted++;
     m_totalTradeValue += offer.offeredAmount + offer.requestedAmount;

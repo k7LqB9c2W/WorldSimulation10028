@@ -388,7 +388,8 @@ void EconomyGPU::tickStepGpuOnly(int year,
                                  const TechnologyManager& tech,
                                  float dtYears,
                                  int tradeItersOverride,
-                                 bool generateDebugHeatmap) {
+                                 bool generateDebugHeatmap,
+                                 bool readbackMetricsBeforeDiffusion) {
     if (!m_initialized) {
         return;
     }
@@ -422,6 +423,17 @@ void EconomyGPU::tickStepGpuOnly(int year,
         stateDst().draw(sprite, states);
         stateDst().display();
         flipState();
+    }
+
+    // Optional readback & aggregation immediately after production/consumption (before diffusion),
+    // to keep GDP/exports meaningful during mega fast-forwards.
+    if (readbackMetricsBeforeDiffusion) {
+        const int everyN = std::max(1, m_cfg.updateReadbackEveryNYears);
+        if (!m_hasAnyReadback || (year - m_lastReadbackYear) >= everyN) {
+            computeCountryMetricsCPU(year);
+            m_lastReadbackYear = year;
+            m_hasAnyReadback = true;
+        }
     }
 
     // Pass B: diffusion (scaled for dtYears but using fewer iterations).
@@ -489,7 +501,14 @@ void EconomyGPU::tickMegaChunkGpuOnly(int endYear,
     while (remaining > 0) {
         const int thisStep = std::min(step, remaining);
         simYear += thisStep;
-        tickStepGpuOnly(simYear, map, countries, tech, static_cast<float>(thisStep), tradeItersPerStep, /*heatmap*/false);
+        tickStepGpuOnly(simYear,
+                        map,
+                        countries,
+                        tech,
+                        static_cast<float>(thisStep),
+                        tradeItersPerStep,
+                        /*heatmap*/false,
+                        /*readbackMetricsBeforeDiffusion*/true);
         remaining -= thisStep;
     }
 }
@@ -506,7 +525,8 @@ void EconomyGPU::readbackMetrics(int year) {
     m_hasAnyReadback = true;
 }
 
-void EconomyGPU::applyCountryMetrics(std::vector<Country>& countries) const {
+void EconomyGPU::applyCountryMetrics(std::vector<Country>& countries,
+                                     const std::vector<double>* tradeExportsValue) const {
     if (!m_initialized) {
         return;
     }
@@ -518,7 +538,11 @@ void EconomyGPU::applyCountryMetrics(std::vector<Country>& countries) const {
         }
         countries[i].setWealth(m_countryWealth[id]);
         countries[i].setGDP(m_countryGDP[id]);
-        countries[i].setExports(m_countryExports[id]);
+        double ex = m_countryExports[id];
+        if (tradeExportsValue && i < tradeExportsValue->size()) {
+            ex += (*tradeExportsValue)[i];
+        }
+        countries[i].setExports(ex);
     }
 }
 
