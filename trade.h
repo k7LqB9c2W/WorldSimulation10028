@@ -7,6 +7,7 @@
 #include <string>
 #include <random>
 #include <cstdint>
+#include <SFML/System/Vector2.hpp>
 #include "resource.h"
 #include "simulation_context.h"
 
@@ -15,13 +16,6 @@ class Country;
 class News;
 class TechnologyManager;
 class Map;
-
-// Forward declare sf::Vector2i without pulling SFML headers into this file.
-namespace sf {
-    template <typename T>
-    struct Vector2;
-    using Vector2i = Vector2<int>;
-}
 
 // Simple 2D vector structure to avoid SFML dependency in header
 struct Vector2i {
