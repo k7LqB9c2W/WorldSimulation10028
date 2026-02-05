@@ -75,7 +75,7 @@ void TechnologyManager::initializeTechnologies() {
         {50, {"Rifling", 4800, 50, {47}}},
         {51, {"Steam Engine", 5000, 51, {48}}},
         {52, {"Industrialization", 5500, 52, {42, 51}}},
-        {52, {"Sanitation", 6000, 52, {40}}},
+        {96, {"Sanitation", 6000, 96, {40}}},
         {53, {"Vaccination", 6500, 53, {40}}},
         {54, {"Electricity", 7000, 54, {48}}},
         {55, {"Railroad", 7500, 55, {50, 51}}},
@@ -279,7 +279,7 @@ double TechnologyManager::techKMultiplier(const TechnologyManager& tm, const Cou
         {44, 1.04},   // Economics
         {40, 1.12},   // Chemistry as fertilizer proxy
         {55, 1.20},   // Railroad
-        {50, 1.15},   // Steam Engine
+        {51, 1.15},   // Steam Engine
         {63, 1.10},   // Mass Production
         {57, 1.08},   // Replaceable Parts
         {71, 1.10},   // Refrigeration
@@ -326,10 +326,10 @@ double TechnologyManager::techGrowthRateR(const TechnologyManager& tm, const Cou
 
     // Industrial and public health lift r materially
     static const RAdd industrial[] = {
-        {50, 0.0006},   // Steam Engine
-        {51, 0.0008},   // Industrialization
+        {51, 0.0006},   // Steam Engine
+        {52, 0.0008},   // Industrialization
         {55, 0.0004},   // Railroad
-        {52, 0.0010},   // Sanitation
+        {96, 0.0010},   // Sanitation
         {53, 0.0010},   // Vaccination
         {54, 0.0005},   // Electricity
         {63, 0.0005},   // Mass Production

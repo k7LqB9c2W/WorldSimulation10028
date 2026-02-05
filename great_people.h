@@ -1,8 +1,10 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <random>
 #include "country.h"
 #include "news.h"
+#include "simulation_context.h"
 
 // The field in which a great person excels.
 enum class GreatPersonField {
@@ -17,13 +19,13 @@ struct GreatPersonEffect {
     std::string name;                // The generated name.
     double multiplier;               // The bonus multiplier (1.25 to 2.0).
     int startYear;                   // The year when the effect starts.
-    int duration;                    // Duration of the effect (in years, 30–40).
+    int duration;                    // Duration of the effect (in years, 30â€“40).
     int expiryYear;                  // Computed as startYear + duration.
 };
 
 class GreatPeopleManager {
 public:
-    GreatPeopleManager();
+    explicit GreatPeopleManager(SimulationContext& ctx);
 
     // Call this once per simulation year.
     void updateEffects(int currentYear, std::vector<Country>& countries, News& news);
@@ -33,6 +35,7 @@ public:
     double getScienceBonus(int countryIndex, int currentYear) const;
 
 private:
+    std::mt19937_64 m_rng;
     int m_nextEventYear;                    // The next simulation year when a great person event will occur.
     std::vector<GreatPersonEffect> m_activeEffects;
 

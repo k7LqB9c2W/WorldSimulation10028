@@ -17,6 +17,9 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
+#include <random>
+#include <fstream>
+#include <optional>
 #include "country.h"
 #include "renderer.h"
 #include "map.h"
@@ -26,6 +29,7 @@
 #include "culture.h" // Include the new culture header
 #include "trade.h" // Include the new trade system
 #include "economy.h"
+#include "simulation_context.h"
 
 // 🚨 CRASH DETECTION SYSTEM
 void crashHandler(int signal) {
@@ -75,7 +79,44 @@ bool paused = false;
 bool megaTimeJumpMode = false;
 std::string megaTimeJumpInput = "";
 
-int main() {
+namespace {
+std::optional<std::uint64_t> tryReadSeedFile(const char* filename) {
+    std::ifstream in(filename);
+    if (!in) {
+        return std::nullopt;
+    }
+    std::uint64_t seed = 0;
+    in >> seed;
+    if (!in) {
+        return std::nullopt;
+    }
+    return seed;
+}
+
+std::optional<std::uint64_t> tryParseSeedArg(int argc, char** argv) {
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i] ? std::string(argv[i]) : std::string();
+        if (arg == "--seed" && i + 1 < argc) {
+            try {
+                return static_cast<std::uint64_t>(std::stoull(argv[i + 1]));
+            } catch (...) {
+                return std::nullopt;
+            }
+        }
+        const std::string prefix = "--seed=";
+        if (arg.rfind(prefix, 0) == 0) {
+            try {
+                return static_cast<std::uint64_t>(std::stoull(arg.substr(prefix.size())));
+            } catch (...) {
+                return std::nullopt;
+            }
+        }
+    }
+    return std::nullopt;
+}
+} // namespace
+
+int main(int argc, char** argv) {
     // 🚨 REGISTER CRASH HANDLERS
     std::signal(SIGSEGV, crashHandler);  // Segmentation fault
     std::signal(SIGABRT, crashHandler);  // Abort signal
@@ -117,16 +158,29 @@ int main() {
         return -1;
     }
 
-    sf::Color landColor(0, 58, 0);
-    sf::Color waterColor(44, 90, 244);
+	    sf::Color landColor(0, 58, 0);
+	    sf::Color waterColor(44, 90, 244);
 
-    const int gridCellSize = 1;
-    const int regionSize = 32;
-    
-    std::cout << "🚀 INITIALIZING MAP..." << std::endl;
-    auto mapStart = std::chrono::high_resolution_clock::now();
-    Map map(baseImage, resourceImage, gridCellSize, landColor, waterColor, regionSize);
-    auto mapEnd = std::chrono::high_resolution_clock::now();
+	    const int gridCellSize = 1;
+	    const int regionSize = 32;
+
+	    std::uint64_t worldSeed = 0;
+	    if (auto s = tryParseSeedArg(argc, argv)) {
+	        worldSeed = *s;
+	    } else if (auto s = tryReadSeedFile("seed.txt")) {
+	        worldSeed = *s;
+	    } else {
+	        std::random_device rd;
+	        worldSeed = (static_cast<std::uint64_t>(rd()) << 32) ^ static_cast<std::uint64_t>(rd());
+	        worldSeed ^= static_cast<std::uint64_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+	    }
+	    std::cout << "World seed: " << worldSeed << std::endl;
+	    SimulationContext ctx(worldSeed);
+	    
+	    std::cout << "🚀 INITIALIZING MAP..." << std::endl;
+	    auto mapStart = std::chrono::high_resolution_clock::now();
+	    Map map(baseImage, resourceImage, gridCellSize, landColor, waterColor, regionSize, ctx);
+	    auto mapEnd = std::chrono::high_resolution_clock::now();
     auto mapDuration = std::chrono::duration_cast<std::chrono::milliseconds>(mapEnd - mapStart);
     std::cout << "✅ MAP INITIALIZED in " << mapDuration.count() << " ms" << std::endl;
 
@@ -157,21 +211,21 @@ int main() {
     // Initialize the CultureManager
     CultureManager cultureManager;
 
-    // Initialize the Great People Manager
-    GreatPeopleManager greatPeopleManager;
-    
-	    // Initialize the Trade Manager
-		    TradeManager tradeManager;
+	    // Initialize the Great People Manager
+	    GreatPeopleManager greatPeopleManager(ctx);
+	    
+		    // Initialize the Trade Manager
+			    TradeManager tradeManager(ctx);
 
 		    // Initialize GPU economy (downsampled econ grid)
 		    EconomyGPU economy;
 	    EconomyGPU::Config econCfg;
-		    econCfg.econCellSize = 6;
-		    econCfg.tradeIters = 12;
-		    econCfg.updateReadbackEveryNYears = 1;
+			    econCfg.econCellSize = Map::kFieldCellSize;
+			    econCfg.tradeIters = 12;
+			    econCfg.updateReadbackEveryNYears = 1;
 		    economy.init(map, maxCountries, econCfg);
 		    if (!economy.isInitialized()) {
-		        std::cout << "⚠️ EconomyGPU disabled (shaders unavailable/init failed). Wealth/GDP/exports will stay 0." << std::endl;
+		        std::cout << "⚠️ EconomyGPU disabled (shaders unavailable/init failed). Using CPU fallback for wealth/GDP/exports." << std::endl;
 		    }
 		    economy.onTerritoryChanged(map);
 		    economy.onStaticResourcesChanged(map);
@@ -615,9 +669,9 @@ int main() {
                             for (size_t i = 0; i < countries.size(); ++i) {
                                     // Do 2 rounds to compensate for reduced frequency
                                     technologyManager.updateCountry(countries[i]);
-                                    cultureManager.updateCountry(countries[i]);
+	                                    cultureManager.updateCountry(countries[i], technologyManager);
                                 technologyManager.updateCountry(countries[i]);
-                                cultureManager.updateCountry(countries[i]);
+	                                cultureManager.updateCountry(countries[i], technologyManager);
                                 
                                     // Safety check every 20 countries (reduced logging)
                                     if (i % 20 == 0 && i > 0) {
@@ -1313,22 +1367,21 @@ int main() {
                             continue;
                         }
 
-                        std::random_device rd;
-                        std::mt19937 gen(rd());
-                        std::uniform_int_distribution<> colorDist(50, 255);
-                        std::uniform_int_distribution<> popDist(1000, 10000);
-                        std::uniform_real_distribution<> growthRateDist(0.0003, 0.001);
-                        std::uniform_int_distribution<> typeDist(0, 2);
-                        std::discrete_distribution<> scienceTypeDist({ 50, 40, 10 });
-                        std::discrete_distribution<> cultureTypeDist({ 40, 40, 20 });
+	                        std::mt19937_64& gen = ctx.worldRng;
+	                        std::uniform_int_distribution<> colorDist(50, 255);
+	                        std::uniform_int_distribution<> popDist(1000, 10000);
+	                        std::uniform_real_distribution<> growthRateDist(0.0003, 0.001);
+	                        std::uniform_int_distribution<> typeDist(0, 2);
+	                        std::discrete_distribution<> scienceTypeDist({ 50, 40, 10 });
+	                        std::discrete_distribution<> cultureTypeDist({ 40, 40, 20 });
 
-                        sf::Color countryColor(colorDist(gen), colorDist(gen), colorDist(gen));
-                        double growthRate = growthRateDist(gen);
-                        std::string countryName = generate_country_name();
-                        while (isNameTaken(countries, countryName)) {
-                            countryName = generate_country_name();
-                        }
-                        countryName += " Tribe";
+	                        sf::Color countryColor(colorDist(gen), colorDist(gen), colorDist(gen));
+	                        double growthRate = growthRateDist(gen);
+	                        std::string countryName = generate_country_name(gen);
+	                        while (isNameTaken(countries, countryName)) {
+	                            countryName = generate_country_name(gen);
+	                        }
+	                        countryName += " Tribe";
                         
                         // Use custom template if available, otherwise use random generation
                         long long initialPopulation;
@@ -1346,10 +1399,19 @@ int main() {
                             countryType = static_cast<Country::Type>(typeDist(gen));
                             scienceType = static_cast<Country::ScienceType>(scienceTypeDist(gen));
                             cultureType = static_cast<Country::CultureType>(cultureTypeDist(gen));
-                        }
+	                        }
 
-                        int newCountryIndex = countries.size();
-                        countries.emplace_back(newCountryIndex, countryColor, gridPos, initialPopulation, growthRate, countryName, countryType, scienceType, cultureType);
+	                        int newCountryIndex = countries.size();
+	                        countries.emplace_back(newCountryIndex,
+	                                               countryColor,
+	                                               gridPos,
+	                                               initialPopulation,
+	                                               growthRate,
+	                                               countryName,
+	                                               countryType,
+	                                               scienceType,
+	                                               cultureType,
+	                                               ctx.seedForCountry(newCountryIndex));
 
                         // Use Map's methods to update the grid and dirty regions
                         map.setCountryGridValue(gridPos.x, gridPos.y, newCountryIndex);
@@ -1763,7 +1825,7 @@ int main() {
             for (int i = 0; i < countries.size(); ++i) {
                 try {
                     technologyManager.updateCountry(countries[i]);
-                    cultureManager.updateCountry(countries[i]);
+	                    cultureManager.updateCountry(countries[i], technologyManager);
                 } catch (const std::exception& e) {
                     std::cout << "🚨 TECH/CULTURE UPDATE CRASHED for country " << i << ": " << e.what() << std::endl;
                     throw;

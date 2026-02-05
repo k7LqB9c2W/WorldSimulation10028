@@ -1,14 +1,12 @@
 #include "great_people.h"
 #include <algorithm>
-#include <random>
 #include <cctype>
 
 // Constructor: set the first event to occur between 100 and 500 years after simulation start.
-GreatPeopleManager::GreatPeopleManager() {
-    std::random_device rd;
-    std::mt19937 gen(rd());
+GreatPeopleManager::GreatPeopleManager(SimulationContext& ctx)
+    : m_rng(ctx.makeRng(0x4752454154504552ull)) { // "GREATPER"
     std::uniform_int_distribution<> eventIntervalDist(100, 500);
-    m_nextEventYear = -5000 + eventIntervalDist(gen);
+    m_nextEventYear = -5000 + eventIntervalDist(m_rng);
 }
 
 // Generates a random name from a mixture of syllables and optional prefixes/suffixes.
@@ -25,27 +23,25 @@ std::string GreatPeopleManager::generateRandomName() {
         "son", "sen", "man", "ski", "ez", "ov", "ing", "ton", "shi", "li", "zu", "ra"
     };
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
     std::uniform_int_distribution<> syllableCountDist(2, 3);
-    int syllableCount = syllableCountDist(gen);
+    int syllableCount = syllableCountDist(m_rng);
 
     std::string name;
     std::uniform_int_distribution<> coin(0, 1);
     // 50% chance to add a prefix.
-    if (coin(gen) == 1) {
-        std::uniform_int_distribution<> prefixDist(0, prefixes.size() - 1);
-        name += prefixes[prefixDist(gen)];
+    if (coin(m_rng) == 1) {
+        std::uniform_int_distribution<> prefixDist(0, static_cast<int>(prefixes.size()) - 1);
+        name += prefixes[prefixDist(m_rng)];
     }
-    // Add 2–3 syllables.
+    // Add 2â€“3 syllables.
     for (int i = 0; i < syllableCount; i++) {
-        std::uniform_int_distribution<> syllableDist(0, syllables.size() - 1);
-        name += syllables[syllableDist(gen)];
+        std::uniform_int_distribution<> syllableDist(0, static_cast<int>(syllables.size()) - 1);
+        name += syllables[syllableDist(m_rng)];
     }
     // 50% chance to add a suffix.
-    if (coin(gen) == 1) {
-        std::uniform_int_distribution<> suffixDist(0, suffixes.size() - 1);
-        name += suffixes[suffixDist(gen)];
+    if (coin(m_rng) == 1) {
+        std::uniform_int_distribution<> suffixDist(0, static_cast<int>(suffixes.size()) - 1);
+        name += suffixes[suffixDist(m_rng)];
     }
     // Capitalize the first letter.
     if (!name.empty())
@@ -54,31 +50,23 @@ std::string GreatPeopleManager::generateRandomName() {
 }
 
 GreatPersonField GreatPeopleManager::getRandomField() {
-    std::random_device rd;
-    std::mt19937 gen(rd());
     std::uniform_int_distribution<> fieldDist(0, 1);
-    return (fieldDist(gen) == 0) ? GreatPersonField::Military : GreatPersonField::Science;
+    return (fieldDist(m_rng) == 0) ? GreatPersonField::Military : GreatPersonField::Science;
 }
 
 double GreatPeopleManager::getRandomMultiplier() {
-    std::random_device rd;
-    std::mt19937 gen(rd());
     std::uniform_real_distribution<> multDist(1.25, 2.0);
-    return multDist(gen);
+    return multDist(m_rng);
 }
 
 int GreatPeopleManager::getRandomDuration() {
-    std::random_device rd;
-    std::mt19937 gen(rd());
     std::uniform_int_distribution<> durationDist(30, 40);
-    return durationDist(gen);
+    return durationDist(m_rng);
 }
 
 int GreatPeopleManager::getRandomEventInterval() {
-    std::random_device rd;
-    std::mt19937 gen(rd());
     std::uniform_int_distribution<> intervalDist(100, 500);
-    return intervalDist(gen);
+    return intervalDist(m_rng);
 }
 
 // Each simulation year call updateEffects() to both remove expired great person effects
@@ -101,9 +89,7 @@ void GreatPeopleManager::updateEffects(int currentYear, std::vector<Country>& co
             std::vector<int> indices(numCountries);
             for (int i = 0; i < numCountries; ++i)
                 indices[i] = i;
-            std::random_device rd;
-            std::mt19937 gen(rd());
-            std::shuffle(indices.begin(), indices.end(), gen);
+            std::shuffle(indices.begin(), indices.end(), m_rng);
 
             // For the first numGreatPeople countries, create a new effect.
             for (int i = 0; i < numGreatPeople; ++i) {
@@ -137,7 +123,7 @@ void GreatPeopleManager::updateEffects(int currentYear, std::vector<Country>& co
     }
 
     // Now, for each country, update its military (and optionally science) stats directly.
-    // First, reset each country’s stat to its base value.
+    // First, reset each countryâ€™s stat to its base value.
     for (auto& country : countries) {
         country.resetMilitaryStrength();
         // (Similarly, you could reset science production if desired.)

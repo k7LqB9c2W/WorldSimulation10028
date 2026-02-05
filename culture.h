@@ -7,6 +7,7 @@
 #include "country.h"
 
 class Country;
+class TechnologyManager;
 
 struct Civic {
     std::string name;
@@ -20,8 +21,8 @@ class CultureManager {
 public:
     CultureManager();
     void initializeCivics();
-    void updateCountry(Country& country);
-    bool canUnlockCivic(const Country& country, int civicId) const;
+    void updateCountry(Country& country, const TechnologyManager& techManager);
+    bool canUnlockCivic(const Country& country, int civicId, const TechnologyManager& techManager) const;
     void unlockCivic(Country& country, int civicId);
     const std::unordered_map<int, Civic>& getCivics() const;
     const std::vector<int>& getUnlockedCivics(const Country& country) const;

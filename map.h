@@ -6,13 +6,13 @@
 #include <mutex>
 #include <unordered_set>
 #include <unordered_map>
-#include <random>
 #include <functional>
 #include <cstdint>
 #include <atomic>
 #include "country.h"
 #include "resource.h"
 #include "news.h"
+#include "simulation_context.h"
 
 class Country;
 class TradeManager;
@@ -29,12 +29,14 @@ namespace std {
     };
 }
 
-std::string generate_country_name();
+std::string generate_country_name(std::mt19937_64& rng);
 bool isNameTaken(const std::vector<Country>& countries, const std::string& name);
 
 class Map {
 public:
-    Map(const sf::Image& baseImage, const sf::Image& resourceImage, int gridCellSize, const sf::Color& landColor, const sf::Color& waterColor, int regionSize);
+    static constexpr int kFieldCellSize = 6; // Must match EconomyGPU econCellSize for new field systems.
+
+    Map(const sf::Image& baseImage, const sf::Image& resourceImage, int gridCellSize, const sf::Color& landColor, const sf::Color& waterColor, int regionSize, SimulationContext& ctx);
     void initializeCountries(std::vector<Country>& countries, int numCountries);
     void updateCountries(std::vector<Country>& countries, int currentYear, News& news, class TechnologyManager& technologyManager);
     const std::vector<std::vector<bool>>& getIsLandGrid() const;
@@ -53,7 +55,7 @@ public:
     int getPlagueStartYear() const;
     void updatePlagueDeaths(long long deaths);
     bool loadSpawnZones(const std::string& filename);
-    sf::Vector2i getRandomCellInPreferredZones(std::mt19937& gen);
+    sf::Vector2i getRandomCellInPreferredZones(std::mt19937_64& rng);
     void setCountryGridValue(int x, int y, int value);
     // Territory ownership writes must go through these methods so incremental adjacency stays correct.
     // - `setCountryOwner` locks internally.
@@ -110,7 +112,17 @@ public:
     double getCountryFoodSum(int countryIndex) const;
     int getCountryLandCellCount(int countryIndex) const;
 
+    // Phase 2/3 field systems (econ-grid resolution)
+    int getFieldWidth() const { return m_fieldW; }
+    int getFieldHeight() const { return m_fieldH; }
+    const std::vector<int>& getFieldOwnerId() const { return m_fieldOwnerId; }     // size = fieldW*fieldH, -1 for none
+    const std::vector<float>& getFieldControl() const { return m_fieldControl; }  // size = fieldW*fieldH, 0..1
+    const std::vector<float>& getFieldFoodPotential() const { return m_fieldFoodPotential; } // size = fieldW*fieldH
+    bool isPopulationGridActive() const { return !m_fieldPopulation.empty(); }
+    const std::vector<float>& getFieldPopulation() const { return m_fieldPopulation; } // size = fieldW*fieldH
+
 private:
+    SimulationContext* m_ctx = nullptr;
     std::vector<std::vector<int>> m_countryGrid;
     std::vector<std::vector<bool>> m_isLandGrid;
     int m_gridCellSize;
@@ -167,4 +179,24 @@ private:
 
     sf::Image m_spawnZoneImage;
     sf::Color m_spawnZoneColor = sf::Color(255, 132, 255);
+
+    // Phase 2/3: coarse fields at econ-grid resolution (kFieldCellSize).
+    int m_fieldW = 0;
+    int m_fieldH = 0;
+    std::vector<int> m_fieldOwnerId;          // fieldW*fieldH, -1 for none
+    std::vector<float> m_fieldControl;        // fieldW*fieldH, 0..1
+    std::vector<float> m_fieldFoodPotential;  // fieldW*fieldH, summed food potential per field cell
+    std::vector<float> m_fieldPopulation;     // fieldW*fieldH, people stock per cell
+    std::vector<float> m_fieldAttractiveness; // fieldW*fieldH, computed each migration tick
+    std::vector<float> m_fieldPopDelta;       // fieldW*fieldH, scratch buffer for migration
+    int m_lastPopulationUpdateYear = -9999999;
+    void ensureFieldGrids();
+    void rebuildFieldFoodPotential();
+    void rebuildFieldOwnerIdAssumingLocked(int countryCount);
+    void updateControlGrid(std::vector<Country>& countries, int currentYear, int dtYears);
+
+    void initializePopulationGridFromCountries(const std::vector<Country>& countries);
+    void tickPopulationGrid(const std::vector<Country>& countries, int currentYear, int dtYears);
+    void applyPopulationTotalsToCountries(std::vector<Country>& countries) const;
+    void updateCitiesFromPopulation(std::vector<Country>& countries, int currentYear, int createEveryNYears, News& news);
 };

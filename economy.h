@@ -126,4 +126,13 @@ private:
     const sf::Texture& stateSrcTexture() const;
     void flipState();
     void computeCountryMetricsCPU(int year);
+
+    // CPU fallback metrics when GPU economy is unavailable.
+    std::vector<double> m_fallbackPrevWealth; // palette indexed (0..maxCountries)
+    int m_fallbackPrevYear = 0;
+    bool m_hasFallbackPrev = false;
+    void computeCountryMetricsFallback(int year,
+                                       const std::vector<Country>& countries,
+                                       const TechnologyManager& tech,
+                                       float dtYears);
 };

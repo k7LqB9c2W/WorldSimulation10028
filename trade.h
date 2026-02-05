@@ -8,6 +8,7 @@
 #include <random>
 #include <cstdint>
 #include "resource.h"
+#include "simulation_context.h"
 
 // Forward declarations
 class Country;
@@ -110,7 +111,7 @@ struct Bank {
 
 class TradeManager {
 public:
-    TradeManager();
+    explicit TradeManager(SimulationContext& ctx);
     
     // Core trade system updates
     void updateTrade(std::vector<Country>& countries, int currentYear, const Map& map, 
@@ -227,7 +228,7 @@ private:
     int m_astarCurStamp = 1;
 
     // Random number generation
-    mutable std::mt19937 m_rng;
+    mutable std::mt19937_64 m_rng;
 
     // Helper functions
     void beginExportsYear(int year, size_t countryCount);

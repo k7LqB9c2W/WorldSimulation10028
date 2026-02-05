@@ -175,6 +175,14 @@ void EconomyGPU::init(const Map& map, int maxCountries, const Config& cfg) {
     m_cfg = cfg;
     m_maxCountries = std::max(0, maxCountries);
 
+    // Always allocate per-country metric buffers so a CPU fallback can run even when GPU init fails.
+    m_countryWealth.assign(static_cast<size_t>(m_maxCountries + 1), 0.0);
+    m_countryGDP.assign(static_cast<size_t>(m_maxCountries + 1), 0.0);
+    m_countryExports.assign(static_cast<size_t>(m_maxCountries + 1), 0.0);
+    m_countryInvestRate.assign(static_cast<size_t>(m_maxCountries + 1), 0.0f);
+    m_fallbackPrevWealth.assign(static_cast<size_t>(m_maxCountries + 1), 0.0);
+    m_hasFallbackPrev = false;
+
     const auto& grid = map.getCountryGrid();
     m_mapH = static_cast<int>(grid.size());
     m_mapW = (m_mapH > 0) ? static_cast<int>(grid[0].size()) : 0;
@@ -243,11 +251,7 @@ void EconomyGPU::init(const Map& map, int maxCountries, const Config& cfg) {
         return;
     }
 
-    m_countryWealth.assign(static_cast<size_t>(m_maxCountries + 1), 0.0);
-    m_countryGDP.assign(static_cast<size_t>(m_maxCountries + 1), 0.0);
-    m_countryExports.assign(static_cast<size_t>(m_maxCountries + 1), 0.0);
-    m_countryInvestRate.assign(static_cast<size_t>(m_maxCountries + 1), 0.0f);
-
+    // (re)allocated above for fallback; keep existing storage.
     m_countryIdPixels.assign(static_cast<size_t>(m_econW) * static_cast<size_t>(m_econH) * 4u, 0);
     m_resourcePixels.assign(static_cast<size_t>(m_econW) * static_cast<size_t>(m_econH) * 4u, 0);
     m_infraPixels.assign(static_cast<size_t>(m_econW) * static_cast<size_t>(m_econH) * 4u, 0);
@@ -302,6 +306,9 @@ void EconomyGPU::tickYear(int year,
                           const std::vector<Country>& countries,
                           const TechnologyManager& tech) {
     if (!m_initialized) {
+        computeCountryMetricsFallback(year, countries, tech, 1.0f);
+        m_lastReadbackYear = year;
+        m_hasAnyReadback = true;
         return;
     }
 
@@ -391,6 +398,9 @@ void EconomyGPU::tickStepGpuOnly(int year,
                                  bool generateDebugHeatmap,
                                  bool readbackMetricsBeforeDiffusion) {
     if (!m_initialized) {
+        computeCountryMetricsFallback(year, countries, tech, dtYears);
+        m_lastReadbackYear = year;
+        m_hasAnyReadback = true;
         return;
     }
 
@@ -527,10 +537,10 @@ void EconomyGPU::readbackMetrics(int year) {
 
 void EconomyGPU::applyCountryMetrics(std::vector<Country>& countries,
                                      const std::vector<double>* tradeExportsValue) const {
-    if (!m_initialized) {
+    const size_t paletteSize = m_countryWealth.size();
+    if (paletteSize == 0) {
         return;
     }
-    const size_t paletteSize = static_cast<size_t>(m_maxCountries + 1);
     for (size_t i = 0; i < countries.size(); ++i) {
         const size_t id = i + 1;
         if (id >= paletteSize) {
@@ -947,4 +957,60 @@ void EconomyGPU::computeCountryMetricsCPU(int year) {
     std::copy(pixels, pixels + bytes, m_prevStatePixels.begin());
     m_prevReadbackYear = year;
     m_hasPrevReadback = true;
+}
+
+void EconomyGPU::computeCountryMetricsFallback(int year,
+                                               const std::vector<Country>& countries,
+                                               const TechnologyManager& tech,
+                                               float dtYears) {
+    if (m_maxCountries <= 0) {
+        return;
+    }
+
+    std::fill(m_countryWealth.begin(), m_countryWealth.end(), 0.0);
+    std::fill(m_countryGDP.begin(), m_countryGDP.end(), 0.0);
+    std::fill(m_countryExports.begin(), m_countryExports.end(), 0.0);
+
+    const double yearsElapsed = [&] {
+        if (m_hasFallbackPrev) {
+            const int dy = year - m_fallbackPrevYear;
+            if (dy > 0) {
+                return static_cast<double>(dy);
+            }
+        }
+        return static_cast<double>(std::max(1.0f, dtYears));
+    }();
+
+    for (size_t i = 0; i < countries.size(); ++i) {
+        const size_t id = i + 1;
+        if (id >= m_countryWealth.size()) {
+            break;
+        }
+
+        const Country& c = countries[i];
+        const double pop = static_cast<double>(std::max<long long>(0, c.getPopulation()));
+        const double gold = std::max(0.0, c.getGold());
+
+        // Coarse "tier" proxy from tech count to avoid runaway scaling.
+        const auto& unlocked = tech.getUnlockedTechnologies(c);
+        const double techCount = static_cast<double>(unlocked.size());
+        const double techTier = std::max(0.0, std::min(6.0, techCount / 18.0));
+
+        const double wealthProxy = pop * (1.0 + techTier) + gold;
+        m_countryWealth[id] = wealthProxy;
+
+        if (m_hasFallbackPrev && id < m_fallbackPrevWealth.size()) {
+            const double dWealth = std::max(0.0, wealthProxy - m_fallbackPrevWealth[id]);
+            m_countryGDP[id] = dWealth / yearsElapsed;
+        } else {
+            // First sample: approximate "flow" GDP as a small share of wealth stock.
+            m_countryGDP[id] = wealthProxy * 0.02;
+        }
+    }
+
+    if (m_fallbackPrevWealth.size() == m_countryWealth.size()) {
+        m_fallbackPrevWealth = m_countryWealth;
+        m_fallbackPrevYear = year;
+        m_hasFallbackPrev = true;
+    }
 }

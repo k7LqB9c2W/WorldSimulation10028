@@ -48,7 +48,7 @@ void CultureManager::initializeCivics() {
         {30, {"Modern Republic", 1100, 30, {22}, {}}}, // Government
         {31, {"Capitalism", 1150, 31, {23}, {44}}}, // Requires Economics tech
         {32, {"Mass Production", 1200, 32, {24}, {57}}}, // Requires Replaceable Parts tech
-        {33, {"Urbanization", 1250, 33, {27}, {52}}}, // Requires Sanitation tech
+        {33, {"Urbanization", 1250, 33, {27}, {96}}}, // Requires Sanitation tech
         {34, {"Social Contract", 1300, 34, {25}, {}}},
         {35, {"Free Market", 1350, 35, {31}, {}}},
         {36, {"Suffrage", 1400, 36, {28}, {}}},
@@ -67,13 +67,13 @@ void CultureManager::initializeCivics() {
     };
     }
 
-        void CultureManager::updateCountry(Country& country) {
+        void CultureManager::updateCountry(Country& country, const TechnologyManager& techManager) {
         // Check if the country can unlock any new civics
         for (const auto& pair : m_civics) {
             int civicId = pair.first;
             const Civic& civic = pair.second;
 
-            if (canUnlockCivic(country, civicId)) {
+            if (canUnlockCivic(country, civicId, techManager)) {
                 if (country.getCulturePoints() >= civic.cost) {
                     unlockCivic(country, civicId);
                 }
@@ -81,7 +81,7 @@ void CultureManager::initializeCivics() {
         }
     }
 
-    bool CultureManager::canUnlockCivic(const Country& country, int civicId) const {
+    bool CultureManager::canUnlockCivic(const Country& country, int civicId, const TechnologyManager& techManager) const {
         // Check if the civic has already been unlocked
         auto itCountry = m_unlockedCivics.find(country.getCountryIndex());
         if (itCountry != m_unlockedCivics.end()) {
@@ -113,14 +113,7 @@ void CultureManager::initializeCivics() {
 
         // Check if all required technologies are unlocked
         for (int requiredTechId : civic.requiredTechs) {
-            bool found = false;
-            // Assuming you have a way to get the TechnologyManager and check unlocked techs
-            // Replace the following line with your actual logic to check for unlocked technologies
-            // Example: if (technologyManager.getUnlockedTechnologies(country).contains(requiredTechId)) {
-            if (false) { // Replace this with your actual technology check
-                found = true;
-            }
-            if (!found) {
+            if (!TechnologyManager::hasTech(techManager, country, requiredTechId)) {
                 return false; // Required technology not unlocked
             }
         }
@@ -137,7 +130,6 @@ void CultureManager::initializeCivics() {
         if (itCivic != m_civics.end()) {
             const Civic& civic = itCivic->second;
             country.setCulturePoints(country.getCulturePoints() - civic.cost);
-            country.setCulturePoints(0); // Reset culture points to 0 after unlocking
         }
 
         // Add any immediate effects of the civic here (e.g., government type changes)

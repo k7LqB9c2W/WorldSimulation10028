@@ -7,10 +7,11 @@
 #include <unordered_set>
 #include <mutex>
 #include <random>
+#include <cstdint>
 #include <string>
+#include <algorithm>
 #include "resource.h"
 #include "news.h"
-#include "map.h"
 
 // Forward declaration of Map
 class Map;
@@ -26,15 +27,21 @@ namespace std {
 
 class City {
 public:
-    City(const sf::Vector2i& location) : m_location(location), m_isMajorCity(false) {}
+    City(const sf::Vector2i& location) : m_location(location) {}
 
     sf::Vector2i getLocation() const { return m_location; }
+    float getPopulation() const { return m_population; }
+    void setPopulation(float pop) { m_population = std::max(0.0f, pop); }
+    float getAdminContribution() const { return m_adminContribution; }
+    void setAdminContribution(float v) { m_adminContribution = std::max(0.0f, v); }
     bool isMajorCity() const { return m_isMajorCity; }
     void setMajorCity(bool isMajor) { m_isMajorCity = isMajor; }
 
 private:
     sf::Vector2i m_location;
-    bool m_isMajorCity; // True if population reached 1 million (gold square)
+    float m_population = 0.0f;
+    float m_adminContribution = 0.0f;
+    bool m_isMajorCity = false; // True if population reached 1 million (gold square)
 };
 
 class Country {
@@ -75,13 +82,25 @@ public:
     // Setter for m_nextWarCheckYear
     void setNextWarCheckYear(int year);
 
-    Country(int countryIndex, const sf::Color& color, const sf::Vector2i& startCell, long long initialPopulation, double growthRate, const std::string& name, Type type, ScienceType scienceType, CultureType cultureType);
+    Country(int countryIndex,
+            const sf::Color& color,
+            const sf::Vector2i& startCell,
+            long long initialPopulation,
+            double growthRate,
+            const std::string& name,
+            Type type,
+            ScienceType scienceType,
+            CultureType cultureType,
+            std::uint64_t rngSeed);
     void update(const std::vector<std::vector<bool>>& isLandGrid, std::vector<std::vector<int>>& countryGrid, std::mutex& gridMutex, int gridCellSize, int regionSize, std::unordered_set<int>& dirtyRegions, int currentYear, const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid, News& news, bool plagueActive, long long& plagueDeaths, Map& map, const class TechnologyManager& technologyManager, std::vector<Country>& allCountries);
     long long getPopulation() const;
     sf::Color getColor() const;
     int getCountryIndex() const;
     void foundCity(const sf::Vector2i& location, News& news);
     const std::vector<City>& getCities() const;
+    std::vector<City>& getCitiesMutable();
+    double getTotalCityPopulation() const { return m_totalCityPopulation; }
+    void setTotalCityPopulation(double v) { m_totalCityPopulation = std::max(0.0, v); }
     double getGold() const;
     void addGold(double amount);
     void subtractGold(double amount);
@@ -95,6 +114,17 @@ public:
     void setGDP(double v) { m_gdp = v; }
     void setExports(double v) { m_exports = v; }
 
+    // Phase 1/2 polity observables (pressure/control systems)
+    double getLegitimacy() const { return m_polity.legitimacy; }
+    void setLegitimacy(double v);
+    double getAdminCapacity() const { return m_polity.adminCapacity; }
+    double getFiscalCapacity() const { return m_polity.fiscalCapacity; }
+    double getLogisticsReach() const { return m_polity.logisticsReach; }
+    double getTaxRate() const { return m_polity.taxRate; }
+    double getDebt() const { return m_polity.debt; }
+    double getAvgControl() const { return m_avgControl; }
+    void setAvgControl(double v);
+
     double getMilitaryStrength() const;
     // Add a member variable to store science points
     double getSciencePoints() const;
@@ -104,6 +134,7 @@ public:
     const std::unordered_set<sf::Vector2i>& getBoundaryPixels() const;
     const ResourceManager& getResourceManager() const;
     const std::string& getName() const;
+    void setName(const std::string& name);
     Type getType() const; // Add a getter for the country type
     ScienceType getScienceType() const;
     CultureType getCultureType() const;
@@ -120,11 +151,11 @@ public:
                       const class TechnologyManager& techManager,
                       int currentYear,
                       News& news); // Airway connections (invisible roads)
-    void buildPorts(const std::vector<std::vector<bool>>& isLandGrid,
-                    const std::vector<std::vector<int>>& countryGrid,
-                    int currentYear,
-                    std::mt19937& gen,
-                    News& news); // Coastal port system (preps for boats)
+	    void buildPorts(const std::vector<std::vector<bool>>& isLandGrid,
+	                    const std::vector<std::vector<int>>& countryGrid,
+	                    int currentYear,
+	                    std::mt19937_64& gen,
+	                    News& news); // Coastal port system (preps for boats)
     
     // Road system helper functions
     bool canBuildRoadTo(const Country& otherCountry, int currentYear) const;
@@ -207,7 +238,7 @@ public:
                           std::vector<std::vector<int>>& countryGrid, 
                           const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid,
                           News& news, Map& map, const class TechnologyManager& technologyManager,
-                          std::mt19937& gen, bool plagueAffected = false);
+	                          std::mt19937_64& gen, bool plagueAffected = false);
     void applyPlagueDeaths(long long deaths);
     
     // Technology effects
@@ -245,21 +276,24 @@ public:
     void recordWarEnd(int enemyIndex, int currentYear);
 
 private:
-    void attemptFactoryConstruction(const TechnologyManager& techManager,
-                                    const std::vector<std::vector<bool>>& isLandGrid,
-                                    const std::vector<std::vector<int>>& countryGrid,
-                                    std::mt19937& gen,
-                                    News& news);
-    int m_countryIndex;
-    sf::Color m_color;
-    long long m_population;
-    std::unordered_set<sf::Vector2i> m_boundaryPixels;
-    double m_populationGrowthRate;
+	    void attemptFactoryConstruction(const TechnologyManager& techManager,
+	                                    const std::vector<std::vector<bool>>& isLandGrid,
+	                                    const std::vector<std::vector<int>>& countryGrid,
+	                                    std::mt19937_64& gen,
+	                                    News& news);
+	    int m_countryIndex;
+	    std::mt19937_64 m_rng;
+	    sf::Color m_color;
+	    long long m_population;
+	    long long m_prevYearPopulation = -1;
+	    std::unordered_set<sf::Vector2i> m_boundaryPixels;
+	    double m_populationGrowthRate;
     ResourceManager m_resourceManager;
     std::string m_name;
-    int m_nextWarCheckYear;
-    std::vector<City> m_cities;
-    bool m_hasCity;
+	    int m_nextWarCheckYear;
+	    std::vector<City> m_cities;
+	    double m_totalCityPopulation = 0.0;
+	    bool m_hasCity;
     double m_gold;
     double m_wealth = 0.0;  // national net worth proxy (aggregated from econ grid)
     double m_gdp = 0.0;     // yearly value-added proxy (estimated from capital formation)
@@ -284,11 +318,10 @@ private:
     std::unordered_set<int> m_airways; // Airway connections (other country indices)
     std::unordered_map<int, std::vector<sf::Vector2i>> m_roadsToCountries; // Roads to specific countries
     int m_nextRoadCheckYear = -5000; // When to next check for road building opportunities (initialize to start year)
-    int m_nextPortCheckYear = -5000; // When to next check for port building opportunities
-    int m_nextAirwayCheckYear = -5000; // When to next check for airway building opportunities
-    bool m_hasCheckedMajorCityUpgrade = false; // Track if we've checked for major city upgrade this population milestone
-    int getMaxExpansionPixels(int year) const;
-    long long m_prePlaguePopulation;
+	int m_nextPortCheckYear = -5000; // When to next check for port building opportunities
+	int m_nextAirwayCheckYear = -5000; // When to next check for airway building opportunities
+	bool m_hasCheckedMajorCityUpgrade = false; // Track if we've checked for major city upgrade this population milestone
+	long long m_prePlaguePopulation;
     std::vector<Country*> m_enemies;
     bool m_isAtWar;
     int m_warDuration;
@@ -337,8 +370,31 @@ private:
     bool m_isContentWithSize = false; // Whether country wants to stop expanding
     int m_contentmentDuration = 0; // How many years to remain content
     int m_expansionStaggerOffset = 0; // Personal offset for burst expansion timing
-    double m_stability = 1.0;
-    int m_stagnationYears = 0;
-    int m_fragmentationCooldown = 0;
-    int m_yearsSinceWar = 0;
-};
+	double m_stability = 1.0;
+	int m_stagnationYears = 0;
+	int m_fragmentationCooldown = 0;
+	int m_yearsSinceWar = 0;
+
+		// Phase 1: polity state (pressure-and-constraint driven).
+		struct PolityState {
+	    double legitimacy = 0.65;            // 0..1
+	    double adminCapacity = 0.08;         // 0..1 (maps to a territory cap)
+	    double fiscalCapacity = 0.10;        // 0..1
+	    double logisticsReach = 0.10;        // 0..1
+	    double taxRate = 0.08;               // 0..1
+	    double treasurySpendRate = 1.05;     // multiplier on income (allows deficits)
+	    double militarySpendingShare = 0.34; // budget share
+	    double adminSpendingShare = 0.28;
+	    double infraSpendingShare = 0.38;
+	    double healthSpendingShare = 0.00;   // placeholder
+	    double educationSpendingShare = 0.00; // placeholder
+	    double debt = 0.0;
+	    int lastPolicyYear = -5000;
+	};
+		PolityState m_polity{};
+		int m_expansionBudgetCells = 0; // desired claims per year (AI-controlled)
+		int m_pendingWarTarget = -1;    // neighbor index (AI-controlled)
+
+        // Phase 2: coarse territorial control (set by Map control grid).
+        double m_avgControl = 1.0; // 0..1
+	};

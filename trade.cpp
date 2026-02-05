@@ -24,7 +24,7 @@ inline int clampi(int v, int lo, int hi) {
 }
 } // namespace
 
-TradeManager::TradeManager() : m_rng(std::random_device{}()) {
+TradeManager::TradeManager(SimulationContext& ctx) : m_rng(ctx.makeRng(0x5452414445ull)) {
     std::cout << "🏪 Trade & Economic Exchange Framework initialized!" << std::endl;
 }
 
@@ -51,7 +51,7 @@ void TradeManager::updateTrade(std::vector<Country>& countries, int currentYear,
                               const TechnologyManager& techManager, News& news) {
     
     // 🚀 OPTIMIZATION: Only process trades every few years for performance
-    static int lastTradeYear = -5000;
+    static int lastTradeYear = std::numeric_limits<int>::min() / 2;
     if (currentYear - lastTradeYear < 2) return; // Process every 2 years
     lastTradeYear = currentYear;
     
