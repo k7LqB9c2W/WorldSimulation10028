@@ -297,12 +297,11 @@ int main(int argc, char** argv) {
 			    renderer.setGuiVisible(guiVisible);
 			    bool guiShowTools = true;
 			    bool guiShowInspector = true;
-			    bool guiShowLeaderboard = false;
-			    bool guiShowTemplateEditor = false;
-			    bool guiShowTechEditor = false;
-			    bool guiShowDemo = false;
-			    std::string guiTemplateTechIds;
-			    std::string guiTemplateCultureIds;
+				    bool guiShowLeaderboard = false;
+				    bool guiShowTemplateEditor = false;
+				    bool guiShowTechEditor = false;
+				    std::string guiTemplateTechIds;
+				    std::string guiTemplateCultureIds;
 
 			    auto tradeExportsForYear = [&](int year) -> const std::vector<double>* {
 		        const auto& v = tradeManager.getLastCountryExports();
@@ -2126,10 +2125,7 @@ int main(int argc, char** argv) {
 		                    }
 		                }
 
-		                if (guiShowDemo) {
-		                    ImGui::ShowDemoWindow(&guiShowDemo);
-		                }
-		            }
+			            }
 
 		            window.setView(enableZoom ? zoomedView : defaultView);
 

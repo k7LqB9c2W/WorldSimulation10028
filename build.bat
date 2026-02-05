@@ -54,7 +54,7 @@ cl /nologo /EHsc /std:c++17 ^
   /Fe:%OUT% ^
   /MD ^
   /link /LIBPATH:"%SFML%\lib" ^
-  sfml-graphics.lib sfml-window.lib sfml-system.lib sfml-audio.lib
+  sfml-graphics.lib sfml-window.lib sfml-system.lib sfml-audio.lib opengl32.lib
 exit /b %ERRORLEVEL%
 
 :debug
@@ -68,7 +68,7 @@ cl /nologo /EHsc /std:c++17 ^
   /Fe:%OUT% ^
   /MDd /Zi /Od ^
   /link /LIBPATH:"%SFML%\lib" ^
-  sfml-graphics-d.lib sfml-window-d.lib sfml-system-d.lib sfml-audio-d.lib
+  sfml-graphics-d.lib sfml-window-d.lib sfml-system-d.lib sfml-audio-d.lib opengl32.lib
 exit /b %ERRORLEVEL%
 
 :run

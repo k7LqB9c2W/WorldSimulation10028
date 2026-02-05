@@ -847,7 +847,12 @@ void RenderDrawLists(ImDrawData* draw_data) {
     }
 
     const ImGuiIO& io = ImGui::GetIO();
+#if IMGUI_VERSION_NUM >= 19200
+    // Dear ImGui 1.92+ stores font atlas identifier as ImTextureRef (not raw ImTextureID).
+    assert(io.Fonts->TexRef.GetTexID() != ImTextureID_Invalid); // You forgot to create and set font texture
+#else
     assert(io.Fonts->TexID != (ImTextureID) nullptr); // You forgot to create and set font texture
+#endif
 
     // Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates !=
     // framebuffer coordinates)
@@ -927,7 +932,7 @@ void RenderDrawLists(ImDrawData* draw_data) {
 
                     // Bind texture, Draw
                     const GLuint textureHandle =
-                        convertImTextureIDToGLTextureHandle(pcmd->TextureId);
+                        convertImTextureIDToGLTextureHandle(pcmd->GetTexID());
                     glBindTexture(GL_TEXTURE_2D, textureHandle);
                     glDrawElements(GL_TRIANGLES, (GLsizei)pcmd->ElemCount,
                                    sizeof(ImDrawIdx) == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT,
