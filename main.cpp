@@ -742,6 +742,14 @@ int main(int argc, char** argv) {
 		                    }
 		                    renderingNeedsUpdate = true;
 		                }
+		                else if (event.key.code == sf::Keyboard::U) { // 🏙️ URBAN DEBUG OVERLAY
+		                    if (event.key.shift) {
+		                        renderer.cycleUrbanOverlayMode();
+		                    } else {
+		                        renderer.toggleUrbanOverlay();
+		                    }
+		                    renderingNeedsUpdate = true;
+		                }
 		                else if (event.key.code == sf::Keyboard::O) { // 🌍 OVERSEAS VIEW (Phase 7 debug)
 		                    renderer.toggleOverseasOverlay();
 		                    renderingNeedsUpdate = true;

@@ -784,14 +784,107 @@ void Map::initializePopulationGridFromCountries(const std::vector<Country>& coun
     m_fieldPopDelta.assign(n, 0.0f);
     m_lastPopulationUpdateYear = -9999999;
 
+    std::uniform_int_distribution<int> radiusDist(2, 6); // field-cell radius
+
     for (const auto& c : countries) {
-        if (c.getPopulation() <= 0) continue;
+        const long long popLL = std::max<long long>(0, c.getPopulation());
+        if (popLL <= 0) continue;
+
+        const int owner = c.getCountryIndex();
         const sf::Vector2i start = c.getStartingPixel();
-        const int fx = std::max(0, std::min(m_fieldW - 1, start.x / kFieldCellSize));
-        const int fy = std::max(0, std::min(m_fieldH - 1, start.y / kFieldCellSize));
-        const size_t idx = static_cast<size_t>(fy) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(fx);
-        if (idx < m_fieldPopulation.size()) {
-            m_fieldPopulation[idx] += static_cast<float>(std::max<long long>(0, c.getPopulation()));
+        const int fx0 = std::max(0, std::min(m_fieldW - 1, start.x / kFieldCellSize));
+        const int fy0 = std::max(0, std::min(m_fieldH - 1, start.y / kFieldCellSize));
+
+        const int r = radiusDist(m_ctx->worldRng);
+
+        struct CellW {
+            size_t idx = 0;
+            double w = 0.0;
+        };
+        std::vector<CellW> cells;
+        cells.reserve(static_cast<size_t>((2 * r + 1) * (2 * r + 1)));
+
+        const auto inBounds = [&](int fx, int fy) {
+            return fx >= 0 && fy >= 0 && fx < m_fieldW && fy < m_fieldH;
+        };
+
+        for (int dy = -r; dy <= r; ++dy) {
+            for (int dx = -r; dx <= r; ++dx) {
+                if (dx * dx + dy * dy > r * r) continue;
+                const int fx = fx0 + dx;
+                const int fy = fy0 + dy;
+                if (!inBounds(fx, fy)) continue;
+                const size_t idx = static_cast<size_t>(fy) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(fx);
+                if (idx >= m_fieldPopulation.size() || idx >= m_fieldFoodPotential.size()) continue;
+                if (idx >= m_fieldOwnerId.size()) continue;
+                if (m_fieldOwnerId[idx] != owner) continue;
+                if (m_fieldFoodPotential[idx] <= 0.0f) continue;
+
+                const float foodPot = m_fieldFoodPotential[idx];
+                const float yieldMult = (idx < m_fieldFoodYieldMult.size()) ? m_fieldFoodYieldMult[idx] : 1.0f;
+                const double w = std::max(0.0, static_cast<double>(foodPot) * static_cast<double>(yieldMult));
+                if (w <= 0.0) continue;
+                cells.push_back(CellW{ idx, w });
+            }
+        }
+
+        // Fallback: ensure at least the start cell receives population.
+        if (cells.empty()) {
+            const size_t idx0 = static_cast<size_t>(fy0) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(fx0);
+            if (idx0 < m_fieldPopulation.size()) {
+                m_fieldPopulation[idx0] += static_cast<float>(popLL);
+            }
+            continue;
+        }
+
+        double sumW = 0.0;
+        for (const auto& cw : cells) sumW += cw.w;
+        if (sumW <= 1e-9) {
+            const size_t idx0 = static_cast<size_t>(fy0) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(fx0);
+            if (idx0 < m_fieldPopulation.size()) {
+                m_fieldPopulation[idx0] += static_cast<float>(popLL);
+            }
+            continue;
+        }
+
+        // Allocate integer population across the cluster proportional to weights.
+        long long remaining = popLL;
+        std::vector<long long> alloc(cells.size(), 0);
+        for (size_t k = 0; k < cells.size(); ++k) {
+            const double share = static_cast<double>(popLL) * (cells[k].w / sumW);
+            const long long a = std::max<long long>(0, static_cast<long long>(std::floor(share)));
+            alloc[k] = a;
+            remaining -= a;
+        }
+        if (remaining > 0) {
+            // Distribute remainder via weighted sampling (cheap: repeat draws; remaining is small after floors).
+            std::vector<double> ws;
+            ws.reserve(cells.size());
+            for (const auto& cw : cells) ws.push_back(std::max(0.0, cw.w));
+            std::discrete_distribution<int> pick(ws.begin(), ws.end());
+            while (remaining-- > 0) {
+                const int k = pick(m_ctx->worldRng);
+                if (k >= 0 && static_cast<size_t>(k) < alloc.size()) {
+                    alloc[static_cast<size_t>(k)] += 1;
+                }
+            }
+        } else if (remaining < 0) {
+            // Numeric guard: remove extras from the largest allocations.
+            long long toRemove = -remaining;
+            while (toRemove-- > 0) {
+                size_t bestK = 0;
+                for (size_t k = 1; k < alloc.size(); ++k) {
+                    if (alloc[k] > alloc[bestK]) bestK = k;
+                }
+                if (alloc[bestK] > 0) alloc[bestK] -= 1;
+            }
+        }
+
+        for (size_t k = 0; k < cells.size(); ++k) {
+            const size_t idx = cells[k].idx;
+            if (idx < m_fieldPopulation.size()) {
+                m_fieldPopulation[idx] += static_cast<float>(std::max<long long>(0, alloc[k]));
+            }
         }
     }
 }
@@ -880,6 +973,13 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries, int currentY
                     }
                 }
             }
+        }
+
+        // Density disease pressure: scales smoothly with crowding and humidity.
+        {
+            const float pm = (i < m_fieldPrecipMean.size()) ? m_fieldPrecipMean[i] : 0.0f; // 0..1 baseline humidity proxy
+            const double humid = clamp01(static_cast<double>(pm));
+            deathFactor *= (1.0 + 0.28 * humid * std::max(0.0, crowd - 1.0));
         }
 
         // Plague: density-agnostic multiplier for now (density-aware later).
@@ -990,37 +1090,123 @@ void Map::updateCitiesFromPopulation(std::vector<Country>& countries, int curren
         return;
     }
 
-    auto clamp01 = [](double v) {
-        return std::max(0.0, std::min(1.0, v));
+    auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+    auto sigmoid = [](double x) {
+        if (x >= 20.0) return 1.0;
+        if (x <= -20.0) return 0.0;
+        return 1.0 / (1.0 + std::exp(-x));
     };
 
-    // Update existing city populations and per-country totals (admin node effect).
+    const size_t nField = m_fieldPopulation.size();
+    if (m_fieldCrowding.size() != nField) m_fieldCrowding.assign(nField, 0.0f);
+    if (m_fieldSpecialization.size() != nField) m_fieldSpecialization.assign(nField, 0.0f);
+    if (m_fieldUrbanShare.size() != nField) m_fieldUrbanShare.assign(nField, 0.0f);
+    if (m_fieldUrbanPop.size() != nField) m_fieldUrbanPop.assign(nField, 0.0f);
+
+    // Country-level signals (computed once).
+    std::vector<double> marketAccess(static_cast<size_t>(countryCount), 0.0);
+    std::vector<double> foodSecurity(static_cast<size_t>(countryCount), 1.0);
+    std::vector<double> control(static_cast<size_t>(countryCount), 0.0);
+    std::vector<double> stability(static_cast<size_t>(countryCount), 1.0);
+    for (int i = 0; i < countryCount; ++i) {
+        const Country& c = countries[static_cast<size_t>(i)];
+        marketAccess[static_cast<size_t>(i)] = clamp01(c.getMarketAccess());
+        foodSecurity[static_cast<size_t>(i)] = clamp01(c.getFoodSecurity());
+        control[static_cast<size_t>(i)] = clamp01(c.getAvgControl());
+        stability[static_cast<size_t>(i)] = clamp01(c.getStability());
+    }
+
+    auto KFor = [&](size_t fi) -> double {
+        const double food = (fi < m_fieldFoodPotential.size()) ? static_cast<double>(std::max(0.0f, m_fieldFoodPotential[fi])) : 0.0;
+        return std::max(1.0, food * 1200.0);
+    };
+
+    std::vector<double> totalUrbanPop(static_cast<size_t>(countryCount), 0.0);
+    std::vector<double> totalSpecialists(static_cast<size_t>(countryCount), 0.0);
+
+    // Per-cell continuous specialization + urbanization (fast field scan).
+    const size_t ownerN = m_fieldOwnerId.size();
+    for (size_t fi = 0; fi < nField; ++fi) {
+        const float foodPot = (fi < m_fieldFoodPotential.size()) ? m_fieldFoodPotential[fi] : 0.0f;
+        const float popF = m_fieldPopulation[fi];
+        if (foodPot <= 0.0f || popF <= 0.0f || fi >= ownerN) {
+            m_fieldCrowding[fi] = 0.0f;
+            m_fieldSpecialization[fi] = 0.0f;
+            m_fieldUrbanShare[fi] = 0.0f;
+            m_fieldUrbanPop[fi] = 0.0f;
+            continue;
+        }
+
+        const int owner = m_fieldOwnerId[fi];
+        if (owner < 0 || owner >= countryCount) {
+            m_fieldCrowding[fi] = 0.0f;
+            m_fieldSpecialization[fi] = 0.0f;
+            m_fieldUrbanShare[fi] = 0.0f;
+            m_fieldUrbanPop[fi] = 0.0f;
+            continue;
+        }
+
+        const double pop = static_cast<double>(std::max(0.0f, popF));
+        const double K = KFor(fi);
+        const double crowd = (K > 1e-9) ? (pop / K) : 2.0;
+
+        const double ma = marketAccess[static_cast<size_t>(owner)];
+        const double fs = foodSecurity[static_cast<size_t>(owner)];
+        const double ctl = control[static_cast<size_t>(owner)];
+        const double st = stability[static_cast<size_t>(owner)];
+
+        // Smooth specialization: rises with sustained land pressure (crowding) + access/security/control.
+        const double x =
+            4.0 * (std::min(3.0, crowd) - 1.0) +
+            2.0 * (ma - 0.35) +
+            1.8 * (fs - 0.80) +
+            1.6 * (ctl - 0.50) +
+            1.0 * (st - 0.50);
+        const double spec = sigmoid(x);
+
+        const double uShare = std::clamp(0.01 + 0.35 * spec, 0.01, 0.45);
+        const double uPop = pop * uShare;
+        const double specialists = uPop * (0.35 + 0.65 * spec);
+
+        m_fieldCrowding[fi] = static_cast<float>(crowd);
+        m_fieldSpecialization[fi] = static_cast<float>(spec);
+        m_fieldUrbanShare[fi] = static_cast<float>(uShare);
+        m_fieldUrbanPop[fi] = static_cast<float>(uPop);
+
+        totalUrbanPop[static_cast<size_t>(owner)] += uPop;
+        totalSpecialists[static_cast<size_t>(owner)] += specialists;
+    }
+
+    // Update per-country totals (continuous effects).
     for (int i = 0; i < countryCount; ++i) {
         Country& c = countries[static_cast<size_t>(i)];
         if (c.getPopulation() <= 0) {
             c.setTotalCityPopulation(0.0);
+            c.setSpecialistPopulation(0.0);
+            c.resetCityCandidate();
             continue;
         }
+        c.setTotalCityPopulation(totalUrbanPop[static_cast<size_t>(i)]);
+        c.setSpecialistPopulation(totalSpecialists[static_cast<size_t>(i)]);
+    }
 
-        const double urbanShare = std::clamp(0.10 + 0.20 * clamp01(c.getLogisticsReach()), 0.08, 0.40);
-        double totalCityPop = 0.0;
-
-        auto& cities = c.getCitiesMutable();
-        for (auto& city : cities) {
-            const sf::Vector2i loc = city.getLocation();
-            const int fx = std::max(0, std::min(m_fieldW - 1, loc.x / kFieldCellSize));
-            const int fy = std::max(0, std::min(m_fieldH - 1, loc.y / kFieldCellSize));
-            const size_t idx = static_cast<size_t>(fy) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(fx);
-
-            const float cellPop = (idx < m_fieldPopulation.size()) ? m_fieldPopulation[idx] : 0.0f;
-            const float cityPop = std::max(0.0f, cellPop * static_cast<float>(urbanShare));
-            city.setPopulation(cityPop);
-            city.setAdminContribution(cityPop / 1'000'000.0f);
-            city.setMajorCity(cityPop >= 1'000'000.0f);
-            totalCityPop += static_cast<double>(cityPop);
+    // Update existing city objects using the continuous urbanization rule.
+    {
+        constexpr float kAdminScale = 2000.0f; // sqrt(people) -> contribution (diminishing returns)
+        for (int i = 0; i < countryCount; ++i) {
+            Country& c = countries[static_cast<size_t>(i)];
+            auto& cities = c.getCitiesMutable();
+            for (auto& city : cities) {
+                const sf::Vector2i loc = city.getLocation();
+                const int fx = std::max(0, std::min(m_fieldW - 1, loc.x / kFieldCellSize));
+                const int fy = std::max(0, std::min(m_fieldH - 1, loc.y / kFieldCellSize));
+                const size_t fi = static_cast<size_t>(fy) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(fx);
+                const float cityPop = (fi < m_fieldUrbanPop.size()) ? std::max(0.0f, m_fieldUrbanPop[fi]) : 0.0f;
+                city.setPopulation(cityPop);
+                city.setAdminContribution((kAdminScale > 1e-6f) ? (std::sqrt(cityPop) / kAdminScale) : 0.0f);
+                city.setMajorCity(cityPop >= 1'000'000.0f);
+            }
         }
-
-        c.setTotalCityPopulation(totalCityPop);
     }
 
     // Create new cities on a cadence by scanning for population maxima.
@@ -1028,51 +1214,80 @@ void Map::updateCitiesFromPopulation(std::vector<Country>& countries, int curren
         return;
     }
 
-    const float cityThreshold = 600'000.0f;
-    const int minDistField = 5;
+    const int desiredDistField = 5; // soft spacing (discourages clustering without hard gating)
 
     struct Best {
-        float pop = 0.0f;
+        double score = 0.0;
+        float urbanPop = 0.0f;
         int fx = -1;
         int fy = -1;
-        size_t idx = 0;
+        size_t fi = 0;
     };
     std::vector<Best> best(static_cast<size_t>(countryCount));
 
-    auto cellPopAt = [&](int fx, int fy) -> float {
+    // Precompute existing city positions in field coords (for spacing penalty).
+    std::vector<std::vector<sf::Vector2i>> cityField(static_cast<size_t>(countryCount));
+    for (int i = 0; i < countryCount; ++i) {
+        const auto& cities = countries[static_cast<size_t>(i)].getCities();
+        auto& out = cityField[static_cast<size_t>(i)];
+        out.reserve(cities.size());
+        for (const auto& city : cities) {
+            out.push_back(sf::Vector2i(city.getLocation().x / kFieldCellSize, city.getLocation().y / kFieldCellSize));
+        }
+    }
+
+    auto urbanPopAt = [&](int fx, int fy) -> float {
         if (fx < 0 || fy < 0 || fx >= m_fieldW || fy >= m_fieldH) return 0.0f;
-        const size_t idx = static_cast<size_t>(fy) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(fx);
-        return (idx < m_fieldPopulation.size()) ? m_fieldPopulation[idx] : 0.0f;
+        const size_t fi = static_cast<size_t>(fy) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(fx);
+        return (fi < m_fieldUrbanPop.size()) ? m_fieldUrbanPop[fi] : 0.0f;
     };
 
     for (int fy = 0; fy < m_fieldH; ++fy) {
         for (int fx = 0; fx < m_fieldW; ++fx) {
-            const size_t idx = static_cast<size_t>(fy) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(fx);
-            if (idx >= m_fieldPopulation.size() || idx >= m_fieldOwnerId.size()) continue;
-            const int owner = m_fieldOwnerId[idx];
+            const size_t fi = static_cast<size_t>(fy) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(fx);
+            if (fi >= ownerN || fi >= m_fieldUrbanPop.size()) continue;
+            const int owner = m_fieldOwnerId[fi];
             if (owner < 0 || owner >= countryCount) continue;
 
-            const float pop = m_fieldPopulation[idx];
-            if (pop < cityThreshold) continue;
+            const float uPop = m_fieldUrbanPop[fi];
+            if (uPop <= 1.0f) continue;
 
-            // Require minimum institutional/logistical capacity (prevents "instant cities" at 5000 BCE).
-            const Country& c = countries[static_cast<size_t>(owner)];
-            if (c.getLogisticsReach() < 0.18 && c.getAdminCapacity() < 0.14) {
-                continue;
+            // Local maximum in implied urban population (4-neighborhood).
+            if (urbanPopAt(fx + 1, fy) > uPop) continue;
+            if (urbanPopAt(fx - 1, fy) > uPop) continue;
+            if (urbanPopAt(fx, fy + 1) > uPop) continue;
+            if (urbanPopAt(fx, fy - 1) > uPop) continue;
+
+            const double ma = marketAccess[static_cast<size_t>(owner)];
+            const double fs = foodSecurity[static_cast<size_t>(owner)];
+            const double ctl = control[static_cast<size_t>(owner)];
+
+            double score = static_cast<double>(uPop) *
+                           (0.5 + 0.5 * ma) *
+                           (0.5 + 0.5 * fs) *
+                           (0.5 + 0.5 * ctl);
+
+            // Soft spacing: penalize cells close to existing cities (but don't hard-gate).
+            const auto& cf = cityField[static_cast<size_t>(owner)];
+            if (!cf.empty()) {
+                int bestDist = 1'000'000;
+                for (const auto& p : cf) {
+                    const int d = std::abs(p.x - fx) + std::abs(p.y - fy);
+                    bestDist = std::min(bestDist, d);
+                }
+                if (bestDist < 2) continue; // hard minimum to avoid duplicates in the same immediate area
+                const double t = std::min(1.0, static_cast<double>(bestDist) / static_cast<double>(std::max(1, desiredDistField)));
+                const double spacing = std::clamp(0.25 + 0.75 * t, 0.25, 1.0);
+                score *= spacing;
             }
 
-            // Local maximum (4-neighborhood).
-            if (cellPopAt(fx + 1, fy) > pop) continue;
-            if (cellPopAt(fx - 1, fy) > pop) continue;
-            if (cellPopAt(fx, fy + 1) > pop) continue;
-            if (cellPopAt(fx, fy - 1) > pop) continue;
-
             Best& b = best[static_cast<size_t>(owner)];
-            if (pop > b.pop) {
-                b.pop = pop;
+            if (score > b.score) {
+                b.score = score;
+                b.urbanPop = uPop;
                 b.fx = fx;
                 b.fy = fy;
-                b.idx = idx;
+                b.fi = fi;
             }
         }
     }
@@ -1087,17 +1302,43 @@ void Map::updateCitiesFromPopulation(std::vector<Country>& countries, int curren
         Country& c = countries[static_cast<size_t>(owner)];
         if (c.getPopulation() <= 0) continue;
 
-        bool tooClose = false;
+        const double pop = static_cast<double>(std::max<long long>(1, c.getPopulation()));
+        const double requiredUrbanPop = std::max(8000.0, 0.015 * pop);
+        const double crowd = (b.fi < m_fieldCrowding.size()) ? static_cast<double>(m_fieldCrowding[b.fi]) : 0.0;
+        if (static_cast<double>(b.urbanPop) < requiredUrbanPop || crowd <= 1.03) {
+            c.resetCityCandidate();
+            continue;
+        }
+
+        // Persistence: only found a city if the same candidate persists across several checks.
+        Country::CityCandidate& cand = c.getCityCandidateMutable();
+        if (cand.fx == b.fx && cand.fy == b.fy) {
+            cand.streak += 1;
+        } else {
+            cand.fx = b.fx;
+            cand.fy = b.fy;
+            cand.streak = 1;
+        }
+
+        const int needStreak = (createEveryNYears >= 75) ? 2 : 3;
+        if (cand.streak < needStreak) {
+            continue;
+        }
+
+        // Don't found if a city already exists in this field cell.
+        bool already = false;
         for (const auto& city : c.getCities()) {
             const int cfx = city.getLocation().x / kFieldCellSize;
             const int cfy = city.getLocation().y / kFieldCellSize;
-            const int dist = std::abs(cfx - b.fx) + std::abs(cfy - b.fy);
-            if (dist < minDistField) {
-                tooClose = true;
+            if (cfx == b.fx && cfy == b.fy) {
+                already = true;
                 break;
             }
         }
-        if (tooClose) continue;
+        if (already) {
+            c.resetCityCandidate();
+            continue;
+        }
 
         // Pick a concrete pixel within this field cell that is owned land (fallback to center).
         sf::Vector2i loc(b.fx * kFieldCellSize + kFieldCellSize / 2, b.fy * kFieldCellSize + kFieldCellSize / 2);
@@ -1118,6 +1359,7 @@ void Map::updateCitiesFromPopulation(std::vector<Country>& countries, int curren
         }
 
         c.foundCity(loc, news);
+        c.resetCityCandidate();
     }
 }
 
@@ -1292,13 +1534,90 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
     std::uniform_int_distribution<> xDist(0, static_cast<int>(m_isLandGrid[0].size() - 1));
     std::uniform_int_distribution<> yDist(0, static_cast<int>(m_isLandGrid.size() - 1));
     std::uniform_int_distribution<> colorDist(50, 255);
-    std::uniform_int_distribution<> popDist(50000, 500000); // Realistic 5000 BCE populations
     std::uniform_real_distribution<> growthRateDist(0.0003, 0.001); // Legacy - not used in logistic system
     std::uniform_real_distribution<> spawnDist(0.0, 1.0);
 
     std::uniform_int_distribution<> typeDist(0, 2);
     std::discrete_distribution<> scienceTypeDist({ 50, 40, 10 });
     std::discrete_distribution<> cultureTypeDist({ 40, 40, 20 }); // 40% NC, 40% LC, 20% MC
+
+    // ============================================================
+    // Phase 0: realistic 5000 BCE global population (heavy tail)
+    // ============================================================
+    const long long worldPopMin = 5'000'000;
+    const long long worldPopMax = 20'000'000;
+    std::uniform_int_distribution<long long> worldPopDist(worldPopMin, worldPopMax);
+    const long long worldPopTarget = worldPopDist(rng);
+    std::cout << "World start population target: " << worldPopTarget << " (seed " << m_ctx->worldSeed << ")" << std::endl;
+
+    const long long minPop = 1'000;
+    const long long maxPop = 300'000;
+    const int nC = std::max(1, numCountries);
+
+    std::normal_distribution<double> normal01(0.0, 1.0);
+    std::vector<double> weights(static_cast<size_t>(nC), 1.0);
+    double sumW = 0.0;
+    for (int i = 0; i < nC; ++i) {
+        const double w = std::exp(normal01(rng)); // lognormal heavy tail
+        weights[static_cast<size_t>(i)] = w;
+        sumW += w;
+    }
+    if (sumW <= 1e-9) sumW = 1.0;
+
+    std::vector<long long> startPop(static_cast<size_t>(nC), minPop);
+    long long assigned = 0;
+    for (int i = 0; i < nC; ++i) {
+        const double share = static_cast<double>(worldPopTarget) * (weights[static_cast<size_t>(i)] / sumW);
+        long long p = static_cast<long long>(std::llround(share));
+        p = std::max(minPop, std::min(maxPop, p));
+        startPop[static_cast<size_t>(i)] = p;
+        assigned += p;
+    }
+
+    long long diff = worldPopTarget - assigned;
+    std::vector<int> order(static_cast<size_t>(nC), 0);
+    for (int i = 0; i < nC; ++i) order[static_cast<size_t>(i)] = i;
+    std::shuffle(order.begin(), order.end(), rng);
+    if (diff > 0) {
+        for (int idx : order) {
+            if (diff <= 0) break;
+            long long& p = startPop[static_cast<size_t>(idx)];
+            const long long room = maxPop - p;
+            if (room <= 0) continue;
+            const long long add = std::min(room, diff);
+            p += add;
+            diff -= add;
+        }
+    } else if (diff < 0) {
+        for (int idx : order) {
+            if (diff >= 0) break;
+            long long& p = startPop[static_cast<size_t>(idx)];
+            const long long room = p - minPop;
+            if (room <= 0) continue;
+            const long long sub = std::min(room, -diff);
+            p -= sub;
+            diff += sub;
+        }
+    }
+    // Final safety: if any remainder persists (should be rare), resolve with small random nudges.
+    if (diff != 0) {
+        std::uniform_int_distribution<int> pick(0, nC - 1);
+        int guard = 0;
+        while (diff != 0 && guard++ < 5'000'000) {
+            const int idx = pick(rng);
+            long long& p = startPop[static_cast<size_t>(idx)];
+            if (diff > 0 && p < maxPop) {
+                p += 1;
+                diff -= 1;
+            } else if (diff < 0 && p > minPop) {
+                p -= 1;
+                diff += 1;
+            }
+        }
+    }
+
+    // Small initial territory clusters (prevents single-cell artifacts and keeps pop counted to owners).
+    std::uniform_int_distribution<int> territoryRadiusFieldDist(2, 6);
 
     for (int i = 0; i < numCountries; ++i) {
         sf::Vector2i startCell;
@@ -1317,7 +1636,7 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
         }
 
         sf::Color countryColor(colorDist(rng), colorDist(rng), colorDist(rng));
-        long long initialPopulation = popDist(rng);
+        const long long initialPopulation = startPop[static_cast<size_t>(i)];
         double growthRate = growthRateDist(rng);
 
         std::string countryName = generate_country_name(rng);
@@ -1341,6 +1660,15 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
                                cultureType,
                                m_ctx->seedForCountry(i));
         setCountryOwnerAssumingLockedImpl(startCell.x, startCell.y, i);
+
+        // Paint a small initial territory blob so population can be distributed over multiple field cells.
+        {
+            const int rField = territoryRadiusFieldDist(rng);
+            const int rPx = std::max(1, rField * kFieldCellSize);
+            std::vector<int> affected;
+            affected.reserve(64);
+            paintCells(i, startCell, rPx, /*erase*/false, /*allowOverwrite*/false, affected);
+        }
 
         int regionIndex = static_cast<int>(startCell.y / m_regionSize * (m_baseImage.getSize().x / m_gridCellSize / m_regionSize) + startCell.x / m_regionSize);
         m_dirtyRegions.insert(regionIndex);

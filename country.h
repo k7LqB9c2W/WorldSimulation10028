@@ -109,6 +109,22 @@ public:
     void subtractGold(double amount);
     void setGold(double amount);
 
+    // Continuous development stocks (rules-not-knobs city/institution systems).
+    double getSpecialistPopulation() const { return m_specialistPopulation; } // people (implied specialists)
+    void setSpecialistPopulation(double v) { m_specialistPopulation = std::max(0.0, v); }
+    double getKnowledgeInfra() const { return m_knowledgeInfra; } // unitless stock
+    void setKnowledgeInfra(double v) { m_knowledgeInfra = std::max(0.0, v); }
+
+    // City-founding persistence memory (field-grid coordinates + streak).
+    struct CityCandidate {
+        int fx = -1;
+        int fy = -1;
+        int streak = 0;
+    };
+    const CityCandidate& getCityCandidate() const { return m_cityCandidate; }
+    CityCandidate& getCityCandidateMutable() { return m_cityCandidate; }
+    void resetCityCandidate() { m_cityCandidate = CityCandidate{}; }
+
     // Economy (GPU econ grid aggregation)
     double getWealth() const { return m_wealth; }
     double getGDP() const { return m_gdp; }
@@ -390,6 +406,9 @@ private:
 	    int m_nextWarCheckYear;
 	    std::vector<City> m_cities;
 	    double m_totalCityPopulation = 0.0;
+        double m_specialistPopulation = 0.0;
+        double m_knowledgeInfra = 0.0;
+        CityCandidate m_cityCandidate{};
 	    bool m_hasCity;
     double m_gold;
     double m_wealth = 0.0;  // national net worth proxy (aggregated from econ grid)

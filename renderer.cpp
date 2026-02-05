@@ -334,6 +334,11 @@ void Renderer::render(const std::vector<Country>& countries,
             worldTarget->draw(m_overseasSprite);
         }
 
+        if (m_showUrbanOverlay) {
+            updateUrbanOverlayTexture(map);
+            worldTarget->draw(m_urbanSprite);
+        }
+
 	    if (m_needsUpdate) {
 	        updateCountryImage(map.getCountryGrid(), countries, map);
 	        if (!m_useGpuCountryOverlay) {
@@ -961,6 +966,15 @@ void Renderer::cycleClimateOverlayMode() {
     m_climateOverlayMode = (m_climateOverlayMode + 1) % 4;
 }
 
+void Renderer::toggleUrbanOverlay() {
+    m_showUrbanOverlay = !m_showUrbanOverlay;
+}
+
+void Renderer::cycleUrbanOverlayMode() {
+    m_showUrbanOverlay = true;
+    m_urbanOverlayMode = (m_urbanOverlayMode + 1) % 4;
+}
+
 void Renderer::toggleOverseasOverlay() {
     m_showOverseasOverlay = !m_showOverseasOverlay;
 }
@@ -1078,6 +1092,93 @@ void Renderer::updateClimateOverlayTexture(const Map& map) {
     const float scale = static_cast<float>(map.getGridCellSize() * Map::kFieldCellSize);
     m_climateSprite.setScale(scale, scale);
     m_climateSprite.setColor(sf::Color(255, 255, 255, 150));
+}
+
+void Renderer::updateUrbanOverlayTexture(const Map& map) {
+    const int w = map.getFieldWidth();
+    const int h = map.getFieldHeight();
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+
+    const bool sizeChanged = (w != m_urbanW) || (h != m_urbanH);
+    const bool modeChanged = (m_urbanOverlayMode != m_urbanOverlayLastMode);
+    const bool yearChanged = (m_currentYear != m_urbanOverlayLastYear);
+    if (!sizeChanged && !modeChanged && !yearChanged && !m_urbanPixels.empty()) {
+        return;
+    }
+
+    m_urbanW = w;
+    m_urbanH = h;
+    m_urbanOverlayLastMode = m_urbanOverlayMode;
+    m_urbanOverlayLastYear = m_currentYear;
+
+    const size_t n = static_cast<size_t>(w) * static_cast<size_t>(h);
+    m_urbanPixels.assign(n * 4u, 0u);
+
+    auto clamp01f = [](float v) { return std::max(0.0f, std::min(1.0f, v)); };
+    auto lerp = [](sf::Uint8 a, sf::Uint8 b, float t) -> sf::Uint8 {
+        const float v = static_cast<float>(a) + (static_cast<float>(b) - static_cast<float>(a)) * t;
+        return static_cast<sf::Uint8>(std::max(0.0f, std::min(255.0f, v)));
+    };
+    auto lerpColor = [&](sf::Color a, sf::Color b, float t) -> sf::Color {
+        t = clamp01f(t);
+        return sf::Color(lerp(a.r, b.r, t), lerp(a.g, b.g, t), lerp(a.b, b.b, t), 255);
+    };
+
+    const auto& food = map.getFieldFoodPotential();
+    const auto& crowd = map.getFieldCrowding();
+    const auto& spec = map.getFieldSpecialization();
+    const auto& urbanShare = map.getFieldUrbanShare();
+    const auto& urbanPop = map.getFieldUrbanPop();
+
+    const float denomUrbanPop = std::log1p(250'000.0f);
+
+    for (size_t i = 0; i < n; ++i) {
+        const float fp = (i < food.size()) ? food[i] : 0.0f;
+        if (fp <= 0.0f) {
+            m_urbanPixels[i * 4u + 3u] = 0u;
+            continue;
+        }
+
+        float t = 0.0f;
+        sf::Color c(0, 0, 0, 255);
+
+        if (m_urbanOverlayMode == 0) {
+            const float cr = (i < crowd.size()) ? crowd[i] : 0.0f;
+            t = clamp01f((cr - 0.8f) / 1.2f);
+            c = lerpColor(sf::Color(35, 70, 140), sf::Color(235, 70, 55), t);
+        } else if (m_urbanOverlayMode == 1) {
+            t = (i < spec.size()) ? clamp01f(spec[i]) : 0.0f;
+            c = lerpColor(sf::Color(70, 75, 135), sf::Color(245, 220, 70), t);
+        } else if (m_urbanOverlayMode == 2) {
+            const float us = (i < urbanShare.size()) ? urbanShare[i] : 0.0f;
+            t = clamp01f(us / 0.45f);
+            c = lerpColor(sf::Color(40, 140, 70), sf::Color(245, 150, 50), t);
+        } else if (m_urbanOverlayMode == 3) {
+            const float up = (i < urbanPop.size()) ? urbanPop[i] : 0.0f;
+            t = (denomUrbanPop > 1e-6f) ? clamp01f(std::log1p(std::max(0.0f, up)) / denomUrbanPop) : 0.0f;
+            c = lerpColor(sf::Color(45, 45, 45), sf::Color(235, 235, 235), t);
+        }
+
+        const sf::Uint8 a = static_cast<sf::Uint8>(std::round(50.0f + 190.0f * t));
+        m_urbanPixels[i * 4u + 0u] = c.r;
+        m_urbanPixels[i * 4u + 1u] = c.g;
+        m_urbanPixels[i * 4u + 2u] = c.b;
+        m_urbanPixels[i * 4u + 3u] = a;
+    }
+
+    if (sizeChanged || m_urbanTex.getSize().x != static_cast<unsigned>(w) || m_urbanTex.getSize().y != static_cast<unsigned>(h)) {
+        m_urbanTex.create(static_cast<unsigned>(w), static_cast<unsigned>(h));
+        m_urbanTex.setSmooth(false);
+        m_urbanSprite.setTexture(m_urbanTex, true);
+        m_urbanSprite.setPosition(0.f, 0.f);
+    }
+    m_urbanTex.update(m_urbanPixels.data());
+
+    const float scale = static_cast<float>(map.getGridCellSize() * Map::kFieldCellSize);
+    m_urbanSprite.setScale(scale, scale);
+    m_urbanSprite.setColor(sf::Color(255, 255, 255, 255));
 }
 
 void Renderer::updateOverseasOverlayTexture(const Map& map) {

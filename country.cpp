@@ -438,13 +438,29 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
     m_polity.fiscalCapacity = clamp01(m_polity.fiscalCapacity + yearsD * (0.00030 * m_polity.adminSpendingShare * techFactor));
     m_polity.logisticsReach = clamp01(m_polity.logisticsReach + yearsD * (0.00040 * m_polity.infraSpendingShare * techFactor));
 
-    // Cities as administrative nodes (derived from population geography).
+    // Administrative capacity emerges from how many specialists a polity can sustain and coordinate.
     {
-        const double cityPopMillions = std::max(0.0, m_totalCityPopulation) / 1'000'000.0;
-        const double boost = std::log1p(cityPopMillions);
-        m_polity.adminCapacity = clamp01(m_polity.adminCapacity + yearsD * (0.00010 * boost));
-        m_polity.fiscalCapacity = clamp01(m_polity.fiscalCapacity + yearsD * (0.00006 * boost));
-        m_polity.logisticsReach = clamp01(m_polity.logisticsReach + yearsD * (0.00005 * boost));
+        const double specPop = std::max(0.0, m_specialistPopulation);
+        const double specTerm = std::sqrt(std::max(0.0, specPop)); // diminishing returns
+        const double eduShare = clamp01(m_polity.educationSpendingShare);
+        const double stability = clamp01(m_stability);
+
+        const double adminGrowth =
+            yearsD * (3.0e-7 * specTerm * techFactor) *
+            (0.45 + 0.55 * clamp01(m_polity.adminSpendingShare)) *
+            (0.40 + 0.60 * eduShare) *
+            (0.40 + 0.60 * stability);
+
+        double stress = 0.0;
+        if (m_isAtWar) stress += 1.0;
+        stress += 0.9 * clamp01(m_polity.debt / std::max(1.0, incomeAnnual * 6.0));
+        stress += 0.7 * clamp01((0.60 - m_polity.legitimacy) / 0.60);
+        stress += 0.7 * clamp01((0.70 - m_stability) / 0.70);
+        stress += 0.8 * clamp01((0.92 - m_macro.foodSecurity) / 0.92);
+        stress += 0.6 * clamp01((0.65 - m_avgControl) / 0.65);
+
+        const double adminDecay = yearsD * (0.00060 * stress);
+        m_polity.adminCapacity = clamp01(m_polity.adminCapacity + adminGrowth - adminDecay);
     }
 
     // Legitimacy drift (annualized).

@@ -334,6 +334,8 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         const double access = clamp01(c.getMarketAccess());
         const double eduShare = clamp01(c.getEducationSpendingShare());
         const double healthShare = clamp01(c.getHealthSpendingShare());
+        const double admin = clamp01(c.getAdminCapacity());
+        const double control = clamp01(c.getAvgControl());
 
         const auto& m = c.getMacroEconomy();
         const double nonFoodSurplus = std::max(0.0, m.lastNonFoodOutput - m.lastNonFoodCons);
@@ -353,16 +355,40 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
             innov *= (0.80 + 0.20 * clamp01(m.foodSecurity));
         }
 
-        // Tech/institution era multipliers (no point currencies): stepwise acceleration.
-        double era = 1.0;
-        if (TechnologyManager::hasTech(*this, c, TechId::WRITING)) era *= 1.55;
-        if (TechnologyManager::hasTech(*this, c, TechId::EDUCATION)) era *= 1.70;
-        if (TechnologyManager::hasTech(*this, c, TechId::UNIVERSITIES)) era *= 1.55;
-        if (TechnologyManager::hasTech(*this, c, TechId::SCIENTIFIC_METHOD)) era *= 2.10;
-        if (TechnologyManager::hasTech(*this, c, 54)) era *= 1.50; // Electricity
-        if (TechnologyManager::hasTech(*this, c, 69)) era *= 1.45; // Computers
-        if (TechnologyManager::hasTech(*this, c, 79)) era *= 1.25; // Internet
-        innov *= era;
+        // Continuous "knowledge infrastructure" stock: speed-up is gradual and state-driven, not stepwise.
+        {
+            double infra = std::max(0.0, c.getKnowledgeInfra());
+
+            const double eduTerm = 0.05 + 0.95 * eduShare;
+            double inst = 1.0;
+            if (TechnologyManager::hasTech(*this, c, TechId::WRITING)) inst += 0.25;
+            if (TechnologyManager::hasTech(*this, c, TechId::EDUCATION)) inst += 0.35;
+            if (TechnologyManager::hasTech(*this, c, TechId::UNIVERSITIES)) inst += 0.25;
+            if (TechnologyManager::hasTech(*this, c, TechId::SCIENTIFIC_METHOD)) inst += 0.45;
+            if (TechnologyManager::hasTech(*this, c, 54)) inst += 0.20; // Electricity
+            if (TechnologyManager::hasTech(*this, c, 69)) inst += 0.18; // Computers
+            if (TechnologyManager::hasTech(*this, c, 79)) inst += 0.12; // Internet
+
+            const double infraUp =
+                18.0 * eduTerm *
+                (0.35 + 0.65 * stability) *
+                (0.35 + 0.65 * admin) *
+                (0.25 + 0.75 * urban) *
+                (0.25 + 0.75 * access) *
+                inst;
+
+            double chaos = 0.0;
+            if (c.isAtWar()) chaos += 1.0;
+            chaos += 1.0 * (1.0 - control);
+            chaos += 1.4 * std::max(0.0, 0.92 - clamp01(m.foodSecurity));
+            chaos += 0.8 * std::max(0.0, 0.55 - legitimacy);
+
+            const double infraDecay = 5.0 * chaos;
+            infra = std::max(0.0, infra + (infraUp - infraDecay) * yearsD);
+            c.setKnowledgeInfra(infra);
+
+            innov *= (1.0 + 0.16 * std::log1p(infra));
+        }
 
         // Legacy country flavor types remain as mild innovation multipliers (no point hoarding).
         if (c.getScienceType() == Country::ScienceType::MS) {

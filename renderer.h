@@ -24,6 +24,8 @@ public:
     void toggleWealthLeaderboard();
     void toggleClimateOverlay();
     void cycleClimateOverlayMode();
+    void toggleUrbanOverlay();
+    void cycleUrbanOverlayMode();
     void toggleOverseasOverlay();
     void updateYearText(int year);
     void setNeedsUpdate(bool needsUpdate);
@@ -167,6 +169,7 @@ private:
 
         // Phase 6: climate debug overlay (field-grid texture).
         void updateClimateOverlayTexture(const Map& map);
+        void updateUrbanOverlayTexture(const Map& map);
         void updateOverseasOverlayTexture(const Map& map);
 
         bool m_showClimateOverlay = false;
@@ -178,6 +181,17 @@ private:
         std::vector<sf::Uint8> m_climatePixels;
         sf::Texture m_climateTex;
         sf::Sprite m_climateSprite;
+
+        // Rule-based urban debug overlay (field-grid texture).
+        bool m_showUrbanOverlay = false;
+        int m_urbanOverlayMode = 0; // 0=crowding,1=specialization,2=urbanShare,3=urbanPop
+        int m_urbanOverlayLastYear = -9999999;
+        int m_urbanOverlayLastMode = -1;
+        int m_urbanW = 0;
+        int m_urbanH = 0;
+        std::vector<sf::Uint8> m_urbanPixels;
+        sf::Texture m_urbanTex;
+        sf::Sprite m_urbanSprite;
 
         // Phase 7: overseas debug overlay (field-grid texture).
         bool m_showOverseasOverlay = false;

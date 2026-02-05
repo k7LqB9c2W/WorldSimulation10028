@@ -1162,11 +1162,24 @@ void EconomyModelCPU::tickYear(int year,
         const bool hasIndustrial = TechnologyManager::hasTech(tech, c, 52);
         const double extractionMult = 0.0018 * (1.0 + (hasMining ? 0.30 : 0.0) + (hasMetallurgy ? 0.45 : 0.0) + (hasIndustrial ? 0.80 : 0.0));
 
-        const double urbanBoost = (pop > 1.0)
-            ? (0.000060 * std::sqrt(std::max(1.0, c.getTotalCityPopulation())) * std::sqrt(std::max(1.0, m.capitalStock)) * (0.60 + 0.40 * marketAccess))
+        // Specialist-driven production (rules-not-knobs): emergent from density/surplus/access rather than city tiers.
+        const double specPop = std::max(0.0, c.getSpecialistPopulation());
+        const double specBoost = (pop > 1.0)
+            ? (0.000055 * std::sqrt(std::max(1.0, specPop)) * std::sqrt(std::max(1.0, m.capitalStock)) * (0.55 + 0.45 * marketAccess))
             : 0.0;
 
-        const double nonFoodOutAnnual = nonFoodPot * extractionMult * controlMult + urbanBoost;
+        // Negative urban externalities: congestion penalizes specialist output when urban share gets high.
+        const double congestionPenalty = 1.0 / (1.0 + 2.2 * std::max(0.0, urban - 0.18));
+
+        // City fragility: food stress bites harder in urbanized societies.
+        double fragility = 1.0;
+        if (m.foodSecurity < 0.95 && urban > 0.15) {
+            const double u = clamp01((urban - 0.15) / 0.30);
+            const double f = clamp01((0.95 - m.foodSecurity) / 0.35);
+            fragility = std::clamp(1.0 - 0.14 * u * f, 0.75, 1.0);
+        }
+
+        const double nonFoodOutAnnual = nonFoodPot * extractionMult * controlMult + specBoost * congestionPenalty * fragility;
 
         const double foodConsAnnual = pop * m_cfg.foodPerCapita;
         const double nonFoodConsAnnual = pop * m_cfg.nonFoodPerCapita * (0.30 + 0.70 * urban) * (0.50 + 0.50 * marketAccess);

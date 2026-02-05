@@ -136,6 +136,12 @@ public:
     bool isPopulationGridActive() const { return !m_fieldPopulation.empty(); }
     const std::vector<float>& getFieldPopulation() const { return m_fieldPopulation; } // size = fieldW*fieldH
 
+    // Rule-based urbanization debug fields (field grid resolution).
+    const std::vector<float>& getFieldCrowding() const { return m_fieldCrowding; }             // pop / K
+    const std::vector<float>& getFieldSpecialization() const { return m_fieldSpecialization; } // 0..1
+    const std::vector<float>& getFieldUrbanShare() const { return m_fieldUrbanShare; }         // 0..1
+    const std::vector<float>& getFieldUrbanPop() const { return m_fieldUrbanPop; }             // people
+
 	// Phase 6: climate/weather fields (field grid resolution).
 	const std::vector<uint8_t>& getFieldClimateZone() const { return m_fieldClimateZone; } // discrete bands for debug
 	const std::vector<uint8_t>& getFieldBiome() const { return m_fieldBiome; }             // 0..N (land only)
@@ -222,6 +228,10 @@ public:
     std::vector<float> m_fieldPopulation;     // fieldW*fieldH, people stock per cell
     std::vector<float> m_fieldAttractiveness; // fieldW*fieldH, computed each migration tick
     std::vector<float> m_fieldPopDelta;       // fieldW*fieldH, scratch buffer for migration
+    std::vector<float> m_fieldCrowding;       // fieldW*fieldH, pop / K (debug)
+    std::vector<float> m_fieldSpecialization; // fieldW*fieldH, 0..1 (debug)
+    std::vector<float> m_fieldUrbanShare;     // fieldW*fieldH, 0..1 (debug)
+    std::vector<float> m_fieldUrbanPop;       // fieldW*fieldH, people (debug)
     int m_lastPopulationUpdateYear = -9999999;
     void ensureFieldGrids();
     void rebuildFieldFoodPotential();
