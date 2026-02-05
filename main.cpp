@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdio>
 #include <unordered_set>
 #include <omp.h>
 #include <csignal>
@@ -20,6 +21,9 @@
 #include <random>
 #include <fstream>
 #include <optional>
+#include <imgui.h>
+#include <imgui-SFML.h>
+#include <imgui_stdlib.h>
 #include "country.h"
 #include "renderer.h"
 #include "map.h"
@@ -114,6 +118,54 @@ std::optional<std::uint64_t> tryParseSeedArg(int argc, char** argv) {
     }
     return std::nullopt;
 }
+
+ImVec4 toImVec4(const sf::Color& c, float alphaScale = 1.0f) {
+    return ImVec4(c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, (c.a / 255.0f) * alphaScale);
+}
+
+std::string formatMoneyAbbrev(double v) {
+    const double av = std::abs(v);
+    char buf[64];
+    if (av >= 1e12) std::snprintf(buf, sizeof(buf), "%.2fT", v / 1e12);
+    else if (av >= 1e9) std::snprintf(buf, sizeof(buf), "%.2fB", v / 1e9);
+    else if (av >= 1e6) std::snprintf(buf, sizeof(buf), "%.2fM", v / 1e6);
+    else if (av >= 1e3) std::snprintf(buf, sizeof(buf), "%.2fK", v / 1e3);
+    else std::snprintf(buf, sizeof(buf), "%.2f", v);
+    return std::string(buf);
+}
+
+std::string trimCopy(std::string s) {
+    size_t start = s.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) return std::string();
+    size_t end = s.find_last_not_of(" \t\r\n");
+    return s.substr(start, end - start + 1);
+}
+
+std::string toLowerCopy(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return s;
+}
+
+std::vector<int> parseIdsFromString(const std::string& s) {
+    std::vector<int> ids;
+    std::string token;
+    for (char ch : s) {
+        if (std::isdigit(static_cast<unsigned char>(ch))) {
+            token.push_back(ch);
+        } else {
+            if (!token.empty()) {
+                try { ids.push_back(std::stoi(token)); } catch (...) {}
+                token.clear();
+            }
+        }
+    }
+    if (!token.empty()) {
+        try { ids.push_back(std::stoi(token)); } catch (...) {}
+    }
+    return ids;
+}
 } // namespace
 
 int main(int argc, char** argv) {
@@ -140,11 +192,16 @@ int main(int argc, char** argv) {
             return -1;
         }
 
-        sf::RenderWindow window(fullscreenVideoMode, windowTitle, sf::Style::Fullscreen);
+	        sf::RenderWindow window(fullscreenVideoMode, windowTitle, sf::Style::Fullscreen);
 
-    // Performance optimization: Limit frame rate to reduce CPU usage
-    window.setFramerateLimit(60);
-    window.setVerticalSyncEnabled(false); // Disable vsync for better performance
+	    // Performance optimization: Limit frame rate to reduce CPU usage
+	    window.setFramerateLimit(60);
+	    window.setVerticalSyncEnabled(false); // Disable vsync for better performance
+
+	    ImGui::SFML::Init(window);
+	    struct ImGuiGuard {
+	        ~ImGuiGuard() { ImGui::SFML::Shutdown(); }
+	    } imguiGuard;
 
     sf::Image baseImage;
     if (!baseImage.loadFromFile("map.png")) {
@@ -233,10 +290,21 @@ int main(int argc, char** argv) {
 		    economy.onTerritoryChanged(map);
 		    economy.onStaticResourcesChanged(map);
 
-		    Renderer renderer(window, map, waterColor);
-		    News news;
+			    Renderer renderer(window, map, waterColor);
+			    News news;
 
-		    auto tradeExportsForYear = [&](int year) -> const std::vector<double>* {
+			    bool guiVisible = true;
+			    renderer.setGuiVisible(guiVisible);
+			    bool guiShowTools = true;
+			    bool guiShowInspector = true;
+			    bool guiShowLeaderboard = false;
+			    bool guiShowTemplateEditor = false;
+			    bool guiShowTechEditor = false;
+			    bool guiShowDemo = false;
+			    std::string guiTemplateTechIds;
+			    std::string guiTemplateCultureIds;
+
+			    auto tradeExportsForYear = [&](int year) -> const std::vector<double>* {
 		        const auto& v = tradeManager.getLastCountryExports();
 		        if (v.empty()) {
 		            return nullptr;
@@ -329,10 +397,9 @@ int main(int argc, char** argv) {
     int forcedInvasionAttackerIndex = -1;
     int hoveredCountryIndex = -1;
 
-    // Technology editor variables
-    bool techEditorMode = false;
-    std::string techEditorInput = "";
-    int techEditorCountryIndex = -1;
+	    // Technology editor variables
+	    std::string techEditorInput = "";
+	    int techEditorCountryIndex = -1;
     
     // Country Add Editor variables
     struct CountryTemplate {
@@ -344,31 +411,16 @@ int main(int argc, char** argv) {
         Country::CultureType cultureType = Country::CultureType::NC;
         Country::Ideology ideology = Country::Ideology::Tribal;
         bool useTemplate = false; // If false, use random generation
-    };
-    
-    CountryTemplate customCountryTemplate;
-    bool countryAddEditorMode = false;
-    std::string editorInput = "";
-    int editorState = 0; // 0=tech selection, 1=population, 2=culture selection, 3=type selection, etc.
-    int maxTechId = 0;
-    int maxCultureId = 0;
-    
-    // Initialize max IDs for the country editor
-    maxTechId = technologyManager.getTechnologies().size();
-    maxCultureId = 10; // Assuming 10 culture levels, adjust as needed
-    sf::Font m_font; // Font loading moved outside the loop
-    if (!m_font.loadFromFile("arial.ttf")) {
-        std::cerr << "Error: Could not load font file." << std::endl;
-        return -1;
-    }
-    sf::Text countryAddModeText;
-    countryAddModeText.setFont(m_font);
-    countryAddModeText.setCharacterSize(24);
-    countryAddModeText.setFillColor(sf::Color::White);
-	    countryAddModeText.setPosition(10, 10);
-	    countryAddModeText.setString("Country Add Mode");
+	    };
+	    
+	    CountryTemplate customCountryTemplate;
+	    sf::Font m_font; // Font loading moved outside the loop
+	    if (!m_font.loadFromFile("arial.ttf")) {
+	        std::cerr << "Error: Could not load font file." << std::endl;
+	        return -1;
+	    }
 
-	    // Mega time jump (background worker) state
+		    // Mega time jump (background worker) state
 	    bool megaTimeJumpRunning = false;
 	    bool megaTimeJumpPendingClose = false;
 	    int megaTimeJumpStartYear = 0;
@@ -404,12 +456,15 @@ int main(int argc, char** argv) {
 	                thread.join();
 	            }
 	        }
-	    } megaTimeJumpThreadGuard{ megaTimeJumpThread, megaTimeJumpCancelRequested };
+		    } megaTimeJumpThreadGuard{ megaTimeJumpThread, megaTimeJumpCancelRequested };
 
-	    while (window.isOpen()) {
-	        frameClock.restart(); // Start frame timing
-	        
-	        sf::Event event;
+		    sf::Clock imguiDeltaClock;
+
+			    while (window.isOpen()) {
+			        frameClock.restart(); // Start frame timing
+			        const sf::Time imguiDt = imguiDeltaClock.restart();
+		        
+		        sf::Event event;
 	        auto tryGetGridUnderMouse = [&](const sf::Vector2i& mousePos, sf::Vector2i& outGrid) -> bool {
 	            if (viewMode == ViewMode::Globe) {
 	                return renderer.globeScreenToGrid(mousePos, map, outGrid);
@@ -418,63 +473,66 @@ int main(int argc, char** argv) {
 	            outGrid = map.pixelToGrid(worldPos);
 	            return true;
 	        };
-	        while (window.pollEvent(event)) {
-	            if (megaTimeJumpRunning) {
-	                if (event.type == sf::Event::Closed) {
-	                    megaTimeJumpPendingClose = true;
-	                    megaTimeJumpCancelRequested.store(true, std::memory_order_relaxed);
-	                    megaTimeJumpChunkCv.notify_all();
-	                } else if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape) {
-	                    megaTimeJumpCancelRequested.store(true, std::memory_order_relaxed);
-	                    megaTimeJumpChunkCv.notify_all();
+		        while (window.pollEvent(event)) {
+		            if (megaTimeJumpRunning) {
+		                if (event.type == sf::Event::Closed) {
+		                    megaTimeJumpPendingClose = true;
+		                    megaTimeJumpCancelRequested.store(true, std::memory_order_relaxed);
+		                    megaTimeJumpChunkCv.notify_all();
+		                } else if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape) {
+		                    megaTimeJumpCancelRequested.store(true, std::memory_order_relaxed);
+		                    megaTimeJumpChunkCv.notify_all();
+		                }
+		                continue;
+		            }
+
+		            if (guiVisible && !megaTimeJumpMode) {
+		                ImGui::SFML::ProcessEvent(window, event);
+		            }
+
+		            if (event.type == sf::Event::Closed) {
+		                window.close();
+		            }
+		            else if (event.type == sf::Event::KeyPressed) {
+	                if (event.key.code == sf::Keyboard::F1) {
+	                    guiVisible = !guiVisible;
+	                    renderer.setGuiVisible(guiVisible);
+	                    continue;
 	                }
-	                continue;
-	            }
 
-	            if (event.type == sf::Event::Closed) {
-	                window.close();
-	            }
-	            else if (event.type == sf::Event::KeyPressed) {
-                if (techEditorMode) {
-                    if (event.key.code == sf::Keyboard::Escape) {
-                        techEditorMode = false;
-                        techEditorInput.clear();
-                    }
-                    continue;
-                }
-                if (megaTimeJumpMode || countryAddEditorMode) {
-                    if (event.key.code == sf::Keyboard::Escape) {
-                        megaTimeJumpMode = false;
-                        megaTimeJumpInput.clear();
-                        countryAddEditorMode = false;
-                        editorInput.clear();
-                        editorState = 0;
-                    }
-                    continue;
-                }
+	                if (megaTimeJumpMode) {
+	                    if (event.key.code == sf::Keyboard::Escape) {
+	                        megaTimeJumpMode = false;
+	                        megaTimeJumpInput.clear();
+	                    }
+	                    continue;
+	                }
 
-                if (forceInvasionMode && event.key.code == sf::Keyboard::Escape) {
-                    forceInvasionMode = false;
-                    forcedInvasionAttackerIndex = -1;
-                    continue;
-                }
+	                const bool guiCapturesKeyboard = guiVisible && ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().WantCaptureKeyboard;
+	                if (guiCapturesKeyboard) {
+	                    continue;
+	                }
 
-                if (event.key.code == sf::Keyboard::Space) {
-                    if (!spacebarDown) {
-                        spacebarDown = true;
-                        if (!megaTimeJumpMode && !countryAddEditorMode && !techEditorMode) {
-                            paused = !paused;
-                            yearClock.restart(); // Prevent immediate year jump after a long pause
-                        }
-                    }
-                }
-	                else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::Num0) {
-	                    paintMode = !paintMode;
-	                    if (paintMode) {
-                        countryAddMode = false;
-                        renderer.setShowCountryAddModeText(false);
-                        forceInvasionMode = false;
-                        forcedInvasionAttackerIndex = -1;
+	                if (forceInvasionMode && event.key.code == sf::Keyboard::Escape) {
+	                    forceInvasionMode = false;
+	                    forcedInvasionAttackerIndex = -1;
+	                    continue;
+	                }
+
+	                if (event.key.code == sf::Keyboard::Space) {
+	                    if (!spacebarDown) {
+	                        spacebarDown = true;
+	                        paused = !paused;
+	                        yearClock.restart(); // Prevent immediate year jump after a long pause
+	                    }
+	                }
+		                else if (!megaTimeJumpMode && event.key.code == sf::Keyboard::Num0) {
+		                    paintMode = !paintMode;
+		                    if (paintMode) {
+	                        countryAddMode = false;
+	                        renderer.setShowCountryAddModeText(false);
+	                        forceInvasionMode = false;
+	                        forcedInvasionAttackerIndex = -1;
                         if (selectedPaintCountryIndex < 0 && selectedCountry != nullptr) {
                             selectedPaintCountryIndex = selectedCountry->getCountryIndex();
                         }
@@ -491,31 +549,31 @@ int main(int argc, char** argv) {
 		                            renderer.setNeedsUpdate(true);
 		                        }
 		                        paintStrokeAffectedCountries.clear();
-		                    }
+			                    }
+		                }
+	                else if (!megaTimeJumpMode && event.key.code == sf::Keyboard::Num1) {
+	                    paintEraseMode = false;
 	                }
-                else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::Num1) {
-                    paintEraseMode = false;
-                }
-                else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::Num2) {
-                    paintEraseMode = true;
-                }
-                else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::R) {
-                    paintAllowOverwrite = !paintAllowOverwrite;
-                }
-                else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::LBracket) {
-                    paintBrushRadius = std::max(1, paintBrushRadius - 1);
-                }
-                else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::RBracket) {
-                    paintBrushRadius = std::min(64, paintBrushRadius + 1);
-                }
-                else if (!megaTimeJumpMode && !countryAddEditorMode && event.key.code == sf::Keyboard::I) {
-                    forceInvasionMode = !forceInvasionMode;
-                    forcedInvasionAttackerIndex = -1;
-                    if (forceInvasionMode) {
-                        paintMode = false;
-                        paintStrokeActive = false;
-                        countryAddMode = false;
-                        renderer.setShowCountryAddModeText(false);
+	                else if (!megaTimeJumpMode && event.key.code == sf::Keyboard::Num2) {
+	                    paintEraseMode = true;
+	                }
+	                else if (!megaTimeJumpMode && event.key.code == sf::Keyboard::R) {
+	                    paintAllowOverwrite = !paintAllowOverwrite;
+	                }
+	                else if (!megaTimeJumpMode && event.key.code == sf::Keyboard::LBracket) {
+	                    paintBrushRadius = std::max(1, paintBrushRadius - 1);
+	                }
+	                else if (!megaTimeJumpMode && event.key.code == sf::Keyboard::RBracket) {
+	                    paintBrushRadius = std::min(64, paintBrushRadius + 1);
+	                }
+	                else if (!megaTimeJumpMode && event.key.code == sf::Keyboard::I) {
+	                    forceInvasionMode = !forceInvasionMode;
+	                    forcedInvasionAttackerIndex = -1;
+	                    if (forceInvasionMode) {
+	                        paintMode = false;
+	                        paintStrokeActive = false;
+	                        countryAddMode = false;
+	                        renderer.setShowCountryAddModeText(false);
                     }
                 }
                 else if (event.key.code == sf::Keyboard::F11 ||
@@ -525,10 +583,12 @@ int main(int argc, char** argv) {
                     sf::Uint32 targetStyle = isFullscreen ? sf::Style::Fullscreen : (sf::Style::Titlebar | sf::Style::Close);
                     sf::Vector2f previousCenter = enableZoom ? zoomedView.getCenter() : defaultView.getCenter();
 
-                    window.create(targetMode, windowTitle, targetStyle);
-                    window.setFramerateLimit(60);
-                    window.setVerticalSyncEnabled(false);
-                    renderer.handleWindowRecreated(map);
+	                    window.create(targetMode, windowTitle, targetStyle);
+	                    window.setFramerateLimit(60);
+	                    window.setVerticalSyncEnabled(false);
+	                    ImGui::SFML::SetCurrentWindow(window);
+	                    ImGui::SFML::UpdateFontTexture();
+	                    renderer.handleWindowRecreated(map);
 
                     defaultView = buildWorldView(window.getSize());
                     if (enableZoom) {
@@ -552,10 +612,9 @@ int main(int argc, char** argv) {
                 else if (event.key.code == sf::Keyboard::Num4) {
                     renderer.toggleWarmongerHighlights();
                 }
-                else if (event.key.code == sf::Keyboard::Num9) {
-                    countryAddMode = !countryAddMode;
-                    renderer.setShowCountryAddModeText(countryAddMode); // Update the flag in Renderer
-                }
+	                else if (event.key.code == sf::Keyboard::Num9) {
+	                    countryAddMode = !countryAddMode;
+	                }
                 else if (event.key.code == sf::Keyboard::Num3) {
                     enableZoom = !enableZoom;
                     if (enableZoom) {
@@ -569,9 +628,9 @@ int main(int argc, char** argv) {
 		                else if (event.key.code == sf::Keyboard::Num6) {
 		                    renderer.toggleWarHighlights();
 		                }
-			                else if (event.key.code == sf::Keyboard::L) {
-			                    // Phase 4: macro economy is authoritative for Wealth/GDP/Exports.
-			                    if (TechnologyManager::getDebugMode()) {
+				                else if (event.key.code == sf::Keyboard::L) {
+				                    // Phase 4: macro economy is authoritative for Wealth/GDP/Exports.
+				                    if (TechnologyManager::getDebugMode()) {
 			                        double sumWealth = 0.0, sumGDP = 0.0, sumExports = 0.0;
 			                        int alive = 0;
 			                        for (const auto& c : countries) {
@@ -586,11 +645,11 @@ int main(int argc, char** argv) {
 			                                  << " totals: wealth=" << sumWealth
 			                                  << " gdp=" << sumGDP
 			                                  << " exports=" << sumExports
-			                                  << " (tradeExportsYear=" << tradeManager.getLastCountryExportsYear() << ")"
-			                                  << std::endl;
-			                    }
-			                    renderer.toggleWealthLeaderboard();
-			                }
+				                                  << " (tradeExportsYear=" << tradeManager.getLastCountryExportsYear() << ")"
+				                                  << std::endl;
+				                    }
+				                    guiShowLeaderboard = !guiShowLeaderboard;
+				                }
 
 	                else if (event.key.code == sf::Keyboard::Num8) { // Add this block
 	                    map.triggerPlague(currentYear, news);
@@ -754,456 +813,153 @@ int main(int argc, char** argv) {
 		                    renderer.toggleOverseasOverlay();
 		                    renderingNeedsUpdate = true;
 		                }
-		                else if (event.key.code == sf::Keyboard::E && !megaTimeJumpMode && !countryAddEditorMode) { // 🧠 TECHNOLOGY EDITOR
-		                    if (selectedCountry != nullptr) {
-		                        techEditorMode = true;
-		                        techEditorInput = "";
-	                        techEditorCountryIndex = selectedCountry->getCountryIndex();
-                        std::cout << "\n🧠 TECHNOLOGY EDITOR ACTIVATED for " << selectedCountry->getName() << "!" << std::endl;
-                    } else {
-                        std::cout << "Select a country first (click one) to edit its technologies." << std::endl;
-                    }
-                }
+			                else if (event.key.code == sf::Keyboard::E) { // 🧠 TECHNOLOGY EDITOR
+			                    if (selectedCountry != nullptr) {
+			                        guiShowTechEditor = true;
+			                        techEditorInput = "";
+		                        techEditorCountryIndex = selectedCountry->getCountryIndex();
+	                        std::cout << "\n🧠 TECHNOLOGY EDITOR ACTIVATED for " << selectedCountry->getName() << "!" << std::endl;
+	                    } else {
+	                        std::cout << "Select a country first (click one) to edit its technologies." << std::endl;
+	                    }
+	                }
 	                else if (event.key.code == sf::Keyboard::Z) { // 🚀 MEGA TIME JUMP MODE
 	                    megaTimeJumpMode = true;
 	                    megaTimeJumpInput = "";
 	                    std::cout << "\n🚀 MEGA TIME JUMP MODE ACTIVATED!" << std::endl;
 	                }
-	                else if (event.key.code == sf::Keyboard::G && !megaTimeJumpMode && !countryAddEditorMode && !techEditorMode) { // 🌍 TOGGLE GLOBE VIEW
-	                    viewMode = (viewMode == ViewMode::Flat2D) ? ViewMode::Globe : ViewMode::Flat2D;
-	                    if (viewMode == ViewMode::Globe) {
-	                        renderer.resetGlobeView();
-	                    }
-	                    renderingNeedsUpdate = true;
-	                }
-	                else if (event.key.code == sf::Keyboard::M) { // 🏗️ COUNTRY ADD EDITOR MODE
-	                    countryAddEditorMode = true;
-	                    editorInput = "";
-	                    editorState = 0;
-	                    std::cout << "\n🏗️ COUNTRY ADD EDITOR ACTIVATED!" << std::endl;
-	                }
+		                else if (event.key.code == sf::Keyboard::G && !megaTimeJumpMode) { // 🌍 TOGGLE GLOBE VIEW
+		                    viewMode = (viewMode == ViewMode::Flat2D) ? ViewMode::Globe : ViewMode::Flat2D;
+		                    if (viewMode == ViewMode::Globe) {
+		                        renderer.resetGlobeView();
+		                    }
+		                    renderingNeedsUpdate = true;
+		                }
+		                else if (event.key.code == sf::Keyboard::M) { // 🏗️ COUNTRY TEMPLATE EDITOR
+		                    guiShowTemplateEditor = !guiShowTemplateEditor;
+		                }
             }
             else if (event.type == sf::Event::TextEntered) {
-                // Handle text input for Technology Editor
-                if (techEditorMode) {
-                    if (event.text.unicode == 8 && !techEditorInput.empty()) { // Backspace
-                        techEditorInput.pop_back();
-                    }
-                    else if (event.text.unicode == 13) { // Enter key
-                        if (techEditorCountryIndex >= 0 && techEditorCountryIndex < static_cast<int>(countries.size())) {
-                            Country& target = countries[static_cast<size_t>(techEditorCountryIndex)];
+                // Only keep the legacy Mega Time Jump input flow (Z). Everything else moved to ImGui.
+                if (!megaTimeJumpMode) {
+                    continue;
+                }
 
-                            auto trim = [](std::string s) {
-                                size_t start = s.find_first_not_of(" \t\r\n");
-                                if (start == std::string::npos) return std::string();
-                                size_t end = s.find_last_not_of(" \t\r\n");
-                                return s.substr(start, end - start + 1);
-                            };
-
-                            auto toLower = [](std::string s) {
-                                std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
-                                    return static_cast<char>(std::tolower(c));
-                                });
-                                return s;
-                            };
-
-                            auto parseIds = [](const std::string& s) -> std::vector<int> {
-                                std::vector<int> ids;
-                                std::string token;
-                                for (char ch : s) {
-                                    if (std::isdigit(static_cast<unsigned char>(ch))) {
-                                        token.push_back(ch);
-                                    } else {
-                                        if (!token.empty()) {
-                                            try {
-                                                ids.push_back(std::stoi(token));
-                                            } catch (...) {}
-                                            token.clear();
-                                        }
-                                    }
-                                }
-                                if (!token.empty()) {
-                                    try {
-                                        ids.push_back(std::stoi(token));
-                                    } catch (...) {}
-                                }
-                                return ids;
-                            };
-
-                            std::string raw = trim(techEditorInput);
-                            std::string lower = toLower(raw);
-
-                            bool includePrereqs = true;
-                            std::vector<int> nextTechs;
-
-                            if (lower == "all") {
-                                includePrereqs = false;
-                                const auto& all = technologyManager.getSortedTechnologyIds();
-                                nextTechs.assign(all.begin(), all.end());
-                            }
-                            else if (lower == "clear") {
-                                includePrereqs = false;
-                                nextTechs.clear();
-                            }
-                            else if (lower.rfind("add", 0) == 0) {
-                                std::vector<int> toAdd = parseIds(raw);
-                                const auto& current = technologyManager.getUnlockedTechnologies(target);
-                                nextTechs.assign(current.begin(), current.end());
-                                nextTechs.insert(nextTechs.end(), toAdd.begin(), toAdd.end());
-                                includePrereqs = true;
-                            }
-                            else if (lower.rfind("set", 0) == 0) {
-                                nextTechs = parseIds(raw);
-                                includePrereqs = true;
-                            }
-                            else if (lower.rfind("remove", 0) == 0) {
-                                includePrereqs = false;
-                                std::vector<int> toRemove = parseIds(raw);
-
-                                std::unordered_set<int> removeSet(toRemove.begin(), toRemove.end());
-                                const auto& techs = technologyManager.getTechnologies();
-
-                                bool changed = true;
-                                while (changed) {
-                                    changed = false;
-                                    for (const auto& kv : techs) {
-                                        int id = kv.first;
-                                        if (removeSet.count(id)) {
-                                            continue;
-                                        }
-                                        for (int req : kv.second.requiredTechs) {
-                                            if (removeSet.count(req)) {
-                                                removeSet.insert(id);
-                                                changed = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-
-                                const auto& current = technologyManager.getUnlockedTechnologies(target);
-                                nextTechs.reserve(current.size());
-                                for (int id : current) {
-                                    if (!removeSet.count(id)) {
-                                        nextTechs.push_back(id);
-                                    }
-                                }
-                            }
-                            else {
-                                // Default: treat as "set <ids>"
-                                nextTechs = parseIds(raw);
-                                includePrereqs = true;
-                            }
-
-                            technologyManager.setUnlockedTechnologiesForEditor(target, nextTechs, includePrereqs);
-                            renderer.setNeedsUpdate(true);
-                            renderingNeedsUpdate = true;
-                            std::cout << "🧠 Updated technologies for " << target.getName() << " (" 
-                                      << technologyManager.getUnlockedTechnologies(target).size() << " unlocked)" << std::endl;
+                if (event.text.unicode >= '0' && event.text.unicode <= '9') {
+                    megaTimeJumpInput += static_cast<char>(event.text.unicode);
+                }
+                else if (event.text.unicode == '-' && megaTimeJumpInput.empty()) {
+                    megaTimeJumpInput = "-";
+                }
+                else if (event.text.unicode == 8 && !megaTimeJumpInput.empty()) { // Backspace
+                    megaTimeJumpInput.pop_back();
+                }
+                else if (event.text.unicode == 13) { // Enter key
+                    if (!megaTimeJumpInput.empty()) {
+                        int targetYear = 0;
+                        try {
+                            targetYear = std::stoi(megaTimeJumpInput);
+                        } catch (...) {
+                            megaTimeJumpMode = false;
+                            megaTimeJumpInput.clear();
+                            break;
                         }
 
-                        techEditorMode = false;
-                        techEditorInput.clear();
-                    }
-                    else if (event.text.unicode == 27) { // Escape key
-                        techEditorMode = false;
-                        techEditorInput.clear();
-                    }
-                    else if ((event.text.unicode >= 32 && event.text.unicode <= 126)) {
-                        char c = static_cast<char>(event.text.unicode);
-                        if (std::isalnum(static_cast<unsigned char>(c)) || c == ',' || c == ' ' ) {
-                            techEditorInput.push_back(c);
+                        // Validate year range
+                        if (targetYear >= -5000 && targetYear <= 2025 && targetYear > currentYear) {
+                            megaTimeJumpMode = false;
+
+                            megaTimeJumpStartYear = currentYear;
+                            megaTimeJumpTargetYear = targetYear;
+                            megaTimeJumpRunning = true;
+                            megaTimeJumpPendingClose = false;
+
+                            megaTimeJumpCancelRequested.store(false, std::memory_order_relaxed);
+                            megaTimeJumpDone.store(false, std::memory_order_relaxed);
+                            megaTimeJumpCanceled.store(false, std::memory_order_relaxed);
+                            megaTimeJumpFailed.store(false, std::memory_order_relaxed);
+                            megaTimeJumpProgressYear.store(currentYear, std::memory_order_relaxed);
+                            megaTimeJumpEtaSeconds.store(-1.0f, std::memory_order_relaxed);
+                            {
+                                std::lock_guard<std::mutex> lock(megaTimeJumpChunkMutex);
+                                megaTimeJumpGpuChunkTicket = 0;
+                                megaTimeJumpGpuChunkAck = 0;
+                                megaTimeJumpGpuChunkEndYear = currentYear;
+                                megaTimeJumpGpuChunkYears = 0;
+                            }
+                            megaTimeJumpGpuChunkActive = false;
+                            megaTimeJumpGpuChunkActiveTicket = 0;
+                            megaTimeJumpGpuChunkRemainingYears = 0;
+                            megaTimeJumpGpuChunkSimYear = currentYear;
+                            megaTimeJumpGpuChunkNeedsTerritorySync = false;
+
+                            {
+                                std::lock_guard<std::mutex> lock(megaTimeJumpErrorMutex);
+                                megaTimeJumpError.clear();
+                            }
+
+                            if (megaTimeJumpThread.joinable()) {
+                                megaTimeJumpThread.join();
+                            }
+
+                            const int yearsToSimulate = megaTimeJumpTargetYear - megaTimeJumpStartYear;
+                            std::cout << "SIMULATING " << yearsToSimulate << " YEARS OF HISTORY!" << std::endl;
+                            std::cout << "From " << megaTimeJumpStartYear << " to " << megaTimeJumpTargetYear << std::endl;
+
+                            megaTimeJumpThread = std::thread([&] {
+                                try {
+                                    const bool completed = map.megaTimeJump(
+                                        countries, currentYear, megaTimeJumpTargetYear, news,
+                                        technologyManager, cultureManager, greatPeopleManager,
+                                        [&](int currentSimYear, int targetSimYear, float estimatedSecondsRemaining) {
+                                            (void)targetSimYear;
+                                            megaTimeJumpProgressYear.store(currentSimYear, std::memory_order_relaxed);
+                                            megaTimeJumpEtaSeconds.store(estimatedSecondsRemaining, std::memory_order_relaxed);
+                                        },
+                                        [&](int, int) {
+                                            // Macro economy runs inside `Map::megaTimeJump`; no GPU/trade chunk required here.
+                                        },
+                                        &megaTimeJumpCancelRequested);
+
+                                    megaTimeJumpCanceled.store(!completed, std::memory_order_relaxed);
+                                } catch (const std::exception& e) {
+                                    megaTimeJumpFailed.store(true, std::memory_order_relaxed);
+                                    std::lock_guard<std::mutex> lock(megaTimeJumpErrorMutex);
+                                    megaTimeJumpError = e.what();
+                                } catch (...) {
+                                    megaTimeJumpFailed.store(true, std::memory_order_relaxed);
+                                    std::lock_guard<std::mutex> lock(megaTimeJumpErrorMutex);
+                                    megaTimeJumpError = "Unknown error";
+                                }
+
+                                megaTimeJumpDone.store(true, std::memory_order_relaxed);
+                            });
+                        } else {
+                            megaTimeJumpMode = false; // Cancel on invalid input
                         }
                     }
                 }
-                // Handle text input for Mega Time Jump
-                else if (megaTimeJumpMode) {
-                    if (event.text.unicode >= '0' && event.text.unicode <= '9') {
-                        megaTimeJumpInput += static_cast<char>(event.text.unicode);
-                    }
-                    else if (event.text.unicode == '-' && megaTimeJumpInput.empty()) {
-                        megaTimeJumpInput = "-";
-                    }
-                    else if (event.text.unicode == 8 && !megaTimeJumpInput.empty()) { // Backspace
-                        megaTimeJumpInput.pop_back();
-                    }
-	                    else if (event.text.unicode == 13) { // Enter key
-	                        if (!megaTimeJumpInput.empty()) {
-	                            int targetYear = 0;
-	                            try {
-	                                targetYear = std::stoi(megaTimeJumpInput);
-	                            } catch (...) {
-	                                megaTimeJumpMode = false;
-	                                megaTimeJumpInput.clear();
-	                                break;
-	                            }
-
-	                            // Validate year range
-	                            if (targetYear >= -5000 && targetYear <= 2025 && targetYear > currentYear) {
-	                                megaTimeJumpMode = false;
-
-	                                megaTimeJumpStartYear = currentYear;
-	                                megaTimeJumpTargetYear = targetYear;
-	                                megaTimeJumpRunning = true;
-	                                megaTimeJumpPendingClose = false;
-
-		                                megaTimeJumpCancelRequested.store(false, std::memory_order_relaxed);
-		                                megaTimeJumpDone.store(false, std::memory_order_relaxed);
-		                                megaTimeJumpCanceled.store(false, std::memory_order_relaxed);
-		                                megaTimeJumpFailed.store(false, std::memory_order_relaxed);
-		                                megaTimeJumpProgressYear.store(currentYear, std::memory_order_relaxed);
-		                                megaTimeJumpEtaSeconds.store(-1.0f, std::memory_order_relaxed);
-		                                {
-		                                    std::lock_guard<std::mutex> lock(megaTimeJumpChunkMutex);
-		                                    megaTimeJumpGpuChunkTicket = 0;
-		                                    megaTimeJumpGpuChunkAck = 0;
-		                                    megaTimeJumpGpuChunkEndYear = currentYear;
-		                                    megaTimeJumpGpuChunkYears = 0;
-		                                }
-		                                megaTimeJumpGpuChunkActive = false;
-		                                megaTimeJumpGpuChunkActiveTicket = 0;
-		                                megaTimeJumpGpuChunkRemainingYears = 0;
-		                                megaTimeJumpGpuChunkSimYear = currentYear;
-		                                megaTimeJumpGpuChunkNeedsTerritorySync = false;
-
-		                                {
-		                                    std::lock_guard<std::mutex> lock(megaTimeJumpErrorMutex);
-		                                    megaTimeJumpError.clear();
-		                                }
-
-	                                if (megaTimeJumpThread.joinable()) {
-	                                    megaTimeJumpThread.join();
-	                                }
-
-		                                const int yearsToSimulate = megaTimeJumpTargetYear - megaTimeJumpStartYear;
-		                                std::cout << "SIMULATING " << yearsToSimulate << " YEARS OF HISTORY!" << std::endl;
-		                                std::cout << "From " << megaTimeJumpStartYear << " to " << megaTimeJumpTargetYear << std::endl;
-
-		                                megaTimeJumpThread = std::thread([&] {
-		                                    try {
-		                                        const bool completed = map.megaTimeJump(
-		                                            countries, currentYear, megaTimeJumpTargetYear, news,
-		                                            technologyManager, cultureManager, greatPeopleManager,
-		                                            [&](int currentSimYear, int targetSimYear, float estimatedSecondsRemaining) {
-		                                                (void)targetSimYear;
-		                                                megaTimeJumpProgressYear.store(currentSimYear, std::memory_order_relaxed);
-		                                                megaTimeJumpEtaSeconds.store(estimatedSecondsRemaining, std::memory_order_relaxed);
-		                                            },
-		                                            [&](int, int) {
-		                                                // Macro economy runs inside `Map::megaTimeJump`; no GPU/trade chunk required here.
-		                                            },
-		                                            &megaTimeJumpCancelRequested);
-
-		                                        megaTimeJumpCanceled.store(!completed, std::memory_order_relaxed);
-		                                    } catch (const std::exception& e) {
-	                                        megaTimeJumpFailed.store(true, std::memory_order_relaxed);
-	                                        std::lock_guard<std::mutex> lock(megaTimeJumpErrorMutex);
-	                                        megaTimeJumpError = e.what();
-	                                    } catch (...) {
-	                                        megaTimeJumpFailed.store(true, std::memory_order_relaxed);
-	                                        std::lock_guard<std::mutex> lock(megaTimeJumpErrorMutex);
-	                                        megaTimeJumpError = "Unknown error";
-	                                    }
-
-	                                    megaTimeJumpDone.store(true, std::memory_order_relaxed);
-	                                });
-	                            } else {
-	                                megaTimeJumpMode = false; // Cancel on invalid input
-	                            }
-	                        }
-	                    }
-                    else if (event.text.unicode == 27) { // Escape key
-                        megaTimeJumpMode = false;
-                        megaTimeJumpInput = "";
-                    }
-                }
-                // Handle text input for Country Add Editor
-                else if (countryAddEditorMode) {
-                    if (event.text.unicode >= '0' && event.text.unicode <= '9') {
-                        editorInput += static_cast<char>(event.text.unicode);
-                    }
-                    else if (event.text.unicode == ',' && !editorInput.empty()) {
-                        editorInput += ",";
-                    }
-                    else if ((event.text.unicode >= 'a' && event.text.unicode <= 'z') || 
-                             (event.text.unicode >= 'A' && event.text.unicode <= 'Z')) {
-                        editorInput += static_cast<char>(event.text.unicode);
-                    }
-                    else if (event.text.unicode == 8 && !editorInput.empty()) { // Backspace
-                        editorInput.pop_back();
-                    }
-                    else if (event.text.unicode == 13) { // Enter key
-                        // Process input based on current editor state
-                        if (editorState == 0) { // Technology selection
-                            customCountryTemplate.unlockedTechnologies.clear();
-                            
-                            // Check if user wants to unlock all
-                            if (editorInput == "all" || editorInput == "ALL") {
-                                // Unlock all technologies
-                                for (int i = 1; i <= maxTechId; i++) {
-                                    customCountryTemplate.unlockedTechnologies.push_back(i);
-                                }
-                                std::cout << "🚀 ALL " << maxTechId << " TECHNOLOGIES UNLOCKED!" << std::endl;
-                            } else {
-                                // Parse comma-separated technology IDs
-                                std::stringstream ss(editorInput);
-                                std::string item;
-                                while (std::getline(ss, item, ',')) {
-                                    try {
-                                        int techId = std::stoi(item);
-                                        if (techId >= 1 && techId <= maxTechId) {
-                                            customCountryTemplate.unlockedTechnologies.push_back(techId);
-                                        }
-                                    } catch (const std::exception&) {
-                                        // Skip invalid entries
-                                    }
-                                }
-                                std::cout << "🔧 " << customCountryTemplate.unlockedTechnologies.size() << " technologies selected" << std::endl;
-                            }
-                            editorState = 1; // Move to population selection
-                            editorInput = "";
-                        }
-                        else if (editorState == 1) { // Population input
-                            long long population = std::stoll(editorInput);
-                            if (population > 0 && population <= 1000000000) { // Reasonable range
-                                customCountryTemplate.initialPopulation = population;
-                            }
-                            editorState = 2; // Move to culture selection
-                            editorInput = "";
-                        }
-                        else if (editorState == 2) { // Culture selection
-                            customCountryTemplate.unlockedCultures.clear();
-                            
-                            // Check if user wants to unlock all
-                            if (editorInput == "all" || editorInput == "ALL") {
-                                // Unlock all cultures
-                                for (int i = 1; i <= maxCultureId; i++) {
-                                    customCountryTemplate.unlockedCultures.push_back(i);
-                                }
-                                std::cout << "🎭 ALL " << maxCultureId << " CULTURES UNLOCKED!" << std::endl;
-                            } else {
-                                // Parse comma-separated culture IDs
-                                std::stringstream ss(editorInput);
-                                std::string item;
-                                while (std::getline(ss, item, ',')) {
-                                    try {
-                                        int cultureId = std::stoi(item);
-                                        if (cultureId >= 1 && cultureId <= maxCultureId) {
-                                            customCountryTemplate.unlockedCultures.push_back(cultureId);
-                                        }
-                                    } catch (const std::exception&) {
-                                        // Skip invalid entries
-                                    }
-                                }
-                                std::cout << "🎭 " << customCountryTemplate.unlockedCultures.size() << " cultures selected" << std::endl;
-                            }
-                            editorState = 3; // Move to type selection
-                            editorInput = "";
-                        }
-                        else if (editorState == 3) { // Country type selection
-                            int typeChoice = std::stoi(editorInput);
-                            if (typeChoice >= 1 && typeChoice <= 3) {
-                                customCountryTemplate.countryType = static_cast<Country::Type>(typeChoice - 1);
-                            }
-                            editorState = 4; // Move to science type selection
-                            editorInput = "";
-                        }
-                        else if (editorState == 4) { // Science type selection
-                            int scienceChoice = std::stoi(editorInput);
-                            if (scienceChoice >= 1 && scienceChoice <= 3) {
-                                customCountryTemplate.scienceType = static_cast<Country::ScienceType>(scienceChoice - 1);
-                            }
-                            editorState = 5; // Move to culture type selection
-                            editorInput = "";
-                        }
-                        else if (editorState == 5) { // Culture type selection
-                            int cultureChoice = std::stoi(editorInput);
-                            if (cultureChoice >= 1 && cultureChoice <= 3) {
-                                customCountryTemplate.cultureType = static_cast<Country::CultureType>(cultureChoice - 1);
-                            }
-                            editorState = 6; // Move to save/reset
-                            editorInput = "";
-                        }
-                        else if (editorState == 6) { // Save or Reset
-                            int choice = std::stoi(editorInput);
-                            if (choice == 1) { // Save
-                                customCountryTemplate.useTemplate = true;
-                                std::cout << "✅ COUNTRY TEMPLATE SAVED!" << std::endl;
-                                std::cout << "   Technologies: " << customCountryTemplate.unlockedTechnologies.size();
-                                if (customCountryTemplate.unlockedTechnologies.size() == maxTechId) {
-                                    std::cout << " (ALL UNLOCKED!)";
-                                }
-                                std::cout << std::endl;
-                                std::cout << "   Cultures: " << customCountryTemplate.unlockedCultures.size();
-                                if (customCountryTemplate.unlockedCultures.size() == maxCultureId) {
-                                    std::cout << " (ALL UNLOCKED!)";
-                                }
-                                std::cout << std::endl;
-                                std::cout << "   Population: " << customCountryTemplate.initialPopulation << std::endl;
-                                std::cout << "   Type: " << static_cast<int>(customCountryTemplate.countryType) << std::endl;
-                            }
-                            else if (choice == 2) { // Reset
-                                customCountryTemplate.useTemplate = false;
-                                customCountryTemplate.unlockedTechnologies.clear();
-                                customCountryTemplate.unlockedCultures.clear();
-                                customCountryTemplate.initialPopulation = 5000;
-                                std::cout << "🔄 RESET TO RANDOM GENERATION!" << std::endl;
-                            }
-                            countryAddEditorMode = false;
-                            editorInput = "";
-                            editorState = 0;
-                        }
-                    }
-                    else if (event.text.unicode == 27) { // Escape key
-                        countryAddEditorMode = false;
-                        editorInput = "";
-                        editorState = 0;
-                    }
+                else if (event.text.unicode == 27) { // Escape key
+                    megaTimeJumpMode = false;
+                    megaTimeJumpInput = "";
                 }
             }
             else if (event.type == sf::Event::MouseWheelScrolled) {
+                const bool guiCapturesMouse = guiVisible && ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().WantCaptureMouse;
+                if (guiCapturesMouse) {
+                    continue;
+                }
+
                 if (paintMode &&
                     (sf::Keyboard::isKeyPressed(sf::Keyboard::LControl) || sf::Keyboard::isKeyPressed(sf::Keyboard::RControl))) {
                     int delta = (event.mouseWheelScroll.delta > 0) ? 1 : -1;
                     paintBrushRadius = std::max(1, std::min(64, paintBrushRadius + delta));
                 }
-	                if (showCountryInfo) {
-                    if (event.mouseWheelScroll.delta > 0) {
-                        // Scrolling up
-                        if (sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::RShift)) {
-                            // Tech scroll
-                            int newOffset = renderer.getTechScrollOffset() - static_cast<int>(event.mouseWheelScroll.delta * 10);
-                            newOffset = std::max(0, std::min(newOffset, renderer.getMaxTechScrollOffset()));
-                            renderer.setTechScrollOffset(newOffset);
-                        }
-                        else {
-                            // Civic scroll (default)
-                            int newOffset = renderer.getCivicScrollOffset() - static_cast<int>(event.mouseWheelScroll.delta * 10);
-                            newOffset = std::max(0, std::min(newOffset, renderer.getMaxCivicScrollOffset()));
-                            renderer.setCivicScrollOffset(newOffset);
-                        }
-                    }
-                    else if (event.mouseWheelScroll.delta < 0) {
-                        // Scrolling down
-                        if (sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::RShift)) {
-                            // Tech scroll
-                            int newOffset = renderer.getTechScrollOffset() - static_cast<int>(event.mouseWheelScroll.delta * 10);
-                            newOffset = std::max(0, std::min(newOffset, renderer.getMaxTechScrollOffset()));
-                            renderer.setTechScrollOffset(newOffset);
-                        }
-                        else {
-                            // Civic scroll (default)
-                            int newOffset = renderer.getCivicScrollOffset() - static_cast<int>(event.mouseWheelScroll.delta * 10);
-                            newOffset = std::max(0, std::min(newOffset, renderer.getMaxCivicScrollOffset()));
-                            renderer.setCivicScrollOffset(newOffset);
-                        }
-                    }
-	                }
-	                else if (viewMode == ViewMode::Globe) {
-	                    renderer.addGlobeRadiusScale(event.mouseWheelScroll.delta * 0.02f);
-	                    renderingNeedsUpdate = true;
-	                }
-	                else if (enableZoom) {
+                else if (viewMode == ViewMode::Globe) {
+		                    renderer.addGlobeRadiusScale(event.mouseWheelScroll.delta * 0.02f);
+		                    renderingNeedsUpdate = true;
+		                }
+		                else if (enableZoom) {
 	                    if (event.mouseWheelScroll.delta > 0) {
 	                        zoomLevel *= 0.9f;
 	                    }
@@ -1215,17 +971,21 @@ int main(int argc, char** argv) {
                 }
             }
             else if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Right) {
+                const bool guiCapturesMouse = guiVisible && ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().WantCaptureMouse;
+                if (guiCapturesMouse) {
+                    continue;
+                }
                 if (viewMode == ViewMode::Globe) {
                     sf::Vector2i mousePos = sf::Mouse::getPosition(window);
                     globeRightDragActive = true;
                     globeRightDragRotating = false;
-                    globeRightClickPendingPick = paintMode && !megaTimeJumpMode && !countryAddEditorMode;
+                    globeRightClickPendingPick = paintMode && !megaTimeJumpMode;
                     globeRightPressPos = mousePos;
                     globeLastMousePos = mousePos;
                     continue;
                 }
 
-                if (paintMode && !megaTimeJumpMode && !countryAddEditorMode) {
+                if (paintMode && !megaTimeJumpMode) {
                     sf::Vector2i mousePos = sf::Mouse::getPosition(window);
                     sf::Vector2i gridPos;
                     if (tryGetGridUnderMouse(mousePos, gridPos) &&
@@ -1239,25 +999,16 @@ int main(int argc, char** argv) {
                 }
             }
             else if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
-                renderingNeedsUpdate = true; // Force render for interaction
-                {
-                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-                    const sf::FloatRect toggleRect = renderer.getViewToggleButtonBounds();
-                    if (!megaTimeJumpMode && !countryAddEditorMode && !techEditorMode &&
-                        toggleRect.contains(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y))) {
-                        viewMode = (viewMode == ViewMode::Flat2D) ? ViewMode::Globe : ViewMode::Flat2D;
-                        if (viewMode == ViewMode::Globe) {
-                            renderer.resetGlobeView();
-                        }
-                        renderingNeedsUpdate = true;
-                        continue;
-                    }
+                const bool guiCapturesMouse = guiVisible && ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().WantCaptureMouse;
+                if (guiCapturesMouse) {
+                    continue;
                 }
-	                if (forceInvasionMode && !megaTimeJumpMode && !countryAddEditorMode && !techEditorMode && !paintMode) {
-	                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-	                    sf::Vector2i gridPos;
-	                    if (!tryGetGridUnderMouse(mousePos, gridPos)) {
-	                        continue;
+                renderingNeedsUpdate = true; // Force render for interaction
+		                if (forceInvasionMode && !megaTimeJumpMode && !paintMode) {
+		                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+		                    sf::Vector2i gridPos;
+		                    if (!tryGetGridUnderMouse(mousePos, gridPos)) {
+		                        continue;
 	                    }
 
                     int owner = -1;
@@ -1290,9 +1041,9 @@ int main(int argc, char** argv) {
                             forcedInvasionAttackerIndex = -1;
                             renderer.setNeedsUpdate(true);
                         }
-                    }
-                }
-	                else if (paintMode && !megaTimeJumpMode && !countryAddEditorMode) {
+	                    }
+	                }
+		                else if (paintMode && !megaTimeJumpMode) {
                     isDragging = false;
                     paintStrokeActive = false;
                     paintStrokeAffectedCountries.clear();
@@ -1488,10 +1239,11 @@ int main(int argc, char** argv) {
                     spacebarDown = false;
                 }
             }
-            else if (event.type == sf::Event::MouseMoved) {
-                if (viewMode == ViewMode::Globe && globeRightDragActive) {
-                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-                    sf::Vector2i fromPress(mousePos.x - globeRightPressPos.x, mousePos.y - globeRightPressPos.y);
+	            else if (event.type == sf::Event::MouseMoved) {
+	                const bool guiCapturesMouse = guiVisible && ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().WantCaptureMouse;
+	                if (viewMode == ViewMode::Globe && globeRightDragActive) {
+	                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+	                    sf::Vector2i fromPress(mousePos.x - globeRightPressPos.x, mousePos.y - globeRightPressPos.y);
                     if (!globeRightDragRotating && (std::abs(fromPress.x) + std::abs(fromPress.y) >= 4)) {
                         globeRightDragRotating = true;
                         globeRightClickPendingPick = false;
@@ -1503,14 +1255,14 @@ int main(int argc, char** argv) {
                         renderingNeedsUpdate = true;
                     }
                     globeLastMousePos = mousePos;
-                }
+	                }
 
-                // Hover tracking (for highlight + selection tools)
-                if (!megaTimeJumpMode && !countryAddEditorMode && !techEditorMode) {
-                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-                    sf::Vector2i gridPos;
-                    if (tryGetGridUnderMouse(mousePos, gridPos) &&
-                        gridPos.x >= 0 && gridPos.x < static_cast<int>(map.getCountryGrid()[0].size()) &&
+	                // Hover tracking (for highlight + selection tools)
+	                if (!megaTimeJumpMode && !guiCapturesMouse) {
+	                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+	                    sf::Vector2i gridPos;
+	                    if (tryGetGridUnderMouse(mousePos, gridPos) &&
+	                        gridPos.x >= 0 && gridPos.x < static_cast<int>(map.getCountryGrid()[0].size()) &&
                         gridPos.y >= 0 && gridPos.y < static_cast<int>(map.getCountryGrid().size())) {
                         int owner = map.getCountryGrid()[gridPos.y][gridPos.x];
                         if (owner >= 0 && owner < static_cast<int>(countries.size()) &&
@@ -1522,14 +1274,14 @@ int main(int argc, char** argv) {
                         }
                     } else {
                         hoveredCountryIndex = -1;
-                    }
-                }
+	                    }
+	                }
 
-                if (paintStrokeActive && paintMode && !megaTimeJumpMode && !countryAddEditorMode) {
-                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-                    sf::Vector2i gridPos;
-                    if (!tryGetGridUnderMouse(mousePos, gridPos)) {
-                        continue;
+	                if (paintStrokeActive && paintMode && !megaTimeJumpMode && !guiCapturesMouse) {
+	                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+	                    sf::Vector2i gridPos;
+	                    if (!tryGetGridUnderMouse(mousePos, gridPos)) {
+	                        continue;
                     }
 
                     if (gridPos != lastPaintCell &&
@@ -1732,39 +1484,15 @@ int main(int argc, char** argv) {
 	            continue;
 	        }
 
-	        renderer.setHoveredCountryIndex(hoveredCountryIndex);
+		        renderer.setHoveredCountryIndex(hoveredCountryIndex);
 
-	        // Paint HUD (shown even when OFF to make controls discoverable)
-	        std::string paintCountryName = "<none>";
-        if (selectedPaintCountryIndex >= 0 && selectedPaintCountryIndex < static_cast<int>(countries.size())) {
-            paintCountryName = countries[static_cast<size_t>(selectedPaintCountryIndex)].getName();
-        }
-        std::string paintHud = "Paint: ";
-        paintHud += paintMode ? "ON" : "OFF";
-        paintHud += " (Num0) | ";
-        paintHud += paintEraseMode ? "Erase" : "Add";
-        paintHud += " (1/2) | Radius: " + std::to_string(paintBrushRadius) + " ([/], Ctrl+Wheel) | ";
-        paintHud += "Replace: ";
-        paintHud += paintAllowOverwrite ? "ON" : "OFF";
-        paintHud += " (R) | Country: " + paintCountryName + " (Right Click)";
-
-        if (forceInvasionMode) {
-            paintHud += " | Invade: ON (I)";
-            if (forcedInvasionAttackerIndex >= 0 && forcedInvasionAttackerIndex < static_cast<int>(countries.size())) {
-                paintHud += " Attacker: " + countries[static_cast<size_t>(forcedInvasionAttackerIndex)].getName() + " -> click target";
-            } else {
-                paintHud += " click attacker";
-            }
-        }
-        renderer.setPaintHud(true, paintHud);
-
-        // 🔥 NUCLEAR OPTIMIZATION: EVENT-DRIVEN SIMULATION ARCHITECTURE 🔥
-        
-        // STEP 1: Check if we need to advance simulation (ONCE PER YEAR, NOT 60 TIMES!)
-        bool uiModalActive = megaTimeJumpMode || countryAddEditorMode || techEditorMode;
-        if (uiModalActive) {
-            yearClock.restart(); // Prevent time accumulation causing a jump when closing UI
-        }
+		        // 🔥 NUCLEAR OPTIMIZATION: EVENT-DRIVEN SIMULATION ARCHITECTURE 🔥
+		        
+		        // STEP 1: Check if we need to advance simulation (ONCE PER YEAR, NOT 60 TIMES!)
+		        bool uiModalActive = megaTimeJumpMode;
+		        if (uiModalActive) {
+		            yearClock.restart(); // Prevent time accumulation causing a jump when closing UI
+		        }
         sf::Time currentYearDuration = turboMode ? turboYearDuration : yearDuration;
         if (((yearClock.getElapsedTime() >= currentYearDuration) && !paused && !paintStrokeActive && !uiModalActive) || simulationNeedsUpdate) {
             
@@ -1859,31 +1587,557 @@ int main(int argc, char** argv) {
             }
         }
         
-        // STEP 2: Smart rendering - only render when needed or for smooth interaction
-        bool renderedFrame = false;
+		        // STEP 2: Smart rendering - only render when needed or for smooth interaction
+		        bool renderedFrame = false;
 
-        if (megaTimeJumpMode) {
-            renderer.renderMegaTimeJumpScreen(megaTimeJumpInput, m_font);
-            renderedFrame = true;
-        } else if (countryAddEditorMode) {
-            renderer.renderCountryAddEditor(editorInput, editorState, maxTechId, maxCultureId, m_font);
-            renderedFrame = true;
-        } else if (techEditorMode) {
-            if (techEditorCountryIndex >= 0 && techEditorCountryIndex < static_cast<int>(countries.size())) {
-                renderer.renderTechEditor(countries[static_cast<size_t>(techEditorCountryIndex)], technologyManager, techEditorInput, m_font);
-                renderedFrame = true;
-            } else {
-                techEditorMode = false;
-                renderedFrame = false;
-            }
-        } else {
-            window.setView(enableZoom ? zoomedView : defaultView);
+		        if (megaTimeJumpMode) {
+		            renderer.renderMegaTimeJumpScreen(megaTimeJumpInput, m_font);
+		            renderedFrame = true;
+		        } else {
+		            if (guiVisible) {
+		                ImGui::SFML::Update(window, imguiDt);
 
-            renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo, viewMode);
+		                auto applyTechEditor = [&](Country& target, const std::string& command) {
+		                    std::string raw = trimCopy(command);
+		                    std::string lower = toLowerCopy(raw);
 
-            renderedFrame = true;
-            renderingNeedsUpdate = false;
-        }
+		                    bool includePrereqs = true;
+		                    std::vector<int> nextTechs;
+
+		                    if (lower == "all") {
+		                        includePrereqs = false;
+		                        const auto& all = technologyManager.getSortedTechnologyIds();
+		                        nextTechs.assign(all.begin(), all.end());
+		                    }
+		                    else if (lower == "clear") {
+		                        includePrereqs = false;
+		                        nextTechs.clear();
+		                    }
+		                    else if (lower.rfind("add", 0) == 0) {
+		                        std::vector<int> toAdd = parseIdsFromString(raw);
+		                        const auto& current = technologyManager.getUnlockedTechnologies(target);
+		                        nextTechs.assign(current.begin(), current.end());
+		                        nextTechs.insert(nextTechs.end(), toAdd.begin(), toAdd.end());
+		                        includePrereqs = true;
+		                    }
+		                    else if (lower.rfind("set", 0) == 0) {
+		                        nextTechs = parseIdsFromString(raw);
+		                        includePrereqs = true;
+		                    }
+		                    else if (lower.rfind("remove", 0) == 0) {
+		                        includePrereqs = false;
+		                        std::vector<int> toRemove = parseIdsFromString(raw);
+
+		                        std::unordered_set<int> removeSet(toRemove.begin(), toRemove.end());
+		                        const auto& techs = technologyManager.getTechnologies();
+
+		                        bool changed = true;
+		                        while (changed) {
+		                            changed = false;
+		                            for (const auto& kv : techs) {
+		                                int id = kv.first;
+		                                if (removeSet.count(id)) {
+		                                    continue;
+		                                }
+		                                for (int req : kv.second.requiredTechs) {
+		                                    if (removeSet.count(req)) {
+		                                        removeSet.insert(id);
+		                                        changed = true;
+		                                        break;
+		                                    }
+		                                }
+		                            }
+		                        }
+
+		                        const auto& current = technologyManager.getUnlockedTechnologies(target);
+		                        nextTechs.reserve(current.size());
+		                        for (int id : current) {
+		                            if (!removeSet.count(id)) {
+		                                nextTechs.push_back(id);
+		                            }
+		                        }
+		                    }
+		                    else if (!raw.empty()) {
+		                        nextTechs = parseIdsFromString(raw);
+		                        includePrereqs = true;
+		                    }
+
+		                    technologyManager.setUnlockedTechnologiesForEditor(target, nextTechs, includePrereqs);
+		                    renderer.setNeedsUpdate(true);
+		                    renderingNeedsUpdate = true;
+		                };
+
+		                // Top-left status
+		                ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f), ImGuiCond_Always);
+		                ImGui::SetNextWindowBgAlpha(0.35f);
+		                ImGuiWindowFlags statusFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+		                                              ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+		                                              ImGuiWindowFlags_NoNav;
+		                if (ImGui::Begin("##Status", nullptr, statusFlags)) {
+		                    long long totalPop = 0;
+		                    for (const auto& c : countries) totalPop += c.getPopulation();
+		                    ImGui::Text("Year: %d", currentYear);
+		                    ImGui::SameLine();
+		                    if (paused) { ImGui::TextUnformatted("| PAUSED"); ImGui::SameLine(); }
+		                    if (turboMode) { ImGui::TextUnformatted("| TURBO"); ImGui::SameLine(); }
+		                    ImGui::Text("| World Pop: %lld", totalPop);
+		                    ImGui::Text("F1: Hide/Show GUI");
+		                }
+		                ImGui::End();
+
+		                // Tools window
+		                if (guiShowTools) {
+		                    ImGui::SetNextWindowPos(ImVec2(10.0f, 90.0f), ImGuiCond_FirstUseEver);
+		                    ImGui::SetNextWindowSize(ImVec2(360.0f, 600.0f), ImGuiCond_FirstUseEver);
+		                    if (ImGui::Begin("Tools", &guiShowTools)) {
+		                        ImGui::Checkbox("Paused (Space)", &paused);
+		                        ImGui::Checkbox("Turbo Mode (T)", &turboMode);
+		                        if (ImGui::Button("Trigger Plague (8)")) {
+		                            map.triggerPlague(currentYear, news);
+		                        }
+		                        ImGui::Separator();
+
+		                        bool showNews = news.isWindowVisible();
+		                        if (ImGui::Checkbox("News (5)", &showNews)) {
+		                            news.setWindowVisible(showNews);
+		                        }
+		                        ImGui::Checkbox("Wealth Leaderboard (L)", &guiShowLeaderboard);
+		                        ImGui::Separator();
+
+		                        bool warm = renderer.warmongerHighlightsEnabled();
+		                        if (ImGui::Checkbox("Warmonger Highlights (4)", &warm)) {
+		                            renderer.setWarmongerHighlights(warm);
+		                            renderingNeedsUpdate = true;
+		                        }
+		                        bool war = renderer.warHighlightsEnabled();
+		                        if (ImGui::Checkbox("War Highlights (6)", &war)) {
+		                            renderer.setWarHighlights(war);
+		                            renderingNeedsUpdate = true;
+		                        }
+
+		                        bool climate = renderer.climateOverlayEnabled();
+		                        if (ImGui::Checkbox("Climate Overlay (C)", &climate)) {
+		                            renderer.setClimateOverlay(climate);
+		                            renderingNeedsUpdate = true;
+		                        }
+		                        if (climate) {
+		                            int mode = renderer.climateOverlayMode();
+		                            const char* modes[] = {"Zone", "Biome", "Temp Mean", "Prec Mean"};
+		                            if (ImGui::Combo("Climate Mode", &mode, modes, 4)) {
+		                                renderer.setClimateOverlayMode(mode);
+		                                renderingNeedsUpdate = true;
+		                            }
+		                        }
+
+		                        bool urban = renderer.urbanOverlayEnabled();
+		                        if (ImGui::Checkbox("Urban Overlay (U)", &urban)) {
+		                            renderer.setUrbanOverlay(urban);
+		                            renderingNeedsUpdate = true;
+		                        }
+		                        if (urban) {
+		                            int mode = renderer.urbanOverlayMode();
+		                            const char* modes[] = {"Crowding", "Specialization", "Urban Share", "Urban Pop"};
+		                            if (ImGui::Combo("Urban Mode", &mode, modes, 4)) {
+		                                renderer.setUrbanOverlayMode(mode);
+		                                renderingNeedsUpdate = true;
+		                            }
+		                        }
+
+		                        bool overseas = renderer.overseasOverlayEnabled();
+		                        if (ImGui::Checkbox("Overseas Overlay (O)", &overseas)) {
+		                            renderer.setOverseasOverlay(overseas);
+		                            renderingNeedsUpdate = true;
+		                        }
+
+		                        ImGui::Separator();
+		                        ImGui::Checkbox("Add Country Mode (9)", &countryAddMode);
+
+		                        if (ImGui::Checkbox("Paint Mode (0)", &paintMode)) {
+		                            if (paintMode) {
+		                                countryAddMode = false;
+		                                forceInvasionMode = false;
+		                                forcedInvasionAttackerIndex = -1;
+		                                if (selectedPaintCountryIndex < 0 && selectedCountry != nullptr) {
+		                                    selectedPaintCountryIndex = selectedCountry->getCountryIndex();
+		                                }
+		                            } else {
+		                                paintStrokeActive = false;
+		                            }
+		                        }
+
+		                        if (paintMode) {
+		                            int paintOp = paintEraseMode ? 1 : 0;
+		                            ImGui::RadioButton("Add", &paintOp, 0);
+		                            ImGui::SameLine();
+		                            ImGui::RadioButton("Erase", &paintOp, 1);
+		                            paintEraseMode = (paintOp == 1);
+		                            ImGui::SliderInt("Brush Radius", &paintBrushRadius, 1, 64);
+		                            ImGui::Checkbox("Replace (R)", &paintAllowOverwrite);
+		                            if (selectedPaintCountryIndex >= 0 && selectedPaintCountryIndex < static_cast<int>(countries.size())) {
+		                                ImGui::Text("Paint Country: %s", countries[static_cast<size_t>(selectedPaintCountryIndex)].getName().c_str());
+		                            } else {
+		                                ImGui::TextUnformatted("Paint Country: <none> (right click to pick)");
+		                            }
+		                            if (selectedCountry != nullptr) {
+		                                if (ImGui::Button("Use Selected Country")) {
+		                                    selectedPaintCountryIndex = selectedCountry->getCountryIndex();
+		                                }
+		                            }
+		                        }
+
+		                        ImGui::Separator();
+		                        ImGui::Checkbox("Forced Invasion (I)", &forceInvasionMode);
+		                        if (forceInvasionMode) {
+		                            if (forcedInvasionAttackerIndex >= 0 && forcedInvasionAttackerIndex < static_cast<int>(countries.size())) {
+		                                ImGui::Text("Attacker: %s", countries[static_cast<size_t>(forcedInvasionAttackerIndex)].getName().c_str());
+		                                if (ImGui::Button("Clear Attacker")) {
+		                                    forcedInvasionAttackerIndex = -1;
+		                                }
+		                            } else {
+		                                ImGui::TextUnformatted("Attacker: <click a country>");
+		                            }
+		                        }
+
+		                        ImGui::Separator();
+		                        if (ImGui::Checkbox("Country Template (M)", &guiShowTemplateEditor)) {
+		                        }
+		                        if (selectedCountry != nullptr) {
+		                            ImGui::Checkbox("Tech Editor (E)", &guiShowTechEditor);
+		                        }
+
+		                        ImGui::Separator();
+		                        int vm = (viewMode == ViewMode::Globe) ? 1 : 0;
+		                        const char* vms[] = {"2D", "Globe"};
+		                        if (ImGui::Combo("View Mode", &vm, vms, 2)) {
+		                            ViewMode next = (vm == 1) ? ViewMode::Globe : ViewMode::Flat2D;
+		                            if (next != viewMode) {
+		                                viewMode = next;
+		                                if (viewMode == ViewMode::Globe) renderer.resetGlobeView();
+		                                renderingNeedsUpdate = true;
+		                            }
+		                        }
+		                    }
+		                    ImGui::End();
+		                }
+
+		                // Inspector
+		                if (guiShowInspector) {
+		                    ImGui::SetNextWindowPos(ImVec2(static_cast<float>(window.getSize().x) - 420.0f, 10.0f), ImGuiCond_FirstUseEver);
+		                    ImGui::SetNextWindowSize(ImVec2(410.0f, 720.0f), ImGuiCond_FirstUseEver);
+		                    if (ImGui::Begin("Inspector", &guiShowInspector)) {
+		                        const Country* c = selectedCountry;
+		                        if (c == nullptr && hoveredCountryIndex >= 0 && hoveredCountryIndex < static_cast<int>(countries.size())) {
+		                            c = &countries[static_cast<size_t>(hoveredCountryIndex)];
+		                        }
+
+		                        if (c == nullptr) {
+		                            ImGui::TextUnformatted("Click a country to inspect.");
+		                        } else {
+		                            ImGui::ColorButton("##c", toImVec4(c->getColor()), ImGuiColorEditFlags_NoTooltip, ImVec2(14, 14));
+		                            ImGui::SameLine();
+		                            ImGui::TextUnformatted(c->getName().c_str());
+		                            ImGui::Separator();
+
+		                            ImGui::Text("Population: %lld", c->getPopulation());
+		                            ImGui::Text("Territory: %d pixels", static_cast<int>(c->getBoundaryPixels().size()));
+		                            ImGui::Text("Cities: %d", static_cast<int>(c->getCities().size()));
+		                            ImGui::Text("Gold: %d", static_cast<int>(c->getGold()));
+		                            ImGui::Text("Wealth: %s", formatMoneyAbbrev(c->getWealth()).c_str());
+		                            ImGui::Text("GDP: %s", formatMoneyAbbrev(c->getGDP()).c_str());
+		                            ImGui::Text("Exports: %s", formatMoneyAbbrev(c->getExports()).c_str());
+		                            ImGui::Text("Ideology: %s", c->getIdeologyString().c_str());
+
+		                            if (ImGui::Button("Open Tech Editor")) {
+		                                guiShowTechEditor = true;
+		                                techEditorCountryIndex = c->getCountryIndex();
+		                            }
+
+		                            if (ImGui::CollapsingHeader("Technologies", ImGuiTreeNodeFlags_DefaultOpen)) {
+		                                const auto& unlocked = technologyManager.getUnlockedTechnologies(*c);
+		                                const auto& techs = technologyManager.getTechnologies();
+		                                ImGui::Text("Unlocked: %d", static_cast<int>(unlocked.size()));
+		                                ImGui::BeginChild("##techs", ImVec2(0, 200), true);
+		                                ImGuiListClipper clipper;
+		                                clipper.Begin(static_cast<int>(unlocked.size()));
+		                                while (clipper.Step()) {
+		                                    for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
+		                                        auto it = techs.find(unlocked[static_cast<size_t>(i)]);
+		                                        if (it != techs.end()) {
+		                                            ImGui::BulletText("%s", it->second.name.c_str());
+		                                        }
+		                                    }
+		                                }
+		                                ImGui::EndChild();
+		                            }
+
+		                            if (ImGui::CollapsingHeader("Institutions", ImGuiTreeNodeFlags_DefaultOpen)) {
+		                                const auto& unlocked = cultureManager.getUnlockedCivics(*c);
+		                                const auto& civics = cultureManager.getCivics();
+		                                ImGui::Text("Unlocked: %d", static_cast<int>(unlocked.size()));
+		                                ImGui::BeginChild("##civics", ImVec2(0, 200), true);
+		                                ImGuiListClipper clipper;
+		                                clipper.Begin(static_cast<int>(unlocked.size()));
+		                                while (clipper.Step()) {
+		                                    for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
+		                                        auto it = civics.find(unlocked[static_cast<size_t>(i)]);
+		                                        if (it != civics.end()) {
+		                                            ImGui::BulletText("%s", it->second.name.c_str());
+		                                        }
+		                                    }
+		                                }
+		                                ImGui::EndChild();
+		                            }
+		                        }
+		                    }
+		                    ImGui::End();
+		                }
+
+		                // News window
+		                if (news.isWindowVisible()) {
+		                    bool open = true;
+		                    ImGui::SetNextWindowSize(ImVec2(420.0f, 260.0f), ImGuiCond_FirstUseEver);
+		                    if (ImGui::Begin("News", &open)) {
+		                        if (ImGui::Button("Clear")) {
+		                            news.clearEvents();
+		                        }
+		                        ImGui::SameLine();
+		                        if (ImGui::Button("Close")) {
+		                            open = false;
+		                        }
+
+		                        ImGui::Separator();
+		                        ImGui::BeginChild("##news", ImVec2(0, 0), true);
+		                        for (const auto& e : news.getEvents()) {
+		                            ImGui::TextUnformatted(e.c_str());
+		                        }
+		                        if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
+		                            ImGui::SetScrollHereY(1.0f);
+		                        }
+		                        ImGui::EndChild();
+		                    }
+		                    ImGui::End();
+
+		                    if (!open) {
+		                        news.setWindowVisible(false);
+		                    }
+		                }
+
+		                // Wealth leaderboard
+		                if (guiShowLeaderboard) {
+		                    ImGui::SetNextWindowSize(ImVec2(820.0f, 700.0f), ImGuiCond_FirstUseEver);
+		                    if (ImGui::Begin("Wealth Leaderboard", &guiShowLeaderboard)) {
+		                        struct Row { int idx; double wealth; double gdp; double exports; long long pop; };
+		                        std::vector<Row> rows;
+		                        rows.reserve(countries.size());
+		                        for (int i = 0; i < static_cast<int>(countries.size()); ++i) {
+		                            const Country& c = countries[static_cast<size_t>(i)];
+		                            if (c.getPopulation() <= 0) continue;
+		                            rows.push_back({i, c.getWealth(), c.getGDP(), c.getExports(), c.getPopulation()});
+		                        }
+
+		                        if (ImGui::BeginTable("##wealth", 7, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+		                                                       ImGuiTableFlags_ScrollY | ImGuiTableFlags_Sortable,
+		                                              ImVec2(0, 0))) {
+		                            ImGui::TableSetupScrollFreeze(0, 1);
+		                            ImGui::TableSetupColumn("Rank", ImGuiTableColumnFlags_NoSort, 60.0f);
+		                            ImGui::TableSetupColumn(" ", ImGuiTableColumnFlags_NoSort, 24.0f);
+		                            ImGui::TableSetupColumn("Country");
+		                            ImGui::TableSetupColumn("Wealth");
+		                            ImGui::TableSetupColumn("GDP");
+		                            ImGui::TableSetupColumn("Exports");
+		                            ImGui::TableSetupColumn("Pop");
+		                            ImGui::TableHeadersRow();
+
+		                            if (ImGuiTableSortSpecs* sort = ImGui::TableGetSortSpecs()) {
+		                                if (sort->SpecsDirty && sort->SpecsCount > 0) {
+		                                    const ImGuiTableColumnSortSpecs& s = sort->Specs[0];
+		                                    auto cmp = [&](const Row& a, const Row& b) {
+		                                        auto dir = (s.SortDirection == ImGuiSortDirection_Ascending) ? 1 : -1;
+		                                        auto by = [&](auto va, auto vb) {
+		                                            if (va < vb) return -1 * dir;
+		                                            if (va > vb) return  1 * dir;
+		                                            return 0;
+		                                        };
+		                                        int r = 0;
+		                                        switch (s.ColumnIndex) {
+		                                            case 3: r = by(a.wealth, b.wealth); break;
+		                                            case 4: r = by(a.gdp, b.gdp); break;
+		                                            case 5: r = by(a.exports, b.exports); break;
+		                                            case 6: r = by(a.pop, b.pop); break;
+		                                            default: r = 0; break;
+		                                        }
+		                                        if (r != 0) return r < 0;
+		                                        return a.idx < b.idx;
+		                                    };
+		                                    std::sort(rows.begin(), rows.end(), cmp);
+		                                    sort->SpecsDirty = false;
+		                                }
+		                            } else {
+		                                std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
+		                                    if (a.wealth != b.wealth) return a.wealth > b.wealth;
+		                                    return a.idx < b.idx;
+		                                });
+		                            }
+
+		                            ImGuiListClipper clipper;
+		                            clipper.Begin(static_cast<int>(rows.size()));
+		                            while (clipper.Step()) {
+		                                for (int r = clipper.DisplayStart; r < clipper.DisplayEnd; ++r) {
+		                                    const Country& c = countries[static_cast<size_t>(rows[r].idx)];
+		                                    ImGui::TableNextRow();
+
+		                                    ImGui::TableSetColumnIndex(0);
+		                                    ImGui::Text("%d", r + 1);
+
+		                                    ImGui::TableSetColumnIndex(1);
+		                                    ImGui::ColorButton(("##col" + std::to_string(r)).c_str(), toImVec4(c.getColor()), ImGuiColorEditFlags_NoTooltip, ImVec2(12, 12));
+
+		                                    ImGui::TableSetColumnIndex(2);
+		                                    if (ImGui::Selectable(c.getName().c_str(), selectedCountry && selectedCountry->getCountryIndex() == c.getCountryIndex(),
+		                                                          ImGuiSelectableFlags_SpanAllColumns)) {
+		                                        selectedCountry = &countries[static_cast<size_t>(rows[r].idx)];
+		                                        showCountryInfo = true;
+		                                    }
+
+		                                    ImGui::TableSetColumnIndex(3);
+		                                    ImGui::TextUnformatted(formatMoneyAbbrev(rows[r].wealth).c_str());
+		                                    ImGui::TableSetColumnIndex(4);
+		                                    ImGui::TextUnformatted(formatMoneyAbbrev(rows[r].gdp).c_str());
+		                                    ImGui::TableSetColumnIndex(5);
+		                                    ImGui::TextUnformatted(formatMoneyAbbrev(rows[r].exports).c_str());
+		                                    ImGui::TableSetColumnIndex(6);
+		                                    ImGui::Text("%lld", rows[r].pop);
+		                                }
+		                            }
+
+		                            ImGui::EndTable();
+		                        }
+		                    }
+		                    ImGui::End();
+		                }
+
+		                // Template editor
+		                if (guiShowTemplateEditor) {
+		                    ImGui::SetNextWindowSize(ImVec2(520.0f, 520.0f), ImGuiCond_FirstUseEver);
+		                    if (ImGui::Begin("Country Template", &guiShowTemplateEditor)) {
+		                        ImGui::Checkbox("Use Template", &customCountryTemplate.useTemplate);
+		                        ImGui::InputScalar("Starting Population", ImGuiDataType_S64, &customCountryTemplate.initialPopulation);
+
+		                        int type = static_cast<int>(customCountryTemplate.countryType);
+		                        const char* types[] = {"Warmonger", "Pacifist", "Trader"};
+		                        if (ImGui::Combo("Country Type", &type, types, 3)) {
+		                            customCountryTemplate.countryType = static_cast<Country::Type>(type);
+		                        }
+
+		                        int sci = static_cast<int>(customCountryTemplate.scienceType);
+		                        const char* scis[] = {"Normal", "Less", "More"};
+		                        if (ImGui::Combo("Science Type", &sci, scis, 3)) {
+		                            customCountryTemplate.scienceType = static_cast<Country::ScienceType>(sci);
+		                        }
+
+		                        int cul = static_cast<int>(customCountryTemplate.cultureType);
+		                        const char* culs[] = {"Normal", "Less", "More"};
+		                        if (ImGui::Combo("Culture Type", &cul, culs, 3)) {
+		                            customCountryTemplate.cultureType = static_cast<Country::CultureType>(cul);
+		                        }
+
+		                        ImGui::Separator();
+		                        ImGui::TextUnformatted("Technologies (IDs or 'all'):");
+		                        ImGui::InputText("##tmplTech", &guiTemplateTechIds);
+		                        if (ImGui::Button("Apply Tech List")) {
+		                            const int maxTechId = static_cast<int>(technologyManager.getTechnologies().size());
+		                            customCountryTemplate.unlockedTechnologies.clear();
+		                            std::string raw = trimCopy(guiTemplateTechIds);
+		                            std::string lower = toLowerCopy(raw);
+		                            if (lower == "all") {
+		                                for (int i = 1; i <= maxTechId; ++i) customCountryTemplate.unlockedTechnologies.push_back(i);
+		                            } else {
+		                                for (int id : parseIdsFromString(raw)) {
+		                                    if (id >= 1 && id <= maxTechId) customCountryTemplate.unlockedTechnologies.push_back(id);
+		                                }
+		                            }
+		                        }
+		                        ImGui::SameLine();
+		                        ImGui::Text("Selected: %d", static_cast<int>(customCountryTemplate.unlockedTechnologies.size()));
+
+		                        ImGui::TextUnformatted("Cultures (IDs, 1-10 or 'all'):");
+		                        ImGui::InputText("##tmplCult", &guiTemplateCultureIds);
+		                        if (ImGui::Button("Apply Culture List")) {
+		                            const int maxCultureId = 10;
+		                            customCountryTemplate.unlockedCultures.clear();
+		                            std::string raw = trimCopy(guiTemplateCultureIds);
+		                            std::string lower = toLowerCopy(raw);
+		                            if (lower == "all") {
+		                                for (int i = 1; i <= maxCultureId; ++i) customCountryTemplate.unlockedCultures.push_back(i);
+		                            } else {
+		                                for (int id : parseIdsFromString(raw)) {
+		                                    if (id >= 1 && id <= maxCultureId) customCountryTemplate.unlockedCultures.push_back(id);
+		                                }
+		                            }
+		                        }
+		                        ImGui::SameLine();
+		                        ImGui::Text("Selected: %d", static_cast<int>(customCountryTemplate.unlockedCultures.size()));
+
+		                        ImGui::Separator();
+		                        if (ImGui::Button("Reset Template")) {
+		                            customCountryTemplate.useTemplate = false;
+		                            customCountryTemplate.unlockedTechnologies.clear();
+		                            customCountryTemplate.unlockedCultures.clear();
+		                            customCountryTemplate.initialPopulation = 5000;
+		                            customCountryTemplate.countryType = Country::Type::Pacifist;
+		                            customCountryTemplate.scienceType = Country::ScienceType::NS;
+		                            customCountryTemplate.cultureType = Country::CultureType::NC;
+		                            guiTemplateTechIds.clear();
+		                            guiTemplateCultureIds.clear();
+		                        }
+		                    }
+		                    ImGui::End();
+		                }
+
+		                // Tech editor window
+		                if (guiShowTechEditor) {
+		                    if (techEditorCountryIndex < 0 && selectedCountry != nullptr) {
+		                        techEditorCountryIndex = selectedCountry->getCountryIndex();
+		                    }
+		                    if (techEditorCountryIndex >= 0 && techEditorCountryIndex < static_cast<int>(countries.size())) {
+		                        Country& target = countries[static_cast<size_t>(techEditorCountryIndex)];
+		                        ImGui::SetNextWindowSize(ImVec2(600.0f, 240.0f), ImGuiCond_FirstUseEver);
+		                        if (ImGui::Begin("Technology Editor", &guiShowTechEditor)) {
+		                            ImGui::Text("Country: %s", target.getName().c_str());
+		                            ImGui::TextUnformatted("Commands: all | clear | add 1,2,3 | remove 5,7 | set 10,11,14");
+		                            ImGui::InputText("##techcmd", &techEditorInput);
+		                            if (ImGui::Button("Apply")) {
+		                                applyTechEditor(target, techEditorInput);
+		                            }
+		                            ImGui::SameLine();
+		                            if (ImGui::Button("All")) {
+		                                techEditorInput = "all";
+		                                applyTechEditor(target, techEditorInput);
+		                            }
+		                            ImGui::SameLine();
+		                            if (ImGui::Button("Clear")) {
+		                                techEditorInput = "clear";
+		                                applyTechEditor(target, techEditorInput);
+		                            }
+		                        }
+		                        ImGui::End();
+		                    } else {
+		                        guiShowTechEditor = false;
+		                    }
+		                }
+
+		                if (guiShowDemo) {
+		                    ImGui::ShowDemoWindow(&guiShowDemo);
+		                }
+		            }
+
+		            window.setView(enableZoom ? zoomedView : defaultView);
+
+		            renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo, viewMode);
+
+		            renderedFrame = true;
+		            renderingNeedsUpdate = false;
+		        }
 
         // STEP 3: Intelligent frame rate control
         float frameTime = frameClock.getElapsedTime().asSeconds();

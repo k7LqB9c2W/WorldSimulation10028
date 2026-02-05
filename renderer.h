@@ -20,13 +20,29 @@ class Renderer {
 public:
     Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& waterColor);
     void render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const CultureManager& cultureManager, const TradeManager& tradeManager, const Country* selectedCountry, bool showCountryInfo, ViewMode viewMode);
+    void setGuiVisible(bool visible);
+    bool isGuiVisible() const { return m_guiVisible; }
     void toggleWarmongerHighlights();
+    void setWarmongerHighlights(bool enabled);
+    bool warmongerHighlightsEnabled() const { return m_showWarmongerHighlights; }
+    void setWarHighlights(bool enabled);
+    bool warHighlightsEnabled() const { return m_showWarHighlights; }
     void toggleWealthLeaderboard();
     void toggleClimateOverlay();
     void cycleClimateOverlayMode();
+    void setClimateOverlay(bool enabled);
+    bool climateOverlayEnabled() const { return m_showClimateOverlay; }
+    int climateOverlayMode() const { return m_climateOverlayMode; }
+    void setClimateOverlayMode(int mode);
     void toggleUrbanOverlay();
     void cycleUrbanOverlayMode();
+    void setUrbanOverlay(bool enabled);
+    bool urbanOverlayEnabled() const { return m_showUrbanOverlay; }
+    int urbanOverlayMode() const { return m_urbanOverlayMode; }
+    void setUrbanOverlayMode(int mode);
     void toggleOverseasOverlay();
+    void setOverseasOverlay(bool enabled);
+    bool overseasOverlayEnabled() const { return m_showOverseasOverlay; }
     void updateYearText(int year);
     void setNeedsUpdate(bool needsUpdate);
     void setPaintHud(bool show, const std::string& text);
@@ -86,6 +102,7 @@ private:
     std::string m_paintHudText;
     int m_hoveredCountryIndex;
     int m_currentYear;
+    bool m_guiVisible = true;
 
 
     // Country info window variables

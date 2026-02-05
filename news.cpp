@@ -20,6 +20,14 @@ void News::toggleWindow() {
     m_showWindow = !m_showWindow;
 }
 
+void News::setWindowVisible(bool visible) {
+    m_showWindow = visible;
+}
+
+void News::clearEvents() {
+    m_events.clear();
+}
+
 void News::render(sf::RenderWindow& window, const sf::Font& font) {
     if (!m_showWindow) return;
 

@@ -9,6 +9,9 @@ public:
 
     void addEvent(const std::string& event);
     void toggleWindow();
+    void setWindowVisible(bool visible);
+    void clearEvents();
+    const std::vector<std::string>& getEvents() const { return m_events; }
     void render(sf::RenderWindow& window, const sf::Font& font);
     bool isWindowVisible() const;
 

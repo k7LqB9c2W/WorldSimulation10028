@@ -13,16 +13,21 @@ Welcome to **Civilization Simulation**, a C++ project using **SFML** for graphic
 
 ## Important Notes and Controls
 
+**F1. Hide/Show the GUI (ImGui overlay).**
 3. Zoom feature! Scroll to zoom in and click and drag to move around the map, press 3 again to go to default zoom.
-4. Shows all warmonger countries.
-5. Shows the news feed (shows wars, when great plagues happen, the founding of cities).
-6. Shows all active wars.
-8. Triggers a plague manually.
-9. Enables add country mode. Click on a pixel to add a country.
+4. Toggle warmonger highlights (also available in the ImGui Tools window).
+5. Toggle the news feed (ImGui window).
+6. Toggle war highlights (also available in the ImGui Tools window).
+8. Trigger a plague manually (also available in the ImGui Tools window).
+9. Toggle add-country mode. Click on a land pixel to add a country.
+**L. Wealth leaderboard (ImGui table).**
+**E. Technology editor for selected country (ImGui window).**
+**M. Country template editor (ImGui window used by add-country mode).**
+**G. Toggle 2D/Globe view.**
 **D. DEBUG MODE TOGGLE - Shows/hides technology and civic unlock messages.**
 **T. TURBO MODE - 10 YEARS PER SECOND with nuclear performance optimization!**
 **F. FAST FORWARD MODE - Simulates 100 years in 2 seconds with optimized simulation!**
-**Z. MEGA TIME JUMP - Simulate THOUSANDS of years! Jump from 4900 BCE to 2025 CE and see epic historical changes!**
+**Z. MEGA TIME JUMP - Simulate THOUSANDS of years! (Legacy full-screen UI is unchanged.)**
 
 ## 🚀 Nuclear Performance Optimization Features
 

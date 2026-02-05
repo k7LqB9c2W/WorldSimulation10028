@@ -8,6 +8,8 @@
 #include <cstdio>
 #include <cstdint>
 #include <random>
+#include <imgui.h>
+#include <imgui-SFML.h>
 
 extern bool turboMode;
 extern bool paused;
@@ -526,131 +528,14 @@ void Renderer::render(const std::vector<Country>& countries,
         m_window.draw(outline);
     }
 
-    m_window.setView(m_window.getDefaultView());
-
-    m_window.draw(m_yearText); // Draw the year
-
-    long long totalPopulation = 0;
-    for (const auto& country : countries) {
-        totalPopulation += country.getPopulation();
+    if (m_guiVisible && ImGui::GetCurrentContext() != nullptr) {
+        m_window.setView(m_window.getDefaultView());
+        ImGui::SFML::Render(m_window);
     }
 
-    sf::Text populationText;
-    populationText.setFont(m_font);
-    populationText.setCharacterSize(24);
-    populationText.setFillColor(sf::Color::White);
-    populationText.setString("Total World Population: " + std::to_string(totalPopulation));
-    populationText.setPosition(static_cast<float>(m_window.getSize().x - 400), static_cast<float>(m_window.getSize().y - 60));
-
-    m_window.draw(populationText); // Draw the population
-
-    // NUCLEAR OPTIMIZATION: Show performance mode indicator
-    if (turboMode) {
-        sf::Text turboText;
-        turboText.setFont(m_font);
-        turboText.setCharacterSize(28);
-        turboText.setFillColor(sf::Color::Red);
-        turboText.setString("🚀 TURBO MODE - 10 YEARS/SEC");
-        turboText.setPosition(10, static_cast<float>(m_window.getSize().y - 100));
-        m_window.draw(turboText);
-    }
-
-    if (m_showPaintHud && !m_paintHudText.empty()) {
-        float y = 10.0f;
-        if (m_showCountryAddModeText) {
-            y += 30.0f;
-        }
-
-        sf::Text paintHud;
-        paintHud.setFont(m_font);
-        paintHud.setCharacterSize(18);
-        paintHud.setFillColor(sf::Color::White);
-        paintHud.setString(m_paintHudText);
-        paintHud.setPosition(10.0f, y);
-
-        sf::FloatRect bounds = paintHud.getLocalBounds();
-        sf::RectangleShape bg(sf::Vector2f(bounds.width + 20.0f, bounds.height + 14.0f));
-        bg.setPosition(paintHud.getPosition().x - 10.0f, paintHud.getPosition().y - 7.0f);
-        bg.setFillColor(sf::Color(0, 0, 0, 140));
-        bg.setOutlineColor(sf::Color(200, 200, 200, 160));
-        bg.setOutlineThickness(1.0f);
-
-        m_window.draw(bg);
-        m_window.draw(paintHud);
-    }
-
-    if (paused) {
-        sf::Text pausedText;
-        pausedText.setFont(m_font);
-        pausedText.setCharacterSize(36);
-        pausedText.setFillColor(sf::Color(255, 255, 0));
-        pausedText.setString("PAUSED (Space to resume)");
-
-        sf::FloatRect bounds = pausedText.getLocalBounds();
-        pausedText.setOrigin(bounds.left + bounds.width / 2.0f, bounds.top + bounds.height / 2.0f);
-        pausedText.setPosition(static_cast<float>(m_window.getSize().x) / 2.0f, 70.0f);
-
-        sf::RectangleShape bg(sf::Vector2f(bounds.width + 30.0f, bounds.height + 18.0f));
-        bg.setOrigin((bounds.width + 30.0f) / 2.0f, (bounds.height + 18.0f) / 2.0f);
-        bg.setPosition(pausedText.getPosition());
-        bg.setFillColor(sf::Color(0, 0, 0, 160));
-        bg.setOutlineColor(sf::Color(255, 255, 0, 200));
-        bg.setOutlineThickness(2.0f);
-
-        m_window.draw(bg);
-        m_window.draw(pausedText);
-    }
-
-    // Render the news window if it's toggled on
-    if (news.isWindowVisible()) {
-        news.render(m_window, m_font);
-    }
-
-    // Draw country info window if a country is selected and the flag is true
-    if (showCountryInfo && selectedCountry != nullptr) {
-        drawCountryInfo(selectedCountry, technologyManager);
-        drawCivicList(selectedCountry, cultureManager);
-    }
-
-    if (m_showWealthLeaderboard) {
-        drawWealthLeaderboard(countries);
-    }
-
-	    if (m_showCountryAddModeText) {
-	        sf::Text countryAddModeText;
-	        countryAddModeText.setFont(m_font);
-	        countryAddModeText.setCharacterSize(24);
-	        countryAddModeText.setFillColor(sf::Color::White);
-	        countryAddModeText.setPosition(10, 10);
-	        countryAddModeText.setString("Country Add Mode");
-	        m_window.draw(countryAddModeText);
-	    }
-
-	    // View toggle button (top-right)
-	    {
-	        const sf::FloatRect rect = getViewToggleButtonBounds();
-	        sf::RectangleShape btn(sf::Vector2f(rect.width, rect.height));
-	        btn.setPosition(rect.left, rect.top);
-	        btn.setFillColor(sf::Color(0, 0, 0, 160));
-	        btn.setOutlineColor(sf::Color(220, 220, 220, 160));
-	        btn.setOutlineThickness(1.0f);
-
-	        sf::Text label;
-	        label.setFont(m_font);
-	        label.setCharacterSize(18);
-	        label.setFillColor(sf::Color::White);
-	        label.setString(viewMode == ViewMode::Globe ? "2D (G)" : "Globe (G)");
-	        sf::FloatRect lb = label.getLocalBounds();
-	        label.setPosition(rect.left + (rect.width - lb.width) * 0.5f - lb.left,
-	                          rect.top + (rect.height - lb.height) * 0.5f - lb.top - 1.0f);
-
-	        m_window.draw(btn);
-	        m_window.draw(label);
-	    }
-
-	    m_window.setView(worldView);
-	    m_window.display();
-	}
+    m_window.setView(worldView);
+    m_window.display();
+		}
 
 void Renderer::drawWarArrows(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea) {
     const int gridCellSize = map.getGridCellSize();
@@ -953,6 +838,18 @@ void Renderer::toggleWarmongerHighlights() {
     m_showWarmongerHighlights = !m_showWarmongerHighlights;
 }
 
+void Renderer::setGuiVisible(bool visible) {
+    m_guiVisible = visible;
+}
+
+void Renderer::setWarmongerHighlights(bool enabled) {
+    m_showWarmongerHighlights = enabled;
+}
+
+void Renderer::setWarHighlights(bool enabled) {
+    m_showWarHighlights = enabled;
+}
+
 void Renderer::toggleWealthLeaderboard() {
     m_showWealthLeaderboard = !m_showWealthLeaderboard;
 }
@@ -966,6 +863,15 @@ void Renderer::cycleClimateOverlayMode() {
     m_climateOverlayMode = (m_climateOverlayMode + 1) % 4;
 }
 
+void Renderer::setClimateOverlay(bool enabled) {
+    m_showClimateOverlay = enabled;
+}
+
+void Renderer::setClimateOverlayMode(int mode) {
+    m_showClimateOverlay = true;
+    m_climateOverlayMode = std::max(0, std::min(mode, 3));
+}
+
 void Renderer::toggleUrbanOverlay() {
     m_showUrbanOverlay = !m_showUrbanOverlay;
 }
@@ -975,8 +881,21 @@ void Renderer::cycleUrbanOverlayMode() {
     m_urbanOverlayMode = (m_urbanOverlayMode + 1) % 4;
 }
 
+void Renderer::setUrbanOverlay(bool enabled) {
+    m_showUrbanOverlay = enabled;
+}
+
+void Renderer::setUrbanOverlayMode(int mode) {
+    m_showUrbanOverlay = true;
+    m_urbanOverlayMode = std::max(0, std::min(mode, 3));
+}
+
 void Renderer::toggleOverseasOverlay() {
     m_showOverseasOverlay = !m_showOverseasOverlay;
+}
+
+void Renderer::setOverseasOverlay(bool enabled) {
+    m_showOverseasOverlay = enabled;
 }
 
 void Renderer::toggleWarHighlights() {
