@@ -136,3 +136,44 @@ private:
                                        const TechnologyManager& tech,
                                        float dtYears);
 };
+
+// Phase 4: CPU-authoritative macro economy + directed, capacity-limited trade.
+class EconomyModelCPU {
+public:
+    struct Config {
+        double foodPerCapita = 0.001;          // consumption units per person-year (matches legacy tuning)
+        double nonFoodPerCapita = 0.00035;
+        double depRate = 0.05;
+        double investRate = 0.20;
+        double investEfficiency = 0.25;
+
+        double baseLandCapacity = 320.0;      // goods units per year across a border
+        double baseSeaCapacity = 560.0;       // goods units per year for an active shipping route
+        double baseLandCost = 0.80;           // per-unit transport cost proxy
+        double seaCostPerLen = 0.010;         // per-unit cost per navPath length unit
+        int seaInfluenceRadiusNav = 6;        // nav-grid radius around ports for chokepoint control
+    };
+
+    explicit EconomyModelCPU(SimulationContext& ctx);
+    void setConfig(const Config& cfg) { m_cfg = cfg; }
+
+    void tickYear(int year,
+                  int dtYears,
+                  const Map& map,
+                  std::vector<Country>& countries,
+                  const TechnologyManager& tech,
+                  TradeManager& tradeManager,
+                  News& news);
+
+    int getLastTradeYear() const { return m_lastTradeYear; }
+    const std::vector<float>& getLastTradeIntensity() const { return m_tradeIntensity; } // n*n, row-major
+
+private:
+    Config m_cfg{};
+    SimulationContext* m_ctx = nullptr;
+    int m_lastTradeYear = -9999999;
+    int m_lastTradeN = 0;
+    std::vector<float> m_tradeIntensity; // n*n, reset yearly
+
+    static std::uint64_t pairKey(int a, int b);
+};

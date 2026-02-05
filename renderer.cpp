@@ -321,12 +321,22 @@ void Renderer::render(const std::vector<Country>& countries,
         m_window.clear();
     }
 
-    worldTarget->setView(drawView);
-    worldTarget->draw(m_baseSprite); // Draw the base map (map.png)
+	    worldTarget->setView(drawView);
+	    worldTarget->draw(m_baseSprite); // Draw the base map (map.png)
 
-    if (m_needsUpdate) {
-        updateCountryImage(map.getCountryGrid(), countries, map);
-        if (!m_useGpuCountryOverlay) {
+        if (m_showClimateOverlay) {
+            updateClimateOverlayTexture(map);
+            worldTarget->draw(m_climateSprite);
+        }
+
+        if (m_showOverseasOverlay) {
+            updateOverseasOverlayTexture(map);
+            worldTarget->draw(m_overseasSprite);
+        }
+
+	    if (m_needsUpdate) {
+	        updateCountryImage(map.getCountryGrid(), countries, map);
+	        if (!m_useGpuCountryOverlay) {
             m_countryTexture.update(m_countryImage);
         }
         m_needsUpdate = false;
@@ -841,14 +851,22 @@ void Renderer::drawCountryInfo(const Country* country, const TechnologyManager& 
     currentY += 30;
 
     std::string devInfo;
-    devInfo += "Science Points: " + std::to_string(static_cast<int>(country->getSciencePoints())) + "\n";
-    devInfo += "Culture Points: " + std::to_string(static_cast<int>(country->getCulturePoints())) + "\n";
+    devInfo += "Food Security: " + std::to_string(static_cast<int>(std::round(country->getFoodSecurity() * 100.0))) + "%\n";
+    devInfo += "Market Access: " + std::to_string(static_cast<int>(std::round(country->getMarketAccess() * 100.0))) + "%\n";
+    devInfo += "Innovation: " + std::to_string(static_cast<int>(std::round(country->getInnovationRate()))) + "\n";
+    {
+        const auto& t = country->getTraits();
+        // Trait order (0..6): Religiosity, Collectivism, Militarism, Mercantile, Hierarchy, Openness, Legalism
+        devInfo += "Openness: " + std::to_string(static_cast<int>(std::round(t[5] * 100.0))) + "%\n";
+        devInfo += "Militarism: " + std::to_string(static_cast<int>(std::round(t[2] * 100.0))) + "%\n";
+        devInfo += "Legalism: " + std::to_string(static_cast<int>(std::round(t[6] * 100.0))) + "%\n";
+    }
     devInfo += "Military Strength: " + std::to_string(static_cast<int>(country->getMilitaryStrength() * 100)) + "%\n";
     
     infoText.setString(devInfo);
     infoText.setPosition(startX, currentY);
     m_window.draw(infoText);
-    currentY += 80;
+    currentY += 140;
 
     // TECHNOLOGIES SECTION
     sectionText.setString("=== TECHNOLOGIES ===");
@@ -934,8 +952,179 @@ void Renderer::toggleWealthLeaderboard() {
     m_showWealthLeaderboard = !m_showWealthLeaderboard;
 }
 
+void Renderer::toggleClimateOverlay() {
+    m_showClimateOverlay = !m_showClimateOverlay;
+}
+
+void Renderer::cycleClimateOverlayMode() {
+    m_showClimateOverlay = true;
+    m_climateOverlayMode = (m_climateOverlayMode + 1) % 4;
+}
+
+void Renderer::toggleOverseasOverlay() {
+    m_showOverseasOverlay = !m_showOverseasOverlay;
+}
+
 void Renderer::toggleWarHighlights() {
     m_showWarHighlights = !m_showWarHighlights;
+}
+
+void Renderer::updateClimateOverlayTexture(const Map& map) {
+    const int w = map.getFieldWidth();
+    const int h = map.getFieldHeight();
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+
+    const bool sizeChanged = (w != m_climateW) || (h != m_climateH);
+    const bool modeChanged = (m_climateOverlayMode != m_climateOverlayLastMode);
+    const bool yearChanged = (m_currentYear != m_climateOverlayLastYear);
+    if (!sizeChanged && !modeChanged && !yearChanged && !m_climatePixels.empty()) {
+        return;
+    }
+
+    m_climateW = w;
+    m_climateH = h;
+    m_climateOverlayLastMode = m_climateOverlayMode;
+    m_climateOverlayLastYear = m_currentYear;
+
+    const size_t n = static_cast<size_t>(w) * static_cast<size_t>(h);
+    m_climatePixels.assign(n * 4u, 0u);
+
+    auto clamp01f = [](float v) { return std::max(0.0f, std::min(1.0f, v)); };
+    auto lerp = [](sf::Uint8 a, sf::Uint8 b, float t) -> sf::Uint8 {
+        const float v = static_cast<float>(a) + (static_cast<float>(b) - static_cast<float>(a)) * t;
+        return static_cast<sf::Uint8>(std::max(0.0f, std::min(255.0f, v)));
+    };
+    auto lerpColor = [&](sf::Color a, sf::Color b, float t) -> sf::Color {
+        t = clamp01f(t);
+        return sf::Color(lerp(a.r, b.r, t), lerp(a.g, b.g, t), lerp(a.b, b.b, t), 255);
+    };
+
+    auto tempRamp = [&](float t) -> sf::Color {
+        t = clamp01f(t);
+        if (t < 0.25f) return lerpColor(sf::Color(40, 60, 220), sf::Color(60, 190, 255), t / 0.25f);
+        if (t < 0.50f) return lerpColor(sf::Color(60, 190, 255), sf::Color(80, 220, 140), (t - 0.25f) / 0.25f);
+        if (t < 0.75f) return lerpColor(sf::Color(80, 220, 140), sf::Color(245, 210, 70), (t - 0.50f) / 0.25f);
+        return lerpColor(sf::Color(245, 210, 70), sf::Color(235, 60, 40), (t - 0.75f) / 0.25f);
+    };
+
+    auto precipRamp = [&](float p) -> sf::Color {
+        p = clamp01f(p);
+        if (p < 0.5f) return lerpColor(sf::Color(190, 150, 80), sf::Color(90, 190, 90), p / 0.5f);
+        return lerpColor(sf::Color(90, 190, 90), sf::Color(70, 150, 255), (p - 0.5f) / 0.5f);
+    };
+
+    const auto& zone = map.getFieldClimateZone();
+    const auto& biome = map.getFieldBiome();
+    const auto& temp = map.getFieldTempMean();
+    const auto& prec = map.getFieldPrecipMean();
+
+    for (size_t i = 0; i < n; ++i) {
+        const uint8_t z = (i < zone.size()) ? zone[i] : 255u;
+        if (z == 255u) {
+            // Water/invalid: fully transparent.
+            m_climatePixels[i * 4u + 3u] = 0u;
+            continue;
+        }
+
+        sf::Color c(0, 0, 0, 255);
+        if (m_climateOverlayMode == 0) {
+            switch (z) {
+                case 0: c = sf::Color(255, 90, 30); break;   // equatorial
+                case 1: c = sf::Color(255, 180, 60); break;  // tropical/subtropical
+                case 2: c = sf::Color(80, 210, 120); break;  // temperate
+                case 3: c = sf::Color(80, 140, 255); break;  // boreal
+                case 4: c = sf::Color(235, 235, 255); break; // polar
+                default: c = sf::Color(60, 60, 60); break;
+            }
+        } else if (m_climateOverlayMode == 1) {
+            const uint8_t b = (i < biome.size()) ? biome[i] : 255u;
+            switch (b) {
+                case 0: c = sf::Color(235, 245, 255); break; // Ice
+                case 1: c = sf::Color(190, 190, 200); break; // Tundra
+                case 2: c = sf::Color(70, 120, 70); break;   // Taiga
+                case 3: c = sf::Color(50, 170, 70); break;   // Temperate forest
+                case 4: c = sf::Color(170, 210, 90); break;  // Grassland
+                case 5: c = sf::Color(225, 195, 130); break; // Desert
+                case 6: c = sf::Color(210, 190, 90); break;  // Savanna
+                case 7: c = sf::Color(30, 140, 60); break;   // Tropical forest
+                case 8: c = sf::Color(150, 190, 90); break;  // Mediterranean
+                default: c = sf::Color(60, 60, 60); break;
+            }
+        } else if (m_climateOverlayMode == 2) {
+            const float tc = (i < temp.size()) ? temp[i] : 0.0f;
+            const float t01 = clamp01f((tc + 25.0f) / 60.0f);
+            c = tempRamp(t01);
+        } else if (m_climateOverlayMode == 3) {
+            const float p = (i < prec.size()) ? prec[i] : 0.0f;
+            c = precipRamp(p);
+        }
+
+        m_climatePixels[i * 4u + 0u] = c.r;
+        m_climatePixels[i * 4u + 1u] = c.g;
+        m_climatePixels[i * 4u + 2u] = c.b;
+        m_climatePixels[i * 4u + 3u] = 255u;
+    }
+
+    if (sizeChanged || m_climateTex.getSize().x != static_cast<unsigned>(w) || m_climateTex.getSize().y != static_cast<unsigned>(h)) {
+        m_climateTex.create(static_cast<unsigned>(w), static_cast<unsigned>(h));
+        m_climateTex.setSmooth(false);
+        m_climateSprite.setTexture(m_climateTex, true);
+        m_climateSprite.setPosition(0.f, 0.f);
+    }
+    m_climateTex.update(m_climatePixels.data());
+
+    const float scale = static_cast<float>(map.getGridCellSize() * Map::kFieldCellSize);
+    m_climateSprite.setScale(scale, scale);
+    m_climateSprite.setColor(sf::Color(255, 255, 255, 150));
+}
+
+void Renderer::updateOverseasOverlayTexture(const Map& map) {
+    const int w = map.getFieldWidth();
+    const int h = map.getFieldHeight();
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+
+    const bool sizeChanged = (w != m_overseasW) || (h != m_overseasH);
+    const bool yearChanged = (m_currentYear != m_overseasOverlayLastYear);
+    if (!sizeChanged && !yearChanged && !m_overseasPixels.empty()) {
+        return;
+    }
+
+    m_overseasW = w;
+    m_overseasH = h;
+    m_overseasOverlayLastYear = m_currentYear;
+
+    const size_t n = static_cast<size_t>(w) * static_cast<size_t>(h);
+    m_overseasPixels.assign(n * 4u, 0u);
+
+    const auto& mask = map.getFieldOverseasMask();
+    for (size_t i = 0; i < n; ++i) {
+        const uint8_t v = (i < mask.size()) ? mask[i] : 0u;
+        if (v == 0u) {
+            m_overseasPixels[i * 4u + 3u] = 0u;
+            continue;
+        }
+        // Overseas highlight: magenta-red.
+        m_overseasPixels[i * 4u + 0u] = 235u;
+        m_overseasPixels[i * 4u + 1u] = 80u;
+        m_overseasPixels[i * 4u + 2u] = 180u;
+        m_overseasPixels[i * 4u + 3u] = 255u;
+    }
+
+    if (sizeChanged || m_overseasTex.getSize().x != static_cast<unsigned>(w) || m_overseasTex.getSize().y != static_cast<unsigned>(h)) {
+        m_overseasTex.create(static_cast<unsigned>(w), static_cast<unsigned>(h));
+        m_overseasTex.setSmooth(false);
+        m_overseasSprite.setTexture(m_overseasTex, true);
+        m_overseasSprite.setPosition(0.f, 0.f);
+    }
+    m_overseasTex.update(m_overseasPixels.data());
+
+    const float scale = static_cast<float>(map.getGridCellSize() * Map::kFieldCellSize);
+    m_overseasSprite.setScale(scale, scale);
+    m_overseasSprite.setColor(sf::Color(255, 255, 255, 140));
 }
 
 void Renderer::drawWealthLeaderboard(const std::vector<Country>& countries) {
@@ -1559,6 +1748,17 @@ void Renderer::drawCivicList(const Country* country, const CultureManager& cultu
 
     // Calculate the starting y-position for the civic list
     float startY = m_infoWindowBackground.getPosition().y + 380;
+
+    // Header
+    {
+        sf::Text header;
+        header.setFont(m_font);
+        header.setCharacterSize(16);
+        header.setFillColor(sf::Color(150, 200, 255));
+        header.setString("=== INSTITUTIONS ===");
+        header.setPosition(m_infoWindowBackground.getPosition().x + 20, startY - 24);
+        m_window.draw(header);
+    }
 
     // Define the maximum height for the civic list
     float maxHeight = 150;

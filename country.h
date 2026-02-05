@@ -5,6 +5,8 @@
 #include <SFML/Graphics.hpp>
 #include <vector>
 #include <unordered_set>
+#include <unordered_map>
+#include <array>
 #include <mutex>
 #include <random>
 #include <cstdint>
@@ -15,6 +17,7 @@
 
 // Forward declaration of Map
 class Map;
+class CultureManager;
 
 namespace std {
     template <>
@@ -114,6 +117,79 @@ public:
     void setGDP(double v) { m_gdp = v; }
     void setExports(double v) { m_exports = v; }
 
+    // Phase 4: lightweight macro economy state (CPU authoritative).
+    struct MacroEconomyState {
+        bool initialized = false;
+        double foodStock = 0.0;
+        double nonFoodStock = 0.0;
+        double capitalStock = 0.0;
+        double infraStock = 0.0;
+
+        double lastFoodOutput = 0.0;
+        double lastNonFoodOutput = 0.0;
+        double lastFoodCons = 0.0;
+        double lastNonFoodCons = 0.0;
+        double lastInvestment = 0.0;
+        double lastDepreciation = 0.0;
+        double lastFoodShortage = 0.0;
+        double lastNonFoodShortage = 0.0;
+
+        double foodSecurity = 1.0;   // 0..1
+        double marketAccess = 0.2;   // 0..1
+        double importsValue = 0.0;   // yearly
+        double exportsValue = 0.0;   // yearly
+    };
+
+    const MacroEconomyState& getMacroEconomy() const { return m_macro; }
+    MacroEconomyState& getMacroEconomyMutable() { return m_macro; }
+    double getFoodSecurity() const { return m_macro.foodSecurity; }
+    double getMarketAccess() const { return m_macro.marketAccess; }
+
+    // Phase 4/5A integration: last computed taxable base / tax take (annualized).
+    double getLastTaxBase() const { return m_lastTaxBase; }
+    double getLastTaxTake() const { return m_lastTaxTake; }
+    void setLastTaxStats(double baseAnnual, double takeAnnual) {
+        m_lastTaxBase = std::max(0.0, baseAnnual);
+        m_lastTaxTake = std::max(0.0, takeAnnual);
+    }
+    void applyBudgetFromEconomy(double taxBaseAnnual,
+                                double taxTakeAnnual,
+                                int dtYears,
+                                int techCount,
+                                bool plagueAffected);
+
+    // Phase 5A: knowledge domains (innovation + diffusion, no point hoarding).
+    static constexpr int kDomains = 8;
+    using KnowledgeVec = std::array<double, kDomains>;
+    const KnowledgeVec& getKnowledge() const { return m_knowledge; }
+    KnowledgeVec& getKnowledgeMutable() { return m_knowledge; }
+    double getKnowledgeDomain(int domainId) const { return (domainId >= 0 && domainId < kDomains) ? m_knowledge[static_cast<size_t>(domainId)] : 0.0; }
+    double getInnovationRate() const { return m_innovationRate; }
+    void setInnovationRate(double v) { m_innovationRate = std::max(0.0, v); }
+
+    // Phase 5B: cultural traits (0..1, slow-moving; no culture currency).
+    static constexpr int kTraits = 7;
+    using TraitVec = std::array<double, kTraits>;
+    const TraitVec& getTraits() const { return m_traits; }
+    TraitVec& getTraitsMutable() { return m_traits; }
+
+    // Phase 7: exploration + colonization state (lightweight).
+    struct ExplorationState {
+        int lastColonizationYear = -999999;
+        float explorationDrive = 0.0f;    // 0..1 (smoothed)
+        float colonialOverstretch = 0.0f; // 0..1 (smoothed)
+        int overseasLowControlYears = 0;  // accumulated years below threshold
+    };
+    const ExplorationState& getExploration() const { return m_exploration; }
+    ExplorationState& getExplorationMutable() { return m_exploration; }
+
+    bool canAttemptColonization(const class TechnologyManager& techManager, const CultureManager& cultureManager) const;
+    float computeColonizationPressure(const CultureManager& cultureManager,
+                                      double marketAccess,
+                                      double landPressure) const;
+    double computeNavalRangePx(const class TechnologyManager& techManager, const CultureManager& cultureManager) const;
+    bool forceAddPort(const Map& map, const sf::Vector2i& pos);
+
     // Phase 1/2 polity observables (pressure/control systems)
     double getLegitimacy() const { return m_polity.legitimacy; }
     void setLegitimacy(double v);
@@ -122,8 +198,21 @@ public:
     double getLogisticsReach() const { return m_polity.logisticsReach; }
     double getTaxRate() const { return m_polity.taxRate; }
     double getDebt() const { return m_polity.debt; }
+    double getMilitarySpendingShare() const { return m_polity.militarySpendingShare; }
+    double getAdminSpendingShare() const { return m_polity.adminSpendingShare; }
+    double getInfraSpendingShare() const { return m_polity.infraSpendingShare; }
+    double getHealthSpendingShare() const { return m_polity.healthSpendingShare; }
+    double getEducationSpendingShare() const { return m_polity.educationSpendingShare; }
     double getAvgControl() const { return m_avgControl; }
     void setAvgControl(double v);
+
+    // Phase 5B: institution effects helpers.
+    void addAdminCapacity(double dv);
+    void addFiscalCapacity(double dv);
+    void addLogisticsReach(double dv);
+    void addDebt(double dv);
+    void addEducationSpendingShare(double dv);
+    void addHealthSpendingShare(double dv);
 
     double getMilitaryStrength() const;
     // Add a member variable to store science points
@@ -132,6 +221,11 @@ public:
     void setSciencePoints(double points);
     void addBoundaryPixel(const sf::Vector2i& cell);
     const std::unordered_set<sf::Vector2i>& getBoundaryPixels() const;
+    // Deterministic territory helpers (Phase 0-3 audit fix: never sample unordered containers).
+    void addTerritoryCell(const sf::Vector2i& c);
+    void removeTerritoryCell(const sf::Vector2i& c);
+    sf::Vector2i randomTerritoryCell(std::mt19937_64& rng) const;
+    const std::vector<sf::Vector2i>& getTerritoryVec() const { return m_territoryVec; }
     const ResourceManager& getResourceManager() const;
     const std::string& getName() const;
     void setName(const std::string& name);
@@ -262,7 +356,7 @@ public:
     Ideology getIdeology() const { return m_ideology; }
     void setIdeology(Ideology ideology) { m_ideology = ideology; }
     std::string getIdeologyString() const;
-    void checkIdeologyChange(int currentYear, News& news);
+    void checkIdeologyChange(int currentYear, News& news, const class TechnologyManager& techManager);
     bool canChangeToIdeology(Ideology newIdeology) const;
     double getSciencePointsMultiplier() const;
     double calculateNeighborScienceBonus(const std::vector<Country>& allCountries, const class Map& map, const class TechnologyManager& techManager, int currentYear) const;
@@ -287,6 +381,9 @@ private:
 	    long long m_population;
 	    long long m_prevYearPopulation = -1;
 	    std::unordered_set<sf::Vector2i> m_boundaryPixels;
+        // Deterministic owned-cell list for repeatable RNG sampling (kept consistent via add/remove/setTerritory).
+        std::vector<sf::Vector2i> m_territoryVec;
+        std::unordered_map<sf::Vector2i, size_t> m_territoryIndex;
 	    double m_populationGrowthRate;
     ResourceManager m_resourceManager;
     std::string m_name;
@@ -298,6 +395,13 @@ private:
     double m_wealth = 0.0;  // national net worth proxy (aggregated from econ grid)
     double m_gdp = 0.0;     // yearly value-added proxy (estimated from capital formation)
     double m_exports = 0.0; // yearly exports proxy (border-flow proxy + TradeManager export value)
+	    MacroEconomyState m_macro{};
+        double m_lastTaxBase = 0.0; // annualized taxable value base
+        double m_lastTaxTake = 0.0; // annualized tax revenue actually collected
+	    KnowledgeVec m_knowledge{}; // domain knowledge stocks (unbounded, thresholds unlock tech)
+    double m_innovationRate = 0.0; // yearly innovation rate proxy (for UI/debug)
+	    TraitVec m_traits{}; // 0..1 cultural trait stocks
+        ExplorationState m_exploration{};
     double m_militaryStrength;  // Add military strength member
     Type m_type; // Add a member variable to store the country type
     ScienceType m_scienceType;

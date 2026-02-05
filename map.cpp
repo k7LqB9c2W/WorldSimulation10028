@@ -3,6 +3,7 @@
 #include "culture.h"
 #include "great_people.h"
 #include "trade.h"
+#include "economy.h"
 #include <iostream>
 #include <chrono>
 #include <iomanip>
@@ -46,13 +47,17 @@ Map::Map(const sf::Image& baseImage, const sf::Image& resourceImage, int gridCel
         {sf::Color(127, 0, 55), Resource::Type::HORSES}
     };
 
-    initializeResourceGrid();
-    rebuildCellFoodCache();
-    ensureFieldGrids();
-    std::uniform_int_distribution<> plagueIntervalDist(600, 700);
-    m_plagueInterval = plagueIntervalDist(m_ctx->worldRng);
-    m_nextPlagueYear = -5000 + m_plagueInterval; // First plague year
-}
+	    initializeResourceGrid();
+		    rebuildCellFoodCache();
+		    rebuildCellNonFoodCache();
+		    ensureFieldGrids();
+	        initializeClimateBaseline();
+	        tickWeather(-5000, 1);
+	        buildCoastalLandCandidates();
+		    std::uniform_int_distribution<> plagueIntervalDist(600, 700);
+		    m_plagueInterval = plagueIntervalDist(m_ctx->worldRng);
+		    m_nextPlagueYear = -5000 + m_plagueInterval; // First plague year
+		}
 
 // 🔥 NUCLEAR OPTIMIZATION: Lightning-fast resource grid initialization
 void Map::initializeResourceGrid() {
@@ -133,6 +138,40 @@ void Map::rebuildCellFoodCache() {
     }
 }
 
+void Map::rebuildCellNonFoodCache() {
+    const int height = static_cast<int>(m_resourceGrid.size());
+    const int width = (height > 0) ? static_cast<int>(m_resourceGrid[0].size()) : 0;
+    m_cellNonFood.assign(static_cast<size_t>(height * width), 0.0);
+
+    auto getAmount = [&](const std::unordered_map<Resource::Type, double>& cell, Resource::Type t) -> double {
+        auto it = cell.find(t);
+        return (it != cell.end()) ? it->second : 0.0;
+    };
+
+    // Weights are tuned for "macro" extraction potential (relative, not a stockpile).
+    constexpr double wIron = 55.0;
+    constexpr double wCoal = 55.0;
+    constexpr double wSalt = 30.0;
+    constexpr double wHorses = 20.0;
+    constexpr double wGold = 65.0;
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            if (!m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) {
+                continue;
+            }
+            const auto& cell = m_resourceGrid[static_cast<size_t>(y)][static_cast<size_t>(x)];
+            const double iron = getAmount(cell, Resource::Type::IRON);
+            const double coal = getAmount(cell, Resource::Type::COAL);
+            const double salt = getAmount(cell, Resource::Type::SALT);
+            const double horses = getAmount(cell, Resource::Type::HORSES);
+            const double gold = getAmount(cell, Resource::Type::GOLD);
+            const double pot = iron * wIron + coal * wCoal + salt * wSalt + horses * wHorses + gold * wGold;
+            m_cellNonFood[static_cast<size_t>(y * width + x)] = std::max(0.0, pot);
+        }
+    }
+}
+
 void Map::ensureFieldGrids() {
     const int height = static_cast<int>(m_countryGrid.size());
     const int width = (height > 0) ? static_cast<int>(m_countryGrid[0].size()) : 0;
@@ -153,6 +192,8 @@ void Map::ensureFieldGrids() {
     m_fieldFoodPotential.assign(n, 0.0f);
 
     rebuildFieldFoodPotential();
+    ensureClimateGrids();
+    rebuildFieldLandMask();
 }
 
 void Map::rebuildFieldFoodPotential() {
@@ -189,6 +230,418 @@ void Map::rebuildFieldFoodPotential() {
             }
         }
     }
+}
+
+void Map::ensureClimateGrids() {
+    if (m_fieldW <= 0 || m_fieldH <= 0) {
+        m_fieldLandMask.clear();
+        m_fieldClimateZone.clear();
+        m_fieldBiome.clear();
+        m_fieldTempMean.clear();
+        m_fieldPrecipMean.clear();
+        m_fieldTempAnom.clear();
+        m_fieldPrecipAnom.clear();
+        m_fieldFoodYieldMult.clear();
+        return;
+    }
+
+    const size_t n = static_cast<size_t>(m_fieldW) * static_cast<size_t>(m_fieldH);
+    m_fieldLandMask.assign(n, 0u);
+    m_fieldClimateZone.assign(n, 255u);
+    m_fieldBiome.assign(n, 255u);
+    m_fieldTempMean.assign(n, 0.0f);
+    m_fieldPrecipMean.assign(n, 0.0f);
+    m_fieldTempAnom.assign(n, 0.0f);
+    m_fieldPrecipAnom.assign(n, 0.0f);
+    m_fieldFoodYieldMult.assign(n, 1.0f);
+}
+
+void Map::rebuildFieldLandMask() {
+    if (m_fieldW <= 0 || m_fieldH <= 0 || m_fieldFoodPotential.empty()) {
+        return;
+    }
+    const size_t n = static_cast<size_t>(m_fieldW) * static_cast<size_t>(m_fieldH);
+    if (m_fieldLandMask.size() != n) {
+        m_fieldLandMask.assign(n, 0u);
+    }
+    for (size_t i = 0; i < n; ++i) {
+        m_fieldLandMask[i] = (i < m_fieldFoodPotential.size() && m_fieldFoodPotential[i] > 0.0f) ? 1u : 0u;
+    }
+}
+
+void Map::initializeClimateBaseline() {
+    ensureFieldGrids();
+    ensureClimateGrids();
+    rebuildFieldLandMask();
+
+    if (m_fieldW <= 0 || m_fieldH <= 0) {
+        return;
+    }
+
+    auto clamp01f = [](float v) { return std::max(0.0f, std::min(1.0f, v)); };
+    auto clamp01d = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+
+    const int W = m_fieldW;
+    const int H = m_fieldH;
+    const size_t n = static_cast<size_t>(W) * static_cast<size_t>(H);
+
+    // Multi-source BFS distance-to-water (field resolution).
+    std::vector<std::uint16_t> dist(n, std::numeric_limits<std::uint16_t>::max());
+    std::queue<int> q;
+    for (int fy = 0; fy < H; ++fy) {
+        for (int fx = 0; fx < W; ++fx) {
+            const size_t idx = static_cast<size_t>(fy) * static_cast<size_t>(W) + static_cast<size_t>(fx);
+            if (idx >= m_fieldLandMask.size()) continue;
+            if (m_fieldLandMask[idx] == 0u) {
+                dist[idx] = 0;
+                q.push(static_cast<int>(idx));
+            }
+        }
+    }
+
+    while (!q.empty()) {
+        const int cur = q.front();
+        q.pop();
+        const int cx = cur % W;
+        const int cy = cur / W;
+        const std::uint16_t cd = dist[static_cast<size_t>(cur)];
+        if (cd == std::numeric_limits<std::uint16_t>::max()) continue;
+
+        const int nx[4] = {cx + 1, cx - 1, cx, cx};
+        const int ny[4] = {cy, cy, cy + 1, cy - 1};
+        for (int k = 0; k < 4; ++k) {
+            const int x = nx[k];
+            const int y = ny[k];
+            if (x < 0 || y < 0 || x >= W || y >= H) continue;
+            const int ni = y * W + x;
+            const size_t nidx = static_cast<size_t>(ni);
+            const std::uint16_t nd = static_cast<std::uint16_t>(std::min<int>(65535, static_cast<int>(cd) + 1));
+            if (nd < dist[nidx]) {
+                dist[nidx] = nd;
+                q.push(ni);
+            }
+        }
+    }
+
+    // Rain-shadow advection factor (0..1-ish), single pass per latitude row.
+    std::vector<float> shadow(n, 1.0f);
+    for (int fy = 0; fy < H; ++fy) {
+        const double lat01 = std::abs(((static_cast<double>(fy) + 0.5) / static_cast<double>(H)) - 0.5) * 2.0;
+        const bool eastToWest = (lat01 < 0.25) || (lat01 >= 0.75);
+
+        float moisture = 1.0f;
+        if (eastToWest) {
+            for (int fx = W - 1; fx >= 0; --fx) {
+                const size_t idx = static_cast<size_t>(fy) * static_cast<size_t>(W) + static_cast<size_t>(fx);
+                if (m_fieldLandMask[idx] == 0u) {
+                    moisture = 1.0f;
+                    shadow[idx] = 1.0f;
+                    continue;
+                }
+                shadow[idx] = moisture;
+                const float continental = (dist[idx] > 6) ? 0.92f : 0.95f;
+                moisture = std::max(0.0f, moisture * continental);
+            }
+        } else {
+            for (int fx = 0; fx < W; ++fx) {
+                const size_t idx = static_cast<size_t>(fy) * static_cast<size_t>(W) + static_cast<size_t>(fx);
+                if (m_fieldLandMask[idx] == 0u) {
+                    moisture = 1.0f;
+                    shadow[idx] = 1.0f;
+                    continue;
+                }
+                shadow[idx] = moisture;
+                const float continental = (dist[idx] > 6) ? 0.92f : 0.95f;
+                moisture = std::max(0.0f, moisture * continental);
+            }
+        }
+    }
+
+    // Baseline climate per field cell.
+    for (int fy = 0; fy < H; ++fy) {
+        const double lat01 = std::abs(((static_cast<double>(fy) + 0.5) / static_cast<double>(H)) - 0.5) * 2.0;
+        for (int fx = 0; fx < W; ++fx) {
+            const size_t idx = static_cast<size_t>(fy) * static_cast<size_t>(W) + static_cast<size_t>(fx);
+            if (idx >= n || idx >= m_fieldLandMask.size()) continue;
+
+            if (m_fieldLandMask[idx] == 0u) {
+                m_fieldClimateZone[idx] = 255u;
+                m_fieldBiome[idx] = 255u;
+                m_fieldTempMean[idx] = 0.0f;
+                m_fieldPrecipMean[idx] = 0.0f;
+                continue;
+            }
+
+            // Climate zone strips (for debug overlay).
+            uint8_t zone = 4;
+            if (lat01 < 0.15) zone = 0;
+            else if (lat01 < 0.35) zone = 1;
+            else if (lat01 < 0.60) zone = 2;
+            else if (lat01 < 0.80) zone = 3;
+            else zone = 4;
+            m_fieldClimateZone[idx] = zone;
+
+            // Temperature mean (C): latitude curve + coastal moderation.
+            const double baseTempC = 30.0 - 55.0 * std::pow(lat01, 1.15);
+            const float coast = std::exp(-static_cast<float>(dist[idx]) / 6.0f);
+            const double moderated = baseTempC + static_cast<double>(coast) * 0.18 * (15.0 - baseTempC);
+            m_fieldTempMean[idx] = static_cast<float>(moderated);
+
+            // Precipitation mean (0..1): latitude bands + advection shadow + coastal boost.
+            const double equ = std::exp(-std::pow(lat01 / 0.18, 2.0));
+            const double subtDry = std::exp(-std::pow((lat01 - 0.28) / 0.10, 2.0));
+            const double midWet = std::exp(-std::pow((lat01 - 0.52) / 0.20, 2.0));
+            const double polarDry = std::exp(-std::pow((lat01 - 0.88) / 0.10, 2.0));
+            double basePrec = 0.18 + 0.85 * equ + 0.35 * midWet - 0.55 * subtDry - 0.25 * polarDry;
+            basePrec = clamp01d(basePrec);
+
+            const float coastalBoost = 0.18f * std::exp(-static_cast<float>(dist[idx]) / 4.0f);
+            const float sh = shadow[idx];
+            const float prec = clamp01f(static_cast<float>(basePrec) * (0.55f + 0.45f * sh) + coastalBoost);
+            m_fieldPrecipMean[idx] = prec;
+
+            // Biome classification (0..N).
+            constexpr uint8_t Ice = 0;
+            constexpr uint8_t Tundra = 1;
+            constexpr uint8_t Taiga = 2;
+            constexpr uint8_t TemperateForest = 3;
+            constexpr uint8_t Grassland = 4;
+            constexpr uint8_t Desert = 5;
+            constexpr uint8_t Savanna = 6;
+            constexpr uint8_t TropicalForest = 7;
+            constexpr uint8_t Mediterranean = 8;
+
+            const float t = m_fieldTempMean[idx];
+            const float p = m_fieldPrecipMean[idx];
+            uint8_t biome = Grassland;
+            if (t < -6.0f) biome = Ice;
+            else if (t < 2.0f) biome = Tundra;
+            else if (t < 8.0f) biome = (p > 0.35f) ? Taiga : Grassland;
+            else if (t < 18.0f) {
+                if (p < 0.16f) biome = Desert;
+                else if (p < 0.32f) biome = Grassland;
+                else biome = TemperateForest;
+            } else if (t < 24.0f) {
+                if (p < 0.16f) biome = Desert;
+                else if (p < 0.40f) biome = (coastalBoost > 0.10f) ? Mediterranean : Savanna;
+                else biome = TemperateForest;
+            } else {
+                if (p < 0.18f) biome = Desert;
+                else if (p < 0.45f) biome = Savanna;
+                else biome = TropicalForest;
+            }
+            m_fieldBiome[idx] = biome;
+        }
+    }
+}
+
+void Map::buildCoastalLandCandidates() {
+    m_fieldCoastalLandCandidates.clear();
+    if (m_fieldW <= 0 || m_fieldH <= 0 || m_fieldLandMask.empty()) {
+        return;
+    }
+
+    const int W = m_fieldW;
+    const int H = m_fieldH;
+    const size_t n = static_cast<size_t>(W) * static_cast<size_t>(H);
+    m_fieldCoastalLandCandidates.reserve(n / 6u);
+
+    auto isLand = [&](int fx, int fy) -> bool {
+        if (fx < 0 || fy < 0 || fx >= W || fy >= H) return false;
+        const size_t idx = static_cast<size_t>(fy) * static_cast<size_t>(W) + static_cast<size_t>(fx);
+        return idx < m_fieldLandMask.size() && m_fieldLandMask[idx] != 0u;
+    };
+
+    for (int fy = 0; fy < H; ++fy) {
+        for (int fx = 0; fx < W; ++fx) {
+            if (!isLand(fx, fy)) continue;
+            // Coastal land at field resolution: adjacent to any water cell.
+            const bool coastal = (!isLand(fx + 1, fy)) || (!isLand(fx - 1, fy)) || (!isLand(fx, fy + 1)) || (!isLand(fx, fy - 1));
+            if (!coastal) continue;
+            const int idx = fy * W + fx;
+            m_fieldCoastalLandCandidates.push_back(idx);
+        }
+    }
+}
+
+void Map::tickWeather(int year, int dtYears) {
+    (void)dtYears;
+    if (m_fieldW <= 0 || m_fieldH <= 0 || m_fieldLandMask.empty()) {
+        return;
+    }
+
+    const int W = m_fieldW;
+    const int H = m_fieldH;
+    const size_t n = static_cast<size_t>(W) * static_cast<size_t>(H);
+
+    // Coarse weather grid (fieldW/8 by fieldH/8, clamped to >=1).
+    const int cw = std::max(1, W / 8);
+    const int ch = std::max(1, H / 8);
+    if (cw != m_weatherW || ch != m_weatherH || m_weatherTemp.empty() || m_weatherPrecip.empty()) {
+        m_weatherW = cw;
+        m_weatherH = ch;
+        m_weatherTemp.assign(static_cast<size_t>(cw) * static_cast<size_t>(ch), 0.0f);
+        m_weatherPrecip.assign(static_cast<size_t>(cw) * static_cast<size_t>(ch), 0.0f);
+        m_lastWeatherUpdateYear = year - 2;
+    }
+
+    auto noiseSigned = [&](int yy, int ix, int iy, std::uint64_t salt) -> float {
+        const std::uint64_t cell = static_cast<std::uint64_t>(ix + iy * m_weatherW);
+        const std::uint64_t k = m_ctx->worldSeed ^ (static_cast<std::uint64_t>(static_cast<std::int64_t>(yy)) * 0x9E3779B97F4A7C15ull) ^ (cell * 0xD1B54A32D192ED03ull) ^ salt;
+        const double u = SimulationContext::u01FromU64(SimulationContext::mix64(k));
+        return static_cast<float>(u * 2.0 - 1.0);
+    };
+
+    // Update anomalies every k years (smooth AR(1) process).
+    constexpr int kUpdateStep = 2;
+    int fromYear = m_lastWeatherUpdateYear;
+    if (fromYear > year) {
+        fromYear = year - kUpdateStep;
+    }
+    for (int yy = fromYear + kUpdateStep; yy <= year; yy += kUpdateStep) {
+        for (int iy = 0; iy < m_weatherH; ++iy) {
+            for (int ix = 0; ix < m_weatherW; ++ix) {
+                const size_t wi = static_cast<size_t>(iy) * static_cast<size_t>(m_weatherW) + static_cast<size_t>(ix);
+                const float nt = noiseSigned(yy, ix, iy, 0x54454D50ull);   // "TEMP"
+                const float np = noiseSigned(yy, ix, iy, 0x50524543ull);   // "PREC"
+                m_weatherTemp[wi] = 0.85f * m_weatherTemp[wi] + 0.15f * (nt * 5.0f);
+                m_weatherPrecip[wi] = 0.85f * m_weatherPrecip[wi] + 0.15f * (np * 0.18f);
+            }
+        }
+        m_lastWeatherUpdateYear = yy;
+    }
+
+    auto clamp01f = [](float v) { return std::max(0.0f, std::min(1.0f, v)); };
+
+    auto biomeBaseYield = [&](uint8_t biome) -> float {
+        switch (biome) {
+            case 0: return 0.10f; // Ice
+            case 1: return 0.35f; // Tundra
+            case 2: return 0.55f; // Taiga
+            case 3: return 1.00f; // Temperate forest
+            case 4: return 0.90f; // Grassland
+            case 5: return 0.35f; // Desert
+            case 6: return 0.75f; // Savanna
+            case 7: return 1.12f; // Tropical forest
+            case 8: return 0.92f; // Mediterranean
+            default: return 1.0f;
+        }
+    };
+
+    auto tempResponse = [&](float tempC) -> float {
+        // Smooth bell-shaped response with a broad optimum around ~22C.
+        const float z = (tempC - 22.0f) / 18.0f;
+        const float r = std::exp(-(z * z));
+        return std::max(0.08f, std::min(1.10f, r * 1.10f));
+    };
+
+    auto precipResponse = [&](float prec01) -> float {
+        const float p = clamp01f(prec01);
+        const float t = clamp01f((p - 0.12f) / (0.70f - 0.12f));
+        const float s = t * t * (3.0f - 2.0f * t); // smoothstep
+        return 0.15f + 0.85f * s;
+    };
+
+    // Upsample anomalies to field grid (nearest) and compute final food yield multipliers.
+    for (int fy = 0; fy < H; ++fy) {
+        const int cy = (fy * m_weatherH) / H;
+        for (int fx = 0; fx < W; ++fx) {
+            const int cx = (fx * m_weatherW) / W;
+            const size_t idx = static_cast<size_t>(fy) * static_cast<size_t>(W) + static_cast<size_t>(fx);
+            if (idx >= n) continue;
+            if (m_fieldLandMask[idx] == 0u) {
+                m_fieldTempAnom[idx] = 0.0f;
+                m_fieldPrecipAnom[idx] = 0.0f;
+                m_fieldFoodYieldMult[idx] = 0.0f;
+                continue;
+            }
+
+            const size_t wi = static_cast<size_t>(cy) * static_cast<size_t>(m_weatherW) + static_cast<size_t>(cx);
+            const float tA = (wi < m_weatherTemp.size()) ? m_weatherTemp[wi] : 0.0f;
+            const float pA = (wi < m_weatherPrecip.size()) ? m_weatherPrecip[wi] : 0.0f;
+
+            m_fieldTempAnom[idx] = tA;
+            m_fieldPrecipAnom[idx] = pA;
+
+            const float temp = m_fieldTempMean[idx] + tA;
+            const float prec = m_fieldPrecipMean[idx] + pA;
+            const float b = biomeBaseYield(m_fieldBiome[idx]);
+            const float y = b * tempResponse(temp) * precipResponse(prec);
+            m_fieldFoodYieldMult[idx] = std::max(0.05f, std::min(1.80f, y));
+        }
+    }
+
+    // Invalidate per-country caches (recomputed on demand).
+    m_countryClimateCacheN = 0;
+}
+
+void Map::prepareCountryClimateCaches(int countryCount) const {
+    if (countryCount <= 0 || m_fieldOwnerId.empty() || m_fieldFoodYieldMult.empty() || m_fieldLandMask.empty()) {
+        m_countryClimateFoodMult.clear();
+        m_countryPrecipAnomMean.clear();
+        m_countryClimateCacheN = 0;
+        return;
+    }
+
+    m_countryClimateCacheN = countryCount;
+    if (static_cast<int>(m_countryClimateFoodMult.size()) != countryCount) {
+        m_countryClimateFoodMult.assign(static_cast<size_t>(countryCount), 1.0f);
+    } else {
+        std::fill(m_countryClimateFoodMult.begin(), m_countryClimateFoodMult.end(), 1.0f);
+    }
+    if (static_cast<int>(m_countryPrecipAnomMean.size()) != countryCount) {
+        m_countryPrecipAnomMean.assign(static_cast<size_t>(countryCount), 0.0f);
+    } else {
+        std::fill(m_countryPrecipAnomMean.begin(), m_countryPrecipAnomMean.end(), 0.0f);
+    }
+
+    std::vector<double> sum(static_cast<size_t>(countryCount), 0.0);
+    std::vector<double> wsum(static_cast<size_t>(countryCount), 0.0);
+    std::vector<double> psum(static_cast<size_t>(countryCount), 0.0);
+    std::vector<double> pwsum(static_cast<size_t>(countryCount), 0.0);
+
+    const size_t n = std::min(m_fieldOwnerId.size(), m_fieldFoodYieldMult.size());
+    for (size_t i = 0; i < n; ++i) {
+        if (i >= m_fieldLandMask.size() || m_fieldLandMask[i] == 0u) continue;
+        const int owner = m_fieldOwnerId[i];
+        if (owner < 0 || owner >= countryCount) continue;
+        const float w = (i < m_fieldFoodPotential.size()) ? std::max(0.0f, m_fieldFoodPotential[i]) : 1.0f;
+        const double wd = std::max(1e-6, static_cast<double>(w));
+        sum[static_cast<size_t>(owner)] += wd * static_cast<double>(m_fieldFoodYieldMult[i]);
+        wsum[static_cast<size_t>(owner)] += wd;
+        if (i < m_fieldPrecipAnom.size()) {
+            psum[static_cast<size_t>(owner)] += wd * static_cast<double>(m_fieldPrecipAnom[i]);
+            pwsum[static_cast<size_t>(owner)] += wd;
+        }
+    }
+
+    for (int c = 0; c < countryCount; ++c) {
+        const double w = wsum[static_cast<size_t>(c)];
+        if (w > 1e-9) {
+            m_countryClimateFoodMult[static_cast<size_t>(c)] = static_cast<float>(sum[static_cast<size_t>(c)] / w);
+        } else {
+            m_countryClimateFoodMult[static_cast<size_t>(c)] = 1.0f;
+        }
+        const double pw = pwsum[static_cast<size_t>(c)];
+        if (pw > 1e-9) {
+            m_countryPrecipAnomMean[static_cast<size_t>(c)] = static_cast<float>(psum[static_cast<size_t>(c)] / pw);
+        } else {
+            m_countryPrecipAnomMean[static_cast<size_t>(c)] = 0.0f;
+        }
+    }
+}
+
+float Map::getCountryClimateFoodMultiplier(int countryIndex) const {
+    if (countryIndex < 0) {
+        return 1.0f;
+    }
+    if (m_countryClimateCacheN <= 0 || countryIndex >= m_countryClimateCacheN) {
+        prepareCountryClimateCaches(std::max(countryIndex + 1, m_countryClimateCacheN));
+    }
+    if (countryIndex < 0 || countryIndex >= static_cast<int>(m_countryClimateFoodMult.size())) {
+        return 1.0f;
+    }
+    return m_countryClimateFoodMult[static_cast<size_t>(countryIndex)];
 }
 
 void Map::rebuildFieldOwnerIdAssumingLocked(int countryCount) {
@@ -385,6 +838,7 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries, int currentY
     const int countryCount = static_cast<int>(countries.size());
     const size_t n = m_fieldPopulation.size();
     const size_t ownerN = m_fieldOwnerId.size();
+    prepareCountryClimateCaches(countryCount);
 
     auto KFor = [&](size_t i) -> double {
         const double food = (i < m_fieldFoodPotential.size()) ? static_cast<double>(std::max(0.0f, m_fieldFoodPotential[i])) : 0.0;
@@ -405,8 +859,28 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries, int currentY
         }
 
         const double crowd = pop / K;
-        const double birthFactor = std::max(0.1, 1.15 - 0.75 * std::min(1.5, crowd));
+        double birthFactor = std::max(0.1, 1.15 - 0.75 * std::min(1.5, crowd));
         double deathFactor = 0.85 + 2.8 * std::max(0.0, crowd - 1.0);
+
+        // Phase 4: macro food security feeds back into births/deaths (shortages bite).
+        if (i < ownerN) {
+            const int owner = m_fieldOwnerId[i];
+            if (owner >= 0 && owner < countryCount) {
+                const double fs = clamp01(countries[static_cast<size_t>(owner)].getFoodSecurity());
+                birthFactor *= (0.20 + 0.80 * fs);
+                deathFactor *= (1.00 + (1.0 - fs) * 1.60);
+
+                // Phase 6: drought years add a mortality bump (country-level precip anomaly mean).
+                if (owner >= 0 && owner < static_cast<int>(m_countryPrecipAnomMean.size())) {
+                    const double pa = static_cast<double>(m_countryPrecipAnomMean[static_cast<size_t>(owner)]);
+                    if (pa < -0.10) {
+                        const double drought = clamp01((-pa - 0.10) / 0.20);
+                        deathFactor *= (1.0 + 0.35 * drought);
+                        birthFactor *= (1.0 - 0.15 * drought);
+                    }
+                }
+            }
+        }
 
         // Plague: density-agnostic multiplier for now (density-aware later).
         if (m_plagueActive && i < ownerN) {
@@ -654,7 +1128,41 @@ void Map::ensureCountryAggregateCapacityForIndex(int idx) {
     const size_t need = static_cast<size_t>(idx) + 1u;
     if (m_countryLandCellCount.size() < need) {
         m_countryLandCellCount.resize(need, 0);
-        m_countryFoodSum.resize(need, 0.0);
+        m_countryFoodPotential.resize(need, 0.0);
+        m_countryNonFoodPotential.resize(need, 0.0);
+    }
+}
+
+void Map::rebuildCountryPotentials(int countryCount) {
+    if (countryCount <= 0) {
+        m_countryLandCellCount.clear();
+        m_countryFoodPotential.clear();
+        m_countryNonFoodPotential.clear();
+        return;
+    }
+
+    m_countryLandCellCount.assign(static_cast<size_t>(countryCount), 0);
+    m_countryFoodPotential.assign(static_cast<size_t>(countryCount), 0.0);
+    m_countryNonFoodPotential.assign(static_cast<size_t>(countryCount), 0.0);
+
+    const int height = static_cast<int>(m_countryGrid.size());
+    const int width = (height > 0) ? static_cast<int>(m_countryGrid[0].size()) : 0;
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const int owner = m_countryGrid[static_cast<size_t>(y)][static_cast<size_t>(x)];
+            if (owner < 0 || owner >= countryCount) {
+                continue;
+            }
+            const size_t idx = static_cast<size_t>(y * width + x);
+            m_countryLandCellCount[static_cast<size_t>(owner)] += 1;
+            if (idx < m_cellFood.size()) {
+                m_countryFoodPotential[static_cast<size_t>(owner)] += m_cellFood[idx];
+            }
+            if (idx < m_cellNonFood.size()) {
+                m_countryNonFoodPotential[static_cast<size_t>(owner)] += m_cellNonFood[idx];
+            }
+        }
     }
 }
 
@@ -691,10 +1199,21 @@ double Map::getCountryFoodSum(int countryIndex) const {
         return 0.0;
     }
     const size_t idx = static_cast<size_t>(countryIndex);
-    if (idx >= m_countryFoodSum.size()) {
+    if (idx >= m_countryFoodPotential.size()) {
         return 0.0;
     }
-    return m_countryFoodSum[idx];
+    return m_countryFoodPotential[idx];
+}
+
+double Map::getCountryNonFoodPotential(int countryIndex) const {
+    if (countryIndex < 0) {
+        return 0.0;
+    }
+    const size_t idx = static_cast<size_t>(countryIndex);
+    if (idx >= m_countryNonFoodPotential.size()) {
+        return 0.0;
+    }
+    return m_countryNonFoodPotential[idx];
 }
 
 int Map::getCountryLandCellCount(int countryIndex) const {
@@ -768,6 +1287,7 @@ sf::Vector2i Map::getRandomCellInPreferredZones(std::mt19937_64& gen) {
 }
 
 void Map::initializeCountries(std::vector<Country>& countries, int numCountries) {
+    attachCountriesForOwnershipSync(&countries);
     std::mt19937_64& rng = m_ctx->worldRng;
     std::uniform_int_distribution<> xDist(0, static_cast<int>(m_isLandGrid[0].size() - 1));
     std::uniform_int_distribution<> yDist(0, static_cast<int>(m_isLandGrid.size() - 1));
@@ -828,10 +1348,15 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
 
     // Build the initial adjacency/contact counts from the completed grid. From this point forward,
     // territory changes should go through `setCountryOwner*()` so adjacency stays correct incrementally.
+    rebuildCountryPotentials(static_cast<int>(countries.size()));
     rebuildAdjacency(countries);
     updateControlGrid(countries, /*year*/-5000, /*dtYears*/1);
     initializePopulationGridFromCountries(countries);
     applyPopulationTotalsToCountries(countries);
+}
+
+void Map::attachCountriesForOwnershipSync(std::vector<Country>* countries) {
+    m_ownershipSyncCountries = countries;
 }
 
 // Add a helper function to check for name uniqueness
@@ -845,6 +1370,7 @@ bool isNameTaken(const std::vector<Country>& countries, const std::string& name)
 }
 
 void Map::updateCountries(std::vector<Country>& countries, int currentYear, News& news, TechnologyManager& technologyManager) {
+    attachCountriesForOwnershipSync(&countries);
     m_dirtyRegions.clear();
 
     // Trigger the plague in the year 4950
@@ -861,11 +1387,6 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
     if (m_plagueActive && (currentYear == m_plagueStartYear + 3)) {
         endPlague(news);
     }
-
-    // Phase 3: demography + migration (econ-grid resolution), then aggregate to country totals.
-    tickPopulationGrid(countries, currentYear, 1);
-    applyPopulationTotalsToCountries(countries);
-    updateCitiesFromPopulation(countries, currentYear, 10, news);
 
     // No need for tempGrid here anymore - tempGrid is handled within Country::update
     // std::vector<std::vector<int>> tempGrid = m_countryGrid; // REMOVE THIS LINE
@@ -900,6 +1421,15 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
     */
 }
 
+void Map::tickDemographyAndCities(std::vector<Country>& countries, int currentYear, int dtYears, News& news) {
+    attachCountriesForOwnershipSync(&countries);
+    tickPopulationGrid(countries, currentYear, dtYears);
+    applyPopulationTotalsToCountries(countries);
+    // City placement cadence (calendar-based) keeps artifacts low in fast-forward.
+    const int createEveryNYears = (dtYears <= 1) ? 10 : 50;
+    updateCitiesFromPopulation(countries, currentYear, createEveryNYears, news);
+}
+
 void Map::markCountryExtinct(std::vector<Country>& countries, int countryIndex, int currentYear, News& news) {
     if (countryIndex < 0 || countryIndex >= static_cast<int>(countries.size())) {
         return;
@@ -921,7 +1451,7 @@ void Map::markCountryExtinct(std::vector<Country>& countries, int countryIndex, 
         return;
     }
 
-    const auto& territory = extinct.getBoundaryPixels();
+    const std::vector<sf::Vector2i> territory = extinct.getTerritoryVec();
     if (!territory.empty()) {
         std::lock_guard<std::mutex> lock(m_gridMutex);
         const int height = static_cast<int>(m_countryGrid.size());
@@ -973,7 +1503,12 @@ void Map::markCountryExtinct(std::vector<Country>& countries, int countryIndex, 
     news.addEvent(event);
 }
 
-void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& tradeManager, int currentYear, News& news) {
+void Map::processPoliticalEvents(std::vector<Country>& countries,
+                                 TradeManager& tradeManager,
+                                 int currentYear,
+                                 News& news,
+                                 TechnologyManager& techManager,
+                                 CultureManager& cultureManager) {
     if (countries.empty()) {
         return;
     }
@@ -1041,6 +1576,41 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
                     bestC = c;
                     best = sf::Vector2i(fx, fy);
                 }
+            }
+        }
+        return best;
+    };
+
+    auto pickBestCellByControl = [&](int countryIndex, const std::unordered_set<sf::Vector2i>& group) -> sf::Vector2i {
+        sf::Vector2i best(-1, -1);
+        float bestC = -1.0f;
+        for (const auto& cell : group) {
+            const int fx = std::max(0, std::min(m_fieldW - 1, cell.x / kFieldCellSize));
+            const int fy = std::max(0, std::min(m_fieldH - 1, cell.y / kFieldCellSize));
+            const size_t idx = static_cast<size_t>(fy) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(fx);
+            if (idx >= m_fieldOwnerId.size() || idx >= m_fieldControl.size()) {
+                continue;
+            }
+            if (m_fieldOwnerId[idx] != countryIndex) {
+                continue;
+            }
+            const float c = m_fieldControl[idx];
+            if (c > bestC) {
+                bestC = c;
+                best = cell;
+            } else if (c == bestC && best.x >= 0) {
+                if (cell.y < best.y || (cell.y == best.y && cell.x < best.x)) {
+                    best = cell;
+                }
+            }
+        }
+        if (best.x >= 0) {
+            return best;
+        }
+        // Fallback: deterministic coordinate order, independent of unordered_set iteration.
+        for (const auto& cell : group) {
+            if (best.x < 0 || cell.y < best.y || (cell.y == best.y && cell.x < best.x)) {
+                best = cell;
             }
         }
         return best;
@@ -1123,13 +1693,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
         const double newGold = remainingGold * ratioB;
         const double oldGold = remainingGold - newGold;
 
-        const double totalScience = country.getSciencePoints();
-        const double newScience = totalScience * ratioB;
-        const double oldScience = totalScience - newScience;
-
-        const double totalCulture = country.getCulturePoints();
-        const double newCulture = totalCulture * ratioB;
-        const double oldCulture = totalCulture - newCulture;
+        // Phase 5: science/culture point currencies removed (knowledge + traits/institutions instead).
 
         std::vector<City> oldCities;
         std::vector<City> newCities;
@@ -1137,11 +1701,11 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
             if (groupB.count(city.getLocation()) > 0) newCities.push_back(city);
             else oldCities.push_back(city);
         }
-        if (newCities.empty() && !groupB.empty()) newCities.emplace_back(*groupB.begin());
-        if (oldCities.empty() && !groupA.empty()) oldCities.emplace_back(*groupA.begin());
+        if (newCities.empty() && !groupB.empty()) newCities.emplace_back(pickBestCellByControl(countryIndex, groupB));
+        if (oldCities.empty() && !groupA.empty()) oldCities.emplace_back(pickBestCellByControl(countryIndex, groupA));
 
-        const sf::Vector2i newStart = newCities.empty() ? *groupB.begin() : newCities.front().getLocation();
-        const sf::Vector2i oldStart = oldCities.empty() ? *groupA.begin() : oldCities.front().getLocation();
+        const sf::Vector2i newStart = newCities.empty() ? pickBestCellByControl(countryIndex, groupB) : newCities.front().getLocation();
+        const sf::Vector2i oldStart = oldCities.empty() ? pickBestCellByControl(countryIndex, groupA) : oldCities.front().getLocation();
 
         std::vector<sf::Vector2i> oldRoads;
         std::vector<sf::Vector2i> newRoads;
@@ -1182,15 +1746,11 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
         newCountry.setRoads(newRoads);
         newCountry.setFactories(newFactories);
         newCountry.setGold(newGold);
-        newCountry.setSciencePoints(newScience);
-        newCountry.setCulturePoints(newCulture);
         newCountry.initializeTechSharingTimer(currentYear);
 
         countries[static_cast<size_t>(countryIndex)].setStartingPixel(oldStart);
         countries[static_cast<size_t>(countryIndex)].setPopulation(oldPop);
         countries[static_cast<size_t>(countryIndex)].setGold(oldGold);
-        countries[static_cast<size_t>(countryIndex)].setSciencePoints(oldScience);
-        countries[static_cast<size_t>(countryIndex)].setCulturePoints(oldCulture);
         countries[static_cast<size_t>(countryIndex)].setLegitimacy(std::max(0.20, countries[static_cast<size_t>(countryIndex)].getLegitimacy() * 0.65));
         countries[static_cast<size_t>(countryIndex)].setStability(std::max(0.25, countries[static_cast<size_t>(countryIndex)].getStability() * 0.70));
         countries[static_cast<size_t>(countryIndex)].setFragmentationCooldown(fragmentationCooldownYears);
@@ -1234,6 +1794,16 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
     };
 
     bool changedTerritory = false;
+    bool controlUpToDate = true; // updateControlGrid was called in updateCountries earlier this year
+
+    auto ensureControlUpToDate = [&]() {
+        if (controlUpToDate) {
+            return;
+        }
+        updateControlGrid(countries, currentYear, 1);
+        applyPopulationTotalsToCountries(countries);
+        controlUpToDate = true;
+    };
 
     if (currentYear % 5 == 0) {
         struct Candidate { int idx; double risk; };
@@ -1259,6 +1829,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
             if (splits >= 2) break;
             if (trySplitCountry(c.idx, c.risk)) {
                 changedTerritory = true;
+                controlUpToDate = false;
                 splits++;
             }
         }
@@ -1295,13 +1866,485 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
         }
     }
 
-	    if (changedTerritory) {
-	        updateControlGrid(countries, currentYear, 1);
-	        applyPopulationTotalsToCountries(countries);
+	    // ============================================================
+	    // Phase 7: exploration + colonization (bounded sampling, CPU)
+	    // ============================================================
+	    if (currentYear % 10 == 0 && !m_fieldCoastalLandCandidates.empty()) {
+	        attachCountriesForOwnershipSync(&countries);
+	        tradeManager.ensureSeaNavPublic(*this);
+
+	        const int height = static_cast<int>(m_countryGrid.size());
+	        const int width = (height > 0) ? static_cast<int>(m_countryGrid[0].size()) : 0;
+
+	        auto isCoastalLandPixel = [&](int x, int y) -> bool {
+	            if (x < 0 || y < 0 || y >= height || x >= width) return false;
+	            if (!m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) return false;
+	            static const int dxs[8] = {1, 1, 0, -1, -1, -1, 0, 1};
+	            static const int dys[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+	            for (int k = 0; k < 8; ++k) {
+	                const int nx = x + dxs[k];
+	                const int ny = y + dys[k];
+	                if (nx < 0 || ny < 0 || ny >= height || nx >= width) continue;
+	                if (!m_isLandGrid[static_cast<size_t>(ny)][static_cast<size_t>(nx)]) {
+	                    return true;
+	                }
+	            }
+	            return false;
+	        };
+
+	        std::uniform_int_distribution<int> pickCandidate(0, static_cast<int>(m_fieldCoastalLandCandidates.size()) - 1);
+
+	        for (int i = 0; i < static_cast<int>(countries.size()); ++i) {
+	            Country& c = countries[static_cast<size_t>(i)];
+	            if (c.getPopulation() <= 0) continue;
+
+	            auto& ex = c.getExplorationMutable();
+
+	            const double foodSum = std::max(0.0, getCountryFoodSum(i));
+	            const double K = std::max(1.0, foodSum * 1200.0);
+	            const double pop = static_cast<double>(std::max<long long>(1, c.getPopulation()));
+	            const double landPressure = pop / K;
+
+	            const float pressureNow = c.computeColonizationPressure(cultureManager, c.getMarketAccess(), landPressure);
+	            ex.explorationDrive = 0.88f * ex.explorationDrive + 0.12f * pressureNow;
+	            ex.explorationDrive = std::max(0.0f, std::min(1.0f, ex.explorationDrive));
+
+	            if (!c.canAttemptColonization(techManager, cultureManager)) continue;
+	            if (ex.explorationDrive < 0.40f) continue;
+
+	            const int cooldown = std::max(25, std::min(90, static_cast<int>(std::llround(80.0 - 55.0 * ex.explorationDrive))));
+	            if (currentYear - ex.lastColonizationYear < cooldown) continue;
+
+	            const auto& ports = c.getPorts();
+	            if (ports.empty()) continue;
+	            const sf::Vector2i fromPort = ports.front();
+
+	            const double navalRangePx = std::max(120.0, c.computeNavalRangePx(techManager, cultureManager));
+
+	            // Require some fiscal capacity (prevents "infinite free colonization").
+	            const double minTreasure = 18.0 + 0.16 * navalRangePx * 0.01;
+	            if (c.getGold() < minTreasure) continue;
+
+	            const int samples = std::max(30, std::min(80, 30 + static_cast<int>(std::llround(60.0 * ex.explorationDrive))));
+	            double bestScore = -1.0;
+	            sf::Vector2i bestPx(-1, -1);
+	            float bestSeaLen = 0.0f;
+
+	            for (int s = 0; s < samples; ++s) {
+	                const int fidx = m_fieldCoastalLandCandidates[static_cast<size_t>(pickCandidate(rng))];
+	                if (fidx < 0) continue;
+	                const int fx = fidx % m_fieldW;
+	                const int fy = fidx / m_fieldW;
+	                if (fx < 0 || fy < 0 || fx >= m_fieldW || fy >= m_fieldH) continue;
+
+	                const size_t fi = static_cast<size_t>(fidx);
+	                if (fi >= m_fieldLandMask.size() || m_fieldLandMask[fi] == 0u) continue;
+	                if (fi >= m_fieldBiome.size() || fi >= m_fieldFoodYieldMult.size() || fi >= m_fieldFoodPotential.size()) continue;
+
+	                const uint8_t biome = m_fieldBiome[fi];
+	                if (biome == 0u || biome == 255u) continue; // Ice/water
+	                if (biome == 5u && m_fieldFoodYieldMult[fi] < 0.55f) continue; // deep desert
+	                if (m_fieldFoodYieldMult[fi] < 0.40f) continue;
+	                if (m_fieldFoodPotential[fi] < 700.0f) continue;
+
+	                // Reject if any land pixel in this field block is already claimed.
+	                const int x0 = fx * kFieldCellSize;
+	                const int y0 = fy * kFieldCellSize;
+	                const int x1 = std::min(width, x0 + kFieldCellSize);
+	                const int y1 = std::min(height, y0 + kFieldCellSize);
+	                bool anyClaimed = false;
+	                for (int y = y0; y < y1 && !anyClaimed; ++y) {
+	                    const auto& landRow = m_isLandGrid[static_cast<size_t>(y)];
+	                    const auto& ownerRow = m_countryGrid[static_cast<size_t>(y)];
+	                    for (int x = x0; x < x1; ++x) {
+	                        if (!landRow[static_cast<size_t>(x)]) continue;
+	                        if (ownerRow[static_cast<size_t>(x)] != -1) {
+	                            anyClaimed = true;
+	                            break;
+	                        }
+	                    }
+	                }
+	                if (anyClaimed) continue;
+
+	                sf::Vector2i coastPx(-1, -1);
+	                for (int y = y0; y < y1 && coastPx.x < 0; ++y) {
+	                    const auto& landRow = m_isLandGrid[static_cast<size_t>(y)];
+	                    for (int x = x0; x < x1; ++x) {
+	                        if (!landRow[static_cast<size_t>(x)]) continue;
+	                        if (m_countryGrid[static_cast<size_t>(y)][static_cast<size_t>(x)] != -1) continue;
+	                        if (!isCoastalLandPixel(x, y)) continue;
+	                        coastPx = sf::Vector2i(x, y);
+	                        break;
+	                    }
+	                }
+	                if (coastPx.x < 0) continue;
+
+	                const double dx = static_cast<double>(fromPort.x - coastPx.x);
+	                const double dy = static_cast<double>(fromPort.y - coastPx.y);
+	                const double heuristic = std::sqrt(dx * dx + dy * dy);
+	                if (heuristic > navalRangePx * 1.35) continue;
+
+	                float seaLenPx = 0.0f;
+	                if (!tradeManager.findSeaPathLenPx(*this, fromPort, coastPx, seaLenPx)) {
+	                    continue;
+	                }
+	                if (seaLenPx <= 0.0f || static_cast<double>(seaLenPx) > navalRangePx) {
+	                    continue;
+	                }
+
+	                const double foodTerm = static_cast<double>(m_fieldFoodPotential[fi]) * static_cast<double>(m_fieldFoodYieldMult[fi]);
+	                const double seaCost = 1.0 + 0.0045 * static_cast<double>(seaLenPx);
+	                const double overstretch = std::max(0.0, std::min(1.0, static_cast<double>(ex.colonialOverstretch)));
+	                const double stretchCost = 1.0 + 1.35 * overstretch;
+	                const double score = foodTerm / (seaCost * stretchCost);
+
+	                if (score > bestScore) {
+	                    bestScore = score;
+	                    bestPx = coastPx;
+	                    bestSeaLen = seaLenPx;
+	                }
+	            }
+
+	            if (bestPx.x < 0 || bestScore < 250.0) {
+	                continue;
+	            }
+
+	            // Costs scale with distance and overstretch; must be affordable.
+	            const double overstretch = std::max(0.0, std::min(1.0, static_cast<double>(ex.colonialOverstretch)));
+	            const double goldCost = (35.0 + 0.06 * static_cast<double>(bestSeaLen)) * (1.0 + 0.85 * overstretch);
+	            if (c.getGold() < goldCost) {
+	                continue;
+	            }
+
+	            std::vector<int> affected;
+	            const int radius = std::max(10, std::min(25, 10 + static_cast<int>(std::llround(12.0 * ex.explorationDrive))));
+	            if (!paintCells(i, bestPx, radius, /*erase*/false, /*allowOverwrite*/false, affected)) {
+	                continue;
+	            }
+
+	            changedTerritory = true;
+	            controlUpToDate = false;
+
+	            // Found a foothold city + a port.
+	            c.foundCity(bestPx, news);
+	            c.forceAddPort(*this, bestPx);
+
+	            // Small colonist transfer (only meaningful in PopulationGrid mode).
+	            if (isPopulationGridActive() && !m_fieldPopulation.empty()) {
+	                const sf::Vector2i capPx = c.getCapitalLocation();
+	                const int capFx = std::max(0, std::min(m_fieldW - 1, capPx.x / kFieldCellSize));
+	                const int capFy = std::max(0, std::min(m_fieldH - 1, capPx.y / kFieldCellSize));
+	                const int colFx = std::max(0, std::min(m_fieldW - 1, bestPx.x / kFieldCellSize));
+	                const int colFy = std::max(0, std::min(m_fieldH - 1, bestPx.y / kFieldCellSize));
+	                const size_t capIdx = static_cast<size_t>(capFy) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(capFx);
+	                const size_t colIdx = static_cast<size_t>(colFy) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(colFx);
+
+	                const float baseColonists = 1800.0f + 0.0012f * static_cast<float>(std::min<double>(30'000'000.0, pop));
+	                const float colonists = std::max(600.0f, std::min(15'000.0f, baseColonists));
+
+	                if (capIdx < m_fieldPopulation.size() && colIdx < m_fieldPopulation.size()) {
+	                    const float moved = std::min(colonists, std::max(0.0f, m_fieldPopulation[capIdx] * 0.08f));
+	                    m_fieldPopulation[capIdx] = std::max(0.0f, m_fieldPopulation[capIdx] - moved);
+	                    m_fieldPopulation[colIdx] += moved;
+	                }
+	            }
+
+	            // Apply costs and state strain.
+	            c.subtractGold(goldCost);
+	            const double distFrac = std::min(1.0, static_cast<double>(bestSeaLen) / std::max(1.0, navalRangePx));
+	            const double stabHit = 0.008 + 0.020 * distFrac + 0.020 * overstretch;
+	            c.setStability(std::max(0.0, c.getStability() - stabHit));
+
+	            ex.lastColonizationYear = currentYear;
+	            ex.colonialOverstretch = std::min(1.0f, ex.colonialOverstretch + static_cast<float>(0.06 + 0.12 * distFrac));
+
+	            news.addEvent("🧭 " + c.getName() + " establishes an overseas colony (sea distance: " + std::to_string(static_cast<int>(std::llround(bestSeaLen))) + ").");
+	        }
 	    }
 
-    (void)tradeManager;
-    return;
+	    // ============================================================
+	    // Phase 7: overseas control penalty + colonial breakaway
+	    // ============================================================
+	    if (currentYear % 20 == 0 && m_fieldW > 0 && m_fieldH > 0 && !m_fieldOwnerId.empty()) {
+	        ensureControlUpToDate();
+
+	        const int fieldN = m_fieldW * m_fieldH;
+	        std::vector<uint8_t> visited(static_cast<size_t>(fieldN), 0u);
+	        m_fieldOverseasMask.assign(static_cast<size_t>(fieldN), 0u);
+	        m_lastOverseasMaskYear = currentYear;
+
+	        std::vector<int> capFx(static_cast<size_t>(countries.size()), 0);
+	        std::vector<int> capFy(static_cast<size_t>(countries.size()), 0);
+	        for (size_t i = 0; i < countries.size(); ++i) {
+	            const sf::Vector2i capPx = countries[i].getCapitalLocation();
+	            capFx[i] = std::max(0, std::min(m_fieldW - 1, capPx.x / kFieldCellSize));
+	            capFy[i] = std::max(0, std::min(m_fieldH - 1, capPx.y / kFieldCellSize));
+	        }
+
+	        std::vector<int> totalOwned(static_cast<size_t>(countries.size()), 0);
+	        std::vector<int> overseasOwned(static_cast<size_t>(countries.size()), 0);
+	        std::vector<double> overseasControlSum(static_cast<size_t>(countries.size()), 0.0);
+	        std::vector<int> largestOverseasStart(static_cast<size_t>(countries.size()), -1);
+	        std::vector<int> largestOverseasSize(static_cast<size_t>(countries.size()), 0);
+
+	        std::vector<int> q;
+	        q.reserve(4096);
+
+	        auto push = [&](int idx) {
+	            visited[static_cast<size_t>(idx)] = 1u;
+	            q.push_back(idx);
+	        };
+
+	        for (int start = 0; start < fieldN; ++start) {
+	            if (visited[static_cast<size_t>(start)] != 0u) continue;
+	            const int owner = m_fieldOwnerId[static_cast<size_t>(start)];
+	            if (owner < 0 || owner >= static_cast<int>(countries.size())) {
+	                continue;
+	            }
+	            if (countries[static_cast<size_t>(owner)].getPopulation() <= 0) {
+	                continue;
+	            }
+
+	            q.clear();
+	            push(start);
+
+	            int compSize = 0;
+	            double compControl = 0.0;
+	            bool containsCap = false;
+	            std::vector<int> compCells;
+	            compCells.reserve(256);
+
+	            for (size_t qi = 0; qi < q.size(); ++qi) {
+	                const int cur = q[qi];
+	                const int cx = cur % m_fieldW;
+	                const int cy = cur / m_fieldW;
+	                compCells.push_back(cur);
+	                compSize++;
+	                if (static_cast<size_t>(cur) < m_fieldControl.size()) {
+	                    compControl += static_cast<double>(m_fieldControl[static_cast<size_t>(cur)]);
+	                }
+	                if (cx == capFx[static_cast<size_t>(owner)] && cy == capFy[static_cast<size_t>(owner)]) {
+	                    containsCap = true;
+	                }
+
+	                const int nx[4] = {cx + 1, cx - 1, cx, cx};
+	                const int ny[4] = {cy, cy, cy + 1, cy - 1};
+	                for (int k = 0; k < 4; ++k) {
+	                    const int x = nx[k];
+	                    const int y = ny[k];
+	                    if (x < 0 || y < 0 || x >= m_fieldW || y >= m_fieldH) continue;
+	                    const int nidx = y * m_fieldW + x;
+	                    if (visited[static_cast<size_t>(nidx)] != 0u) continue;
+	                    if (m_fieldOwnerId[static_cast<size_t>(nidx)] != owner) continue;
+	                    push(nidx);
+	                }
+	            }
+
+	            totalOwned[static_cast<size_t>(owner)] += compSize;
+
+	            if (!containsCap) {
+	                overseasOwned[static_cast<size_t>(owner)] += compSize;
+	                overseasControlSum[static_cast<size_t>(owner)] += compControl;
+	                for (int cell : compCells) {
+	                    m_fieldOverseasMask[static_cast<size_t>(cell)] = 1u;
+	                }
+	                if (compSize > largestOverseasSize[static_cast<size_t>(owner)]) {
+	                    largestOverseasSize[static_cast<size_t>(owner)] = compSize;
+	                    largestOverseasStart[static_cast<size_t>(owner)] = start;
+	                }
+	            }
+	        }
+
+	        auto clamp01d = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+
+	        for (int i = 0; i < static_cast<int>(countries.size()); ++i) {
+	            Country& c = countries[static_cast<size_t>(i)];
+	            if (c.getPopulation() <= 0) continue;
+
+	            auto& ex = c.getExplorationMutable();
+	            const int tot = totalOwned[static_cast<size_t>(i)];
+	            const int over = overseasOwned[static_cast<size_t>(i)];
+	            if (tot <= 0 || over <= 0) {
+	                ex.colonialOverstretch = 0.92f * ex.colonialOverstretch;
+	                ex.overseasLowControlYears = std::max(0, ex.overseasLowControlYears - 20);
+	                continue;
+	            }
+
+	            const double frac = clamp01d(static_cast<double>(over) / static_cast<double>(tot));
+	            const double meanControl = overseasControlSum[static_cast<size_t>(i)] / static_cast<double>(std::max(1, over));
+
+	            ex.colonialOverstretch = 0.85f * ex.colonialOverstretch + 0.15f * static_cast<float>(std::min(1.0, frac * 1.25));
+
+	            if (meanControl < 0.22) {
+	                ex.overseasLowControlYears += 20;
+	            } else {
+	                ex.overseasLowControlYears = std::max(0, ex.overseasLowControlYears - 20);
+	            }
+
+	            if (frac > 0.12) {
+	                const double admin = clamp01d(c.getAdminCapacity());
+	                const double debtRatio = c.getDebt() / (std::max(1.0, c.getLastTaxTake()) + 1.0);
+	                const double debtPenalty = clamp01d((debtRatio - 1.5) / 4.0);
+	                const double stabHit = 0.010 + 0.040 * frac * (1.0 - admin) + 0.015 * debtPenalty;
+	                c.setStability(std::max(0.0, c.getStability() - stabHit));
+	            }
+
+	            // Breakaway: sustained low-control overseas component in an overstretched state.
+	            const bool canSpawn = (largestOverseasStart[static_cast<size_t>(i)] >= 0) &&
+	                                  (largestOverseasSize[static_cast<size_t>(i)] >= 14) &&
+	                                  (ex.overseasLowControlYears >= 120) &&
+	                                  (frac >= 0.18) &&
+	                                  !c.isAtWar();
+	            if (!canSpawn) continue;
+	            if (static_cast<int>(countries.size()) >= maxCountries) continue;
+	            if (countries.size() + 1 > countries.capacity()) continue; // avoid pointer invalidation
+
+	            // Rebuild the largest overseas component cells (field indices).
+	            const int start = largestOverseasStart[static_cast<size_t>(i)];
+	            if (start < 0 || start >= fieldN) continue;
+	            if (m_fieldOwnerId[static_cast<size_t>(start)] != i) continue;
+
+	            std::vector<uint8_t> compMark(static_cast<size_t>(fieldN), 0u);
+	            std::vector<int> comp;
+	            comp.reserve(static_cast<size_t>(largestOverseasSize[static_cast<size_t>(i)]));
+	            std::vector<int> qq;
+	            qq.reserve(1024);
+	            qq.push_back(start);
+	            compMark[static_cast<size_t>(start)] = 1u;
+	            for (size_t qi = 0; qi < qq.size(); ++qi) {
+	                const int cur = qq[qi];
+	                comp.push_back(cur);
+	                const int cx = cur % m_fieldW;
+	                const int cy = cur / m_fieldW;
+	                const int nx[4] = {cx + 1, cx - 1, cx, cx};
+	                const int ny[4] = {cy, cy, cy + 1, cy - 1};
+	                for (int k = 0; k < 4; ++k) {
+	                    const int x = nx[k];
+	                    const int y = ny[k];
+	                    if (x < 0 || y < 0 || x >= m_fieldW || y >= m_fieldH) continue;
+	                    const int nidx = y * m_fieldW + x;
+	                    if (compMark[static_cast<size_t>(nidx)] != 0u) continue;
+	                    if (m_fieldOwnerId[static_cast<size_t>(nidx)] != i) continue;
+	                    // Exclude the capital component defensively.
+	                    if (x == capFx[static_cast<size_t>(i)] && y == capFy[static_cast<size_t>(i)]) continue;
+	                    compMark[static_cast<size_t>(nidx)] = 1u;
+	                    qq.push_back(nidx);
+	                }
+	            }
+	            if (static_cast<int>(comp.size()) < 12) {
+	                continue;
+	            }
+
+	            // Choose a start pixel within this component.
+	            const int compFx = comp.front() % m_fieldW;
+	            const int compFy = comp.front() / m_fieldW;
+	            const int height = static_cast<int>(m_countryGrid.size());
+	            const int width = (height > 0) ? static_cast<int>(m_countryGrid[0].size()) : 0;
+	            sf::Vector2i newStart(compFx * kFieldCellSize + kFieldCellSize / 2, compFy * kFieldCellSize + kFieldCellSize / 2);
+	            if (width > 0 && height > 0) {
+	                const int x0 = compFx * kFieldCellSize;
+	                const int y0 = compFy * kFieldCellSize;
+	                const int x1 = std::min(width, x0 + kFieldCellSize);
+	                const int y1 = std::min(height, y0 + kFieldCellSize);
+	                for (int y = y0; y < y1; ++y) {
+	                    for (int x = x0; x < x1; ++x) {
+	                        if (!m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) continue;
+	                        if (m_countryGrid[static_cast<size_t>(y)][static_cast<size_t>(x)] != i) continue;
+	                        newStart = sf::Vector2i(x, y);
+	                        y = y1;
+	                        break;
+	                    }
+	                }
+	            }
+
+	            std::uniform_int_distribution<> colorDist(50, 255);
+	            const sf::Color newColor(colorDist(rng), colorDist(rng), colorDist(rng));
+
+	            std::string newName;
+	            do {
+	                newName = generate_country_name(rng) + " Colony";
+	            } while (isNameTaken(countries, newName));
+
+	            const int newIndex = static_cast<int>(countries.size());
+	            Country newCountry(newIndex, newColor, newStart, /*initialPop*/50000, /*growth*/0.0005, newName,
+	                               c.getType(), c.getScienceType(), c.getCultureType(), m_ctx->seedForCountry(newIndex));
+	            newCountry.setIdeology(c.getIdeology());
+	            newCountry.setStability(std::max(0.30, std::min(0.60, c.getStability())));
+	            newCountry.setLegitimacy(std::max(0.20, std::min(0.55, c.getLegitimacy() * 0.90)));
+	            newCountry.setFragmentationCooldown(180);
+
+	            // Inherit cultural traits and knowledge stocks (but not the full polity apparatus).
+	            newCountry.getTraitsMutable() = c.getTraits();
+	            newCountry.getKnowledgeMutable() = c.getKnowledge();
+
+	            // Inherit unlocked techs to avoid instant collapse; keep prereqs already present.
+	            techManager.setUnlockedTechnologiesForEditor(newCountry, techManager.getUnlockedTechnologies(c), /*includePrerequisites*/false);
+
+	            // Split cities/ports by field membership.
+	            std::vector<City> keptCities;
+	            std::vector<City> movedCities;
+	            for (const auto& city : c.getCities()) {
+	                const int fx = std::max(0, std::min(m_fieldW - 1, city.getLocation().x / kFieldCellSize));
+	                const int fy = std::max(0, std::min(m_fieldH - 1, city.getLocation().y / kFieldCellSize));
+	                const int idx = fy * m_fieldW + fx;
+	                if (idx >= 0 && idx < fieldN && compMark[static_cast<size_t>(idx)] != 0u) {
+	                    movedCities.push_back(city);
+	                } else {
+	                    keptCities.push_back(city);
+	                }
+	            }
+	            if (movedCities.empty()) {
+	                movedCities.emplace_back(newStart);
+	            }
+	            newCountry.setCities(movedCities);
+	            c.setCities(keptCities);
+
+	            std::vector<sf::Vector2i> keptPorts;
+	            std::vector<sf::Vector2i> movedPorts;
+	            for (const auto& p : c.getPorts()) {
+	                const int fx = std::max(0, std::min(m_fieldW - 1, p.x / kFieldCellSize));
+	                const int fy = std::max(0, std::min(m_fieldH - 1, p.y / kFieldCellSize));
+	                const int idx = fy * m_fieldW + fx;
+	                if (idx >= 0 && idx < fieldN && compMark[static_cast<size_t>(idx)] != 0u) {
+	                    movedPorts.push_back(p);
+	                } else {
+	                    keptPorts.push_back(p);
+	                }
+	            }
+	            newCountry.setPorts(movedPorts);
+	            c.setPorts(keptPorts);
+
+	            countries.push_back(newCountry);
+
+	            // Transfer territory ownership (grid-resolution), bounded to the old country's cells.
+	            const int regionsPerRow = static_cast<int>(m_baseImage.getSize().x) / (m_gridCellSize * m_regionSize);
+	            const std::vector<sf::Vector2i> territory = c.getTerritoryVec(); // copy (mutated by ownership sync during transfer)
+	            {
+	                std::lock_guard<std::mutex> lock(m_gridMutex);
+	                for (const auto& cell : territory) {
+	                    const int fx = cell.x / kFieldCellSize;
+	                    const int fy = cell.y / kFieldCellSize;
+	                    const int idx = fy * m_fieldW + fx;
+	                    if (idx < 0 || idx >= fieldN) continue;
+	                    if (compMark[static_cast<size_t>(idx)] == 0u) continue;
+	                    setCountryOwnerAssumingLockedImpl(cell.x, cell.y, newIndex);
+	                    if (regionsPerRow > 0) {
+	                        const int regionIndex = static_cast<int>((cell.y / m_regionSize) * regionsPerRow + (cell.x / m_regionSize));
+	                        m_dirtyRegions.insert(regionIndex);
+	                    }
+	                }
+	            }
+
+	            news.addEvent("🏴 Breakaway: an overseas territory of " + c.getName() + " declares independence as " + newName + ".");
+	            changedTerritory = true;
+	            controlUpToDate = false;
+	            ex.overseasLowControlYears = 0;
+	        }
+	    }
+
+	    if (changedTerritory) {
+	        ensureControlUpToDate();
+	    }
 
 #if 0
     std::mt19937_64& gen = m_ctx->worldRng;
@@ -1433,13 +2476,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
         double newGold = remainingGold * ratio;
         double oldGold = remainingGold - newGold;
 
-        double totalScience = country.getSciencePoints();
-        double newScience = totalScience * ratio;
-        double oldScience = totalScience - newScience;
-
-        double totalCulture = country.getCulturePoints();
-        double newCulture = totalCulture * ratio;
-        double oldCulture = totalCulture - newCulture;
+        // Phase 5: science/culture point currencies removed (knowledge + traits/institutions instead).
 
         std::vector<City> oldCities;
         std::vector<City> newCities;
@@ -1452,14 +2489,14 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
         }
 
         if (newCities.empty() && !groupB.empty()) {
-            newCities.emplace_back(*groupB.begin());
+            newCities.emplace_back(pickBestCellByControl(countryIndex, groupB));
         }
         if (oldCities.empty() && !groupA.empty()) {
-            oldCities.emplace_back(*groupA.begin());
+            oldCities.emplace_back(pickBestCellByControl(countryIndex, groupA));
         }
 
-        sf::Vector2i newStart = newCities.empty() ? *groupB.begin() : newCities.front().getLocation();
-        sf::Vector2i oldStart = oldCities.empty() ? *groupA.begin() : oldCities.front().getLocation();
+        sf::Vector2i newStart = newCities.empty() ? pickBestCellByControl(countryIndex, groupB) : newCities.front().getLocation();
+        sf::Vector2i oldStart = oldCities.empty() ? pickBestCellByControl(countryIndex, groupA) : oldCities.front().getLocation();
 
         std::vector<sf::Vector2i> oldRoads;
         std::vector<sf::Vector2i> newRoads;
@@ -1506,8 +2543,6 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
         newCountry.setRoads(newRoads);
         newCountry.setFactories(newFactories);
         newCountry.setGold(newGold);
-        newCountry.setSciencePoints(newScience);
-        newCountry.setCulturePoints(newCulture);
         newCountry.setStartingPixel(newStart);
 
         countries.push_back(newCountry);
@@ -1515,8 +2550,6 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
         Country& updatedCountry = countries[countryIndex];
         updatedCountry.setPopulation(oldPop);
         updatedCountry.setGold(oldGold);
-        updatedCountry.setSciencePoints(oldScience);
-        updatedCountry.setCulturePoints(oldCulture);
         updatedCountry.setStability(0.45);
         updatedCountry.setFragmentationCooldown(fragmentationCooldown);
         updatedCountry.setYearsSinceWar(0);
@@ -1600,7 +2633,11 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
 	                if (b.getPopulation() <= 0 || b.isAtWar() || b.getYearsSinceWar() < 50 || b.getStability() < 0.6) {
 	                    continue;
 	                }
-	                double tradeScore = tradeManager.getTradeScore(a.getCountryIndex(), b.getCountryIndex(), currentYear);
+	                const int contact = std::max(1, getBorderContactCount(a.getCountryIndex(), b.getCountryIndex()));
+	                const double border = std::min(1.0, std::sqrt(static_cast<double>(contact)) / 10.0);
+	                const double access = 0.5 * (a.getMarketAccess() + b.getMarketAccess());
+	                const double stability = 0.5 * (a.getStability() + b.getStability());
+	                const double tradeScore = 10.0 * access + 5.0 * border + 3.0 * stability;
 	                if (tradeScore < 6.0) {
 	                    continue;
 	                }
@@ -1613,8 +2650,9 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
                 Country& leader = countries[leaderIndex];
                 Country& absorbed = countries[absorbedIndex];
 
+                const std::vector<sf::Vector2i> absorbedTerritory = absorbed.getTerritoryVec();
                 std::unordered_set<sf::Vector2i> mergedTerritory = leader.getBoundaryPixels();
-                for (const auto& cell : absorbed.getBoundaryPixels()) {
+                for (const auto& cell : absorbedTerritory) {
                     mergedTerritory.insert(cell);
                 }
 
@@ -1636,8 +2674,6 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
 
                 leader.setPopulation(leader.getPopulation() + absorbed.getPopulation());
                 leader.setGold(leader.getGold() + absorbed.getGold());
-                leader.setSciencePoints(leader.getSciencePoints() + absorbed.getSciencePoints());
-                leader.setCulturePoints(leader.getCulturePoints() + absorbed.getCulturePoints());
                 leader.setStability(std::max(leader.getStability(), 0.7));
                 leader.setFragmentationCooldown(fragmentationCooldown);
 
@@ -1653,7 +2689,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries, TradeManager& 
                 int regionsPerRow = static_cast<int>(m_baseImage.getSize().x) / (m_gridCellSize * m_regionSize);
                 {
                     std::lock_guard<std::mutex> lock(m_gridMutex);
-                    for (const auto& cell : absorbed.getBoundaryPixels()) {
+                    for (const auto& cell : absorbedTerritory) {
                         setCountryOwnerAssumingLockedImpl(cell.x, cell.y, leader.getCountryIndex());
                         int regionIndex = static_cast<int>((cell.y / m_regionSize) * regionsPerRow + (cell.x / m_regionSize));
                         m_dirtyRegions.insert(regionIndex);
@@ -1778,6 +2814,22 @@ const std::vector<int>& Map::getAdjacentCountryIndices(int countryIndex) const {
 
 const std::vector<int>& Map::getAdjacentCountryIndicesPublic(int countryIndex) const {
     return getAdjacentCountryIndices(countryIndex);
+}
+
+int Map::getBorderContactCount(int a, int b) const {
+    if (a < 0 || b < 0 || a == b) {
+        return 0;
+    }
+    if (a >= m_countryAdjacencySize || b >= m_countryAdjacencySize) {
+        return 0;
+    }
+    if (static_cast<size_t>(a) >= m_countryBorderContactCounts.size()) {
+        return 0;
+    }
+    if (static_cast<size_t>(b) >= m_countryBorderContactCounts[static_cast<size_t>(a)].size()) {
+        return 0;
+    }
+    return std::max(0, m_countryBorderContactCounts[static_cast<size_t>(a)][static_cast<size_t>(b)]);
 }
 
 void Map::ensureAdjacencyStorageForIndex(int countryIndex) {
@@ -2098,6 +3150,11 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
         0x4D454741ull ^
         (static_cast<std::uint64_t>(currentYear) * 0x9E3779B97F4A7C15ull) ^
         (static_cast<std::uint64_t>(targetYear) * 0xBF58476D1CE4E5B9ull));
+
+    // Phase 4: run a local macro economy + directed trade inside the mega-jump loop so
+    // shortages and logistics constraints continue to matter in fast-forward history.
+    TradeManager localTrade(*m_ctx);
+    EconomyModelCPU localEconomy(*m_ctx);
     
     int totalYears = targetYear - currentYear;
     int startYear = currentYear;
@@ -2214,13 +3271,16 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
 	                endPlague(news);
 	            }
 
-	            // Phase 3 mega-jump support: update coarse fields in larger steps.
-	            if (isPopulationGridActive() && (currentYear % 10 == 0)) {
-	                updateControlGrid(countries, currentYear, 10);
-	                tickPopulationGrid(countries, currentYear, 10);
-	                applyPopulationTotalsToCountries(countries);
-	                updateCitiesFromPopulation(countries, currentYear, 50, news);
-	            }
+		            // Phase 3 mega-jump support: update coarse fields in larger steps.
+		            if (isPopulationGridActive() && (currentYear % 10 == 0)) {
+		                updateControlGrid(countries, currentYear, 10);
+                        tickWeather(currentYear, 10);
+		                localEconomy.tickYear(currentYear, 10, *this, countries, techManager, localTrade, news);
+		                tickPopulationGrid(countries, currentYear, 10);
+		                applyPopulationTotalsToCountries(countries);
+		                updateCitiesFromPopulation(countries, currentYear, 50, news);
+		                processPoliticalEvents(countries, localTrade, currentYear, news, techManager, cultureManager);
+		            }
 	            
 	            // MEGA COUNTRY UPDATES - calendar-based cadence (avoids chunk-boundary artifacts).
 	            const int simYearIndex = currentYear - startYear;
@@ -2240,7 +3300,7 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
                 countries[i].fastForwardGrowth(simYearIndex, currentYear, m_isLandGrid, m_countryGrid, m_resourceGrid,
                                                news, *this, techManager, gen, plagueAffected);
 
-	                if (plagueAffected && !isPopulationGridActive()) {
+                if (plagueAffected && !isPopulationGridActive()) {
 	                    // Plague effects: mortality hit (mirrors normal-mode magnitude).
 	                    const long long currentPop = countries[i].getPopulation();
 	                    double baseDeathRate = 0.05; // 5% typical country hit
@@ -2250,18 +3310,13 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
 	                    countries[i].applyPlagueDeaths(deaths);
 	                    updatePlagueDeaths(deaths);
 	                }
-                
-                // Tech/culture progression: more frequent than before, still amortized.
-                if (currentYear % 5 == 0) {
-                    // Neighbor science bonus proxy for knowledge diffusion.
-                    double neighborBonus = countries[i].calculateNeighborScienceBonus(countries, *this, techManager, currentYear);
-                    if (neighborBonus > 0.0) {
-                        countries[i].addSciencePoints(neighborBonus * 1.1);
-                    }
+            }
 
-                    techManager.updateCountry(countries[i]);
-                    cultureManager.updateCountry(countries[i], techManager);
-
+            // Tech/culture progression: tick in multi-year steps (scales with dtYears).
+            if (currentYear % 5 == 0) {
+                techManager.tickYear(countries, *this, &localEconomy.getLastTradeIntensity(), currentYear, 5);
+                cultureManager.tickYear(countries, *this, techManager, &localEconomy.getLastTradeIntensity(), currentYear, 5, news);
+                for (size_t i = 0; i < countries.size(); ++i) {
                     const size_t currentTechCount = techManager.getUnlockedTechnologies(countries[i]).size();
                     if (currentTechCount > lastTechCountPerCountry[i]) {
                         totalTechBreakthroughs += static_cast<int>(currentTechCount - lastTechCountPerCountry[i]);
@@ -2561,27 +3616,33 @@ bool Map::setCountryOwnerAssumingLockedImpl(int x, int y, int newOwner) {
         return false;
     }
 
-    // Incremental per-country aggregates (food sum and land cell count).
+    // Incremental per-country aggregates (food/non-food potential and land cell count).
     // These are used by fast-forward / mega simulation to compute carrying capacity cheaply.
     const size_t cellIdx = static_cast<size_t>(y * width + x);
     const double cellFood = (cellIdx < m_cellFood.size()) ? m_cellFood[cellIdx] : 0.0;
+    const double cellNonFood = (cellIdx < m_cellNonFood.size()) ? m_cellNonFood[cellIdx] : 0.0;
 
     if (oldOwner >= 0) {
         ensureCountryAggregateCapacityForIndex(oldOwner);
         m_countryLandCellCount[static_cast<size_t>(oldOwner)] -= 1;
-        m_countryFoodSum[static_cast<size_t>(oldOwner)] -= cellFood;
+        m_countryFoodPotential[static_cast<size_t>(oldOwner)] -= cellFood;
+        m_countryNonFoodPotential[static_cast<size_t>(oldOwner)] -= cellNonFood;
         if (m_countryLandCellCount[static_cast<size_t>(oldOwner)] < 0) {
             m_countryLandCellCount[static_cast<size_t>(oldOwner)] = 0;
         }
-        if (m_countryFoodSum[static_cast<size_t>(oldOwner)] < 0.0) {
+        if (m_countryFoodPotential[static_cast<size_t>(oldOwner)] < 0.0) {
             // Guard against numeric drift.
-            m_countryFoodSum[static_cast<size_t>(oldOwner)] = 0.0;
+            m_countryFoodPotential[static_cast<size_t>(oldOwner)] = 0.0;
+        }
+        if (m_countryNonFoodPotential[static_cast<size_t>(oldOwner)] < 0.0) {
+            m_countryNonFoodPotential[static_cast<size_t>(oldOwner)] = 0.0;
         }
     }
     if (newOwner >= 0) {
         ensureCountryAggregateCapacityForIndex(newOwner);
         m_countryLandCellCount[static_cast<size_t>(newOwner)] += 1;
-        m_countryFoodSum[static_cast<size_t>(newOwner)] += cellFood;
+        m_countryFoodPotential[static_cast<size_t>(newOwner)] += cellFood;
+        m_countryNonFoodPotential[static_cast<size_t>(newOwner)] += cellNonFood;
     }
 
     // Ensure the tracking structures can represent any index we touch.
@@ -2602,6 +3663,20 @@ bool Map::setCountryOwnerAssumingLockedImpl(int x, int y, int newOwner) {
 
         removeBorderContact(oldOwner, neighborOwner);
         addBorderContact(newOwner, neighborOwner);
+    }
+
+    // Keep Country territory containers consistent with the authoritative grid.
+    if (m_ownershipSyncCountries) {
+        auto& countries = *m_ownershipSyncCountries;
+        const sf::Vector2i cell(x, y);
+        if (oldOwner >= 0 && oldOwner < static_cast<int>(countries.size()) &&
+            countries[static_cast<size_t>(oldOwner)].getCountryIndex() == oldOwner) {
+            countries[static_cast<size_t>(oldOwner)].removeTerritoryCell(cell);
+        }
+        if (newOwner >= 0 && newOwner < static_cast<int>(countries.size()) &&
+            countries[static_cast<size_t>(newOwner)].getCountryIndex() == newOwner) {
+            countries[static_cast<size_t>(newOwner)].addTerritoryCell(cell);
+        }
     }
 
     m_countryGrid[y][x] = newOwner;

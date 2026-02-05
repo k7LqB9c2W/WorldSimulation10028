@@ -28,6 +28,79 @@ TradeManager::TradeManager(SimulationContext& ctx) : m_rng(ctx.makeRng(0x5452414
     std::cout << "🏪 Trade & Economic Exchange Framework initialized!" << std::endl;
 }
 
+void TradeManager::ensureSeaNavPublic(const Map& map) {
+    ensureSeaNavGrid(map);
+}
+
+bool TradeManager::findSeaPathLenPx(const Map& map,
+                                   const sf::Vector2i& fromPortCell,
+                                   const sf::Vector2i& toCoastCell,
+                                   float& outLenPx) {
+    outLenPx = 0.0f;
+    ensureSeaNavGrid(map);
+    if (!m_seaNav.ready || m_seaNav.width <= 0 || m_seaNav.height <= 0) {
+        return false;
+    }
+
+    const Vector2i from(fromPortCell.x, fromPortCell.y);
+    const Vector2i to(toCoastCell.x, toCoastCell.y);
+
+    const std::vector<Vector2i> docksA = findDockCandidates(from, map);
+    const std::vector<Vector2i> docksB = findDockCandidates(to, map);
+    if (docksA.empty() || docksB.empty()) {
+        return false;
+    }
+
+    // Pick the closest dock-pair within the same sea component (cheap pre-filter).
+    Vector2i bestStartNav;
+    Vector2i bestGoalNav;
+    bool foundDockPair = false;
+    int bestScore = std::numeric_limits<int>::max();
+    for (const auto& da : docksA) {
+        const int aNavIdx = da.y * m_seaNav.width + da.x;
+        if (aNavIdx < 0 || aNavIdx >= static_cast<int>(m_seaNav.componentId.size())) continue;
+        const int aComp = m_seaNav.componentId[static_cast<size_t>(aNavIdx)];
+        if (aComp < 0) continue;
+
+        for (const auto& db : docksB) {
+            const int bNavIdx = db.y * m_seaNav.width + db.x;
+            if (bNavIdx < 0 || bNavIdx >= static_cast<int>(m_seaNav.componentId.size())) continue;
+            const int bComp = m_seaNav.componentId[static_cast<size_t>(bNavIdx)];
+            if (bComp != aComp) continue;
+
+            const int dx = da.x - db.x;
+            const int dy = da.y - db.y;
+            const int d2 = dx * dx + dy * dy;
+            if (d2 < bestScore) {
+                bestScore = d2;
+                bestStartNav = da;
+                bestGoalNav = db;
+                foundDockPair = true;
+            }
+        }
+    }
+    if (!foundDockPair) {
+        return false;
+    }
+
+    std::vector<Vector2i> navPath;
+    if (!findSeaPathCached(bestStartNav, bestGoalNav, navPath)) {
+        return false;
+    }
+    if (navPath.size() < 2) {
+        return false;
+    }
+
+    float total = 0.0f;
+    for (size_t i = 1; i < navPath.size(); ++i) {
+        const int dx = navPath[i].x - navPath[i - 1].x;
+        const int dy = navPath[i].y - navPath[i - 1].y;
+        total += std::sqrt(static_cast<float>(dx * dx + dy * dy)) * static_cast<float>(m_seaNav.step);
+    }
+    outLenPx = total;
+    return true;
+}
+
 void TradeManager::beginExportsYear(int year, size_t countryCount) {
     m_lastCountryExportsYear = year;
     m_countryExportsValue.assign(countryCount, 0.0);
@@ -839,7 +912,7 @@ void TradeManager::establishShippingRoutes(std::vector<Country>& countries, int 
         return TechnologyManager::hasTech(techManager, c, 12); // Shipbuilding
     };
     auto hasNavigation = [&](const Country& c) {
-        return TechnologyManager::hasTech(techManager, c, 43); // Navigation
+        return TechnologyManager::hasTech(techManager, c, TechId::NAVIGATION); // Navigation
     };
 
     for (size_t i = 0; i < countries.size(); ++i) {
@@ -1165,7 +1238,7 @@ double TradeManager::getTradeScore(int countryA, int countryB, int currentYear) 
 
 bool TradeManager::hasCurrency(const Country& country, const TechnologyManager& techManager) const {
     // Check for Currency technology (ID 15)
-    return TechnologyManager::hasTech(techManager, country, 15);
+    return TechnologyManager::hasTech(techManager, country, TechId::CURRENCY);
 }
 
 bool TradeManager::hasMarkets(const Country& country, const TechnologyManager& techManager) const {
@@ -1175,12 +1248,12 @@ bool TradeManager::hasMarkets(const Country& country, const TechnologyManager& t
 
 bool TradeManager::hasNavigation(const Country& country, const TechnologyManager& techManager) const {
     // Check for Navigation technology (ID 43)
-    return TechnologyManager::hasTech(techManager, country, 43);
+    return TechnologyManager::hasTech(techManager, country, TechId::NAVIGATION);
 }
 
 bool TradeManager::hasBanking(const Country& country, const TechnologyManager& techManager) const {
     // Check for Banking technology (ID 34)
-    return TechnologyManager::hasTech(techManager, country, 34);
+    return TechnologyManager::hasTech(techManager, country, TechId::BANKING);
 }
 
 // 📊 HELPER FUNCTIONS

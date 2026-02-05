@@ -22,6 +22,9 @@ public:
     void render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const CultureManager& cultureManager, const TradeManager& tradeManager, const Country* selectedCountry, bool showCountryInfo, ViewMode viewMode);
     void toggleWarmongerHighlights();
     void toggleWealthLeaderboard();
+    void toggleClimateOverlay();
+    void cycleClimateOverlayMode();
+    void toggleOverseasOverlay();
     void updateYearText(int year);
     void setNeedsUpdate(bool needsUpdate);
     void setPaintHud(bool show, const std::string& text);
@@ -147,18 +150,41 @@ private:
 
 		    bool ensureWorldComposite(const Map& map);
 		    void ensureStarfield();
-		    sf::Vector2f globeCenter() const;
-		    float globeRadiusPx() const;
+	    sf::Vector2f globeCenter() const;
+	    float globeRadiusPx() const;
 
-		    void drawWarmongerHighlights(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map);
-		    void drawWarHighlights(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map);
-		    void drawRoadNetwork(sf::RenderTarget& target, const Country& country, const Map& map, const TechnologyManager& technologyManager, const sf::FloatRect& visibleArea);
-		    void drawFactories(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
-		    void drawPorts(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
-		    void drawAirwayPlanes(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map);
-            void drawShippingShips(sf::RenderTarget& target, const TradeManager& tradeManager, const Map& map, const sf::FloatRect& visibleArea);
-		    void drawTradeRoutes(sf::RenderTarget& target, const TradeManager& tradeManager, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
-		    void drawPlagueOverlay(sf::RenderTarget& target, const Map& map, const std::vector<Country>& countries, const sf::FloatRect& visibleArea);
-		    void drawWarFrontlines(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
-		    void drawWarArrows(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
-		};
+	    void drawWarmongerHighlights(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map);
+	    void drawWarHighlights(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map);
+	    void drawRoadNetwork(sf::RenderTarget& target, const Country& country, const Map& map, const TechnologyManager& technologyManager, const sf::FloatRect& visibleArea);
+	    void drawFactories(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+	    void drawPorts(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+	    void drawAirwayPlanes(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map);
+        void drawShippingShips(sf::RenderTarget& target, const TradeManager& tradeManager, const Map& map, const sf::FloatRect& visibleArea);
+	    void drawTradeRoutes(sf::RenderTarget& target, const TradeManager& tradeManager, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+	    void drawPlagueOverlay(sf::RenderTarget& target, const Map& map, const std::vector<Country>& countries, const sf::FloatRect& visibleArea);
+	    void drawWarFrontlines(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+	    void drawWarArrows(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
+
+        // Phase 6: climate debug overlay (field-grid texture).
+        void updateClimateOverlayTexture(const Map& map);
+        void updateOverseasOverlayTexture(const Map& map);
+
+        bool m_showClimateOverlay = false;
+        int m_climateOverlayMode = 0; // 0=zone,1=biome,2=tempMean,3=precMean
+        int m_climateOverlayLastYear = -9999999;
+        int m_climateOverlayLastMode = -1;
+        int m_climateW = 0;
+        int m_climateH = 0;
+        std::vector<sf::Uint8> m_climatePixels;
+        sf::Texture m_climateTex;
+        sf::Sprite m_climateSprite;
+
+        // Phase 7: overseas debug overlay (field-grid texture).
+        bool m_showOverseasOverlay = false;
+        int m_overseasOverlayLastYear = -9999999;
+        int m_overseasW = 0;
+        int m_overseasH = 0;
+        std::vector<sf::Uint8> m_overseasPixels;
+        sf::Texture m_overseasTex;
+        sf::Sprite m_overseasSprite;
+				};

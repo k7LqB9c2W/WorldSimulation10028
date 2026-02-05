@@ -1,0 +1,268 @@
+## Roadmap to “realism-first” alternate Earth AI (5000 BCE to modern)
+
+This is ordered by dependency and realism impact. Each phase ends with clear “done when” checks.
+
+---
+
+## Phase 0: Stability and de-rail the sim (easy, high impact)
+
+**Do first.** This stops fake outcomes and makes later work meaningful.
+
+1. Fix correctness bugs that block progression
+
+* Unique tech IDs (your duplicate ID breaks progression)
+* Re-enable civic tech requirements
+* Stop zeroing culture remainder after unlock
+* Replace `rand()` with seeded RNG for determinism
+
+2. Remove hard rails that force history
+
+* Delete year-based expansion caps
+* Remove any “magic” growth/expansion spikes tied to time
+
+**Done when**
+
+* Same seed produces same world every run
+* Tech and civics unlock as intended
+* Empires can rise and fall without calendar forcing
+
+Difficulty: easy
+
+---
+
+## Phase 1: Core AI driver, pressures + constraints (medium, massive impact)
+
+**This is the heart of hands-off realism.** It replaces babysitting with hard rules.
+
+Add per-polity pressures (scalars)
+
+* survival, revenue, legitimacy, opportunity
+
+Add constraints (scalars)
+
+* admin capacity, fiscal capacity, logistics reach
+
+Add an action chooser (every N years)
+Generic actions only:
+
+* invest admin, invest infra, tax reform, trade policy, fortify, raid, expand locally, sue for peace, alliance, repress, decentralize, invest health, invest education
+
+No colonization action yet. That comes later as “external projection” once it is feasible.
+
+**Done when**
+
+* States behave sensibly without scripts: poor states seek revenue, threatened states arm, unstable states reform or repress
+* You can remove most random war triggers and still see conflict
+
+Difficulty: medium
+
+---
+
+## Phase 2: Control field and state churn (medium-hard, fixes immortal countries)
+
+This is what makes 5000 BCE tags not survive to 2025 CE.
+
+1. Distance-based control
+
+* Control decays with distance, terrain cost, low infrastructure, low admin
+* Low control reduces tax take, increases revolt risk, slows military response
+
+2. Polity birth, death, and tag replacement
+
+* Fragmentation into successor states when control collapses
+* Annexation deletes polities instead of leaving ghosts
+* Tag replacement when a new ruling coalition dominates core regions
+
+3. Minimal factions (keep it light)
+
+* 3 to 5 factions with power and satisfaction (land elites, merchants, clergy, military, urban)
+* Low satisfaction drives coups, civil wars, decentralization
+
+**Done when**
+
+* Median polity lifespan in early eras is centuries, not millennia
+* Borders change often early, stabilize mid, then can destabilize again later
+
+Difficulty: medium-hard
+
+---
+
+## Phase 3: Spatial population and cities (hard, required for “humans on Earth” feel)
+
+You cannot get realism without people living in places.
+
+1. Population per econ cell or per city node
+
+* Births and deaths depend on local food and disease pressure
+* Migration responds to crowding, income proxy, safety
+
+2. Cities as first-class objects
+
+* City population, market access, specialization
+* Innovation and state capacity growth scale with urban population
+
+**Done when**
+
+* River/coast-like corridors (even if fake for now) become dense
+* You see urban cores, frontiers, and depopulated war zones
+
+Difficulty: hard
+
+---
+
+## Phase 4: Economy and trade that obey constraints (hard, second biggest realism lever)
+
+Keep it lightweight but stop “diffusion trade.”
+
+1. Sector split (minimum)
+
+* food vs non-food (later add energy/materials/services)
+
+2. Conserved accounting
+
+* output, consumption, investment, depreciation
+* government extraction and spending are explicit
+
+3. Directed trade with transport cost
+
+* surplus goes to deficits if price gap beats cost
+* ports and routes matter
+* this plugs into your logistics reach
+
+**Done when**
+
+* Ports and chokepoints matter
+* Landlocked interiors are poorer unless they build routes
+* Trade collapses during war and causes real shortages
+
+Difficulty: hard
+
+---
+
+## Phase 5: Replace science points and culture points (medium, high realism)
+
+Do this after cities and economy exist so the drivers are real.
+
+Science replacement
+
+* innovation_rate from surplus + urban pop + education + stability
+* diffusion_gain from contact (trade, borders, war)
+* domains (6 to 10) feed tech unlock thresholds
+
+Culture replacement
+
+* slow traits at people layer
+* institutions as adoption dynamics with transition costs and feasibility gates
+* reforms selected by pressures, not currency spending
+
+**Done when**
+
+* Tribes do not “save points” and leap unrealistically
+* Connected regions converge faster than isolated ones
+* State capacity and institutions become the main limiter
+
+Difficulty: medium
+
+---
+
+## Phase 6: Climate and weather integration (medium-hard, big realism payoff)
+
+Do this once the sim consumes “environment multipliers” cleanly.
+
+1. Environment fields interface first (so it is a plug-in)
+
+* temp_mean, precip_mean, seasonality, disease_pressure, movement_cost
+* yield multipliers derived from those
+
+2. Simple climatology generator
+
+* latitude bands + distance-to-coast continentality
+* simple moisture advection along prevailing winds
+
+3. Weather anomalies (yearly or seasonal)
+
+* correlated drought and flood years
+* feed into food output, migration, legitimacy, conflict risk
+
+**Done when**
+
+* Coasts are milder, interiors harsher
+* Subtropical belts tend to be drier
+* Drought years trigger migrations and collapses sometimes
+
+Difficulty: medium-hard
+
+---
+
+## Phase 7: Exploration and colonization as emergent behavior (medium)
+
+Now colonization appears naturally.
+
+1. Known world and route knowledge
+
+* exploration expands map knowledge and reduces route risk
+
+2. External projection ladder
+
+* trade outpost -> fort -> colony
+* only chosen when opportunity pressure is high and maritime logistics + finance + rivalry make it worthwhile
+
+3. Colonial autonomy mechanics
+
+* distance control and local elites can produce independence
+
+**Done when**
+
+* You see trade posts first, then forts, then settlement colonies
+* Colonial collapse and independence can happen without scripts
+
+Difficulty: medium
+
+---
+
+## Phase 8: Calibration harness and realism targets (easy-medium, locks in quality)
+
+This is how you keep accuracy without babysitting.
+
+Add batch runs and check distributions:
+
+* polity lifespans by era
+* share of territory changing per century
+* city size distribution heavy-tail
+* trade gravity pattern proxy
+* preindustrial per-capita bounded until energy transition
+
+**Done when**
+
+* You can change parameters and immediately see if realism drifted
+
+Difficulty: easy-medium
+
+---
+
+## Phase 9: Performance, GPU placement, and polish (ongoing, last)
+
+Move what is hot to GPU after the logic is correct:
+GPU-best
+
+* environment fields, disease spread, control/supply reach, migration pressure, grid production
+
+CPU-best
+
+* factions, budgets, diplomacy, war goals, peace deals, tag replacement, exploration graph
+
+**Done when**
+
+* Mega time jump stays fast and stable
+* Results look consistent across long runs
+
+Difficulty: ongoing
+
+---
+
+## What to do first vs last, in one line
+
+**First:** remove rails and bugs, add pressures + constraints AI, add control field and churn.
+**Last:** full climate realism, exploration/colonization ladder, heavy economy detail, then performance tuning.
+
+This ordering solves your current biggest realism issue early (immortal states), then builds upward toward believable human geography, economics, and finally climate and overseas expansion.

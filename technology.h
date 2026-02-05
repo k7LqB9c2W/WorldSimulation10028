@@ -5,13 +5,38 @@
 #include <unordered_map>
 
 class Country;
+class Map;
 
 struct Technology {
     std::string name;
     int cost;
     int id;
     std::vector<int> requiredTechs;
+    int domainId = 0;       // Phase 5A: knowledge domain index (0..Country::kDomains-1)
+    double threshold = 0.0; // Phase 5A: knowledge threshold to unlock (no point spending)
 };
+
+// Authoritative technology ID constants.
+// Keep these aligned with TechnologyManager::initializeTechnologies().
+namespace TechId {
+    constexpr int WRITING = 11;
+    constexpr int CONSTRUCTION = 16;
+    constexpr int CURRENCY = 15;
+
+    constexpr int EDUCATION = 30;
+    constexpr int CIVIL_SERVICE = 32;
+    constexpr int BANKING = 34;
+    constexpr int ECONOMICS = 45;
+
+    constexpr int UNIVERSITIES = 39;
+    constexpr int ASTRONOMY = 40;
+    constexpr int SCIENTIFIC_METHOD = 49;
+
+    constexpr int METALLURGY = 42;
+    constexpr int NAVIGATION = 43;
+
+    constexpr int SANITATION = 96;
+}
 
 class TechnologyManager {
 public:
@@ -24,6 +49,13 @@ public:
     const std::vector<int>& getUnlockedTechnologies(const Country& country) const;
     const std::vector<int>& getSortedTechnologyIds() const;
     void setUnlockedTechnologiesForEditor(Country& country, const std::vector<int>& techIds, bool includePrerequisites);
+
+    // Phase 5A: update knowledge (innovation + diffusion) and then unlock technologies by thresholds.
+    void tickYear(std::vector<Country>& countries,
+                  const Map& map,
+                  const std::vector<float>* tradeIntensityMatrix,
+                  int currentYear,
+                  int dtYears);
     
     // POPULATION SYSTEM HELPERS
     static bool hasTech(const TechnologyManager& tm, const Country& c, int id);

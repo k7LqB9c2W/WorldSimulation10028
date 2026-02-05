@@ -3,6 +3,7 @@
 #include "country.h"
 #include "map.h"
 #include "technology.h"
+#include "culture.h"
 #include "simulation_context.h"
 #include <random>
 #include <algorithm>
@@ -59,7 +60,8 @@ Country::Country(int countryIndex,
     m_fragmentationCooldown(0),
     m_yearsSinceWar(0)
 {
-    m_boundaryPixels.insert(startCell);
+    addTerritoryCell(startCell);
+    m_traits.fill(0.5);
     //intiialize war check
 
     // Set initial military strength based on type
@@ -377,6 +379,93 @@ void Country::setLegitimacy(double v) {
     m_polity.legitimacy = std::max(0.0, std::min(1.0, v));
 }
 
+void Country::addAdminCapacity(double dv) {
+    m_polity.adminCapacity = std::max(0.0, std::min(1.0, m_polity.adminCapacity + dv));
+}
+
+void Country::addFiscalCapacity(double dv) {
+    m_polity.fiscalCapacity = std::max(0.0, std::min(1.0, m_polity.fiscalCapacity + dv));
+}
+
+void Country::addLogisticsReach(double dv) {
+    m_polity.logisticsReach = std::max(0.0, std::min(1.0, m_polity.logisticsReach + dv));
+}
+
+void Country::addDebt(double dv) {
+    m_polity.debt = std::max(0.0, m_polity.debt + dv);
+}
+
+void Country::addEducationSpendingShare(double dv) {
+    m_polity.educationSpendingShare = std::max(0.0, m_polity.educationSpendingShare + dv);
+}
+
+void Country::addHealthSpendingShare(double dv) {
+    m_polity.healthSpendingShare = std::max(0.0, m_polity.healthSpendingShare + dv);
+}
+
+void Country::applyBudgetFromEconomy(double taxBaseAnnual,
+                                    double taxTakeAnnual,
+                                    int dtYears,
+                                    int techCount,
+                                    bool plagueAffected) {
+    auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+
+    const int years = std::max(1, dtYears);
+    const double yearsD = static_cast<double>(years);
+
+    setLastTaxStats(taxBaseAnnual, taxTakeAnnual);
+
+    const double incomeAnnual = std::max(0.0, taxTakeAnnual);
+
+    double spendRate = std::clamp(m_polity.treasurySpendRate, 0.3, 2.0);
+    if (m_isAtWar) {
+        spendRate = std::min(2.0, spendRate + 0.25);
+    }
+    const double expensesAnnual = incomeAnnual * spendRate;
+
+    m_gold += (incomeAnnual - expensesAnnual) * yearsD;
+    if (m_gold < 0.0) {
+        m_polity.debt += -m_gold;
+        m_gold = 0.0;
+        m_polity.legitimacy = clamp01(m_polity.legitimacy - 0.03);
+        m_stability = clamp01(m_stability - 0.03);
+    }
+    m_polity.debt *= std::pow(1.01, yearsD);
+
+    // Capacity accumulation (slow), driven by spending shares and current technical level.
+    const double techFactor = 1.0 + 0.015 * static_cast<double>(std::max(0, techCount));
+    m_polity.adminCapacity = clamp01(m_polity.adminCapacity + yearsD * (0.00035 * m_polity.adminSpendingShare * techFactor));
+    m_polity.fiscalCapacity = clamp01(m_polity.fiscalCapacity + yearsD * (0.00030 * m_polity.adminSpendingShare * techFactor));
+    m_polity.logisticsReach = clamp01(m_polity.logisticsReach + yearsD * (0.00040 * m_polity.infraSpendingShare * techFactor));
+
+    // Cities as administrative nodes (derived from population geography).
+    {
+        const double cityPopMillions = std::max(0.0, m_totalCityPopulation) / 1'000'000.0;
+        const double boost = std::log1p(cityPopMillions);
+        m_polity.adminCapacity = clamp01(m_polity.adminCapacity + yearsD * (0.00010 * boost));
+        m_polity.fiscalCapacity = clamp01(m_polity.fiscalCapacity + yearsD * (0.00006 * boost));
+        m_polity.logisticsReach = clamp01(m_polity.logisticsReach + yearsD * (0.00005 * boost));
+    }
+
+    // Legitimacy drift (annualized).
+    {
+        const double taxRate = std::clamp(m_polity.taxRate, 0.02, 0.45);
+        const double control = std::clamp(m_avgControl, 0.0, 1.0);
+        const double stability = std::clamp(m_stability, 0.0, 1.0);
+        double d = 0.0;
+        d += 0.002 * (stability - 0.5);
+        d -= std::max(0.0, taxRate - 0.12) * 0.04;
+        d -= (1.0 - control) * 0.010;
+        if (incomeAnnual > 1.0 && m_polity.debt > incomeAnnual * 3.0) d -= 0.01;
+        if (plagueAffected) d -= 0.02;
+        if (m_isAtWar) d -= 0.01;
+        m_polity.legitimacy = clamp01(m_polity.legitimacy + d * yearsD);
+    }
+
+    // Low territorial control creates local failure that feeds back into stability.
+    m_stability = clamp01(m_stability - yearsD * (1.0 - std::clamp(m_avgControl, 0.0, 1.0)) * 0.006);
+}
+
 void Country::setFragmentationCooldown(int years) {
     m_fragmentationCooldown = std::max(0, years);
 }
@@ -406,6 +495,16 @@ void Country::setStartingPixel(const sf::Vector2i& cell) {
 
 void Country::setTerritory(const std::unordered_set<sf::Vector2i>& territory) {
     m_boundaryPixels = territory;
+    m_territoryVec.assign(m_boundaryPixels.begin(), m_boundaryPixels.end());
+    std::sort(m_territoryVec.begin(), m_territoryVec.end(), [](const sf::Vector2i& a, const sf::Vector2i& b) {
+        if (a.y != b.y) return a.y < b.y;
+        return a.x < b.x;
+    });
+    m_territoryIndex.clear();
+    m_territoryIndex.reserve(m_territoryVec.size());
+    for (size_t i = 0; i < m_territoryVec.size(); ++i) {
+        m_territoryIndex[m_territoryVec[i]] = i;
+    }
 }
 
 void Country::setCities(const std::vector<City>& cities) {
@@ -495,60 +594,18 @@ bool Country::isNeighbor(const Country& other) const {
 
 	    normalizeBudgetShares();
 
-	    // Phase 1: simplified budgets (gold is the treasury stock).
-	    const double techFactor = 1.0 + 0.015 * static_cast<double>(techCount);
-	    const double cityFactor = 1.0 + 0.05 * static_cast<double>(m_cities.size());
-	    const double taxableBase = std::max(0.0, static_cast<double>(m_population) * techFactor * cityFactor);
-	    const double taxRate = std::clamp(m_polity.taxRate, 0.02, 0.45);
-	    const double fiscal = std::clamp(m_polity.fiscalCapacity, 0.05, 1.0);
-	    double income = taxableBase * taxRate * fiscal;
-	    income *= (0.6 + 0.4 * m_stability);
-	    income *= (0.5 + 0.5 * std::clamp(m_avgControl, 0.0, 1.0)); // corruption/leakage from low control
+	        // Phase 0-3 audit fix: ResourceManager must not accumulate free, static-map resources over time.
+	        // Treat it as a per-year extraction/report scratch (it can be replaced by Phase 4 macro economy).
+	        m_resourceManager = ResourceManager();
 
-	    double spendRate = std::clamp(m_polity.treasurySpendRate, 0.3, 2.0);
-	    if (m_isAtWar) {
-	        spendRate = std::min(2.0, spendRate + 0.25);
-	    }
-	    const double expenses = income * spendRate;
-
-	    m_gold += income - expenses;
-	    if (m_gold < 0.0) {
-	        m_polity.debt += -m_gold;
-	        m_gold = 0.0;
-	        m_polity.legitimacy = clamp01(m_polity.legitimacy - 0.03);
-	        m_stability = clamp01(m_stability - 0.03);
-	    }
-	    m_polity.debt *= 1.01;
-
-	    // Capacity accumulation (slow).
-	    m_polity.adminCapacity = clamp01(m_polity.adminCapacity + 0.00035 * m_polity.adminSpendingShare * techFactor);
-	    m_polity.fiscalCapacity = clamp01(m_polity.fiscalCapacity + 0.00030 * m_polity.adminSpendingShare * techFactor);
-	    m_polity.logisticsReach = clamp01(m_polity.logisticsReach + 0.00040 * m_polity.infraSpendingShare * techFactor);
-
-	    // Phase 3: cities as administrative nodes (derived from population geography).
-	    {
-	        const double cityPopMillions = std::max(0.0, m_totalCityPopulation) / 1'000'000.0;
-	        const double boost = std::log1p(cityPopMillions);
-	        m_polity.adminCapacity = clamp01(m_polity.adminCapacity + 0.00010 * boost);
-	        m_polity.fiscalCapacity = clamp01(m_polity.fiscalCapacity + 0.00006 * boost);
-	        m_polity.logisticsReach = clamp01(m_polity.logisticsReach + 0.00005 * boost);
-	    }
-
-	    // Legitimacy drift.
-	    {
-	        const bool plagueAffected = plagueActive && map.isCountryAffectedByPlague(m_countryIndex);
-	        double d = 0.0;
-	        d += 0.002 * (m_stability - 0.5);
-	        d -= std::max(0.0, taxRate - 0.12) * 0.04;
-	        d -= (1.0 - std::clamp(m_avgControl, 0.0, 1.0)) * 0.010;
-	        if (income > 1.0 && m_polity.debt > income * 3.0) d -= 0.01;
-	        if (plagueAffected) d -= 0.02;
-	        if (m_isAtWar) d -= 0.01;
-	        m_polity.legitimacy = clamp01(m_polity.legitimacy + d);
-	    }
-
-	    // Low territorial control creates local failure that feeds back into stability.
-	    m_stability = clamp01(m_stability - (1.0 - std::clamp(m_avgControl, 0.0, 1.0)) * 0.006);
+		    // Phase 4 integration: budgets/extraction are computed from the macro economy.
+		    // Use last year's tax take as a local proxy for decision-making (updated in EconomyModelCPU).
+		    const double income = std::max(0.0, m_lastTaxTake);
+		    double spendRate = std::clamp(m_polity.treasurySpendRate, 0.3, 2.0);
+		    if (m_isAtWar) {
+		        spendRate = std::min(2.0, spendRate + 0.25);
+		    }
+		    const double expenses = income * spendRate;
 
 	    // Phase 1: pressures & constraint-driven action selection (cadenced).
 	    struct Pressures { double survival = 0.0, revenue = 0.0, legitimacy = 0.0, opportunity = 0.0; };
@@ -600,13 +657,11 @@ bool Country::isNeighbor(const Country& other) const {
 	    pressures.legitimacy = clamp01((1.0 - m_polity.legitimacy) * 0.7 + (1.0 - m_stability) * 0.3);
 
 	    double frontierScore = 0.0;
-	    if (!m_boundaryPixels.empty()) {
-	        const int samples = std::min<int>(64, static_cast<int>(m_boundaryPixels.size()));
-	        std::uniform_int_distribution<size_t> pick(0u, m_boundaryPixels.size() - 1u);
+	    if (!m_territoryVec.empty()) {
+	        const int samples = std::min<int>(64, static_cast<int>(m_territoryVec.size()));
+	        std::uniform_int_distribution<size_t> pick(0u, m_territoryVec.size() - 1u);
 	        for (int s = 0; s < samples; ++s) {
-	            auto it = m_boundaryPixels.begin();
-	            std::advance(it, static_cast<long>(pick(gen)));
-	            const sf::Vector2i cell = *it;
+	            const sf::Vector2i cell = m_territoryVec[pick(gen)];
 	            static const int dirs4[4][2] = {{1,0},{-1,0},{0,1},{0,-1}};
 	            for (const auto& d : dirs4) {
 	                const int nx = cell.x + d[0];
@@ -687,26 +742,8 @@ bool Country::isNeighbor(const Country& other) const {
 		        m_militaryStrength = 0.90 * m_militaryStrength + 0.10 * desired;
 		    }
 
-    // Science point generation - NEW COMPREHENSIVE SCALER SYSTEM
-    double totalScienceIncrease = calculateScienceGeneration();
-    addSciencePoints(totalScienceIncrease);
-
-    // Culture point generation
-    double culturePointIncrease = 1.0; // Base culture point per year
-
-    // Apply multipliers based on CultureType
-    if (m_cultureType == CultureType::MC) {
-        // MC countries get 1.1x to 2x culture points
-        std::uniform_real_distribution<double> mult(1.1, 2.0);
-        culturePointIncrease *= mult(gen);
-    }
-    else if (m_cultureType == CultureType::LC) {
-        // LC countries get 0.1x to 0.35x culture points
-        std::uniform_real_distribution<double> mult(0.1, 0.35);
-        culturePointIncrease *= mult(gen);
-    }
-
-    addCulturePoints(culturePointIncrease * m_cultureMultiplier);
+        // Phase 5: science/culture point currencies removed. Innovation is modeled as knowledge rates,
+        // and culture as traits + institution adoption (handled in TechnologyManager/CultureManager).
 
     // Phase 0/1: Replace the year-based expansion rail with an admin/logistics cap.
     const int maxExpansionPixels = std::max(20,
@@ -724,7 +761,7 @@ bool Country::isNeighbor(const Country& other) const {
 
     std::vector<sf::Vector2i> newBoundaryPixels;
     // 🚀 NUCLEAR OPTIMIZATION: Don't copy entire grid - work directly on main grid with proper locking
-    std::vector<sf::Vector2i> currentBoundaryPixels(m_boundaryPixels.begin(), m_boundaryPixels.end());
+    std::vector<sf::Vector2i> currentBoundaryPixels = m_territoryVec;
 
     // Type is flavor only: keep any behavioral weighting small.
     const double warmongerWarMultiplier = 1.10;
@@ -855,8 +892,6 @@ bool Country::isNeighbor(const Country& other) const {
                             continue;
                         }
                         map.setCountryOwnerAssumingLocked(cell.x, cell.y, m_countryIndex);
-                        m_boundaryPixels.insert(cell);
-                        primaryEnemy->m_boundaryPixels.erase(cell);
 
                         int regionIndex = static_cast<int>((cell.y / regionSize) * (isLandGrid[0].size() / regionSize) + (cell.x / regionSize));
                         dirtyRegions.insert(regionIndex);
@@ -937,7 +972,6 @@ bool Country::isNeighbor(const Country& other) const {
 	                    int regionIndex = static_cast<int>((bestCell.y / regionSize) * (isLandGrid[0].size() / regionSize) + (bestCell.x / regionSize));
 	                    dirtyRegions.insert(regionIndex);
 	                    newBoundaryPixels.push_back(bestCell);
-	                    m_boundaryPixels.insert(bestCell);
 	                }
 	            }
 	        }
@@ -967,7 +1001,7 @@ bool Country::isNeighbor(const Country& other) const {
                 };
                 std::uniform_int_distribution<> dirDist(0, static_cast<int>(blobDirections.size()) - 1);
 
-                std::vector<sf::Vector2i> boundaryVector(m_boundaryPixels.begin(), m_boundaryPixels.end());
+                std::vector<sf::Vector2i> boundaryVector = m_territoryVec;
                 std::shuffle(boundaryVector.begin(), boundaryVector.end(), gen);
 
                 sf::Vector2i chosenDir;
@@ -1109,14 +1143,12 @@ bool Country::isNeighbor(const Country& other) const {
                                 }
 
                                 newBoundaryPixels.push_back(cell);
-                                m_boundaryPixels.insert(cell);
                             }
                         }
 
 		                        for (auto& entry : capturedCells) {
 		                            Country* prevCountry = entry.first;
 		                            const sf::Vector2i& cell = entry.second;
-		                            prevCountry->m_boundaryPixels.erase(cell);
 		                            if (!usePopGrid) {
 		                                std::uniform_real_distribution<double> randomFactorDist(0.0, 1.0);
 		                                double randomFactor = randomFactorDist(gen);
@@ -1147,15 +1179,13 @@ bool Country::isNeighbor(const Country& other) const {
         
         // OPTIMIZATION 3: Sample random directions from random boundary pixels
         std::vector<sf::Vector2i> sampleBoundary;
-        int sampleSize = std::min(static_cast<int>(m_boundaryPixels.size()), 20); // Only sample 20 boundary pixels
+        int sampleSize = std::min(static_cast<int>(m_territoryVec.size()), 20); // Only sample 20 boundary pixels
         sampleBoundary.reserve(sampleSize);
-        
-        auto it = m_boundaryPixels.begin();
-        for (int i = 0; i < sampleSize; ++i) {
-            std::advance(it, gen() % std::max(1, static_cast<int>(m_boundaryPixels.size()) / sampleSize));
-            if (it != m_boundaryPixels.end()) {
-                sampleBoundary.push_back(*it);
-                it = m_boundaryPixels.begin(); // Reset iterator
+
+        if (sampleSize > 0) {
+            std::uniform_int_distribution<int> pick(0, std::max(0, static_cast<int>(m_territoryVec.size()) - 1));
+            for (int i = 0; i < sampleSize; ++i) {
+                sampleBoundary.push_back(m_territoryVec[static_cast<size_t>(pick(gen))]);
             }
         }
         
@@ -1193,7 +1223,6 @@ bool Country::isNeighbor(const Country& other) const {
             
             for (const auto& targetCell : burstTargets) {
                 map.setCountryOwnerAssumingLocked(targetCell.x, targetCell.y, m_countryIndex);
-                m_boundaryPixels.insert(targetCell);
                 
                 // Batch dirty region marking
                 int regionIndex = static_cast<int>((targetCell.y / regionSize) * (isLandGrid[0].size() / regionSize) + (targetCell.x / regionSize));
@@ -1298,30 +1327,18 @@ bool Country::isNeighbor(const Country& other) const {
     }
     // 🏙️ CITY GROWTH AND FOUNDING SYSTEM
     attemptFactoryConstruction(technologyManager, isLandGrid, countryGrid, gen, news);
-    if (!m_factories.empty()) {
-        double factoryOutput = static_cast<double>(m_factories.size());
-        double efficiencyBonus = TechnologyManager::hasTech(technologyManager, *this, 55) ? 1.5 : 1.0;
-        addGold(5.0 * factoryOutput * efficiencyBonus);
-        addSciencePoints(2.0 * factoryOutput * efficiencyBonus);
-        addCulturePoints(1.0 * factoryOutput);
-    }
 
-	    if (!usePopGrid) {
-	        checkCityGrowth(currentYear, news);
+		    if (!usePopGrid) {
+		        checkCityGrowth(currentYear, news);
 	        
 	        // Legacy random city founding (PopulationGrid mode uses Map::updateCitiesFromPopulation()).
 	        if (m_population >= 10000 && canFoundCity() && !m_boundaryPixels.empty()) {
-	            auto it = m_boundaryPixels.begin();
-	            std::advance(it, gen() % m_boundaryPixels.size());
-	            foundCity(*it, news);
+	            foundCity(randomTerritoryCell(gen), news);
 	        }
 	    }
 
-    // City management (add gold for each city)
-    m_gold += m_cities.size() * 1.0; // Each city produces 1 gold (optimized)
-    
     // 🏛️ CHECK FOR IDEOLOGY CHANGES
-    checkIdeologyChange(currentYear, news);
+    checkIdeologyChange(currentYear, news, technologyManager);
     
     // 🛣️ ROAD BUILDING SYSTEM - Build roads to other countries
     buildRoads(allCountries, map, isLandGrid, technologyManager, currentYear, news);
@@ -1331,12 +1348,6 @@ bool Country::isNeighbor(const Country& other) const {
 
     // ✈️ AIRWAY CONNECTIONS - Invisible long-range connections (for future air travel)
     buildAirways(allCountries, map, technologyManager, currentYear, news);
-
-    if (!m_airways.empty()) {
-        double routes = static_cast<double>(m_airways.size());
-        addGold(1.2 * routes);
-        addSciencePoints(0.8 * routes);
-    }
 
     // Decrement war and peace durations
     if (isAtWar()) {
@@ -1415,12 +1426,46 @@ int Country::getCountryIndex() const {
 
 // Add a boundary pixel to the country
 void Country::addBoundaryPixel(const sf::Vector2i& cell) {
-    m_boundaryPixels.insert(cell);
+    addTerritoryCell(cell);
 }
 
 // Get the country's boundary pixels
 const std::unordered_set<sf::Vector2i>& Country::getBoundaryPixels() const {
     return m_boundaryPixels;
+}
+
+void Country::addTerritoryCell(const sf::Vector2i& c) {
+    if (m_boundaryPixels.insert(c).second) {
+        const size_t idx = m_territoryVec.size();
+        m_territoryVec.push_back(c);
+        m_territoryIndex[c] = idx;
+    }
+}
+
+void Country::removeTerritoryCell(const sf::Vector2i& c) {
+    auto it = m_territoryIndex.find(c);
+    if (it == m_territoryIndex.end()) {
+        m_boundaryPixels.erase(c);
+        return;
+    }
+    const size_t idx = it->second;
+    const size_t last = m_territoryVec.empty() ? 0 : (m_territoryVec.size() - 1);
+    if (idx != last) {
+        const sf::Vector2i moved = m_territoryVec[last];
+        m_territoryVec[idx] = moved;
+        m_territoryIndex[moved] = idx;
+    }
+    m_territoryVec.pop_back();
+    m_territoryIndex.erase(it);
+    m_boundaryPixels.erase(c);
+}
+
+sf::Vector2i Country::randomTerritoryCell(std::mt19937_64& rng) const {
+    if (m_territoryVec.empty()) {
+        return getCapitalLocation();
+    }
+    std::uniform_int_distribution<size_t> pick(0u, m_territoryVec.size() - 1u);
+    return m_territoryVec[pick(rng)];
 }
 
 // Get the resource manager
@@ -1472,28 +1517,9 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
         stepLogisticFromFoodSum(r, foodSum, kMult, 1.0);
     }
 
-    attemptFactoryConstruction(technologyManager, isLandGrid, countryGrid, gen, news);
-    if (!m_factories.empty()) {
-        double factoryOutput = static_cast<double>(m_factories.size());
-        double efficiencyBonus = TechnologyManager::hasTech(technologyManager, *this, 55) ? 1.5 : 1.0;
-        addGold(5.0 * factoryOutput * efficiencyBonus);
-        addSciencePoints(2.0 * factoryOutput * efficiencyBonus);
-        addCulturePoints(1.0 * factoryOutput);
-    }
+	    attemptFactoryConstruction(technologyManager, isLandGrid, countryGrid, gen, news);
 
-    
-    // Add science points (same as normal update cadence).
-    addSciencePoints(calculateScienceGeneration());
-
-    // Culture point generation (match normal update shape).
-    double culturePointIncrease = 1.0;
-    std::uniform_real_distribution<> u01(0.0, 1.0);
-    if (m_cultureType == CultureType::MC) {
-        culturePointIncrease *= (1.1 + u01(gen) * (2.0 - 1.1));
-    } else if (m_cultureType == CultureType::LC) {
-        culturePointIncrease *= (0.1 + u01(gen) * (0.35 - 0.1));
-    }
-    addCulturePoints(culturePointIncrease * m_cultureMultiplier);
+    // Phase 5: science/culture point currencies removed (handled by knowledge + traits/institutions).
     
     // 🚀 ENHANCED FAST FORWARD EXPANSION - Use same advanced mechanics as normal update
     (void)yearIndex;
@@ -1519,7 +1545,7 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
             }
             
             // Normal expansion with technology bonuses
-            std::vector<sf::Vector2i> currentBoundary(m_boundaryPixels.begin(), m_boundaryPixels.end());
+            std::vector<sf::Vector2i> currentBoundary = m_territoryVec;
             for (int i = 0; i < growth; ++i) {
                 if (currentBoundary.empty()) break;
                 
@@ -1540,7 +1566,6 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
                     isLandGrid[newCell.y][newCell.x] && countryGrid[newCell.y][newCell.x] == -1) {
                     
                     map.setCountryOwner(newCell.x, newCell.y, m_countryIndex);
-                    m_boundaryPixels.insert(newCell);
                     
                     // 🔥 CRITICAL FIX: Mark region as dirty for visual update!
                     int regionSize = map.getRegionSize();
@@ -1562,10 +1587,12 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
                 
                 // Sample only 10 boundary pixels for speed
                 std::vector<sf::Vector2i> quickSample;
-                auto it = m_boundaryPixels.begin();
-                for (int i = 0; i < 10 && it != m_boundaryPixels.end(); ++i) {
-                    quickSample.push_back(*it);
-                    std::advance(it, std::max(1, static_cast<int>(m_boundaryPixels.size()) / 10));
+                const int sampleCount = std::min(10, static_cast<int>(m_territoryVec.size()));
+                if (sampleCount > 0) {
+                    const size_t stride = std::max<size_t>(1u, m_territoryVec.size() / static_cast<size_t>(sampleCount));
+                    for (int i = 0; i < sampleCount; ++i) {
+                        quickSample.push_back(m_territoryVec[(static_cast<size_t>(i) * stride) % m_territoryVec.size()]);
+                    }
                 }
                 
                 // Fast random expansion from sampled points
@@ -1593,7 +1620,6 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
                 // Batch apply all changes
                 for (const auto& targetCell : burstTargets) {
                     map.setCountryOwner(targetCell.x, targetCell.y, m_countryIndex);
-                    m_boundaryPixels.insert(targetCell);
                     
                     // Fast dirty region marking
                     int regionSize = map.getRegionSize();
@@ -1611,19 +1637,14 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
 	    // Simplified city founding - every 20 years (legacy path only)
 	    if (!usePopGrid) {
 	        if (!plagueAffected && (currentYear % 20 == 0) && m_population >= 10000 && canFoundCity() && !m_boundaryPixels.empty()) {
-	            auto it = m_boundaryPixels.begin();
-	            std::advance(it, gen() % m_boundaryPixels.size());
-	            foundCity(*it, news);
+	            foundCity(randomTerritoryCell(gen), news);
 	        }
 	    }
     
-    // Update gold from cities
-    m_gold += m_cities.size() * 1.0;
-    
-	    // Ideology changes - keep cadence calendar-based (avoids chunk artifacts).
-	    if (currentYear % 10 == 0) {
-	        checkIdeologyChange(currentYear, news);
-	    }
+		    // Ideology changes - keep cadence calendar-based (avoids chunk artifacts).
+			    if (currentYear % 10 == 0) {
+			        checkIdeologyChange(currentYear, news, technologyManager);
+			    }
 
 	    // Track population across years for stability/stagnation calculations (works for both internal and grid-driven demography).
 	    m_prevYearPopulation = m_population;
@@ -1637,7 +1658,7 @@ void Country::applyPlagueDeaths(long long deaths) {
 
 // 🧬 TECHNOLOGY EFFECTS SYSTEM
 void Country::applyTechnologyBonus(int techId) {
-    switch(techId) {
+	    switch(techId) {
         // 🌾 EARLY AGRICULTURAL TECHNOLOGIES
         case 10: // Irrigation
             // Population growth now handled by logistic system
@@ -1656,21 +1677,21 @@ void Country::applyTechnologyBonus(int techId) {
         case 14: // Mathematics
             m_sciencePointsBonus += 5.0; // +5.0 science points per year (mathematical thinking)
             break;
-        case 22: // Philosophy
-            m_sciencePointsBonus += 8.0; // +8.0 science points per year (systematic thinking)
-            break;
-        case 38: // Universities
-            m_sciencePointsBonus += 15.5; // +15.5 science points per year (organized learning + education)
-            m_maxSizeMultiplier += 0.30; // +30% max territory size (educated population)
-            m_researchMultiplier *= 1.10; // +10% research speed (organized learning)
-            break;
-        case 39: // Astronomy
-            m_sciencePointsBonus += 20.0; // +20.0 science points per year (scientific observation)
-            break;
-        case 48: // Scientific Method
-            m_sciencePointsBonus += 50.0; // +50.0 science points per year (RESEARCH REVOLUTION!)
-            m_researchMultiplier *= 1.10; // +10% research speed (scientific methodology)
-            break;
+	        case 22: // Philosophy
+	            m_sciencePointsBonus += 8.0; // +8.0 science points per year (systematic thinking)
+	            break;
+	        case TechId::UNIVERSITIES: // Universities
+	            m_sciencePointsBonus += 15.5; // +15.5 science points per year (organized learning + education)
+	            m_maxSizeMultiplier += 0.30; // +30% max territory size (educated population)
+	            m_researchMultiplier *= 1.10; // +10% research speed (organized learning)
+	            break;
+	        case TechId::ASTRONOMY: // Astronomy
+	            m_sciencePointsBonus += 20.0; // +20.0 science points per year (scientific observation)
+	            break;
+	        case TechId::SCIENTIFIC_METHOD: // Scientific Method
+	            m_sciencePointsBonus += 50.0; // +50.0 science points per year (RESEARCH REVOLUTION!)
+	            m_researchMultiplier *= 1.10; // +10% research speed (scientific methodology)
+	            break;
         case 54: // Electricity
             m_sciencePointsBonus += 30.0; // +30.0 science points per year (electrical age)
             m_researchMultiplier *= 1.05; // +5% research speed (electrical infrastructure)
@@ -1744,34 +1765,34 @@ void Country::applyTechnologyBonus(int techId) {
             m_burstExpansionRadius = 2; // Expand 2 pixels outward in bursts
             m_burstExpansionFrequency = 10; // Burst expansion every 10 years
             break;
-        case 26: // Compass
-            m_maxSizeMultiplier += 0.75; // +75% max territory size (navigation mastery)
-            m_expansionRateBonus += 20; // +20 pixels per year (precise navigation)
-            m_burstExpansionRadius = 3; // Expand 3 pixels outward in bursts
-            m_burstExpansionFrequency = 8; // Burst expansion every 8 years
-            break;
-        case 42: // Navigation
-            m_maxSizeMultiplier += 1.5; // +150% max territory size (MASSIVE COLONIAL EMPIRES!)
-            m_flatMaxSizeBonus += 2000; // +2000 coastal/ocean pixels (~190k sq mi) unlocked by blue-water navigation
-            m_expansionRateBonus += 90; // +90 pixels per year (enhanced colonial logistics)
-            m_burstExpansionRadius = 6; // Expand 6 pixels outward in bursts (deeper ocean corridors)
-            m_burstExpansionFrequency = 4; // Burst expansion every 4 years
-            break;
+	        case 26: // Compass
+	            m_maxSizeMultiplier += 0.75; // +75% max territory size (navigation mastery)
+	            m_expansionRateBonus += 20; // +20 pixels per year (precise navigation)
+	            m_burstExpansionRadius = 3; // Expand 3 pixels outward in bursts
+	            m_burstExpansionFrequency = 8; // Burst expansion every 8 years
+	            break;
+	        case TechId::NAVIGATION: // Navigation
+	            m_maxSizeMultiplier += 1.5; // +150% max territory size (MASSIVE COLONIAL EMPIRES!)
+	            m_flatMaxSizeBonus += 2000; // +2000 coastal/ocean pixels (~190k sq mi) unlocked by blue-water navigation
+	            m_expansionRateBonus += 90; // +90 pixels per year (enhanced colonial logistics)
+	            m_burstExpansionRadius = 6; // Expand 6 pixels outward in bursts (deeper ocean corridors)
+	            m_burstExpansionFrequency = 4; // Burst expansion every 4 years
+	            break;
             
         // 💰 ECONOMIC EXPANSION TECHNOLOGIES
-        case 34: // Banking
-            m_maxSizeMultiplier += 0.80; // +80% max territory size (economic expansion)
-            m_expansionRateBonus += 25; // +25 pixels per year (funded expansion)
-            break;
-        case 44: // Economics
-            m_maxSizeMultiplier += 1.2; // +120% max territory size (economic empires)
-            m_expansionRateBonus += 35; // +35 pixels per year (economic efficiency)
-            break;
-        case 35: // Printing
-            m_maxSizeMultiplier += 0.60; // +60% max territory size (information spread)
-            m_expansionRateBonus += 15; // +15 pixels per year (administrative efficiency)
-            m_sciencePointsBonus += 0.3; // +0.3 science points per year (knowledge spread)
-            break;
+	        case 34: // Banking
+	            m_maxSizeMultiplier += 0.80; // +80% max territory size (economic expansion)
+	            m_expansionRateBonus += 25; // +25 pixels per year (funded expansion)
+	            break;
+	        case TechId::ECONOMICS: // Economics
+	            m_maxSizeMultiplier += 1.2; // +120% max territory size (economic empires)
+	            m_expansionRateBonus += 35; // +35 pixels per year (economic efficiency)
+	            break;
+	        case 36: // Printing
+	            m_maxSizeMultiplier += 0.60; // +60% max territory size (information spread)
+	            m_expansionRateBonus += 15; // +15 pixels per year (administrative efficiency)
+	            m_sciencePointsBonus += 0.3; // +0.3 science points per year (knowledge spread)
+	            break;
             
         // 🚂 INDUSTRIAL EXPANSION
         case 55: // Railroad
@@ -1782,36 +1803,36 @@ void Country::applyTechnologyBonus(int techId) {
             m_burstExpansionFrequency = 2; // Burst expansion every 2 years
             break;
             
-        // ⚔️ MEDIEVAL MILITARY TECHNOLOGIES
-        case 28: // Steel
-            m_militaryStrengthBonus += 0.50; // +50% military strength
-            m_defensiveBonus += 0.40; // +40% defensive bonus
-            m_territoryCaptureBonusRate += 0.25; // +25% capture rate
-            m_warBurstConquestRadius = 3; // Capture 3 pixels deep in war bursts
-            m_warBurstConquestFrequency = 8; // War burst every 8 years
-            break;
-        case 36: // Gunpowder
-            m_militaryStrengthBonus += 0.75; // +75% military strength (revolutionary!)
-            m_territoryCaptureBonusRate += 0.50; // +50% capture rate
-            m_warDurationReduction += 0.30; // -30% war duration (decisive battles)
-            m_warBurstConquestRadius = 5; // Capture 5 pixels deep in war bursts (CANNON BREAKTHROUGHS!)
-            m_warBurstConquestFrequency = 5; // War burst every 5 years
-            break;
+	        // ⚔️ MEDIEVAL MILITARY TECHNOLOGIES
+	        case 28: // Steel
+	            m_militaryStrengthBonus += 0.50; // +50% military strength
+	            m_defensiveBonus += 0.40; // +40% defensive bonus
+	            m_territoryCaptureBonusRate += 0.25; // +25% capture rate
+	            m_warBurstConquestRadius = 3; // Capture 3 pixels deep in war bursts
+	            m_warBurstConquestFrequency = 8; // War burst every 8 years
+	            break;
+	        case 37: // Gunpowder
+	            m_militaryStrengthBonus += 0.75; // +75% military strength (revolutionary!)
+	            m_territoryCaptureBonusRate += 0.50; // +50% capture rate
+	            m_warDurationReduction += 0.30; // -30% war duration (decisive battles)
+	            m_warBurstConquestRadius = 5; // Capture 5 pixels deep in war bursts (CANNON BREAKTHROUGHS!)
+	            m_warBurstConquestFrequency = 5; // War burst every 5 years
+	            break;
             
-        // 🔫 INDUSTRIAL MILITARY TECHNOLOGIES
-        case 46: // Firearms
-            m_militaryStrengthBonus += 0.60; // +60% military strength
-            m_territoryCaptureBonusRate += 0.40; // +40% capture rate
-            m_warDurationReduction += 0.25; // -25% war duration
-            m_warBurstConquestRadius = 4; // Capture 4 pixels deep (rifle advances)
-            m_warBurstConquestFrequency = 6; // War burst every 6 years
-            break;
-        case 49: // Rifling
-            m_militaryStrengthBonus += 0.35; // +35% additional strength
-            m_defensiveBonus += 0.50; // +50% defensive bonus (accuracy)
-            m_warBurstConquestRadius = 6; // Capture 6 pixels deep (precision warfare)
-            m_warBurstConquestFrequency = 4; // War burst every 4 years
-            break;
+	        // 🔫 INDUSTRIAL MILITARY TECHNOLOGIES
+	        case 47: // Firearms
+	            m_militaryStrengthBonus += 0.60; // +60% military strength
+	            m_territoryCaptureBonusRate += 0.40; // +40% capture rate
+	            m_warDurationReduction += 0.25; // -25% war duration
+	            m_warBurstConquestRadius = 4; // Capture 4 pixels deep (rifle advances)
+	            m_warBurstConquestFrequency = 6; // War burst every 6 years
+	            break;
+	        case 50: // Rifling
+	            m_militaryStrengthBonus += 0.35; // +35% additional strength
+	            m_defensiveBonus += 0.50; // +50% defensive bonus (accuracy)
+	            m_warBurstConquestRadius = 6; // Capture 6 pixels deep (precision warfare)
+	            m_warBurstConquestFrequency = 4; // War burst every 4 years
+	            break;
         case 56: // Dynamite
             m_militaryStrengthBonus += 0.45; // +45% military strength
             m_territoryCaptureBonusRate += 0.60; // +60% capture rate (explosive breakthroughs)
@@ -1918,7 +1939,9 @@ double Country::getWarDurationReduction() const {
 }
 
 double Country::getSciencePointsMultiplier() const {
-    return (1.0 + m_sciencePointsBonus) * m_researchMultiplier; // Additive + multiplicative technology bonuses
+    // Phase 5: "science points" are cosmetic only; they do not affect technology progress.
+    // Keep researchMultiplier as a legacy UI display hook.
+    return m_researchMultiplier;
 }
 
 double Country::calculateScienceGeneration() const {
@@ -2109,7 +2132,7 @@ bool Country::canChangeToIdeology(Ideology newIdeology) const {
     }
 }
 
-void Country::checkIdeologyChange(int currentYear, News& news) {
+void Country::checkIdeologyChange(int currentYear, News& news, const TechnologyManager& techManager) {
     std::mt19937_64& gen = m_rng;
     
     // Check for ideology changes every 25 years
@@ -2119,6 +2142,13 @@ void Country::checkIdeologyChange(int currentYear, News& news) {
     if (m_population < 5000) return;
     
     std::vector<Ideology> possibleIdeologies;
+
+    const double pop = static_cast<double>(std::max<long long>(1, m_population));
+    const double urban = std::clamp(m_totalCityPopulation / pop, 0.0, 1.0);
+    const double admin = std::clamp(getAdminCapacity(), 0.0, 1.0);
+    const double control = std::clamp(getAvgControl(), 0.0, 1.0);
+    const double stability = std::clamp(getStability(), 0.0, 1.0);
+    const double legit = std::clamp(getLegitimacy(), 0.0, 1.0);
     
     // Determine possible ideology transitions based on current ideology
     switch(m_ideology) {
@@ -2128,20 +2158,40 @@ void Country::checkIdeologyChange(int currentYear, News& news) {
             break;
         case Ideology::Chiefdom:
             if (m_population > 25000) possibleIdeologies.push_back(Ideology::Kingdom);
-            if (m_culturePoints > 100) possibleIdeologies.push_back(Ideology::Republic);
+            // Republican institutions require literacy + administrative capacity.
+            if (TechnologyManager::hasTech(techManager, *this, TechId::WRITING) &&
+                admin > 0.08 && control > 0.28 && urban > 0.06) {
+                possibleIdeologies.push_back(Ideology::Republic);
+            }
             break;
         case Ideology::Kingdom:
-            if (m_boundaryPixels.size() > 1000) possibleIdeologies.push_back(Ideology::Empire);
-            if (m_culturePoints > 500) possibleIdeologies.push_back(Ideology::Democracy);
+            if (m_boundaryPixels.size() > 1200 && admin > 0.10) possibleIdeologies.push_back(Ideology::Empire);
+            // Democracy is gated by education + state capacity, not a points currency.
+            if (TechnologyManager::hasTech(techManager, *this, TechId::EDUCATION) &&
+                TechnologyManager::hasTech(techManager, *this, TechId::CIVIL_SERVICE) &&
+                admin > 0.14 && control > 0.35 && urban > 0.12 && stability > 0.55 && legit > 0.55) {
+                possibleIdeologies.push_back(Ideology::Democracy);
+            }
             if (m_type == Type::Warmonger) possibleIdeologies.push_back(Ideology::Dictatorship);
             break;
         case Ideology::Empire:
-            if (m_culturePoints > 1000) possibleIdeologies.push_back(Ideology::Democracy);
+            if (TechnologyManager::hasTech(techManager, *this, TechId::EDUCATION) &&
+                TechnologyManager::hasTech(techManager, *this, TechId::CIVIL_SERVICE) &&
+                admin > 0.18 && control > 0.40 && urban > 0.14 && stability > 0.60 && legit > 0.60) {
+                possibleIdeologies.push_back(Ideology::Democracy);
+            }
             possibleIdeologies.push_back(Ideology::Dictatorship);
-            if (m_boundaryPixels.size() > 5000) possibleIdeologies.push_back(Ideology::Federation);
+            if (m_boundaryPixels.size() > 5200 &&
+                TechnologyManager::hasTech(techManager, *this, TechId::CIVIL_SERVICE) &&
+                admin > 0.22 && control > 0.45 && stability > 0.55) {
+                possibleIdeologies.push_back(Ideology::Federation);
+            }
             break;
         case Ideology::Republic:
-            if (m_culturePoints > 800) possibleIdeologies.push_back(Ideology::Democracy);
+            if (TechnologyManager::hasTech(techManager, *this, TechId::EDUCATION) &&
+                admin > 0.12 && control > 0.34 && urban > 0.10 && stability > 0.55 && legit > 0.55) {
+                possibleIdeologies.push_back(Ideology::Democracy);
+            }
             possibleIdeologies.push_back(Ideology::Dictatorship);
             if (m_population > 100000) possibleIdeologies.push_back(Ideology::Empire);
             break;
@@ -2222,13 +2272,12 @@ void Country::absorbCountry(Country& target, Map& map, News& news) {
     std::cout << "🗡️💀 " << m_name << " COMPLETELY ANNIHILATES " << target.getName() << "!" << std::endl;
     
     // Absorb all territory
-    const auto& targetPixels = target.getBoundaryPixels();
+    const std::vector<sf::Vector2i> targetPixels = target.getTerritoryVec();
     const size_t absorbedTerritory = targetPixels.size();
     {
         std::lock_guard<std::mutex> lock(map.getGridMutex());
         for (const auto& pixel : targetPixels) {
             map.setCountryOwnerAssumingLocked(pixel.x, pixel.y, m_countryIndex);
-            m_boundaryPixels.insert(pixel);
         }
     }
     
@@ -2433,7 +2482,7 @@ long long Country::stepLogisticFromFoodSum(double r, double yearlyFoodSum, doubl
 
 double Country::getPlagueMortalityMultiplier(const TechnologyManager& tm) const {
     double mult = 1.0;
-    if (TechnologyManager::hasTech(tm, *this, 96)) mult *= 0.7;  // Sanitation
+    if (TechnologyManager::hasTech(tm, *this, TechId::SANITATION)) mult *= 0.7;  // Sanitation
     if (TechnologyManager::hasTech(tm, *this, 53)) mult *= 0.6;  // Vaccination
     if (TechnologyManager::hasTech(tm, *this, 65)) mult *= 0.6;  // Penicillin
     return mult;
@@ -2503,42 +2552,22 @@ void Country::attemptTechnologySharing(int currentYear, std::vector<Country>& al
     for (int r = 0; r < numRecipients && r < static_cast<int>(potentialRecipients.size()); ++r) {
         int recipientIndex = potentialRecipients[r];
         Country& recipient = allCountries[recipientIndex];
-        
-        // Find technologies we have that they don't
-        const auto& theirTechs = techManager.getUnlockedTechnologies(recipient);
-        std::unordered_set<int> theirTechSet(theirTechs.begin(), theirTechs.end());
-        
-        std::vector<int> sharableTechs;
-        for (int techId : ourTechs) {
-            if (theirTechSet.find(techId) == theirTechSet.end()) {
-                sharableTechs.push_back(techId);
-            }
+
+        // Phase 5A: replace direct tech gifting with knowledge diffusion boosts.
+        const auto& kd = getKnowledge();
+        auto& kr = recipient.getKnowledgeMutable();
+        double totalGain = 0.0;
+        for (int d = 0; d < Country::kDomains; ++d) {
+            const double gap = kd[static_cast<size_t>(d)] - kr[static_cast<size_t>(d)];
+            if (gap <= 0.0) continue;
+            const double gain = 0.05 * gap;
+            kr[static_cast<size_t>(d)] += gain;
+            totalGain += gain;
         }
-        
-        if (sharableTechs.empty()) continue;
-        
-        // Share 1-5 technologies
-        std::uniform_int_distribution<> techCountDist(1, std::min(5, static_cast<int>(sharableTechs.size())));
-        int numTechsToShare = techCountDist(gen);
-        
-        std::shuffle(sharableTechs.begin(), sharableTechs.end(), gen);
-        
-        std::string sharedTechNames;
-        for (int t = 0; t < numTechsToShare && t < static_cast<int>(sharableTechs.size()); ++t) {
-            int techId = sharableTechs[t];
-            
-            // Give them the technology (add to their unlocked list)
-            const_cast<TechnologyManager&>(techManager).unlockTechnology(recipient, techId);
-            
-            // Build list of shared technology names for news
-            if (!sharedTechNames.empty()) sharedTechNames += ", ";
-            sharedTechNames += techManager.getTechnologies().at(techId).name;
+
+        if (totalGain > 0.0) {
+            news.addEvent("📚💱 KNOWLEDGE TRANSFER: " + m_name + " spreads know-how to " + recipient.getName() + " through trade networks.");
         }
-        
-        // Add news event
-        std::string eventText = "📚💱 TECH TRANSFER: " + m_name + " shares technology (" + 
-                               sharedTechNames + ") with " + recipient.getName() + " through trade networks!";
-        news.addEvent(eventText);
     }
     
     // Reset timer for next sharing opportunity
@@ -2602,10 +2631,7 @@ void Country::checkCityGrowth(int currentYear, News& news) {
             
             // Found a new city when upgrading to major city
             if (!m_boundaryPixels.empty()) {
-                auto it = m_boundaryPixels.begin();
-                std::uniform_int_distribution<size_t> pick(0u, m_boundaryPixels.size() - 1u);
-                std::advance(it, static_cast<long>(pick(m_rng)));
-                foundCity(*it, news);
+                foundCity(randomTerritoryCell(m_rng), news);
                 std::cout << "   📍 " << m_name << " also founded a new city!" << std::endl;
             }
         }
@@ -2673,7 +2699,8 @@ bool areCountriesAwareForAirways(const Country& a,
     if (TechnologyManager::hasTech(techManager, a, 79) && TechnologyManager::hasTech(techManager, b, 79)) { // Internet
         return true;
     }
-    if (TechnologyManager::hasTech(techManager, a, 43) && TechnologyManager::hasTech(techManager, b, 43)) { // Navigation
+    if (TechnologyManager::hasTech(techManager, a, TechId::NAVIGATION) &&
+        TechnologyManager::hasTech(techManager, b, TechId::NAVIGATION)) { // Navigation
         return true;
     }
     return false;
@@ -2688,7 +2715,7 @@ void Country::buildRoads(std::vector<Country>& allCountries,
                          News& news) {
     
     // Only build roads if we have Construction or Roads technology
-    if (!TechnologyManager::hasTech(techManager, *this, 16) && // Construction
+    if (!TechnologyManager::hasTech(techManager, *this, TechId::CONSTRUCTION) && // Construction
         !TechnologyManager::hasTech(techManager, *this, 17)) { // Roads
         return;
     }
@@ -2843,9 +2870,7 @@ void Country::buildAirways(std::vector<Country>& allCountries,
 
         // Small immediate bonus to make it feel impactful.
         addGold(8.0);
-        addSciencePoints(6.0);
         other.addGold(8.0);
-        other.addSciencePoints(6.0);
 
         break;
     }
@@ -2983,14 +3008,138 @@ void Country::buildPorts(const std::vector<std::vector<bool>>& isLandGrid,
         return;
     }
     for (int attempt = 0; attempt < 400; ++attempt) {
-        auto it = m_boundaryPixels.begin();
-        std::advance(it, gen() % m_boundaryPixels.size());
-        if (canPlace(*it)) {
-            m_ports.push_back(*it);
+        const sf::Vector2i candidate = randomTerritoryCell(gen);
+        if (canPlace(candidate)) {
+            m_ports.push_back(candidate);
             news.addEvent("⚓ PORT BUILT: " + m_name + " establishes a coastal port.");
             return;
         }
     }
+}
+
+bool Country::canAttemptColonization(const TechnologyManager& techManager, const CultureManager& cultureManager) const {
+    (void)cultureManager;
+    if (m_population <= 0) return false;
+    if (m_ports.empty()) return false;
+    if (m_avgControl < 0.22) return false;
+    if (m_polity.adminCapacity < 0.06) return false;
+    if (m_stability < 0.25) return false;
+    if (!TechnologyManager::hasTech(techManager, *this, TechId::NAVIGATION)) return false;
+    return true;
+}
+
+float Country::computeColonizationPressure(const CultureManager& cultureManager,
+                                           double marketAccess,
+                                           double landPressure) const {
+    auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+
+    if (m_population <= 0) return 0.0f;
+    if (m_ports.empty()) return 0.0f;
+
+    const double pop = static_cast<double>(std::max<long long>(1, m_population));
+    const double fs = clamp01(getFoodSecurity());
+    const double foodStress = clamp01((0.98 - fs) / 0.20);
+    const double landStress = clamp01((landPressure - 0.92) / 0.60);
+
+    const auto& m = getMacroEconomy();
+    const double nonFoodSurplus = std::max(0.0, m.lastNonFoodOutput - m.lastNonFoodCons);
+    const double surplusPc = nonFoodSurplus / pop;
+    const double surplusFactor = clamp01(surplusPc / 0.00075);
+
+    const auto& t = getTraits();
+    const double mercantile = clamp01(t[3]);
+    const double openness = clamp01(t[5]);
+
+    bool hasMaritimeAdmin = false;
+    {
+        const auto& civics = cultureManager.getUnlockedCivics(*this);
+        hasMaritimeAdmin = (std::find(civics.begin(), civics.end(), 12) != civics.end());
+    }
+
+    const double stability = clamp01(getStability());
+    const double admin = clamp01(getAdminCapacity());
+    const double debt = std::max(0.0, getDebt());
+    const double debtRatio = debt / (std::max(1.0, getLastTaxTake()) + 1.0);
+    const double debtPenalty = clamp01((debtRatio - 1.5) / 4.0);
+
+    const double overstretch = clamp01(static_cast<double>(m_exploration.colonialOverstretch));
+
+    double drive = 0.10;
+    drive += 0.55 * landStress;
+    drive += 0.35 * foodStress;
+    drive += 0.30 * surplusFactor;
+    drive += 0.20 * ((mercantile + openness) * 0.5);
+    if (hasMaritimeAdmin) drive += 0.14;
+
+    drive *= (0.40 + 0.60 * clamp01(marketAccess));
+    drive *= (0.50 + 0.50 * clamp01(getAvgControl()));
+
+    // Constraints.
+    drive *= (0.45 + 0.55 * stability);
+    drive *= (0.55 + 0.45 * admin);
+    drive *= (1.0 - 0.60 * debtPenalty);
+    drive *= (1.0 - 0.70 * overstretch);
+
+    return static_cast<float>(clamp01(drive));
+}
+
+double Country::computeNavalRangePx(const TechnologyManager& techManager, const CultureManager& cultureManager) const {
+    (void)cultureManager;
+    auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+
+    const double logi = clamp01(getLogisticsReach());
+    const double admin = clamp01(getAdminCapacity());
+    const double access = clamp01(getMarketAccess());
+
+    // Base range in grid-cells ("pixels" in sim units). Scales primarily with logistics/admin.
+    double r = 220.0 + 1350.0 * logi + 420.0 * admin;
+    r *= (0.45 + 0.55 * access);
+    r *= (0.85 + 0.15 * std::min(1.0, std::sqrt(static_cast<double>(m_ports.size()) / 3.0)));
+
+    // Navigation tech is already required for eligibility; these are mild extensions for later improvements.
+    if (TechnologyManager::hasTech(techManager, *this, TechId::ASTRONOMY)) r *= 1.20;
+    if (TechnologyManager::hasTech(techManager, *this, TechId::SCIENTIFIC_METHOD)) r *= 1.10;
+    if (TechnologyManager::hasTech(techManager, *this, 51)) r *= 1.10; // Steam Engine (better ships/logistics)
+    if (TechnologyManager::hasTech(techManager, *this, 61)) r *= 1.40; // Flight (effective reach)
+
+    // Conservative caps to avoid "global teleport colonization".
+    r = std::max(120.0, std::min(r, 4200.0));
+    return r;
+}
+
+bool Country::forceAddPort(const Map& map, const sf::Vector2i& pos) {
+    const auto& isLand = map.getIsLandGrid();
+    const auto& owners = map.getCountryGrid();
+    if (isLand.empty() || owners.empty()) return false;
+
+    const int h = static_cast<int>(isLand.size());
+    const int w = (h > 0) ? static_cast<int>(isLand[0].size()) : 0;
+    if (pos.x < 0 || pos.y < 0 || pos.x >= w || pos.y >= h) return false;
+    if (!isLand[static_cast<size_t>(pos.y)][static_cast<size_t>(pos.x)]) return false;
+    if (owners[static_cast<size_t>(pos.y)][static_cast<size_t>(pos.x)] != m_countryIndex) return false;
+
+    if (!isCoastalLandCell(isLand, pos.x, pos.y)) {
+        return false;
+    }
+
+    for (const auto& p : m_ports) {
+        if (p == pos) {
+            return true;
+        }
+        const int dx = p.x - pos.x;
+        const int dy = p.y - pos.y;
+        if (dx * dx + dy * dy < 3 * 3) {
+            return true;
+        }
+    }
+
+    // Bypass spacing and cadence checks, but keep a hard cap.
+    if (static_cast<int>(m_ports.size()) >= 8) {
+        return false;
+    }
+
+    m_ports.push_back(pos);
+    return true;
 }
 
 // Helper function to check if we can build roads to another country
@@ -3068,8 +3217,8 @@ double Country::calculateDistanceToCountry(const Country& otherCountry) const {
         return 1000.0; // Very far if no territory
     }
     
-    sf::Vector2i ourCenter = *m_boundaryPixels.begin();
-    sf::Vector2i theirCenter = *otherCountry.getBoundaryPixels().begin();
+    sf::Vector2i ourCenter = getCapitalLocation();
+    sf::Vector2i theirCenter = otherCountry.getCapitalLocation();
     
     return std::sqrt(std::pow(ourCenter.x - theirCenter.x, 2) + std::pow(ourCenter.y - theirCenter.y, 2));
 }

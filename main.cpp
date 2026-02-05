@@ -217,6 +217,9 @@ int main(int argc, char** argv) {
 		    // Initialize the Trade Manager
 			    TradeManager tradeManager(ctx);
 
+            // Phase 4: CPU-authoritative macro economy + directed trade.
+            EconomyModelCPU macroEconomy(ctx);
+
 		    // Initialize GPU economy (downsampled econ grid)
 		    EconomyGPU economy;
 	    EconomyGPU::Config econCfg;
@@ -567,11 +570,7 @@ int main(int argc, char** argv) {
 		                    renderer.toggleWarHighlights();
 		                }
 			                else if (event.key.code == sf::Keyboard::L) {
-			                    // Ensure GPU economy metrics are up-to-date before showing the leaderboard.
-			                    // (GDP requires at least two readbacks at different years; mega-jumps now do a baseline readback.)
-			                    economy.onTerritoryChanged(map);
-			                    economy.readbackMetrics(currentYear);
-			                    economy.applyCountryMetrics(countries, tradeExportsForYear(currentYear));
+			                    // Phase 4: macro economy is authoritative for Wealth/GDP/Exports.
 			                    if (TechnologyManager::getDebugMode()) {
 			                        double sumWealth = 0.0, sumGDP = 0.0, sumExports = 0.0;
 			                        int alive = 0;
@@ -625,11 +624,6 @@ int main(int argc, char** argv) {
                         
 	                        std::cout << "🚀 Starting Fast Forward (100 years)..." << std::endl;
 	                    
-	                        // Baseline readback before fast-forward so GDP can be measured over the jump.
-	                        economy.onTerritoryChanged(map);
-	                        economy.readbackMetrics(currentYear);
-	                        economy.applyCountryMetrics(countries, tradeExportsForYear(currentYear));
-
 	                    // 🛡️ CRASH FIX: Process in small chunks to avoid memory overflow
 	                    const int totalYears = 100;
 	                    const int chunkSize = 10; // Process 10 years at a time
@@ -639,48 +633,27 @@ int main(int argc, char** argv) {
                         std::cout << "🔍 CHUNK " << (chunk + 1) << "/10: Processing years " 
                                   << currentYear << " to " << (currentYear + chunkSize) << std::endl;
                         
-                        int startYear = currentYear;
-                        
                         try {
-                            // Perform map simulation for this chunk
-                            std::cout << "   📍 Map simulation..." << std::endl;
-	                            map.fastForwardSimulation(countries, currentYear, chunkSize, news, technologyManager);
-	                            
-	                            // 🏪 FAST FORWARD TRADE PROCESSING
-	                            std::cout << "   💰 Trade simulation..." << std::endl;
-	                            tradeManager.fastForwardTrade(countries, startYear, currentYear, map, technologyManager, news);
+                            // Perform simulation for this chunk using the same realism-first ordering
+                            // as the live per-year tick (macro economy drives shortages and trade).
+                            for (int step = 0; step < chunkSize; ++step) {
+                                currentYear++;
+                                if (currentYear == 0) currentYear = 1;
 
-	                            // GPU economy fast-forward aligned to simulation years (accumulates GDP/exports per step).
-	                            economy.onTerritoryChanged(map);
-	                            economy.tickStepGpuOnly(currentYear,
-	                                                    map,
-	                                                    countries,
-	                                                    technologyManager,
-	                                                    static_cast<float>(std::max(1, currentYear - startYear)),
-	                                                    /*tradeItersOverride*/3,
-	                                                    /*heatmap*/false,
-	                                                    /*readbackMetricsBeforeDiffusion*/true);
+                                map.updateCountries(countries, currentYear, news, technologyManager);
+                                macroEconomy.tickYear(currentYear, 1, map, countries, technologyManager, tradeManager, news);
+                                map.tickDemographyAndCities(countries, currentYear, 1, news);
+
+                                if (currentYear % 5 == 0) {
+                                    technologyManager.tickYear(countries, map, &macroEconomy.getLastTradeIntensity(), currentYear, 5);
+                                    cultureManager.tickYear(countries, map, technologyManager, &macroEconomy.getLastTradeIntensity(), currentYear, 5, news);
+                                }
+                            }
                             
                             // 🚀 OPTIMIZED TECH/CULTURE: Batch processing and reduced frequency
                             std::cout << "   🧠 Tech/Culture updates for " << countries.size() << " countries..." << std::endl;
                             
-                            // Only update every other chunk (20 years instead of 10) for better performance
-                            if (chunk % 2 == 0) {
-                            for (size_t i = 0; i < countries.size(); ++i) {
-                                    // Do 2 rounds to compensate for reduced frequency
-                                    technologyManager.updateCountry(countries[i]);
-	                                    cultureManager.updateCountry(countries[i], technologyManager);
-                                technologyManager.updateCountry(countries[i]);
-	                                cultureManager.updateCountry(countries[i], technologyManager);
-                                
-                                    // Safety check every 20 countries (reduced logging)
-                                    if (i % 20 == 0 && i > 0) {
-                                    std::cout << "     ✓ Processed " << i << "/" << countries.size() << " countries" << std::endl;
-                                    }
-                                }
-                            } else {
-                                std::cout << "     🚀 Skipping tech/culture this chunk for performance" << std::endl;
-                            }
+                            std::cout << "     ✅ Tech/Culture handled during year stepping" << std::endl;
                             std::cout << "   ✅ Chunk " << (chunk + 1) << " completed successfully" << std::endl;
                         } catch (const std::exception& e) {
                             std::cout << "🚨 ERROR IN CHUNK " << (chunk + 1) << ": " << e.what() << std::endl;
@@ -702,9 +675,6 @@ int main(int argc, char** argv) {
                     
 		                    // Final updates
 		                    greatPeopleManager.updateEffects(currentYear, countries, news);
-		                    economy.onTerritoryChanged(map);
-		                    economy.readbackMetrics(currentYear);
-		                    economy.applyCountryMetrics(countries, tradeExportsForYear(currentYear));
 	                    
 	                    // 🔥 FORCE IMMEDIATE COMPLETE VISUAL REFRESH FOR FAST FORWARD
 	                    std::cout << "🎨 Refreshing fast forward visuals..." << std::endl;
@@ -755,20 +725,32 @@ int main(int argc, char** argv) {
                         renderingNeedsUpdate = true;
                     }
                 }
-                else if (event.key.code == sf::Keyboard::D) { // 🔧 DEBUG MODE TOGGLE
-                    bool currentDebugMode = TechnologyManager::getDebugMode();
-                    TechnologyManager::setDebugMode(!currentDebugMode);
-                    CultureManager::setDebugMode(!currentDebugMode);
-                    
-                    std::cout << "🔧 DEBUG MODE " << (currentDebugMode ? "DISABLED" : "ENABLED") 
-                              << " - Tech/Civic unlock messages are now " 
-                              << (currentDebugMode ? "OFF" : "ON") << std::endl;
-                }
-                else if (event.key.code == sf::Keyboard::E && !megaTimeJumpMode && !countryAddEditorMode) { // 🧠 TECHNOLOGY EDITOR
-                    if (selectedCountry != nullptr) {
-                        techEditorMode = true;
-                        techEditorInput = "";
-                        techEditorCountryIndex = selectedCountry->getCountryIndex();
+	                else if (event.key.code == sf::Keyboard::D) { // 🔧 DEBUG MODE TOGGLE
+	                    bool currentDebugMode = TechnologyManager::getDebugMode();
+	                    TechnologyManager::setDebugMode(!currentDebugMode);
+	                    CultureManager::setDebugMode(!currentDebugMode);
+	                    
+	                    std::cout << "🔧 DEBUG MODE " << (currentDebugMode ? "DISABLED" : "ENABLED") 
+	                              << " - Tech/Civic unlock messages are now " 
+	                              << (currentDebugMode ? "OFF" : "ON") << std::endl;
+	                }
+		                else if (event.key.code == sf::Keyboard::C) { // 🌦️ CLIMATE OVERLAY (Phase 6)
+		                    if (event.key.shift) {
+		                        renderer.cycleClimateOverlayMode();
+		                    } else {
+		                        renderer.toggleClimateOverlay();
+		                    }
+		                    renderingNeedsUpdate = true;
+		                }
+		                else if (event.key.code == sf::Keyboard::O) { // 🌍 OVERSEAS VIEW (Phase 7 debug)
+		                    renderer.toggleOverseasOverlay();
+		                    renderingNeedsUpdate = true;
+		                }
+		                else if (event.key.code == sf::Keyboard::E && !megaTimeJumpMode && !countryAddEditorMode) { // 🧠 TECHNOLOGY EDITOR
+		                    if (selectedCountry != nullptr) {
+		                        techEditorMode = true;
+		                        techEditorInput = "";
+	                        techEditorCountryIndex = selectedCountry->getCountryIndex();
                         std::cout << "\n🧠 TECHNOLOGY EDITOR ACTIVATED for " << selectedCountry->getName() << "!" << std::endl;
                     } else {
                         std::cout << "Select a country first (click one) to edit its technologies." << std::endl;
@@ -989,12 +971,6 @@ int main(int argc, char** argv) {
 		                                std::cout << "SIMULATING " << yearsToSimulate << " YEARS OF HISTORY!" << std::endl;
 		                                std::cout << "From " << megaTimeJumpStartYear << " to " << megaTimeJumpTargetYear << std::endl;
 
-		                                // Baseline readback before mega-jump so GDP can be estimated from capital formation
-		                                // across the jump interval (end readback happens after the jump completes).
-		                                economy.onTerritoryChanged(map);
-		                                economy.readbackMetrics(currentYear);
-		                                economy.applyCountryMetrics(countries, tradeExportsForYear(currentYear));
-
 		                                megaTimeJumpThread = std::thread([&] {
 		                                    try {
 		                                        const bool completed = map.megaTimeJump(
@@ -1005,20 +981,8 @@ int main(int argc, char** argv) {
 		                                                megaTimeJumpProgressYear.store(currentSimYear, std::memory_order_relaxed);
 		                                                megaTimeJumpEtaSeconds.store(estimatedSecondsRemaining, std::memory_order_relaxed);
 		                                            },
-		                                            [&](int currentSimYear, int chunkYears) {
-		                                                const int chunkStartYear = currentSimYear - chunkYears;
-		                                                tradeManager.fastForwardTrade(countries, chunkStartYear, currentSimYear, map, technologyManager, news);
-
-		                                                // Request GPU economy chunk processing on the UI thread (SFML/OpenGL context).
-		                                                std::unique_lock<std::mutex> lock(megaTimeJumpChunkMutex);
-		                                                megaTimeJumpGpuChunkTicket++;
-		                                                megaTimeJumpGpuChunkEndYear = currentSimYear;
-		                                                megaTimeJumpGpuChunkYears = chunkYears;
-		                                                megaTimeJumpChunkCv.notify_all();
-		                                                megaTimeJumpChunkCv.wait(lock, [&] {
-		                                                    return megaTimeJumpGpuChunkAck >= megaTimeJumpGpuChunkTicket ||
-		                                                           megaTimeJumpCancelRequested.load(std::memory_order_relaxed);
-		                                                });
+		                                            [&](int, int) {
+		                                                // Macro economy runs inside `Map::megaTimeJump`; no GPU/trade chunk required here.
 		                                            },
 		                                            &megaTimeJumpCancelRequested);
 
@@ -1679,9 +1643,7 @@ int main(int argc, char** argv) {
 	                        map.insertDirtyRegion(i);
 	                    }
 
-	                    economy.onTerritoryChanged(map);
-	                    economy.readbackMetrics(currentYear);
-	                    economy.applyCountryMetrics(countries, tradeExportsForYear(currentYear));
+	                    // Phase 4: macro economy is authoritative; GPU economy is visualization-only.
 
 	                    renderer.updateYearText(currentYear);
 	                    renderer.setNeedsUpdate(true);
@@ -1809,48 +1771,47 @@ int main(int argc, char** argv) {
             
             // DIAGNOSTIC: Time each major component
             auto mapStart = std::chrono::high_resolution_clock::now();
-            try {
-                map.updateCountries(countries, currentYear, news, technologyManager);
-            } catch (const std::exception& e) {
-                std::cout << "🚨 MAP UPDATE CRASHED at year " << currentYear << ": " << e.what() << std::endl;
-                throw;
-            }
+	            try {
+	                map.updateCountries(countries, currentYear, news, technologyManager);
+	            } catch (const std::exception& e) {
+	                std::cout << "🚨 MAP UPDATE CRASHED at year " << currentYear << ": " << e.what() << std::endl;
+	                throw;
+	            }
             auto mapEnd = std::chrono::high_resolution_clock::now();
             auto mapTime = std::chrono::duration_cast<std::chrono::milliseconds>(mapEnd - mapStart);
             
-            // 🧬 KNOWLEDGE DIFFUSION - Moved to map.cpp to avoid duplication
-            
+	            // Phase 6: weather anomalies (field-grid, cheap) before economy so yields affect output.
+	            map.tickWeather(currentYear, 1);
+
+	            // Phase 4: macro economy + directed, capacity-limited trade (CPU authoritative).
+	            auto econStart = std::chrono::high_resolution_clock::now();
+	            macroEconomy.tickYear(currentYear, 1, map, countries, technologyManager, tradeManager, news);
+            // Demography/cities step runs after macro economy so food security shortages affect births/deaths.
+            map.tickDemographyAndCities(countries, currentYear, 1, news);
+            auto econEnd = std::chrono::high_resolution_clock::now();
+            auto econTime = std::chrono::duration_cast<std::chrono::milliseconds>(econEnd - econStart);
+
             auto techStart = std::chrono::high_resolution_clock::now();
-            // 🛡️ DEADLOCK FIX: Remove OpenMP parallel processing to prevent mutex deadlocks
-            for (int i = 0; i < countries.size(); ++i) {
-                try {
-                    technologyManager.updateCountry(countries[i]);
-	                    cultureManager.updateCountry(countries[i], technologyManager);
-                } catch (const std::exception& e) {
-                    std::cout << "🚨 TECH/CULTURE UPDATE CRASHED for country " << i << ": " << e.what() << std::endl;
-                    throw;
-                }
+            try {
+                technologyManager.tickYear(countries, map, &macroEconomy.getLastTradeIntensity(), currentYear, 1);
+                cultureManager.tickYear(countries, map, technologyManager, &macroEconomy.getLastTradeIntensity(), currentYear, 1, news);
+            } catch (const std::exception& e) {
+                std::cout << "🚨 TECH/CULTURE UPDATE CRASHED at year " << currentYear << ": " << e.what() << std::endl;
+                throw;
             }
             auto techEnd = std::chrono::high_resolution_clock::now();
             auto techTime = std::chrono::duration_cast<std::chrono::milliseconds>(techEnd - techStart);
-            
+
             auto greatStart = std::chrono::high_resolution_clock::now();
             greatPeopleManager.updateEffects(currentYear, countries, news);
             auto greatEnd = std::chrono::high_resolution_clock::now();
             auto greatTime = std::chrono::duration_cast<std::chrono::milliseconds>(greatEnd - greatStart);
-            
-            // 🏪 TRADE SYSTEM UPDATE
-            auto tradeStart = std::chrono::high_resolution_clock::now();
-            tradeManager.updateTrade(countries, currentYear, map, technologyManager, news);
-	            auto tradeEnd = std::chrono::high_resolution_clock::now();
-	            auto tradeTime = std::chrono::duration_cast<std::chrono::milliseconds>(tradeEnd - tradeStart);
 
-		            // GPU economy (downsampled grid fields)
-		            economy.onTerritoryChanged(map);
-		            economy.tickYear(currentYear, map, countries, technologyManager);
-		            economy.applyCountryMetrics(countries, tradeExportsForYear(currentYear));
+            // GPU economy remains optional for visualization; macro economy sets country metrics.
+            // economy.onTerritoryChanged(map);
+            // economy.tickYear(currentYear, map, countries, technologyManager);
 
-	            map.processPoliticalEvents(countries, tradeManager, currentYear, news);
+	            map.processPoliticalEvents(countries, tradeManager, currentYear, news, technologyManager, cultureManager);
             
             auto simEnd = std::chrono::high_resolution_clock::now();
             auto simDuration = std::chrono::duration_cast<std::chrono::microseconds>(simEnd - simStart);
@@ -1860,9 +1821,9 @@ int main(int argc, char** argv) {
             if (totalMs.count() > 100) {
                 std::cout << " SLOW YEAR " << currentYear << " (" << totalMs.count() << "ms total):" << std::endl;
                 std::cout << "  Map Update: " << mapTime.count() << "ms" << std::endl;
+                std::cout << "  Economy: " << econTime.count() << "ms" << std::endl;
                 std::cout << "  Tech/Culture: " << techTime.count() << "ms" << std::endl;
                 std::cout << "  Great People: " << greatTime.count() << "ms" << std::endl;
-                std::cout << "  Trade System: " << tradeTime.count() << "ms" << std::endl;
             }
             
             // Update UI elements

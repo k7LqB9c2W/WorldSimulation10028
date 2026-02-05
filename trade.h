@@ -16,6 +16,13 @@ class News;
 class TechnologyManager;
 class Map;
 
+// Forward declare sf::Vector2i without pulling SFML headers into this file.
+namespace sf {
+    template <typename T>
+    struct Vector2;
+    using Vector2i = Vector2<int>;
+}
+
 // Simple 2D vector structure to avoid SFML dependency in header
 struct Vector2i {
     int x, y;
@@ -172,6 +179,10 @@ public:
     double getTotalTradeValue() const { return m_totalTradeValue; }
     const std::vector<TradeRoute>& getTradeRoutes() const { return m_tradeRoutes; }
     const std::vector<ShippingRoute>& getShippingRoutes() const { return m_shippingRoutes; }
+
+    // Phase 7 support: expose sea navigation grid and path length queries for colonization.
+    void ensureSeaNavPublic(const Map& map);
+    bool findSeaPathLenPx(const Map& map, const sf::Vector2i& fromPortCell, const sf::Vector2i& toCoastCell, float& outLenPx);
 
     // Per-country export value proxy derived from executed TradeManager transfers (barter/currency/routes).
     // Values are only updated when trade is processed; use the year getter to see how fresh they are.

@@ -2,154 +2,409 @@
 #include "culture.h"
 #include "country.h"
 #include "technology.h"
+#include "map.h"
+#include "news.h"
+
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 
 using namespace std;
 
-// 🔧 STATIC DEBUG CONTROL: Default to OFF (no spam)
 bool CultureManager::s_debugMode = false;
+
+namespace {
+double clamp01(double v) { return std::max(0.0, std::min(1.0, v)); }
+
+enum TraitId {
+    Religiosity = 0,
+    Collectivism = 1,
+    Militarism = 2,
+    Mercantile = 3,
+    Hierarchy = 4,
+    Openness = 5,
+    Legalism = 6
+};
+
+double urbanizationOf(const Country& c) {
+    const double pop = static_cast<double>(std::max<long long>(0, c.getPopulation()));
+    if (pop <= 1.0) return 0.0;
+    return clamp01(c.getTotalCityPopulation() / pop);
+}
+
+} // namespace
 
 CultureManager::CultureManager() {
     initializeCivics();
 }
 
 void CultureManager::initializeCivics() {
-    m_civics = {
-        {1, {"Code of Laws", 900, 1, {}, {}}}, // No requirements
-        {2, {"Craftsmanship", 80, 2, {1}, {}}},
-        {3, {"Foreign Trade", 80, 3, {1}, {}}},
-        {4, {"State Workforce", 150, 4, {2}, {}}},
-        {5, {"Early Empire", 180, 5, {3}, {}}},
-        {6, {"Mysticism", 200, 6, {1}, {}}},
-        {7, {"Military Tradition", 220, 7, {2}, {}}},
-        {8, {"Games and Recreation", 250, 8, {4}, {}}},
-        {9, {"Political Philosophy", 280, 9, {4, 5}, {}}},
-        {10, {"Ancient Republic", 300, 10, {9}, {}}}, // Government
-        {11, {"Drama and Poetry", 350, 11, {6}, {}}},
-        {12, {"Feudalism", 400, 12, {4}, {2}}}, // Requires Animal Husbandry tech
-        {13, {"Naval Tradition", 420, 13, {3, 7}, {5}}}, // Requires Sailing tech
-        {14, {"Imperialism", 450, 14, {5}, {}}},
-        {15, {"Theology", 480, 15, {6}, {6}}}, // Requires Calendar tech
-        {16, {"Medieval Republic", 500, 16, {10}, {}}}, // Government
-        {17, {"Guilds", 550, 17, {12}, {14}}}, // Requires Mathematics tech
-        {18, {"Mercenaries", 580, 18, {7, 12}, {}}},
-        {19, {"Humanism", 620, 19, {11}, {22}}}, // Requires Philosophy tech
-        {20, {"Diplomatic Service", 650, 20, {14}, {}}},
-        {21, {"Divine Right", 680, 21, {15}, {}}},
-        {22, {"Renaissance Republic", 720, 22, {16}, {}}}, // Government
-        {23, {"Mercantilism", 780, 23, {17}, {15}}}, // Requires Currency tech
-        {24, {"Professional Army", 820, 24, {18}, {28}}}, // Requires Steel tech
-        {25, {"Enlightenment", 880, 25, {19}, {30}}}, // Requires Education tech
-        {26, {"Colonialism", 920, 26, {20, 23}, {}}},
-        {27, {"Civil Engineering", 950, 27, {8}, {23}}}, // Requires Engineering tech
-        {28, {"Nationalism", 1000, 28, {25}, {}}},
-        {29, {"Opera and Ballet", 1050, 29, {19}, {31}}}, // Requires Acoustics tech
-        {30, {"Modern Republic", 1100, 30, {22}, {}}}, // Government
-        {31, {"Capitalism", 1150, 31, {23}, {44}}}, // Requires Economics tech
-        {32, {"Mass Production", 1200, 32, {24}, {57}}}, // Requires Replaceable Parts tech
-        {33, {"Urbanization", 1250, 33, {27}, {96}}}, // Requires Sanitation tech
-        {34, {"Social Contract", 1300, 34, {25}, {}}},
-        {35, {"Free Market", 1350, 35, {31}, {}}},
-        {36, {"Suffrage", 1400, 36, {28}, {}}},
-        {37, {"Totalitarianism", 1450, 37, {28}, {}}}, // Government
-        {38, {"Class Struggle", 1500, 38, {32}, {}}},
-        {39, {"Public Works", 1550, 39, {33}, {55}}}, // Requires Railroad tech
-        {40, {"Propaganda", 1600, 40, {29}, {62}}}, // Requires Radio tech
-        {41, {"Modern Democracy", 1650, 41, {30}, {}}}, // Government
-        {42, {"Communism", 1700, 42, {38}, {63}}}, // Requires Mass Production tech
-        {43, {"Environmentalism", 1750, 43, {39}, {72}}}, // Requires Ecology tech
-        {44, {"Mass Media", 1800, 44, {40}, {}}},
-        {45, {"Social Media", 1850, 45, {44}, {89}}}, // Requires Social Media tech
-        {46, {"Globalization", 1900, 46, {35, 42}, {79}}}, // Requires Internet tech
-        {47, {"Cyber Security", 1950, 47, {45}, {92}}}, // Requires Blockchain tech
-        {48, {"Human Rights", 2000, 48, {46}, {}}}
+    m_civics.clear();
+
+    auto add = [&](int id,
+                   const std::string& name,
+                   std::vector<int> reqCivics,
+                   std::vector<int> reqTechs,
+                   auto&& configure) {
+        Civic c;
+        c.name = name;
+        c.cost = 0; // legacy field, not a currency
+        c.id = id;
+        c.requiredCivics = std::move(reqCivics);
+        c.requiredTechs = std::move(reqTechs);
+        configure(c);
+        m_civics[id] = std::move(c);
     };
-    }
 
-        void CultureManager::updateCountry(Country& country, const TechnologyManager& techManager) {
-        // Check if the country can unlock any new civics
-        for (const auto& pair : m_civics) {
-            int civicId = pair.first;
-            const Civic& civic = pair.second;
+    // Institutions: adoption is cadence- and pressure-driven; effects modify state capacity.
+    add(1, "Customary Law", {}, {}, [&](Civic& c) {
+        c.minAdminCapacity = 0.02;
+        c.minAvgControl = 0.15;
+        c.stabilityHit = 0.01;
+        c.adminCapBonus = 0.03;
+        c.legitimacyBonus = 0.02;
+    });
 
-            if (canUnlockCivic(country, civicId, techManager)) {
-                if (country.getCulturePoints() >= civic.cost) {
-                    unlockCivic(country, civicId);
-                }
-            }
+    add(2, "Tax Registers", {1}, {TechId::WRITING}, [&](Civic& c) { // Writing
+        c.minAdminCapacity = 0.04;
+        c.minAvgControl = 0.20;
+        c.stabilityHit = 0.02;
+        c.fiscalCapBonus = 0.06;
+        c.legitimacyBonus = 0.01;
+    });
+
+    add(3, "Road Corps", {1}, {TechId::CONSTRUCTION}, [&](Civic& c) { // Construction
+        c.minAdminCapacity = 0.05;
+        c.logisticsBonus = 0.07;
+        c.stabilityHit = 0.02;
+    });
+
+    add(4, "Merchant Guilds", {1}, {TechId::CURRENCY}, [&](Civic& c) { // Currency
+        c.minUrbanization = 0.05;
+        c.minAvgControl = 0.25;
+        c.fiscalCapBonus = 0.03;
+        c.logisticsBonus = 0.03;
+        c.stabilityHit = 0.02;
+    });
+
+    add(5, "Professional Army", {1}, {3}, [&](Civic& c) { // Archery
+        c.minAdminCapacity = 0.06;
+        c.minAvgControl = 0.25;
+        c.stabilityHit = 0.03;
+        c.legitimacyHit = 0.01;
+        c.logisticsBonus = 0.02;
+        c.adminCapBonus = 0.01;
+    });
+
+    add(6, "Civil Service", {2}, {TechId::CIVIL_SERVICE}, [&](Civic& c) { // Civil Service tech
+        c.minAdminCapacity = 0.08;
+        c.minAvgControl = 0.30;
+        c.stabilityHit = 0.03;
+        c.adminCapBonus = 0.08;
+        c.fiscalCapBonus = 0.04;
+        c.legitimacyBonus = 0.02;
+    });
+
+    add(7, "Public Education", {6}, {TechId::EDUCATION}, [&](Civic& c) { // Education tech
+        c.minUrbanization = 0.10;
+        c.minAdminCapacity = 0.10;
+        c.stabilityHit = 0.03;
+        c.educationShareBonus = 0.08;
+        c.legitimacyBonus = 0.01;
+    });
+
+    add(8, "Public Health", {6}, {TechId::SANITATION}, [&](Civic& c) { // Sanitation
+        c.minUrbanization = 0.10;
+        c.minAdminCapacity = 0.10;
+        c.stabilityHit = 0.02;
+        c.healthShareBonus = 0.06;
+        c.legitimacyBonus = 0.01;
+    });
+
+    add(9, "Banking System", {2}, {TechId::BANKING}, [&](Civic& c) { // Banking
+        c.minUrbanization = 0.08;
+        c.minAvgControl = 0.35;
+        c.stabilityHit = 0.03;
+        c.fiscalCapBonus = 0.09;
+        c.debtAdd = 15.0; // transitional fiscal stress
+    });
+
+    add(10, "Representative Councils", {1}, {22}, [&](Civic& c) { // Philosophy
+        c.minUrbanization = 0.06;
+        c.minAvgControl = 0.30;
+        c.stabilityHit = 0.03;
+        c.legitimacyHit = 0.01;
+        c.legitimacyBonus = 0.05;
+        c.adminCapBonus = 0.02;
+    });
+
+    add(11, "Standard Weights & Measures", {4}, {TechId::ECONOMICS}, [&](Civic& c) { // Economics
+        c.minUrbanization = 0.10;
+        c.minAvgControl = 0.40;
+        c.stabilityHit = 0.02;
+        c.fiscalCapBonus = 0.03;
+        c.logisticsBonus = 0.03;
+    });
+
+    add(12, "Maritime Administration", {4}, {TechId::NAVIGATION}, [&](Civic& c) { // Navigation
+        c.minUrbanization = 0.08;
+        c.minAvgControl = 0.35;
+        c.stabilityHit = 0.03;
+        c.logisticsBonus = 0.06;
+        c.fiscalCapBonus = 0.02;
+    });
+}
+
+void CultureManager::updateCountry(Country& country, const TechnologyManager& techManager) {
+    // Legacy hook: no per-country currency purchase. Institutions are adopted via `tickYear`.
+    (void)country;
+    (void)techManager;
+}
+
+bool CultureManager::canUnlockCivic(const Country& country, int civicId, const TechnologyManager& techManager) const {
+    // Already adopted?
+    auto itCountry = m_unlockedCivics.find(country.getCountryIndex());
+    if (itCountry != m_unlockedCivics.end()) {
+        const auto& unlocked = itCountry->second;
+        if (std::find(unlocked.begin(), unlocked.end(), civicId) != unlocked.end()) {
+            return false;
         }
     }
 
-    bool CultureManager::canUnlockCivic(const Country& country, int civicId, const TechnologyManager& techManager) const {
-        // Check if the civic has already been unlocked
-        auto itCountry = m_unlockedCivics.find(country.getCountryIndex());
+    auto itCivic = m_civics.find(civicId);
+    if (itCivic == m_civics.end()) {
+        return false;
+    }
+
+    const Civic& civic = itCivic->second;
+
+    // Prereq institutions.
+    for (int requiredCivicId : civic.requiredCivics) {
+        bool found = false;
         if (itCountry != m_unlockedCivics.end()) {
-            const std::vector<int>& unlockedCivics = itCountry->second;
-            if (std::find(unlockedCivics.begin(), unlockedCivics.end(), civicId) != unlockedCivics.end()) {
-                return false; // Already unlocked
-            }
+            const auto& unlocked = itCountry->second;
+            found = (std::find(unlocked.begin(), unlocked.end(), requiredCivicId) != unlocked.end());
         }
-
-        // Check if all required civics are unlocked
-        auto itCivic = m_civics.find(civicId);
-        if (itCivic == m_civics.end()) {
-            return false; // Civic not found
+        if (!found) {
+            return false;
         }
+    }
 
-        const Civic& civic = itCivic->second;
-        for (int requiredCivicId : civic.requiredCivics) {
-            bool found = false;
-            if (itCountry != m_unlockedCivics.end()) {
-                const std::vector<int>& unlockedCivics = itCountry->second;
-                if (std::find(unlockedCivics.begin(), unlockedCivics.end(), requiredCivicId) != unlockedCivics.end()) {
-                    found = true;
+    // Tech gates.
+    for (int requiredTechId : civic.requiredTechs) {
+        if (!TechnologyManager::hasTech(techManager, country, requiredTechId)) {
+            return false;
+        }
+    }
+
+    // Feasibility gates (state capacity / development).
+    if (urbanizationOf(country) < civic.minUrbanization) return false;
+    if (country.getAdminCapacity() < civic.minAdminCapacity) return false;
+    if (country.getAvgControl() < civic.minAvgControl) return false;
+
+    return true;
+}
+
+void CultureManager::unlockCivic(Country& country, int civicId) {
+    auto itCivic = m_civics.find(civicId);
+    if (itCivic == m_civics.end()) {
+        return;
+    }
+    const Civic& civic = itCivic->second;
+
+    m_unlockedCivics[country.getCountryIndex()].push_back(civicId);
+
+    if (civic.stabilityHit != 0.0) country.setStability(country.getStability() - civic.stabilityHit);
+    if (civic.legitimacyHit != 0.0) country.setLegitimacy(country.getLegitimacy() - civic.legitimacyHit);
+    if (civic.debtAdd != 0.0) country.addDebt(civic.debtAdd);
+
+    if (civic.adminCapBonus != 0.0) country.addAdminCapacity(civic.adminCapBonus);
+    if (civic.fiscalCapBonus != 0.0) country.addFiscalCapacity(civic.fiscalCapBonus);
+    if (civic.logisticsBonus != 0.0) country.addLogisticsReach(civic.logisticsBonus);
+    if (civic.educationShareBonus != 0.0) country.addEducationSpendingShare(civic.educationShareBonus);
+    if (civic.healthShareBonus != 0.0) country.addHealthSpendingShare(civic.healthShareBonus);
+
+    if (civic.stabilityBonus != 0.0) country.setStability(country.getStability() + civic.stabilityBonus);
+    if (civic.legitimacyBonus != 0.0) country.setLegitimacy(country.getLegitimacy() + civic.legitimacyBonus);
+
+    // Trait nudges (one-time, small; long-run drift handled in tickYear).
+    auto& t = country.getTraitsMutable();
+    if (civicId == 1) { // law
+        t[Legalism] = clamp01(t[Legalism] + 0.05);
+    } else if (civicId == 4) { // guilds
+        t[Mercantile] = clamp01(t[Mercantile] + 0.04);
+        t[Openness] = clamp01(t[Openness] + 0.03);
+    } else if (civicId == 5) { // army
+        t[Militarism] = clamp01(t[Militarism] + 0.05);
+        t[Hierarchy] = clamp01(t[Hierarchy] + 0.03);
+    } else if (civicId == 7) { // education
+        t[Openness] = clamp01(t[Openness] + 0.03);
+        t[Legalism] = clamp01(t[Legalism] + 0.02);
+    } else if (civicId == 10) { // councils
+        t[Hierarchy] = clamp01(t[Hierarchy] - 0.04);
+        t[Legalism] = clamp01(t[Legalism] + 0.02);
+    }
+
+    if (s_debugMode) {
+        cout << country.getName() << " adopted institution: " << civic.name << endl;
+    }
+}
+
+void CultureManager::tickYear(std::vector<Country>& countries,
+                              const Map& map,
+                              const TechnologyManager& techManager,
+                              const std::vector<float>* tradeIntensityMatrix,
+                              int currentYear,
+                              int dtYears,
+                              News& news) {
+    const int years = std::max(1, dtYears);
+    const double yearsD = static_cast<double>(years);
+
+    const int n = static_cast<int>(countries.size());
+    if (n <= 0) return;
+
+    std::vector<Country::TraitVec> delta(static_cast<size_t>(n), Country::TraitVec{});
+
+    auto diffusePair = [&](int a, int b, double w, double rate) {
+        if (a < 0 || b < 0 || a >= n || b >= n || a == b) return;
+        if (w <= 0.0) return;
+        const double r = rate * w * yearsD;
+        if (r <= 0.0) return;
+        const auto& ta = countries[static_cast<size_t>(a)].getTraits();
+        const auto& tb = countries[static_cast<size_t>(b)].getTraits();
+        for (int k = 0; k < Country::kTraits; ++k) {
+            const double va = ta[static_cast<size_t>(k)];
+            const double vb = tb[static_cast<size_t>(k)];
+            if (vb > va) delta[static_cast<size_t>(a)][static_cast<size_t>(k)] += r * (vb - va);
+            else if (va > vb) delta[static_cast<size_t>(b)][static_cast<size_t>(k)] += r * (va - vb);
+        }
+    };
+
+    // Border diffusion (slow).
+    for (int a = 0; a < n; ++a) {
+        if (countries[static_cast<size_t>(a)].getPopulation() <= 0) continue;
+        for (int b : map.getAdjacentCountryIndicesPublic(a)) {
+            if (b <= a || b < 0 || b >= n) continue;
+            if (countries[static_cast<size_t>(b)].getPopulation() <= 0) continue;
+            const int contact = std::max(1, map.getBorderContactCount(a, b));
+            const double w = clamp01(std::log1p(static_cast<double>(contact)) / 5.0);
+            diffusePair(a, b, w, /*rate*/0.003);
+        }
+    }
+
+    // Trade diffusion (faster than borders, still slow vs knowledge).
+    if (tradeIntensityMatrix && !tradeIntensityMatrix->empty()) {
+        const size_t need = static_cast<size_t>(n) * static_cast<size_t>(n);
+        if (tradeIntensityMatrix->size() >= need) {
+            for (int a = 0; a < n; ++a) {
+                for (int b = a + 1; b < n; ++b) {
+                    const float wab = (*tradeIntensityMatrix)[static_cast<size_t>(a) * static_cast<size_t>(n) + static_cast<size_t>(b)];
+                    const float wba = (*tradeIntensityMatrix)[static_cast<size_t>(b) * static_cast<size_t>(n) + static_cast<size_t>(a)];
+                    const double w = clamp01(static_cast<double>(std::max(wab, wba)));
+                    if (w <= 0.001) continue;
+                    diffusePair(a, b, w, /*rate*/0.010);
                 }
             }
-            if (!found) {
-                return false; // Required civic not unlocked
+        }
+    }
+
+    // Pressure-driven trait dynamics (per-country).
+    for (int i = 0; i < n; ++i) {
+        Country& c = countries[static_cast<size_t>(i)];
+        if (c.getPopulation() <= 0) continue;
+        auto& t = c.getTraitsMutable();
+
+        const auto& m = c.getMacroEconomy();
+        const double famine = clamp01(1.0 - m.foodSecurity);
+        const double war = c.isAtWar() ? 1.0 : 0.0;
+        const double trade = clamp01(m.marketAccess);
+
+        const double k = 0.020 * yearsD;
+        t[Religiosity] = clamp01(t[Religiosity] + k * (0.80 * famine + 0.15 * war - 0.25 * trade));
+        t[Collectivism] = clamp01(t[Collectivism] + k * (0.65 * famine + 0.10 * war - 0.20 * trade));
+        t[Militarism] = clamp01(t[Militarism] + k * (0.85 * war - 0.15 * trade));
+        t[Mercantile] = clamp01(t[Mercantile] + k * (0.80 * trade - 0.25 * war));
+        t[Hierarchy] = clamp01(t[Hierarchy] + k * (0.55 * war + 0.25 * famine - 0.20 * trade));
+        t[Openness] = clamp01(t[Openness] + k * (0.95 * trade - 0.55 * war - 0.30 * famine));
+        t[Legalism] = clamp01(t[Legalism] + k * (0.30 * clamp01(c.getAdminCapacity()) + 0.20 * trade - 0.10 * war));
+
+        // Weak drift back toward midpoints (prevents hard locks at 0/1).
+        const double midK = 0.0025 * yearsD;
+        for (int kTrait = 0; kTrait < Country::kTraits; ++kTrait) {
+            t[static_cast<size_t>(kTrait)] = clamp01(t[static_cast<size_t>(kTrait)] + midK * (0.5 - t[static_cast<size_t>(kTrait)]));
+        }
+    }
+
+    // Apply diffusion deltas.
+    for (int i = 0; i < n; ++i) {
+        auto& t = countries[static_cast<size_t>(i)].getTraitsMutable();
+        for (int k = 0; k < Country::kTraits; ++k) {
+            t[static_cast<size_t>(k)] = clamp01(t[static_cast<size_t>(k)] + delta[static_cast<size_t>(i)][static_cast<size_t>(k)]);
+        }
+    }
+
+    // Institution adoption cadence (deterministic; at most one attempt per cadence).
+    for (int i = 0; i < n; ++i) {
+        Country& c = countries[static_cast<size_t>(i)];
+        if (c.getPopulation() <= 0) continue;
+
+        // Stagger by country index to spread work and keep determinism.
+        if (((currentYear + i) % 20) != 0) {
+            continue;
+        }
+
+        const double pop = static_cast<double>(std::max<long long>(1, c.getPopulation()));
+        const double urban = urbanizationOf(c);
+        const double control = clamp01(c.getAvgControl());
+        const double legitimacy = clamp01(c.getLegitimacy());
+        const double debtStress = clamp01(c.getDebt() / (50.0 + pop * 0.002));
+        const double legitStress = 1.0 - legitimacy;
+        const double survivalStress = (c.isAtWar() ? 0.8 : 0.0) + (1.0 - control) * 0.6;
+
+        struct Cand { int id; double score; };
+        Cand best{ -1, 0.0 };
+
+        for (const auto& kv : m_civics) {
+            const int civicId = kv.first;
+            const Civic& inst = kv.second;
+            if (!canUnlockCivic(c, civicId, techManager)) continue;
+
+            double s = 0.0;
+            if (inst.fiscalCapBonus > 0.0) s += 0.8 * debtStress;
+            if (inst.adminCapBonus > 0.0) s += 0.6 * (1.0 - control);
+            if (inst.logisticsBonus > 0.0) s += 0.5 * (1.0 - clamp01(c.getMarketAccess()));
+            if (inst.educationShareBonus > 0.0) s += 0.7 * urban;
+            if (inst.healthShareBonus > 0.0) s += 0.6 * urban + 0.3 * clamp01(1.0 - c.getFoodSecurity());
+            if (inst.legitimacyBonus > 0.0) s += 0.9 * legitStress;
+            if (inst.name.find("Army") != std::string::npos) s += 0.9 * survivalStress;
+
+            // Trait compatibility nudges: legalistic/mercantile societies adopt those institutions faster.
+            const auto& t = c.getTraits();
+            if (civicId == 1 || civicId == 2 || civicId == 6) s *= (0.70 + 0.60 * t[Legalism]);
+            if (civicId == 4 || civicId == 11 || civicId == 12) s *= (0.70 + 0.60 * t[Mercantile]);
+
+            if (s > best.score || (s == best.score && civicId < best.id)) {
+                best = { civicId, s };
             }
         }
 
-        // Check if all required technologies are unlocked
-        for (int requiredTechId : civic.requiredTechs) {
-            if (!TechnologyManager::hasTech(techManager, country, requiredTechId)) {
-                return false; // Required technology not unlocked
-            }
-        }
-
-        return true;
-    }
-
-    void CultureManager::unlockCivic(Country& country, int civicId) {
-        // Unlock the civic for the country
-        m_unlockedCivics[country.getCountryIndex()].push_back(civicId);
-
-        // Deduct culture points
-        auto itCivic = m_civics.find(civicId);
-        if (itCivic != m_civics.end()) {
-            const Civic& civic = itCivic->second;
-            country.setCulturePoints(country.getCulturePoints() - civic.cost);
-        }
-
-        // Add any immediate effects of the civic here (e.g., government type changes)
-        // ... (Implementation for civic effects will be added later)
-        
-        // 🔧 DEBUG CONTROL: Only show message if debug mode is enabled
-        if (s_debugMode) {
-            cout << country.getName() << " unlocked civic: " << m_civics.at(civicId).name << endl;
+        if (best.id >= 0 && best.score >= 0.35) {
+            const std::string name = m_civics[best.id].name;
+            unlockCivic(c, best.id);
+            news.addEvent("🏛️ Institution adopted: " + c.getName() + " implements " + name + ".");
         }
     }
+}
 
-    const std::unordered_map<int, Civic>& CultureManager::getCivics() const {
-        return m_civics;
-    }
+const std::unordered_map<int, Civic>& CultureManager::getCivics() const {
+    return m_civics;
+}
 
-    const std::vector<int>& CultureManager::getUnlockedCivics(const Country& country) const {
-        auto it = m_unlockedCivics.find(country.getCountryIndex());
-        if (it != m_unlockedCivics.end()) {
-            return it->second;
-        }
-        static const std::vector<int> emptyVec; // Return an empty vector if not found
-        return emptyVec;
+const std::vector<int>& CultureManager::getUnlockedCivics(const Country& country) const {
+    auto it = m_unlockedCivics.find(country.getCountryIndex());
+    if (it != m_unlockedCivics.end()) {
+        return it->second;
     }
+    static const std::vector<int> emptyVec;
+    return emptyVec;
+}

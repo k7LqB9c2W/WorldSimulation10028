@@ -1,12 +1,15 @@
 // economy.cpp
 
 #include "economy.h"
+#include "trade.h"
+#include "news.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <iostream>
 #include <limits>
+#include <unordered_map>
 
 namespace {
 const char* kProdConsumeFragmentShader = R"(
@@ -960,9 +963,9 @@ void EconomyGPU::computeCountryMetricsCPU(int year) {
 }
 
 void EconomyGPU::computeCountryMetricsFallback(int year,
-                                               const std::vector<Country>& countries,
-                                               const TechnologyManager& tech,
-                                               float dtYears) {
+                                       const std::vector<Country>& countries,
+                                       const TechnologyManager& tech,
+                                       float dtYears) {
     if (m_maxCountries <= 0) {
         return;
     }
@@ -1012,5 +1015,467 @@ void EconomyGPU::computeCountryMetricsFallback(int year,
         m_fallbackPrevWealth = m_countryWealth;
         m_fallbackPrevYear = year;
         m_hasFallbackPrev = true;
+    }
+}
+
+// ============================================================
+// Phase 4: CPU macro economy + directed trade (authoritative)
+// ============================================================
+
+EconomyModelCPU::EconomyModelCPU(SimulationContext& ctx)
+    : m_ctx(&ctx) {}
+
+std::uint64_t EconomyModelCPU::pairKey(int a, int b) {
+    const std::uint32_t lo = static_cast<std::uint32_t>(std::min(a, b));
+    const std::uint32_t hi = static_cast<std::uint32_t>(std::max(a, b));
+    return (static_cast<std::uint64_t>(hi) << 32) | static_cast<std::uint64_t>(lo);
+}
+
+void EconomyModelCPU::tickYear(int year,
+                               int dtYears,
+                               const Map& map,
+                               std::vector<Country>& countries,
+                               const TechnologyManager& tech,
+                               TradeManager& tradeManager,
+                               News& news) {
+    const int years = std::max(1, dtYears);
+    const double yearsD = static_cast<double>(years);
+
+    const int n = static_cast<int>(countries.size());
+    if (n <= 0) {
+        return;
+    }
+
+    // Phase 6: climate aggregation (field-grid scan, once per tick).
+    map.prepareCountryClimateCaches(n);
+
+    m_lastTradeYear = year;
+    m_lastTradeN = n;
+    m_tradeIntensity.assign(static_cast<size_t>(n) * static_cast<size_t>(n), 0.0f);
+
+    auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+
+    auto isEnemy = [&](int a, int b) -> bool {
+        if (a < 0 || b < 0 || a >= n || b >= n || a == b) return false;
+        const auto& enemies = countries[static_cast<size_t>(a)].getEnemies();
+        for (const Country* e : enemies) {
+            if (e && e->getCountryIndex() == b) return true;
+        }
+        return false;
+    };
+
+    // Maintain shipping routes/ports (kept in TradeManager for rendering).
+    tradeManager.establishShippingRoutes(countries, year, tech, map, news);
+
+    // Sea influence (ports project control onto nav grid; hostile influence can choke shipping).
+    const int gridH = static_cast<int>(map.getCountryGrid().size());
+    const int gridW = (gridH > 0) ? static_cast<int>(map.getCountryGrid()[0].size()) : 0;
+    const int navStep = 6;
+    const int navW = (gridW + navStep - 1) / navStep;
+    const int navH = (gridH + navStep - 1) / navStep;
+
+    std::vector<int> seaOwner;
+    std::vector<std::uint16_t> seaDist;
+    if (navW > 0 && navH > 0) {
+        seaOwner.assign(static_cast<size_t>(navW) * static_cast<size_t>(navH), -1);
+        seaDist.assign(static_cast<size_t>(navW) * static_cast<size_t>(navH), std::numeric_limits<std::uint16_t>::max());
+
+        const int R = std::max(1, m_cfg.seaInfluenceRadiusNav);
+        for (int i = 0; i < n; ++i) {
+            const Country& c = countries[static_cast<size_t>(i)];
+            if (c.getPopulation() <= 0) continue;
+            const auto& ports = c.getPorts();
+            for (const auto& p : ports) {
+                const int px = std::max(0, std::min(navW - 1, p.x / navStep));
+                const int py = std::max(0, std::min(navH - 1, p.y / navStep));
+                for (int dy = -R; dy <= R; ++dy) {
+                    for (int dx = -R; dx <= R; ++dx) {
+                        const int nx = px + dx;
+                        const int ny = py + dy;
+                        if (nx < 0 || ny < 0 || nx >= navW || ny >= navH) continue;
+                        const int d = std::abs(dx) + std::abs(dy);
+                        if (d > R) continue;
+                        const size_t idx = static_cast<size_t>(ny) * static_cast<size_t>(navW) + static_cast<size_t>(nx);
+                        const std::uint16_t du = static_cast<std::uint16_t>(std::min(65535, d));
+                        if (du < seaDist[idx] || (du == seaDist[idx] && (seaOwner[idx] < 0 || i < seaOwner[idx]))) {
+                            seaDist[idx] = du;
+                            seaOwner[idx] = i;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Precompute macro production/consumption and scarcity prices.
+    std::vector<double> foodPre(static_cast<size_t>(n), 0.0);
+    std::vector<double> nonFoodPre(static_cast<size_t>(n), 0.0);
+    std::vector<double> foodCons(static_cast<size_t>(n), 0.0);
+    std::vector<double> nonFoodCons(static_cast<size_t>(n), 0.0);
+    std::vector<double> foodScarcity(static_cast<size_t>(n), 0.0);
+    std::vector<double> nonFoodScarcity(static_cast<size_t>(n), 0.0);
+
+    for (int i = 0; i < n; ++i) {
+        Country& c = countries[static_cast<size_t>(i)];
+        Country::MacroEconomyState& m = c.getMacroEconomyMutable();
+
+        const double pop = static_cast<double>(std::max<long long>(0, c.getPopulation()));
+        const double foodPot = std::max(0.0, map.getCountryFoodPotential(i));
+        const double nonFoodPot = std::max(0.0, map.getCountryNonFoodPotential(i));
+
+        const double urban = (pop > 1.0) ? clamp01(c.getTotalCityPopulation() / pop) : 0.0;
+        const double control = clamp01(c.getAvgControl());
+        const double logi = clamp01(c.getLogisticsReach());
+        const double admin = clamp01(c.getAdminCapacity());
+
+        // Market access: logistics + admin + ports, reduced by low control and war risk.
+        const double portTerm = std::min(1.0, std::sqrt(static_cast<double>(c.getPorts().size()) / 8.0));
+        double marketAccess = clamp01(0.10 + 0.55 * logi + 0.15 * admin + 0.20 * portTerm);
+        marketAccess *= (0.35 + 0.65 * control);
+        if (c.isAtWar()) {
+            marketAccess *= 0.70;
+        }
+        m.marketAccess = marketAccess;
+
+        if (!m.initialized) {
+            m.initialized = true;
+            m.foodStock = foodPot * 0.10;
+            m.nonFoodStock = nonFoodPot * 0.05;
+            m.capitalStock = 20.0;
+            m.infraStock = 10.0 * (0.25 + 0.75 * marketAccess);
+            m.foodSecurity = 1.0;
+        }
+
+        const double controlMult = 0.60 + 0.40 * control;
+        const double laborPerFood = 1800.0;
+        const double laborMult = (foodPot > 1e-6) ? std::min(1.0, pop / (foodPot * laborPerFood)) : 0.0;
+
+        const bool hasIrrigation = TechnologyManager::hasTech(tech, c, 10);
+        const bool hasAgriculture = TechnologyManager::hasTech(tech, c, 20);
+        const double yieldMult = 0.040 * (1.0 + (hasIrrigation ? 0.18 : 0.0) + (hasAgriculture ? 0.28 : 0.0));
+
+        const double climateMult = std::max(0.05, static_cast<double>(map.getCountryClimateFoodMultiplier(i)));
+        const double foodOutAnnual = foodPot * yieldMult * laborMult * controlMult * (0.80 + 0.20 * marketAccess) * climateMult;
+
+        const bool hasMining = TechnologyManager::hasTech(tech, c, 4);
+        const bool hasMetallurgy = TechnologyManager::hasTech(tech, c, TechId::METALLURGY);
+        const bool hasIndustrial = TechnologyManager::hasTech(tech, c, 52);
+        const double extractionMult = 0.0018 * (1.0 + (hasMining ? 0.30 : 0.0) + (hasMetallurgy ? 0.45 : 0.0) + (hasIndustrial ? 0.80 : 0.0));
+
+        const double urbanBoost = (pop > 1.0)
+            ? (0.000060 * std::sqrt(std::max(1.0, c.getTotalCityPopulation())) * std::sqrt(std::max(1.0, m.capitalStock)) * (0.60 + 0.40 * marketAccess))
+            : 0.0;
+
+        const double nonFoodOutAnnual = nonFoodPot * extractionMult * controlMult + urbanBoost;
+
+        const double foodConsAnnual = pop * m_cfg.foodPerCapita;
+        const double nonFoodConsAnnual = pop * m_cfg.nonFoodPerCapita * (0.30 + 0.70 * urban) * (0.50 + 0.50 * marketAccess);
+
+        const double foodOutTotal = foodOutAnnual * yearsD;
+        const double nonFoodOutTotal = nonFoodOutAnnual * yearsD;
+        const double foodConsTotal = foodConsAnnual * yearsD;
+        const double nonFoodConsTotal = nonFoodConsAnnual * yearsD;
+
+        // Depreciation/investment planning uses non-food availability after consumption.
+        const double depTotal = m_cfg.depRate * std::max(0.0, m.capitalStock) * yearsD;
+        const double nonFoodPre0 = m.nonFoodStock + nonFoodOutTotal - nonFoodConsTotal;
+        const double investTotal = m_cfg.investRate * std::max(0.0, nonFoodPre0) * (0.30 + 0.70 * marketAccess) * (0.65 + 0.35 * clamp01(c.getStability()));
+
+        // Apply capital dynamics (investment converts non-food into capital).
+        m.lastInvestment = investTotal / yearsD;
+        m.lastDepreciation = depTotal / yearsD;
+        m.capitalStock = std::max(0.0, m.capitalStock - depTotal + investTotal * m_cfg.investEfficiency);
+
+	        // Record annualized outputs/consumption.
+	        m.lastFoodOutput = foodOutAnnual;
+	        m.lastNonFoodOutput = nonFoodOutAnnual;
+	        m.lastFoodCons = foodConsAnnual;
+	        m.lastNonFoodCons = nonFoodConsAnnual;
+
+	        // Phase 4/5 integration: government extraction is tied to real output and market access.
+	        // Taxable base is value-added proxy: non-food + a fraction of food, scaled by market access.
+	        const double taxableBaseAnnual = std::max(0.0, (nonFoodOutAnnual + 0.30 * foodOutAnnual) * marketAccess);
+	        const double taxRate = std::clamp(c.getTaxRate(), 0.02, 0.45);
+	        const double fiscal = std::clamp(c.getFiscalCapacity(), 0.05, 1.0);
+	        double taxTakeAnnual = taxableBaseAnnual * taxRate * fiscal;
+	        taxTakeAnnual *= (0.65 + 0.35 * clamp01(c.getStability()));
+	        taxTakeAnnual *= (0.55 + 0.45 * control);
+	        const int techCount = static_cast<int>(tech.getUnlockedTechnologies(c).size());
+	        const bool plagueAffected = map.isPlagueActive() && map.isCountryAffectedByPlague(i);
+	        c.applyBudgetFromEconomy(taxableBaseAnnual, taxTakeAnnual, years, techCount, plagueAffected);
+
+	        foodCons[static_cast<size_t>(i)] = foodConsTotal;
+	        nonFoodCons[static_cast<size_t>(i)] = nonFoodConsTotal;
+
+        foodPre[static_cast<size_t>(i)] = m.foodStock + foodOutTotal - foodConsTotal;
+        nonFoodPre[static_cast<size_t>(i)] = nonFoodPre0 - investTotal;
+
+        // Reset yearly trade stats (annualized later).
+        m.importsValue = 0.0;
+        m.exportsValue = 0.0;
+        m.lastFoodShortage = 0.0;
+        m.lastNonFoodShortage = 0.0;
+    }
+
+    // Build trade edges (land adjacency + shipping routes).
+    struct Edge {
+        int a = -1;
+        int b = -1;
+        double capFood = 0.0;
+        double capNonFood = 0.0;
+        double costPerUnit = 0.0;
+    };
+
+    std::vector<Edge> edges;
+    edges.reserve(static_cast<size_t>(n) * 6u);
+    std::unordered_map<std::uint64_t, int> edgeIndex;
+    edgeIndex.reserve(static_cast<size_t>(n) * 6u);
+
+    auto addEdge = [&](int a, int b, double cap, double cost) {
+        if (a < 0 || b < 0 || a >= n || b >= n || a == b) return;
+        if (isEnemy(a, b) || isEnemy(b, a)) return;
+        const std::uint64_t key = pairKey(a, b);
+        auto it = edgeIndex.find(key);
+        if (it != edgeIndex.end()) {
+            Edge& e = edges[static_cast<size_t>(it->second)];
+            e.capFood += cap;
+            e.capNonFood += cap;
+            e.costPerUnit = std::min(e.costPerUnit, cost);
+            return;
+        }
+        Edge e;
+        e.a = a;
+        e.b = b;
+        e.capFood = cap;
+        e.capNonFood = cap;
+        e.costPerUnit = cost;
+        edgeIndex[key] = static_cast<int>(edges.size());
+        edges.push_back(e);
+    };
+
+    for (int a = 0; a < n; ++a) {
+        const Country& ca = countries[static_cast<size_t>(a)];
+        if (ca.getPopulation() <= 0) continue;
+        for (int b : map.getAdjacentCountryIndicesPublic(a)) {
+            if (b <= a || b < 0 || b >= n) continue;
+            const Country& cb = countries[static_cast<size_t>(b)];
+            if (cb.getPopulation() <= 0) continue;
+
+            const int contact = std::max(1, map.getBorderContactCount(a, b));
+            const double contactScale = std::sqrt(static_cast<double>(contact));
+
+            const double logi = std::min(clamp01(ca.getLogisticsReach()), clamp01(cb.getLogisticsReach()));
+            const double control = std::min(clamp01(ca.getAvgControl()), clamp01(cb.getAvgControl()));
+            double cap = m_cfg.baseLandCapacity * (0.25 + 0.75 * logi) * (0.30 + 0.70 * control) * std::min(4.0, 0.35 + contactScale * 0.08);
+            double cost = m_cfg.baseLandCost * (1.0 / std::max(1.0, contactScale)) * (1.20 - 0.70 * logi) * (1.10 - 0.60 * control);
+
+            if (ca.isAtWar() || cb.isAtWar()) {
+                cap *= 0.65;
+                cost *= 1.20;
+            }
+            cap *= yearsD;
+            addEdge(a, b, cap, cost);
+        }
+    }
+
+    for (const auto& r : tradeManager.getShippingRoutes()) {
+        if (!r.isActive) continue;
+        const int a = r.fromCountryIndex;
+        const int b = r.toCountryIndex;
+        if (a < 0 || b < 0 || a >= n || b >= n || a == b) continue;
+        if (countries[static_cast<size_t>(a)].getPopulation() <= 0) continue;
+        if (countries[static_cast<size_t>(b)].getPopulation() <= 0) continue;
+        if (isEnemy(a, b) || isEnemy(b, a)) continue;
+
+        const Country& ca = countries[static_cast<size_t>(a)];
+        const Country& cb = countries[static_cast<size_t>(b)];
+        const double logi = std::min(clamp01(ca.getLogisticsReach()), clamp01(cb.getLogisticsReach()));
+        double cap = m_cfg.baseSeaCapacity * (0.35 + 0.65 * logi);
+        cap *= (0.75 + 0.25 * std::min(1.0, (static_cast<double>(ca.getPorts().size() + cb.getPorts().size()) / 6.0)));
+
+        // Chokepoints/blockade proxy: hostile sea influence along the nav path reduces capacity.
+        double blockadeMult = 1.0;
+        if (!seaOwner.empty() && !r.navPath.empty()) {
+            int hostileHits = 0;
+            for (const auto& node : r.navPath) {
+                if (node.x < 0 || node.y < 0 || node.x >= navW || node.y >= navH) continue;
+                const size_t idx = static_cast<size_t>(node.y) * static_cast<size_t>(navW) + static_cast<size_t>(node.x);
+                const int owner = seaOwner[idx];
+                if (owner < 0 || owner == a || owner == b) continue;
+                if (isEnemy(a, owner) || isEnemy(b, owner) || isEnemy(owner, a) || isEnemy(owner, b)) {
+                    hostileHits++;
+                }
+            }
+            if (hostileHits > 0) {
+                blockadeMult = 0.10;
+                if (hostileHits > static_cast<int>(r.navPath.size() / 20u)) {
+                    blockadeMult = 0.02;
+                }
+            }
+        }
+        cap *= blockadeMult;
+
+        double cost = m_cfg.seaCostPerLen * static_cast<double>(std::max(0.0f, r.totalLen)) * (1.10 - 0.40 * logi);
+        if (ca.isAtWar() || cb.isAtWar()) {
+            cap *= 0.60;
+            cost *= 1.35;
+        }
+
+        cap *= yearsD;
+        addEdge(a, b, cap, cost);
+    }
+
+    // Per-country edge lists for 1-hop matching.
+    std::vector<std::vector<int>> edgesByCountry(static_cast<size_t>(n));
+    edgesByCountry.shrink_to_fit();
+    edgesByCountry.assign(static_cast<size_t>(n), {});
+    for (int ei = 0; ei < static_cast<int>(edges.size()); ++ei) {
+        const Edge& e = edges[static_cast<size_t>(ei)];
+        edgesByCountry[static_cast<size_t>(e.a)].push_back(ei);
+        edgesByCountry[static_cast<size_t>(e.b)].push_back(ei);
+    }
+
+    auto tradeGood = [&](bool isFood) {
+        const double basePrice = isFood ? 1.0 : 3.0;
+        const double alpha = isFood ? 2.0 : 1.6;
+
+        std::vector<double> supply(static_cast<size_t>(n), 0.0);
+        std::vector<double> demand(static_cast<size_t>(n), 0.0);
+        std::vector<double> cons = isFood ? foodCons : nonFoodCons;
+        std::vector<double> pre = isFood ? foodPre : nonFoodPre;
+        std::vector<double> net(static_cast<size_t>(n), 0.0);
+        std::vector<double> price(static_cast<size_t>(n), basePrice);
+
+        for (int i = 0; i < n; ++i) {
+            const double p = pre[static_cast<size_t>(i)];
+            if (p >= 0.0) supply[static_cast<size_t>(i)] = p;
+            else demand[static_cast<size_t>(i)] = -p;
+            const double scarcity = (cons[static_cast<size_t>(i)] > 1e-9) ? (demand[static_cast<size_t>(i)] / (cons[static_cast<size_t>(i)] + 1e-9)) : 0.0;
+            price[static_cast<size_t>(i)] = basePrice * std::exp(alpha * std::min(2.5, scarcity));
+        }
+
+        std::vector<int> buyers;
+        buyers.reserve(static_cast<size_t>(n));
+        for (int i = 0; i < n; ++i) {
+            if (demand[static_cast<size_t>(i)] > 1e-9 && countries[static_cast<size_t>(i)].getPopulation() > 0) {
+                buyers.push_back(i);
+            }
+        }
+        std::sort(buyers.begin(), buyers.end(), [&](int a, int b) {
+            const double pa = price[static_cast<size_t>(a)];
+            const double pb = price[static_cast<size_t>(b)];
+            if (pa != pb) return pa > pb;
+            return a < b;
+        });
+
+        for (int buyer : buyers) {
+            double need = demand[static_cast<size_t>(buyer)];
+            if (need <= 1e-9) continue;
+
+            struct Cand { int supplier; int edgeIdx; double delivered; };
+            std::vector<Cand> cands;
+            cands.reserve(24);
+
+            for (int ei : edgesByCountry[static_cast<size_t>(buyer)]) {
+                const Edge& e = edges[static_cast<size_t>(ei)];
+                const int supplier = (e.a == buyer) ? e.b : e.a;
+                if (supplier < 0 || supplier >= n) continue;
+                if (supply[static_cast<size_t>(supplier)] <= 1e-9) continue;
+                const double capRem = isFood ? e.capFood : e.capNonFood;
+                if (capRem <= 1e-9) continue;
+                const double delivered = price[static_cast<size_t>(supplier)] + e.costPerUnit;
+                cands.push_back({supplier, ei, delivered});
+            }
+
+            std::sort(cands.begin(), cands.end(), [&](const Cand& a, const Cand& b) {
+                if (a.delivered != b.delivered) return a.delivered < b.delivered;
+                if (a.supplier != b.supplier) return a.supplier < b.supplier;
+                return a.edgeIdx < b.edgeIdx;
+            });
+
+            const double local = price[static_cast<size_t>(buyer)];
+            for (const auto& cand : cands) {
+                if (need <= 1e-9) break;
+                if (cand.delivered >= local * 0.995) {
+                    break;
+                }
+
+                Edge& e = edges[static_cast<size_t>(cand.edgeIdx)];
+                double& capRem = isFood ? e.capFood : e.capNonFood;
+                const double amt = std::min({need, supply[static_cast<size_t>(cand.supplier)], capRem});
+                if (amt <= 1e-12) continue;
+
+                supply[static_cast<size_t>(cand.supplier)] -= amt;
+                need -= amt;
+                capRem -= amt;
+
+                net[static_cast<size_t>(buyer)] += amt;
+                net[static_cast<size_t>(cand.supplier)] -= amt;
+
+                const double value = amt * cand.delivered;
+                Country::MacroEconomyState& mb = countries[static_cast<size_t>(buyer)].getMacroEconomyMutable();
+                Country::MacroEconomyState& ms = countries[static_cast<size_t>(cand.supplier)].getMacroEconomyMutable();
+                mb.importsValue += value;
+                ms.exportsValue += value;
+
+                const double popBuyer = static_cast<double>(std::max<long long>(1, countries[static_cast<size_t>(buyer)].getPopulation()));
+                const float inc = static_cast<float>(std::min(1.0, value / (10000.0 + 0.50 * popBuyer)));
+                const size_t ti = static_cast<size_t>(cand.supplier) * static_cast<size_t>(n) + static_cast<size_t>(buyer);
+                if (ti < m_tradeIntensity.size()) {
+                    m_tradeIntensity[ti] = std::min(1.0f, m_tradeIntensity[ti] + inc);
+                }
+            }
+            demand[static_cast<size_t>(buyer)] = need;
+        }
+
+        for (int i = 0; i < n; ++i) {
+            Country::MacroEconomyState& m = countries[static_cast<size_t>(i)].getMacroEconomyMutable();
+            if (isFood) {
+                m.foodStock = pre[static_cast<size_t>(i)] + net[static_cast<size_t>(i)];
+            } else {
+                m.nonFoodStock = pre[static_cast<size_t>(i)] + net[static_cast<size_t>(i)];
+            }
+        }
+    };
+
+    tradeGood(true);
+    tradeGood(false);
+
+    // Finalize shortages, security, and derive GDP/wealth/exports.
+    for (int i = 0; i < n; ++i) {
+        Country& c = countries[static_cast<size_t>(i)];
+        Country::MacroEconomyState& m = c.getMacroEconomyMutable();
+
+        const double foodConsTotal = foodCons[static_cast<size_t>(i)];
+        if (m.foodStock < 0.0) {
+            const double shortage = -m.foodStock;
+            m.lastFoodShortage = shortage / yearsD;
+            m.foodStock = 0.0;
+            const double ratio = (foodConsTotal > 1e-9) ? std::min(1.0, shortage / (foodConsTotal + 1e-9)) : 1.0;
+            m.foodSecurity = clamp01(1.0 - ratio);
+            c.setStability(c.getStability() - 0.10 * (1.0 - m.foodSecurity));
+            c.setLegitimacy(c.getLegitimacy() - 0.08 * (1.0 - m.foodSecurity));
+        } else {
+            m.foodSecurity = std::min(1.0, m.foodSecurity + 0.05);
+        }
+
+        const double nonFoodConsTotal = nonFoodCons[static_cast<size_t>(i)];
+        if (m.nonFoodStock < 0.0) {
+            const double shortage = -m.nonFoodStock;
+            m.lastNonFoodShortage = shortage / yearsD;
+            m.nonFoodStock = 0.0;
+            (void)nonFoodConsTotal;
+        }
+
+        // Annualize trade value stats.
+        m.importsValue /= yearsD;
+        m.exportsValue /= yearsD;
+
+        // Simple macro-derived headline stats (used by UI).
+        const double gdpAnnual = (m.lastFoodOutput * 1.0 + m.lastNonFoodOutput * 2.0 + m.lastInvestment * 3.0);
+        const double wealth = m.foodStock * 1.0 + m.nonFoodStock * 2.0 + m.capitalStock * 5.0 + std::max(0.0, c.getGold());
+        c.setGDP(gdpAnnual);
+        c.setWealth(wealth);
+        c.setExports(m.exportsValue);
     }
 }

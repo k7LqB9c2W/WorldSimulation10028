@@ -39,6 +39,13 @@ public:
     Map(const sf::Image& baseImage, const sf::Image& resourceImage, int gridCellSize, const sf::Color& landColor, const sf::Color& waterColor, int regionSize, SimulationContext& ctx);
     void initializeCountries(std::vector<Country>& countries, int numCountries);
     void updateCountries(std::vector<Country>& countries, int currentYear, News& news, class TechnologyManager& technologyManager);
+    // Phase 4 integration: run demography/migration + city updates as a separate step so
+    // shortages computed by the macro economy can affect births/deaths in the same year.
+    void tickDemographyAndCities(std::vector<Country>& countries, int currentYear, int dtYears, News& news);
+    // Optional: allow Map ownership writes to keep Country territory containers in sync.
+    // Recommended to call once after countries are created/reserved, and Map will also
+    // re-attach automatically in methods that already have a `countries` reference.
+    void attachCountriesForOwnershipSync(std::vector<Country>* countries);
     const std::vector<std::vector<bool>>& getIsLandGrid() const;
     sf::Vector2i pixelToGrid(const sf::Vector2f& pixel) const;
     int getGridCellSize() const;
@@ -76,12 +83,18 @@ public:
     void rebuildBoundariesForCountries(std::vector<Country>& countries, const std::vector<int>& countryIndices);
     void rebuildAdjacency(const std::vector<Country>& countries);
     const std::vector<int>& getAdjacentCountryIndicesPublic(int countryIndex) const;
+    int getBorderContactCount(int a, int b) const;
     
     // Road building support
     bool isValidRoadPixel(int x, int y) const;
 
-    // Political events
-    void processPoliticalEvents(std::vector<Country>& countries, TradeManager& tradeManager, int currentYear, News& news);
+	// Political events
+	void processPoliticalEvents(std::vector<Country>& countries,
+	                           TradeManager& tradeManager,
+	                           int currentYear,
+	                           News& news,
+	                           class TechnologyManager& techManager,
+	                           class CultureManager& cultureManager);
     
     // Fast Forward Mode - simulate multiple years quickly
     void fastForwardSimulation(std::vector<Country>& countries, int& currentYear, int targetYears, News& news, class TechnologyManager& technologyManager);
@@ -110,6 +123,8 @@ public:
     double getCellFood(int x, int y) const;
     int getCellOwner(int x, int y) const;
     double getCountryFoodSum(int countryIndex) const;
+    double getCountryFoodPotential(int countryIndex) const { return getCountryFoodSum(countryIndex); }
+    double getCountryNonFoodPotential(int countryIndex) const;
     int getCountryLandCellCount(int countryIndex) const;
 
     // Phase 2/3 field systems (econ-grid resolution)
@@ -121,8 +136,21 @@ public:
     bool isPopulationGridActive() const { return !m_fieldPopulation.empty(); }
     const std::vector<float>& getFieldPopulation() const { return m_fieldPopulation; } // size = fieldW*fieldH
 
-private:
+	// Phase 6: climate/weather fields (field grid resolution).
+	const std::vector<uint8_t>& getFieldClimateZone() const { return m_fieldClimateZone; } // discrete bands for debug
+	const std::vector<uint8_t>& getFieldBiome() const { return m_fieldBiome; }             // 0..N (land only)
+	const std::vector<float>& getFieldTempMean() const { return m_fieldTempMean; }
+	const std::vector<float>& getFieldPrecipMean() const { return m_fieldPrecipMean; }
+	const std::vector<float>& getFieldFoodYieldMult() const { return m_fieldFoodYieldMult; }
+	float getCountryClimateFoodMultiplier(int countryIndex) const; // aggregated (weighted)
+	const std::vector<uint8_t>& getFieldOverseasMask() const { return m_fieldOverseasMask; } // Phase 7 debug overlay (0/1)
+
+    void tickWeather(int year, int dtYears); // Phase 6: dynamic anomalies + yield multiplier update
+    void prepareCountryClimateCaches(int countryCount) const; // call once per tick for O(field) aggregation
+
+	private:
     SimulationContext* m_ctx = nullptr;
+    std::vector<Country>* m_ownershipSyncCountries = nullptr;
     std::vector<std::vector<int>> m_countryGrid;
     std::vector<std::vector<bool>> m_isLandGrid;
     int m_gridCellSize;
@@ -140,11 +168,16 @@ private:
     // Cached FOOD values per cell (y * width + x). 0 for non-land.
     std::vector<double> m_cellFood;
     void rebuildCellFoodCache();
+    // Cached NON-FOOD potential per cell (y * width + x). 0 for non-land.
+    std::vector<double> m_cellNonFood;
+    void rebuildCellNonFoodCache();
 
     // Incremental per-country aggregates (kept consistent via setCountryOwnerAssumingLockedImpl).
     std::vector<int> m_countryLandCellCount;
-    std::vector<double> m_countryFoodSum;
+    std::vector<double> m_countryFoodPotential;
+    std::vector<double> m_countryNonFoodPotential;
     void ensureCountryAggregateCapacityForIndex(int idx);
+    void rebuildCountryPotentials(int countryCount);
 
     bool m_plagueActive;
     int m_plagueStartYear;
@@ -192,11 +225,44 @@ private:
     int m_lastPopulationUpdateYear = -9999999;
     void ensureFieldGrids();
     void rebuildFieldFoodPotential();
-    void rebuildFieldOwnerIdAssumingLocked(int countryCount);
-    void updateControlGrid(std::vector<Country>& countries, int currentYear, int dtYears);
+	void ensureClimateGrids();
+	void initializeClimateBaseline();
+	void buildCoastalLandCandidates(); // Phase 7: candidate sites (coastal land field indices)
+	void rebuildFieldLandMask();
+	void rebuildFieldOwnerIdAssumingLocked(int countryCount);
+	void updateControlGrid(std::vector<Country>& countries, int currentYear, int dtYears);
 
     void initializePopulationGridFromCountries(const std::vector<Country>& countries);
     void tickPopulationGrid(const std::vector<Country>& countries, int currentYear, int dtYears);
     void applyPopulationTotalsToCountries(std::vector<Country>& countries) const;
     void updateCitiesFromPopulation(std::vector<Country>& countries, int currentYear, int createEveryNYears, News& news);
+
+	// Phase 6: climate baseline + dynamic weather anomalies (field grid resolution).
+	std::vector<uint8_t> m_fieldLandMask;      // 0/1
+	std::vector<uint8_t> m_fieldClimateZone;   // 0..4 for land, 255 for water
+	std::vector<uint8_t> m_fieldBiome;         // 0..N for land, 255 for water
+	std::vector<float> m_fieldTempMean;        // degrees C
+    std::vector<float> m_fieldPrecipMean;      // 0..1
+	std::vector<float> m_fieldTempAnom;        // degrees C (weather)
+	std::vector<float> m_fieldPrecipAnom;      // -1..+1-ish (weather)
+	std::vector<float> m_fieldFoodYieldMult;   // final multiplier (>=0)
+
+	// Phase 7: coastal land candidates (field indices).
+	std::vector<int> m_fieldCoastalLandCandidates;
+
+	// Weather grid (coarse) for cheap spatial correlation.
+	int m_weatherW = 0;
+	int m_weatherH = 0;
+	std::vector<float> m_weatherTemp;
+    std::vector<float> m_weatherPrecip;
+    int m_lastWeatherUpdateYear = -9999999;
+
+	// Per-country aggregates (computed on-demand by scanning the field grid).
+	mutable std::vector<float> m_countryClimateFoodMult;
+	mutable std::vector<float> m_countryPrecipAnomMean;
+	mutable int m_countryClimateCacheN = 0;
+
+	// Phase 7: debug overlay - marks overseas field cells (updated every ~20 years).
+	mutable std::vector<uint8_t> m_fieldOverseasMask;
+	mutable int m_lastOverseasMaskYear = -9999999;
 };
