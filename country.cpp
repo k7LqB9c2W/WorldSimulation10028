@@ -1132,13 +1132,14 @@ bool Country::isNeighbor(const Country& other) const {
         }
     }
 
-    // 🚀⚡ SUPER OPTIMIZED BURST EXPANSION - Lightning fast! ⚡🚀
-    if (doBurstExpansion && !m_boundaryPixels.empty() && !m_isContentWithSize) {
-        
-        // OPTIMIZATION 1: Pre-calculate burst size to avoid expensive nested loops
-        int targetBurstPixels = burstRadius * burstRadius * 3; // Scale bursts with modern logistics
-        int burstPixelCap = (m_flatMaxSizeBonus > 0) ? 240 : 120; // Navigation/Railroad unlock larger colonial waves
-        targetBurstPixels = std::min(targetBurstPixels, burstPixelCap); // Respect performance guardrail
+	    // 🚀⚡ SUPER OPTIMIZED BURST EXPANSION - Lightning fast! ⚡🚀
+	    if (doBurstExpansion && !m_boundaryPixels.empty() && !m_isContentWithSize) {
+	        
+	        // OPTIMIZATION 1: Pre-calculate burst size to avoid expensive nested loops
+	        const int burstRadius = getBurstExpansionRadius();
+	        int targetBurstPixels = burstRadius * burstRadius * 3; // Scale bursts with modern logistics
+	        int burstPixelCap = (m_flatMaxSizeBonus > 0) ? 240 : 120; // Navigation/Railroad unlock larger colonial waves
+	        targetBurstPixels = std::min(targetBurstPixels, burstPixelCap); // Respect performance guardrail
         
         // OPTIMIZATION 2: Use random sampling instead of exhaustive search
         std::vector<sf::Vector2i> burstTargets;

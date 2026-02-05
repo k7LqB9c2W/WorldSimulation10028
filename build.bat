@@ -5,7 +5,7 @@ rem ====== Config ======
 set "VSDEVCMD=C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat"
 set "SFML=C:\SFML-2.6.1"
 set "OUT=WorldSimulation.exe"
-set "SRC=main.cpp country.cpp map.cpp renderer.cpp news.cpp technology.cpp culture.cpp great_people.cpp resource.cpp trade.cpp economy.cpp"
+set "SRC=main.cpp country.cpp map.cpp renderer.cpp news.cpp technology.cpp culture.cpp great_people.cpp resource.cpp trade.cpp economy.cpp simulation_context.cpp"
 
 rem ====== Help ======
 if "%~1"=="" goto :usage

@@ -372,6 +372,10 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries, int currentY
     }
     m_lastPopulationUpdateYear = currentYear;
 
+    auto clamp01 = [](double v) {
+        return std::max(0.0, std::min(1.0, v));
+    };
+
     const double years = static_cast<double>(std::max(1, dtYears));
     const float yearsF = static_cast<float>(years);
 
