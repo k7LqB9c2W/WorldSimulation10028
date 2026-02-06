@@ -260,7 +260,7 @@ int main(int argc, char** argv) {
     map.initializeCountries(countries, numCountries);
     auto countryEnd = std::chrono::high_resolution_clock::now();
     auto countryDuration = std::chrono::duration_cast<std::chrono::milliseconds>(countryEnd - countryStart);
-    std::cout << "✅ " << numCountries << " COUNTRIES SPAWNED in " << countryDuration.count() << " ms" << std::endl;
+    std::cout << "✅ " << countries.size() << " COUNTRIES SPAWNED in " << countryDuration.count() << " ms" << std::endl;
 
     // Initialize the TechnologyManager
     TechnologyManager technologyManager;
@@ -1923,11 +1923,12 @@ int main(int argc, char** argv) {
 		                        }
 
 		                        if (ImGui::BeginTable("##wealth", 7, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-		                                                       ImGuiTableFlags_ScrollY | ImGuiTableFlags_Sortable,
+		                                                       ImGuiTableFlags_ScrollY | ImGuiTableFlags_Sortable |
+		                                                       ImGuiTableFlags_SizingFixedFit,
 		                                              ImVec2(0, 0))) {
 		                            ImGui::TableSetupScrollFreeze(0, 1);
-		                            ImGui::TableSetupColumn("Rank", ImGuiTableColumnFlags_NoSort, 60.0f);
-		                            ImGui::TableSetupColumn(" ", ImGuiTableColumnFlags_NoSort, 24.0f);
+		                            ImGui::TableSetupColumn("Rank", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 60.0f);
+		                            ImGui::TableSetupColumn(" ", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 24.0f);
 		                            ImGui::TableSetupColumn("Country");
 		                            ImGui::TableSetupColumn("Wealth");
 		                            ImGui::TableSetupColumn("GDP");

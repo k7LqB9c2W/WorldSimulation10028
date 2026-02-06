@@ -1766,13 +1766,56 @@ sf::Vector2i Map::getRandomCellInPreferredZones(std::mt19937_64& gen) {
 void Map::initializeCountries(std::vector<Country>& countries, int numCountries) {
     attachCountriesForOwnershipSync(&countries);
     std::mt19937_64& rng = m_ctx->worldRng;
-    std::uniform_int_distribution<> xDist(0, static_cast<int>(m_isLandGrid[0].size() - 1));
-    std::uniform_int_distribution<> yDist(0, static_cast<int>(m_isLandGrid.size() - 1));
     std::uniform_int_distribution<> colorDist(50, 255);
     std::uniform_real_distribution<> growthRateDist(0.0003, 0.001); // Legacy - not used in logistic system
     std::uniform_real_distribution<> spawnDist(0.0, 1.0);
 
     std::uniform_int_distribution<> typeDist(0, 2);
+    const int gridH = static_cast<int>(m_isLandGrid.size());
+    const int gridW = (gridH > 0) ? static_cast<int>(m_isLandGrid[0].size()) : 0;
+    if (gridW <= 0 || gridH <= 0) {
+        return;
+    }
+
+    // Build deterministic, unique spawn pools (preferred-zone land + all land).
+    std::vector<int> preferredLandCells;
+    std::vector<int> allLandCells;
+    preferredLandCells.reserve(static_cast<size_t>(gridW * gridH / 8));
+    allLandCells.reserve(static_cast<size_t>(gridW * gridH / 2));
+    const bool spawnZoneMatchesGrid =
+        (static_cast<int>(m_spawnZoneImage.getSize().x) == gridW &&
+         static_cast<int>(m_spawnZoneImage.getSize().y) == gridH);
+    for (int y = 0; y < gridH; ++y) {
+        for (int x = 0; x < gridW; ++x) {
+            if (!m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) {
+                continue;
+            }
+            const int packed = y * gridW + x;
+            allLandCells.push_back(packed);
+            if (spawnZoneMatchesGrid && m_spawnZoneImage.getPixel(static_cast<unsigned int>(x), static_cast<unsigned int>(y)) == m_spawnZoneColor) {
+                preferredLandCells.push_back(packed);
+            }
+        }
+    }
+    std::shuffle(preferredLandCells.begin(), preferredLandCells.end(), rng);
+    std::shuffle(allLandCells.begin(), allLandCells.end(), rng);
+    std::vector<uint8_t> spawnTaken(static_cast<size_t>(gridW) * static_cast<size_t>(gridH), 0u);
+    size_t prefCursor = 0;
+    size_t allCursor = 0;
+    auto claimFromPool = [&](const std::vector<int>& pool, size_t& cursor, sf::Vector2i& out) -> bool {
+        while (cursor < pool.size()) {
+            const int packed = pool[cursor++];
+            if (packed < 0) continue;
+            const size_t idx = static_cast<size_t>(packed);
+            if (idx >= spawnTaken.size()) continue;
+            if (spawnTaken[idx] != 0u) continue;
+            spawnTaken[idx] = 1u;
+            out.x = packed % gridW;
+            out.y = packed / gridW;
+            return true;
+        }
+        return false;
+    };
 
     // ============================================================
     // Phase 0: realistic 5000 BCE global population (heavy tail)
@@ -1852,20 +1895,24 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
     // Small initial territory clusters (prevents single-cell artifacts and keeps pop counted to owners).
     std::uniform_int_distribution<int> territoryRadiusFieldDist(2, 6);
 
-    for (int i = 0; i < numCountries; ++i) {
+    const int targetCountries = std::min(numCountries, static_cast<int>(allLandCells.size()));
+    if (targetCountries < numCountries) {
+        std::cout << "Warning: requested " << numCountries << " countries but only " << targetCountries
+                  << " unique land cells are available for spawning." << std::endl;
+    }
+
+    for (int i = 0; i < targetCountries; ++i) {
         sf::Vector2i startCell;
         double spawnRoll = spawnDist(rng);
-
-        if (spawnRoll < 0.75) {
-            // Attempt to spawn in a preferred zone
-            startCell = getRandomCellInPreferredZones(rng);
+        bool gotCell = false;
+        if (spawnRoll < 0.75 && !preferredLandCells.empty()) {
+            gotCell = claimFromPool(preferredLandCells, prefCursor, startCell);
         }
-        else {
-            // 25% chance: Random spawn anywhere on land
-            do {
-                startCell.x = xDist(rng);
-                startCell.y = yDist(rng);
-            } while (!m_isLandGrid[startCell.y][startCell.x]);
+        if (!gotCell) {
+            gotCell = claimFromPool(allLandCells, allCursor, startCell);
+        }
+        if (!gotCell) {
+            break;
         }
 
         sf::Color countryColor(colorDist(rng), colorDist(rng), colorDist(rng));
@@ -1959,7 +2006,8 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
         const long long pop = countries[i].getPopulation();
         const bool hasTerritory = !countries[i].getBoundaryPixels().empty();
         const bool hasCities = !countries[i].getCities().empty();
-        const bool strandedMicroPolity = hasTerritory && !hasCities && pop > 0 && pop < 2000;
+        const size_t territoryCells = countries[i].getBoundaryPixels().size();
+        const bool strandedMicroPolity = hasTerritory && !hasCities && territoryCells <= 1u && pop > 0 && pop < 2000;
         if (pop <= 0 || !hasTerritory || strandedMicroPolity) {
             markCountryExtinct(countries, i, currentYear, news);
         }
@@ -2881,6 +2929,21 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
         newCountry.setGold(newGold);
         newCountry.initializeTechSharingTimer(currentYear);
 
+        // Breakaway inherits science state with turmoil-scaled deployment losses.
+        const double turmoil = clamp01(0.65 * stress + 0.35 * country.getAutonomyPressure());
+        const double knowledgeKeep = std::clamp(0.98 - 0.13 * turmoil, 0.85, 0.98);
+        const double infraKeep = std::clamp(0.90 - 0.30 * turmoil, 0.60, 0.90);
+
+        const Country::KnowledgeVec& parentKnowledge = country.getKnowledge();
+        Country::KnowledgeVec& childKnowledge = newCountry.getKnowledgeMutable();
+        for (size_t d = 0; d < Country::kDomains; ++d) {
+            childKnowledge[d] = std::max(0.0, parentKnowledge[d] * knowledgeKeep);
+        }
+        newCountry.setKnowledgeInfra(country.getKnowledgeInfra() * infraKeep);
+
+        // Use manager assignment so child bonuses are rebuilt correctly.
+        techManager.setUnlockedTechnologiesForEditor(newCountry, techManager.getUnlockedTechnologies(country), /*includePrerequisites*/false);
+
         const Country::MacroEconomyState parentMacroBefore = country.getMacroEconomy();
         const std::array<double, 5> parentCohortsBefore = country.getPopulationCohorts();
         const Country::EpidemicState parentEpiBefore = country.getEpidemicState();
@@ -3498,9 +3561,21 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
 	            newCountry.setLegitimacy(std::max(0.20, std::min(0.55, c.getLegitimacy() * 0.90)));
 	            newCountry.setFragmentationCooldown(180);
 
-	            // Inherit cultural traits and knowledge stocks (but not the full polity apparatus).
+	            // Inherit cultural traits; scale knowledge continuity by breakaway turmoil.
 	            newCountry.getTraitsMutable() = c.getTraits();
-	            newCountry.getKnowledgeMutable() = c.getKnowledge();
+	            const double turmoil = clamp01d(
+	                0.40 * static_cast<double>(ex.colonialOverstretch) +
+	                0.30 * frac +
+	                0.20 * (1.0 - meanControl) +
+	                0.10 * clamp01d(c.getAutonomyPressure()));
+	            const double knowledgeKeep = std::clamp(0.98 - 0.13 * turmoil, 0.85, 0.98);
+	            const double infraKeep = std::clamp(0.90 - 0.30 * turmoil, 0.60, 0.90);
+	            const Country::KnowledgeVec& parentKnowledge = c.getKnowledge();
+	            Country::KnowledgeVec& childKnowledge = newCountry.getKnowledgeMutable();
+	            for (size_t d = 0; d < Country::kDomains; ++d) {
+	                childKnowledge[d] = std::max(0.0, parentKnowledge[d] * knowledgeKeep);
+	            }
+	            newCountry.setKnowledgeInfra(c.getKnowledgeInfra() * infraKeep);
 
 	            // Inherit unlocked techs to avoid instant collapse; keep prereqs already present.
 	            techManager.setUnlockedTechnologiesForEditor(newCountry, techManager.getUnlockedTechnologies(c), /*includePrerequisites*/false);
