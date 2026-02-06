@@ -82,8 +82,25 @@ bool paused = false;
 // Mega Time Jump GUI variables
 bool megaTimeJumpMode = false;
 std::string megaTimeJumpInput = "";
+bool megaTimeJumpDebugLogEnabled = false;
+std::string megaTimeJumpInputError = "";
+bool megaTimeJumpFocusInputNextFrame = false;
 
 namespace {
+std::string buildMegaDebugLogPath(const char* argv0) {
+    const std::string fileName = "mega_time_jump_population_debug.csv";
+    if (argv0 == nullptr) {
+        return fileName;
+    }
+
+    const std::string exePath(argv0);
+    const size_t sep = exePath.find_last_of("/\\");
+    if (sep == std::string::npos) {
+        return fileName;
+    }
+    return exePath.substr(0, sep + 1) + fileName;
+}
+
 std::optional<std::uint64_t> tryReadSeedFile(const char* filename) {
     std::ifstream in(filename);
     if (!in) {
@@ -444,6 +461,7 @@ int main(int argc, char** argv) {
 	    bool megaTimeJumpGpuChunkNeedsTerritorySync = false;
 	    const int megaTimeJumpGpuYearsPerStep = 10;
 	    const int megaTimeJumpGpuTradeItersPerStep = 3;
+        const std::string megaTimeJumpDebugLogPath = buildMegaDebugLogPath((argc > 0) ? argv[0] : nullptr);
 	    struct MegaTimeJumpThreadGuard {
 	        std::thread& thread;
 	        std::atomic<bool>& cancel;
@@ -454,6 +472,107 @@ int main(int argc, char** argv) {
 	            }
 	        }
 		    } megaTimeJumpThreadGuard{ megaTimeJumpThread, megaTimeJumpCancelRequested };
+
+        auto tryLaunchMegaTimeJumpFromInput = [&]() -> bool {
+            if (megaTimeJumpInput.empty()) {
+                megaTimeJumpInputError = "Enter a target year.";
+                return false;
+            }
+
+            int targetYear = 0;
+            try {
+                targetYear = std::stoi(megaTimeJumpInput);
+            } catch (...) {
+                megaTimeJumpInputError = "Invalid year format.";
+                return false;
+            }
+
+            if (targetYear < -5000 || targetYear > 2025) {
+                megaTimeJumpInputError = "Target year must be between -5000 and 2025.";
+                return false;
+            }
+            if (targetYear <= currentYear) {
+                megaTimeJumpInputError = "Target year must be greater than current year.";
+                return false;
+            }
+
+            megaTimeJumpMode = false;
+            megaTimeJumpInputError.clear();
+
+            megaTimeJumpStartYear = currentYear;
+            megaTimeJumpTargetYear = targetYear;
+            megaTimeJumpRunning = true;
+            megaTimeJumpPendingClose = false;
+
+            megaTimeJumpCancelRequested.store(false, std::memory_order_relaxed);
+            megaTimeJumpDone.store(false, std::memory_order_relaxed);
+            megaTimeJumpCanceled.store(false, std::memory_order_relaxed);
+            megaTimeJumpFailed.store(false, std::memory_order_relaxed);
+            megaTimeJumpProgressYear.store(currentYear, std::memory_order_relaxed);
+            megaTimeJumpEtaSeconds.store(-1.0f, std::memory_order_relaxed);
+            {
+                std::lock_guard<std::mutex> lock(megaTimeJumpChunkMutex);
+                megaTimeJumpGpuChunkTicket = 0;
+                megaTimeJumpGpuChunkAck = 0;
+                megaTimeJumpGpuChunkEndYear = currentYear;
+                megaTimeJumpGpuChunkYears = 0;
+            }
+            megaTimeJumpGpuChunkActive = false;
+            megaTimeJumpGpuChunkActiveTicket = 0;
+            megaTimeJumpGpuChunkRemainingYears = 0;
+            megaTimeJumpGpuChunkSimYear = currentYear;
+            megaTimeJumpGpuChunkNeedsTerritorySync = false;
+
+            {
+                std::lock_guard<std::mutex> lock(megaTimeJumpErrorMutex);
+                megaTimeJumpError.clear();
+            }
+
+            if (megaTimeJumpThread.joinable()) {
+                megaTimeJumpThread.join();
+            }
+
+            const int yearsToSimulate = megaTimeJumpTargetYear - megaTimeJumpStartYear;
+            std::cout << "SIMULATING " << yearsToSimulate << " YEARS OF HISTORY!" << std::endl;
+            std::cout << "From " << megaTimeJumpStartYear << " to " << megaTimeJumpTargetYear << std::endl;
+            const bool megaDebugThisRun = megaTimeJumpDebugLogEnabled;
+            const std::string megaDebugPathThisRun = megaTimeJumpDebugLogPath;
+            if (megaDebugThisRun) {
+                std::cout << "MEGA DEBUG CSV ENABLED: " << megaDebugPathThisRun << std::endl;
+            }
+
+            megaTimeJumpThread = std::thread([&, megaDebugThisRun, megaDebugPathThisRun] {
+                try {
+                    const bool completed = map.megaTimeJump(
+                        countries, currentYear, megaTimeJumpTargetYear, news,
+                        technologyManager, cultureManager, macroEconomy, tradeManager, greatPeopleManager,
+                        [&](int currentSimYear, int targetSimYear, float estimatedSecondsRemaining) {
+                            (void)targetSimYear;
+                            megaTimeJumpProgressYear.store(currentSimYear, std::memory_order_relaxed);
+                            megaTimeJumpEtaSeconds.store(estimatedSecondsRemaining, std::memory_order_relaxed);
+                        },
+                        [&](int, int) {
+                            // Macro economy runs inside `Map::megaTimeJump`; no GPU/trade chunk required here.
+                        },
+                        &megaTimeJumpCancelRequested,
+                        megaDebugThisRun,
+                        megaDebugPathThisRun);
+
+                    megaTimeJumpCanceled.store(!completed, std::memory_order_relaxed);
+                } catch (const std::exception& e) {
+                    megaTimeJumpFailed.store(true, std::memory_order_relaxed);
+                    std::lock_guard<std::mutex> lock(megaTimeJumpErrorMutex);
+                    megaTimeJumpError = e.what();
+                } catch (...) {
+                    megaTimeJumpFailed.store(true, std::memory_order_relaxed);
+                    std::lock_guard<std::mutex> lock(megaTimeJumpErrorMutex);
+                    megaTimeJumpError = "Unknown error";
+                }
+
+                megaTimeJumpDone.store(true, std::memory_order_relaxed);
+            });
+            return true;
+        };
 
 		    sf::Clock imguiDeltaClock;
 
@@ -483,7 +602,7 @@ int main(int argc, char** argv) {
 		                continue;
 		            }
 
-		            if (guiVisible && !megaTimeJumpMode) {
+		            if (guiVisible || megaTimeJumpMode) {
 		                ImGui::SFML::ProcessEvent(window, event);
 		            }
 
@@ -500,7 +619,7 @@ int main(int argc, char** argv) {
 	                if (megaTimeJumpMode) {
 	                    if (event.key.code == sf::Keyboard::Escape) {
 	                        megaTimeJumpMode = false;
-	                        megaTimeJumpInput.clear();
+	                        megaTimeJumpInputError.clear();
 	                    }
 	                    continue;
 	                }
@@ -822,7 +941,9 @@ int main(int argc, char** argv) {
 	                }
 	                else if (event.key.code == sf::Keyboard::Z) { // 🚀 MEGA TIME JUMP MODE
 	                    megaTimeJumpMode = true;
-	                    megaTimeJumpInput = "";
+                        megaTimeJumpInput = std::to_string(std::clamp(currentYear + 1, -5000, 2025));
+                        megaTimeJumpInputError.clear();
+                        megaTimeJumpFocusInputNextFrame = true;
 	                    std::cout << "\n🚀 MEGA TIME JUMP MODE ACTIVATED!" << std::endl;
 	                }
 		                else if (event.key.code == sf::Keyboard::G && !megaTimeJumpMode) { // 🌍 TOGGLE GLOBE VIEW
@@ -837,113 +958,14 @@ int main(int argc, char** argv) {
 		                }
             }
             else if (event.type == sf::Event::TextEntered) {
-                // Only keep the legacy Mega Time Jump input flow (Z). Everything else moved to ImGui.
-                if (!megaTimeJumpMode) {
-                    continue;
-                }
-
-                if (event.text.unicode >= '0' && event.text.unicode <= '9') {
-                    megaTimeJumpInput += static_cast<char>(event.text.unicode);
-                }
-                else if (event.text.unicode == '-' && megaTimeJumpInput.empty()) {
-                    megaTimeJumpInput = "-";
-                }
-                else if (event.text.unicode == 8 && !megaTimeJumpInput.empty()) { // Backspace
-                    megaTimeJumpInput.pop_back();
-                }
-                else if (event.text.unicode == 13) { // Enter key
-                    if (!megaTimeJumpInput.empty()) {
-                        int targetYear = 0;
-                        try {
-                            targetYear = std::stoi(megaTimeJumpInput);
-                        } catch (...) {
-                            megaTimeJumpMode = false;
-                            megaTimeJumpInput.clear();
-                            break;
-                        }
-
-                        // Validate year range
-                        if (targetYear >= -5000 && targetYear <= 2025 && targetYear > currentYear) {
-                            megaTimeJumpMode = false;
-
-                            megaTimeJumpStartYear = currentYear;
-                            megaTimeJumpTargetYear = targetYear;
-                            megaTimeJumpRunning = true;
-                            megaTimeJumpPendingClose = false;
-
-                            megaTimeJumpCancelRequested.store(false, std::memory_order_relaxed);
-                            megaTimeJumpDone.store(false, std::memory_order_relaxed);
-                            megaTimeJumpCanceled.store(false, std::memory_order_relaxed);
-                            megaTimeJumpFailed.store(false, std::memory_order_relaxed);
-                            megaTimeJumpProgressYear.store(currentYear, std::memory_order_relaxed);
-                            megaTimeJumpEtaSeconds.store(-1.0f, std::memory_order_relaxed);
-                            {
-                                std::lock_guard<std::mutex> lock(megaTimeJumpChunkMutex);
-                                megaTimeJumpGpuChunkTicket = 0;
-                                megaTimeJumpGpuChunkAck = 0;
-                                megaTimeJumpGpuChunkEndYear = currentYear;
-                                megaTimeJumpGpuChunkYears = 0;
-                            }
-                            megaTimeJumpGpuChunkActive = false;
-                            megaTimeJumpGpuChunkActiveTicket = 0;
-                            megaTimeJumpGpuChunkRemainingYears = 0;
-                            megaTimeJumpGpuChunkSimYear = currentYear;
-                            megaTimeJumpGpuChunkNeedsTerritorySync = false;
-
-                            {
-                                std::lock_guard<std::mutex> lock(megaTimeJumpErrorMutex);
-                                megaTimeJumpError.clear();
-                            }
-
-                            if (megaTimeJumpThread.joinable()) {
-                                megaTimeJumpThread.join();
-                            }
-
-                            const int yearsToSimulate = megaTimeJumpTargetYear - megaTimeJumpStartYear;
-                            std::cout << "SIMULATING " << yearsToSimulate << " YEARS OF HISTORY!" << std::endl;
-                            std::cout << "From " << megaTimeJumpStartYear << " to " << megaTimeJumpTargetYear << std::endl;
-
-                            megaTimeJumpThread = std::thread([&] {
-                                try {
-                                    const bool completed = map.megaTimeJump(
-                                        countries, currentYear, megaTimeJumpTargetYear, news,
-                                        technologyManager, cultureManager, greatPeopleManager,
-                                        [&](int currentSimYear, int targetSimYear, float estimatedSecondsRemaining) {
-                                            (void)targetSimYear;
-                                            megaTimeJumpProgressYear.store(currentSimYear, std::memory_order_relaxed);
-                                            megaTimeJumpEtaSeconds.store(estimatedSecondsRemaining, std::memory_order_relaxed);
-                                        },
-                                        [&](int, int) {
-                                            // Macro economy runs inside `Map::megaTimeJump`; no GPU/trade chunk required here.
-                                        },
-                                        &megaTimeJumpCancelRequested);
-
-                                    megaTimeJumpCanceled.store(!completed, std::memory_order_relaxed);
-                                } catch (const std::exception& e) {
-                                    megaTimeJumpFailed.store(true, std::memory_order_relaxed);
-                                    std::lock_guard<std::mutex> lock(megaTimeJumpErrorMutex);
-                                    megaTimeJumpError = e.what();
-                                } catch (...) {
-                                    megaTimeJumpFailed.store(true, std::memory_order_relaxed);
-                                    std::lock_guard<std::mutex> lock(megaTimeJumpErrorMutex);
-                                    megaTimeJumpError = "Unknown error";
-                                }
-
-                                megaTimeJumpDone.store(true, std::memory_order_relaxed);
-                            });
-                        } else {
-                            megaTimeJumpMode = false; // Cancel on invalid input
-                        }
-                    }
-                }
-                else if (event.text.unicode == 27) { // Escape key
-                    megaTimeJumpMode = false;
-                    megaTimeJumpInput = "";
-                }
+                continue;
             }
             else if (event.type == sf::Event::MouseWheelScrolled) {
                 const bool guiCapturesMouse = guiVisible && ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().WantCaptureMouse;
                 if (guiCapturesMouse) {
+                    continue;
+                }
+                if (megaTimeJumpMode) {
                     continue;
                 }
 
@@ -970,6 +992,9 @@ int main(int argc, char** argv) {
             else if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Right) {
                 const bool guiCapturesMouse = guiVisible && ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().WantCaptureMouse;
                 if (guiCapturesMouse) {
+                    continue;
+                }
+                if (megaTimeJumpMode) {
                     continue;
                 }
                 if (viewMode == ViewMode::Globe) {
@@ -1000,6 +1025,10 @@ int main(int argc, char** argv) {
                 if (guiCapturesMouse) {
                     continue;
                 }
+                if (megaTimeJumpMode) {
+                    continue;
+                }
+
                 renderingNeedsUpdate = true; // Force render for interaction
 		                if (forceInvasionMode && !megaTimeJumpMode && !paintMode) {
 		                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
@@ -1577,10 +1606,50 @@ int main(int argc, char** argv) {
 		        // STEP 2: Smart rendering - only render when needed or for smooth interaction
 		        bool renderedFrame = false;
 
-		        if (megaTimeJumpMode) {
-		            renderer.renderMegaTimeJumpScreen(megaTimeJumpInput, m_font);
-		            renderedFrame = true;
-		        } else {
+		        {
+                    auto drawMegaTimeJumpWindow = [&]() {
+                        const ImVec2 center(static_cast<float>(window.getSize().x) * 0.5f,
+                                            static_cast<float>(window.getSize().y) * 0.5f);
+                        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+                        ImGui::SetNextWindowSize(ImVec2(520.0f, 0.0f), ImGuiCond_Appearing);
+                        ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
+                        if (ImGui::Begin("Mega Time Jump", nullptr, flags)) {
+                            ImGui::Text("Current Year: %d", currentYear);
+                            ImGui::TextUnformatted("Enter target year (-5000 to 2025)");
+                            if (megaTimeJumpFocusInputNextFrame) {
+                                ImGui::SetKeyboardFocusHere();
+                                megaTimeJumpFocusInputNextFrame = false;
+                            }
+                            ImGui::InputText("Target Year", &megaTimeJumpInput);
+                            ImGui::Checkbox("Debug CSV logging", &megaTimeJumpDebugLogEnabled);
+                            if (megaTimeJumpDebugLogEnabled) {
+                                ImGui::TextWrapped("Log file: %s", megaTimeJumpDebugLogPath.c_str());
+                            }
+                            if (!megaTimeJumpInputError.empty()) {
+                                ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.45f, 1.0f), "%s", megaTimeJumpInputError.c_str());
+                            }
+
+                            bool startRequested = ImGui::Button("Start Jump");
+                            ImGui::SameLine();
+                            if (ImGui::Button("Cancel")) {
+                                megaTimeJumpMode = false;
+                                megaTimeJumpInputError.clear();
+                            }
+                            if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
+                                ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+                                startRequested = true;
+                            }
+                            if (startRequested) {
+                                tryLaunchMegaTimeJumpFromInput();
+                            }
+                        }
+                        ImGui::End();
+                    };
+
+                    if (megaTimeJumpMode && !guiVisible) {
+                        ImGui::SFML::Update(window, imguiDt);
+                    }
+
 		            if (guiVisible) {
 		                ImGui::SFML::Update(window, imguiDt);
 
@@ -2099,10 +2168,14 @@ int main(int argc, char** argv) {
 		                        guiShowTechEditor = false;
 		                    }
 		                }
-
 			            }
 
+                        if (megaTimeJumpMode) {
+                            drawMegaTimeJumpWindow();
+                        }
+
 		            window.setView(enableZoom ? zoomedView : defaultView);
+                    renderer.setGuiVisible(guiVisible || megaTimeJumpMode);
 
 		            renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo, viewMode);
 

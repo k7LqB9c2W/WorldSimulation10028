@@ -58,7 +58,8 @@ public:
     int getCivicScrollOffset() const;
     int getMaxCivicScrollOffset() const;
     void setCivicScrollOffset(int offset);
-    void renderMegaTimeJumpScreen(const std::string& inputText, const sf::Font& font);
+    void renderMegaTimeJumpScreen(const std::string& inputText, const sf::Font& font, bool debugLogEnabled);
+    sf::FloatRect getMegaTimeJumpDebugCheckboxBounds() const;
     void renderCountryAddEditor(const std::string& inputText, int editorState, int maxTechId, int maxCultureId, const sf::Font& font);
     void renderTechEditor(const Country& country, const TechnologyManager& techManager, const std::string& inputText, const sf::Font& font);
 

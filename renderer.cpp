@@ -1811,7 +1811,14 @@ void Renderer::setCivicScrollOffset(int offset) {
     m_civicScrollOffset = offset;
 }
 
-void Renderer::renderMegaTimeJumpScreen(const std::string& inputText, const sf::Font& font) {
+sf::FloatRect Renderer::getMegaTimeJumpDebugCheckboxBounds() const {
+    const float boxSize = 24.0f;
+    const float x = static_cast<float>(m_window.getSize().x) * 0.5f - 180.0f;
+    const float y = static_cast<float>(m_window.getSize().y) * 0.5f + 95.0f;
+    return sf::FloatRect(x, y, boxSize, boxSize);
+}
+
+void Renderer::renderMegaTimeJumpScreen(const std::string& inputText, const sf::Font& font, bool debugLogEnabled) {
     sf::View previousView = m_window.getView();
 
     // Clear with a solid dark background (no game world underneath)
@@ -1868,6 +1875,29 @@ void Renderer::renderMegaTimeJumpScreen(const std::string& inputText, const sf::
     controlsText.setString("Press ENTER to jump, ESC to cancel");
     controlsText.setPosition(m_window.getSize().x / 2 - 120, m_window.getSize().y / 2 + 60);
     m_window.draw(controlsText);
+
+    const sf::FloatRect checkboxBounds = getMegaTimeJumpDebugCheckboxBounds();
+    sf::RectangleShape checkbox(sf::Vector2f(checkboxBounds.width, checkboxBounds.height));
+    checkbox.setPosition(checkboxBounds.left, checkboxBounds.top);
+    checkbox.setFillColor(sf::Color(30, 30, 30));
+    checkbox.setOutlineColor(sf::Color::White);
+    checkbox.setOutlineThickness(2.0f);
+    m_window.draw(checkbox);
+
+    if (debugLogEnabled) {
+        sf::RectangleShape mark(sf::Vector2f(checkboxBounds.width - 8.0f, checkboxBounds.height - 8.0f));
+        mark.setPosition(checkboxBounds.left + 4.0f, checkboxBounds.top + 4.0f);
+        mark.setFillColor(sf::Color(0, 180, 120));
+        m_window.draw(mark);
+    }
+
+    sf::Text debugLabel;
+    debugLabel.setFont(font);
+    debugLabel.setCharacterSize(18);
+    debugLabel.setFillColor(sf::Color::White);
+    debugLabel.setString("Debug CSV (100y population sums)");
+    debugLabel.setPosition(checkboxBounds.left + checkboxBounds.width + 12.0f, checkboxBounds.top - 1.0f);
+    m_window.draw(debugLabel);
 
     if (paused) {
         sf::Text pausedText;

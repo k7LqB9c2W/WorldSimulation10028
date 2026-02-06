@@ -1218,7 +1218,12 @@ void EconomyModelCPU::tickYear(int year,
                 const bool irr = TechnologyManager::hasTech(tech, c, 10);
                 const bool agr = TechnologyManager::hasTech(tech, c, 20);
                 const double techMul = 1.0 + (irr ? 0.16 : 0.0) + (agr ? 0.30 : 0.0);
-                return foodPot * climateMult * techMul * ctl * (1.0 - 0.30 * diseaseBurden) * std::pow(w + 1.0, 0.72) * 0.014;
+                const double laborScale = std::max(1.0, 0.0015 * foodPot / std::max(0.35, 0.65 * ctl + 0.35 * std::min(1.5, techMul)));
+                const double laborFrac = (w > 0.0) ? (w / (w + laborScale)) : 0.0;
+                const double deploy = clamp01((0.45 + 0.55 * ctl) * (0.80 + 0.20 * std::min(1.5, techMul)));
+                const double env = clamp01(climateMult * (1.0 - 0.30 * diseaseBurden));
+                const double exploitation = clamp01(laborFrac * deploy * env);
+                return foodPot * exploitation;
             }
             if (sector == 1) { // goods
                 const bool mining = TechnologyManager::hasTech(tech, c, 4);
@@ -1229,7 +1234,7 @@ void EconomyModelCPU::tickYear(int year,
             }
             if (sector == 2) { // services
                 const double urbanMul = 0.20 + 0.80 * urban;
-                return (0.002 + 0.0004 * cap) * inst * access * urbanMul * std::pow(w + 1.0, 0.78) * pop;
+                return (0.002 + 0.0004 * cap) * inst * access * urbanMul * std::pow(w + 1.0, 0.78);
             }
             if (sector == 3) { // admin
                 return (0.00025 * pop) * (0.30 + 0.70 * admin) * std::pow(w + 1.0, 0.80);
@@ -1244,6 +1249,38 @@ void EconomyModelCPU::tickYear(int year,
             cohorts[2] * 0.00120 +
             cohorts[3] * 0.00110 +
             cohorts[4] * 0.00095;
+
+        const double subsistenceBuffer = 0.10;
+        const double subsistenceTargetAnnual = subsistenceFoodNeedAnnual * (1.0 + subsistenceBuffer);
+
+        if (laborLeft > 1e-9) {
+            const double maxFoodWithRemainingLabor = sectorOutput(0, l[0] + laborLeft);
+            if (maxFoodWithRemainingLabor <= subsistenceTargetAnnual + 1e-9) {
+                l[0] += laborLeft;
+                laborLeft = 0.0;
+            } else {
+                double lo = l[0];
+                double hi = l[0] + laborLeft;
+                for (int it = 0; it < 28; ++it) {
+                    const double mid = 0.5 * (lo + hi);
+                    const double out = sectorOutput(0, mid);
+                    if (out < subsistenceTargetAnnual) {
+                        lo = mid;
+                    } else {
+                        hi = mid;
+                    }
+                }
+                const double foodLaborNeeded = std::max(0.0, hi - l[0]);
+                const double grant = std::min(laborLeft, foodLaborNeeded);
+                l[0] += grant;
+                laborLeft -= grant;
+            }
+        }
+
+        const double lastPriceFood = std::max(1e-6, m.priceFood);
+        const double lastPriceGoods = std::max(1e-6, m.priceGoods);
+        const double lastPriceServices = std::max(1e-6, m.priceServices);
+        const double lastPriceMilitary = std::max(1e-6, m.priceMilitarySupply);
 
         for (int step = 0; step < quanta && laborLeft > 1e-9; ++step) {
             int bestSector = 0;
@@ -1263,21 +1300,15 @@ void EconomyModelCPU::tickYear(int year,
                 const double after = sectorOutput(s, l[static_cast<size_t>(s)] + q);
                 const double marginal = std::max(0.0, after - before);
 
-                double weight = 1.0;
-                if (s == 0) {
-                    const double projected = foodOutAnnual[static_cast<size_t>(i)] + before;
-                    const double gap = std::max(0.0, (subsistenceFoodNeedAnnual - projected) / std::max(1e-9, subsistenceFoodNeedAnnual));
-                    weight = 2.0 + 6.0 * gap;
-                } else if (s == 1) {
-                    weight = 1.1 + 0.7 * m.marketAccess;
-                } else if (s == 2) {
-                    weight = 0.8 + 1.0 * urban;
-                } else if (s == 3) {
-                    weight = 0.9 + 1.2 * controlPressure;
+                double priceSignal = lastPriceFood;
+                if (s == 1) {
+                    priceSignal = lastPriceGoods;
+                } else if (s == 2 || s == 3) {
+                    priceSignal = lastPriceServices;
                 } else if (s == 4) {
-                    weight = 0.9 + 1.8 * warPressure;
+                    priceSignal = lastPriceMilitary;
                 }
-                const double score = marginal * weight;
+                const double score = marginal * priceSignal;
                 if (score > bestMB || (score == bestMB && s < bestSector)) {
                     bestMB = score;
                     bestSector = s;

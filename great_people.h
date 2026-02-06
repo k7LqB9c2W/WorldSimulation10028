@@ -27,8 +27,8 @@ class GreatPeopleManager {
 public:
     explicit GreatPeopleManager(SimulationContext& ctx);
 
-    // Call this once per simulation year.
-    void updateEffects(int currentYear, std::vector<Country>& countries, News& news);
+    // Call this once per simulation year. `dtYears > 1` is processed as yearly substeps.
+    void updateEffects(int currentYear, std::vector<Country>& countries, News& news, int dtYears = 1);
 
     // When computing bonus stats, use these helper functions.
     double getMilitaryBonus(int countryIndex, int currentYear) const;

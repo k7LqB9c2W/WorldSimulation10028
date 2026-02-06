@@ -5,6 +5,7 @@
 #include "trade.h"
 #include "economy.h"
 #include <iostream>
+#include <fstream>
 #include <chrono>
 #include <iomanip>
 #include <limits>
@@ -2325,6 +2326,11 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
             epi.s = 1.0;
             epi.i = 0.0;
             epi.r = 0.0;
+            m.lastBirths = 0.0;
+            m.lastDeathsBase = 0.0;
+            m.lastDeathsFamine = 0.0;
+            m.lastDeathsEpi = 0.0;
+            m.lastAvgNutrition = 1.0;
             continue;
         }
 
@@ -2383,7 +2389,12 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
         double foodStock = std::max(0.0, m.foodStock);
         double cumulativeShortage = 0.0;
         double cumulativeRequired = 0.0;
-        double cumulativeInfDeaths = 0.0;
+        double cumulativeBirths = 0.0;
+        double cumulativeDeathsBase = 0.0;
+        double cumulativeDeathsFamine = 0.0;
+        double cumulativeDeathsEpi = 0.0;
+        double nutritionPopWeighted = 0.0;
+        double nutritionPopWeight = 0.0;
 
         for (int step = 0; step < substeps; ++step) {
             const double requiredStep =
@@ -2412,6 +2423,8 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
             cumulativeShortage += shortage;
             const double nutrition = clamp01((requiredStep > 1e-9) ? (avail / requiredStep) : 1.0);
             const double famine = 1.0 - nutrition;
+            nutritionPopWeighted += nutrition * popNow;
+            nutritionPopWeight += popNow;
 
             // SIR dynamics.
             const double externalI = 0.12 * importSeed;
@@ -2435,7 +2448,6 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
             }
 
             const double infDeathsCount = popNow * infDeathsFrac;
-            cumulativeInfDeaths += infDeathsCount;
 
             const double fertility =
                 0.050 *
@@ -2445,6 +2457,7 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
                 (1.0 - 0.50 * epi.i) *
                 (war ? 0.88 : 1.0);
             const double births = std::max(0.0, cohorts[2] * fertility * subDt);
+            cumulativeBirths += births;
 
             std::array<double, 5> baseDeath = {0.012, 0.002, 0.004, 0.012, 0.050};
             std::array<double, 5> famineAdd = {0.080, 0.020, 0.022, 0.040, 0.090};
@@ -2456,9 +2469,17 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
                 1.0 + 2.0 * epi.i};
 
             for (int k = 0; k < 5; ++k) {
-                const double rate = (baseDeath[static_cast<size_t>(k)] + famine * famineAdd[static_cast<size_t>(k)]) * diseaseMult[static_cast<size_t>(k)];
-                const double dead = std::min(cohorts[static_cast<size_t>(k)], cohorts[static_cast<size_t>(k)] * rate * subDt);
+                const double cohortK = cohorts[static_cast<size_t>(k)];
+                const double baseDeadRaw = cohortK * baseDeath[static_cast<size_t>(k)] * subDt;
+                const double famineDeadRaw = cohortK * (famine * famineAdd[static_cast<size_t>(k)]) * subDt;
+                const double epiAmplifierRaw = (baseDeadRaw + famineDeadRaw) * std::max(0.0, diseaseMult[static_cast<size_t>(k)] - 1.0);
+                const double totalRaw = baseDeadRaw + famineDeadRaw + epiAmplifierRaw;
+                const double dead = std::min(cohortK, totalRaw);
                 cohorts[static_cast<size_t>(k)] = std::max(0.0, cohorts[static_cast<size_t>(k)] - dead);
+                const double scale = (totalRaw > 1e-12) ? (dead / totalRaw) : 0.0;
+                cumulativeDeathsBase += baseDeadRaw * scale;
+                cumulativeDeathsFamine += famineDeadRaw * scale;
+                cumulativeDeathsEpi += epiAmplifierRaw * scale;
             }
 
             // Apply direct epidemic deaths with age weighting.
@@ -2470,7 +2491,9 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
             if (wsum > 1e-9 && infDeathsCount > 0.0) {
                 for (int k = 0; k < 5; ++k) {
                     const double part = infDeathsCount * (infAgeW[static_cast<size_t>(k)] * cohorts[static_cast<size_t>(k)] / wsum);
-                    cohorts[static_cast<size_t>(k)] = std::max(0.0, cohorts[static_cast<size_t>(k)] - part);
+                    const double removed = std::min(cohorts[static_cast<size_t>(k)], part);
+                    cohorts[static_cast<size_t>(k)] = std::max(0.0, cohorts[static_cast<size_t>(k)] - removed);
+                    cumulativeDeathsEpi += removed;
                 }
             }
 
@@ -2505,6 +2528,11 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
         m.foodSecurity = clamp01(1.0 - shortageRatio);
         m.foodStock = foodStock;
         m.diseaseBurden = clamp01(epi.i);
+        m.lastBirths = std::max(0.0, cumulativeBirths);
+        m.lastDeathsBase = std::max(0.0, cumulativeDeathsBase);
+        m.lastDeathsFamine = std::max(0.0, cumulativeDeathsFamine);
+        m.lastDeathsEpi = std::max(0.0, cumulativeDeathsEpi);
+        m.lastAvgNutrition = (nutritionPopWeight > 1e-9) ? clamp01(nutritionPopWeighted / nutritionPopWeight) : 1.0;
         m.migrationPressureOut = clamp01(
             0.45 * m.famineSeverity +
             0.25 * m.diseaseBurden +
@@ -2651,7 +2679,17 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
                                  int currentYear,
                                  News& news,
                                  TechnologyManager& techManager,
-                                 CultureManager& cultureManager) {
+                                 CultureManager& cultureManager,
+                                 int dtYears) {
+    const int years = std::max(1, dtYears);
+    if (years > 1) {
+        const int startYear = currentYear - years + 1;
+        for (int y = startYear; y <= currentYear; ++y) {
+            processPoliticalEvents(countries, tradeManager, y, news, techManager, cultureManager, 1);
+        }
+        return;
+    }
+
     if (countries.empty()) {
         return;
     }
@@ -4682,58 +4720,198 @@ int Map::getPlagueStartYear() const {
 // MEGA TIME JUMP - SIMULATE THOUSANDS OF YEARS OF HISTORY
 bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int targetYear, News& news,
                        TechnologyManager& techManager, CultureManager& cultureManager,
+                       EconomyModelCPU& macroEconomy,
+                       TradeManager& tradeManager,
                        GreatPeopleManager& greatPeopleManager,
                        std::function<void(int, int, float)> progressCallback,
                        std::function<void(int, int)> chunkCompletedCallback,
-                       const std::atomic<bool>* cancelRequested) {
-    
-    std::cout << "\nBEGINNING MEGA SIMULATION OF HUMAN HISTORY!" << std::endl;
+                       const std::atomic<bool>* cancelRequested,
+                       bool enablePopulationDebugLog,
+                       const std::string& populationDebugLogPath) {
+    std::cout << "\nBEGINNING MEGA SIMULATION OF HUMAN HISTORY (EXACT YEARLY KERNEL)..." << std::endl;
 
-    std::mt19937_64 gen = m_ctx->makeRng(
-        0x4D454741ull ^
-        (static_cast<std::uint64_t>(currentYear) * 0x9E3779B97F4A7C15ull) ^
-        (static_cast<std::uint64_t>(targetYear) * 0xBF58476D1CE4E5B9ull));
-
-    // Phase 4: run a local macro economy + directed trade inside the mega-jump loop so
-    // shortages and logistics constraints continue to matter in fast-forward history.
-    TradeManager localTrade(*m_ctx);
-    EconomyModelCPU localEconomy(*m_ctx);
-    
-    int totalYears = targetYear - currentYear;
-    int startYear = currentYear;
-    bool canceled = false;
-    
-    // Track major historical events
-    std::vector<std::string> majorEvents;
-    std::vector<std::string> extinctCountries;
-    std::vector<std::string> superPowers;
-    int totalWars = 0;
-    int totalPlagues = 0;
-    int totalTechBreakthroughs = 0;
-    long long lastMilestone = 0;
-    
-    std::cout << "SIMULATION PARAMETERS:" << std::endl;
-    std::cout << "   Years to simulate: " << totalYears << std::endl;
-    std::cout << "   Starting countries: " << countries.size() << std::endl;
-    std::cout << "   Optimization level: MAXIMUM" << std::endl;
-    
-    auto startTime = std::chrono::high_resolution_clock::now();
-    
-    // Clear dirty regions and mark all for update
-    m_dirtyRegions.clear();
-    int totalRegions = (m_baseImage.getSize().x / m_gridCellSize / m_regionSize) * 
-                      (m_baseImage.getSize().y / m_gridCellSize / m_regionSize);
-    for (int i = 0; i < totalRegions; ++i) {
-        m_dirtyRegions.insert(i);
+    const int totalYears = targetYear - currentYear;
+    const int startYear = currentYear;
+    if (totalYears <= 0) {
+        return true;
     }
-    
-    // 🚀 SUPER OPTIMIZATION: Process in large chunks for maximum speed
-    const int megaChunkSize = 50; // Process 50 years at a time
-    int chunksProcessed = 0;
-    int totalChunks = (totalYears + megaChunkSize - 1) / megaChunkSize;
-    
-    std::cout << "\nBEGINNING MEGA CHUNKS (" << totalChunks << " chunks of " << megaChunkSize << " years each)..." << std::endl;
-    
+
+    bool canceled = false;
+    int totalPlagues = 0;
+    int totalWarStarts = 0;
+    int totalTechBreakthroughs = 0;
+
+    auto startTime = std::chrono::high_resolution_clock::now();
+    constexpr int worldSnapshotCadenceYears = 50;
+
+    std::ofstream populationDebugLog;
+    if (enablePopulationDebugLog) {
+        std::string outPath = populationDebugLogPath.empty()
+            ? std::string("mega_time_jump_population_debug.csv")
+            : populationDebugLogPath;
+        populationDebugLog.open(outPath, std::ios::out | std::ios::trunc);
+        if (populationDebugLog.is_open()) {
+            populationDebugLog << "year,world_pop_owned,world_food_need_annual,world_food_prod_annual,world_food_imports_qty_annual,"
+                                  "world_food_stock,world_food_stock_cap,world_shortage_annual,mean_food_security_popw,"
+                                  "mean_nutrition_popw,pop_share_under_0_9,pop_share_under_0_7,pop_share_under_0_5,"
+                                  "births_total_annual,deaths_base_total_annual,deaths_famine_total_annual,deaths_epi_total_annual,"
+                                  "sum_field_population_all,sum_field_population_owned,sum_field_population_unowned\n";
+            populationDebugLog << std::fixed << std::setprecision(3);
+            std::cout << "MEGA DEBUG: writing world snapshots to " << outPath << std::endl;
+        } else {
+            std::cout << "MEGA DEBUG: failed to open log file: " << outPath << std::endl;
+        }
+    }
+
+    struct WorldFoodSnapshot {
+        double worldPopOwned = 0.0;
+        double worldFoodNeed = 0.0;
+        double worldFoodProd = 0.0;
+        double worldFoodImportsQty = 0.0;
+        double worldFoodStock = 0.0;
+        double worldFoodStockCap = 0.0;
+        double worldShortage = 0.0;
+        double meanFoodSecurityPopWeighted = 1.0;
+        double meanNutritionPopWeighted = 1.0;
+        double popShareUnder09 = 0.0;
+        double popShareUnder07 = 0.0;
+        double popShareUnder05 = 0.0;
+        double birthsTotal = 0.0;
+        double deathsBaseTotal = 0.0;
+        double deathsFamineTotal = 0.0;
+        double deathsEpiTotal = 0.0;
+        double fieldPopAll = 0.0;
+        double fieldPopOwned = 0.0;
+        double fieldPopUnowned = 0.0;
+    };
+
+    auto computeWorldFoodSnapshot = [&]() -> WorldFoodSnapshot {
+        WorldFoodSnapshot snap;
+        double foodSecurityWeighted = 0.0;
+        double nutritionWeighted = 0.0;
+        double popUnder09 = 0.0;
+        double popUnder07 = 0.0;
+        double popUnder05 = 0.0;
+
+        for (const Country& c : countries) {
+            const long long popLL = c.getPopulation();
+            if (popLL <= 0) {
+                continue;
+            }
+            const double pop = static_cast<double>(popLL);
+            const auto& cohorts = c.getPopulationCohorts();
+            const Country::MacroEconomyState& m = c.getMacroEconomy();
+
+            const double subsistenceFoodNeedAnnual =
+                cohorts[0] * 0.00085 +
+                cohorts[1] * 0.00100 +
+                cohorts[2] * 0.00120 +
+                cohorts[3] * 0.00110 +
+                cohorts[4] * 0.00095;
+
+            snap.worldPopOwned += pop;
+            snap.worldFoodNeed += subsistenceFoodNeedAnnual;
+            snap.worldFoodProd += std::max(0.0, m.lastFoodOutput);
+            snap.worldFoodImportsQty += std::max(0.0, m.importsValue / std::max(1e-9, m.priceFood));
+            snap.worldFoodStock += std::max(0.0, m.foodStock);
+            snap.worldFoodStockCap += std::max(0.0, m.foodStockCap);
+            snap.worldShortage += std::max(0.0, m.famineSeverity) * subsistenceFoodNeedAnnual;
+            snap.birthsTotal += std::max(0.0, m.lastBirths);
+            snap.deathsBaseTotal += std::max(0.0, m.lastDeathsBase);
+            snap.deathsFamineTotal += std::max(0.0, m.lastDeathsFamine);
+            snap.deathsEpiTotal += std::max(0.0, m.lastDeathsEpi);
+
+            const double fs = clamp01(static_cast<float>(m.foodSecurity));
+            const double nutrition = clamp01(static_cast<float>(m.lastAvgNutrition));
+            foodSecurityWeighted += fs * pop;
+            nutritionWeighted += nutrition * pop;
+            if (fs < 0.9) popUnder09 += pop;
+            if (fs < 0.7) popUnder07 += pop;
+            if (fs < 0.5) popUnder05 += pop;
+        }
+
+        const double popDenom = std::max(1.0, snap.worldPopOwned);
+        snap.meanFoodSecurityPopWeighted = foodSecurityWeighted / popDenom;
+        snap.meanNutritionPopWeighted = nutritionWeighted / popDenom;
+        snap.popShareUnder09 = popUnder09 / popDenom;
+        snap.popShareUnder07 = popUnder07 / popDenom;
+        snap.popShareUnder05 = popUnder05 / popDenom;
+
+        const size_t popSize = m_fieldPopulation.size();
+        const size_t ownerSize = m_fieldOwnerId.size();
+        for (size_t idx = 0; idx < popSize; ++idx) {
+            const double p = std::max(0.0, static_cast<double>(m_fieldPopulation[idx]));
+            snap.fieldPopAll += p;
+            const int owner = (idx < ownerSize) ? m_fieldOwnerId[idx] : -1;
+            if (owner >= 0) {
+                snap.fieldPopOwned += p;
+            } else {
+                snap.fieldPopUnowned += p;
+            }
+        }
+
+        return snap;
+    };
+
+    auto maybeEmitWorldFoodSnapshot = [&](int simYear) {
+        if ((simYear % worldSnapshotCadenceYears) != 0) {
+            return;
+        }
+
+        const WorldFoodSnapshot snap = computeWorldFoodSnapshot();
+
+        std::cout << "[FOOD SNAPSHOT] year=" << simYear
+                  << " pop=" << static_cast<long long>(std::llround(snap.worldPopOwned))
+                  << " need=" << snap.worldFoodNeed
+                  << " prod=" << snap.worldFoodProd
+                  << " importsQty=" << snap.worldFoodImportsQty
+                  << " stock=" << snap.worldFoodStock
+                  << " stockCap=" << snap.worldFoodStockCap
+                  << " shortage=" << snap.worldShortage
+                  << " fsMean=" << snap.meanFoodSecurityPopWeighted
+                  << " nutrMean=" << snap.meanNutritionPopWeighted
+                  << " pop<0.9=" << (100.0 * snap.popShareUnder09) << "%"
+                  << " pop<0.7=" << (100.0 * snap.popShareUnder07) << "%"
+                  << " pop<0.5=" << (100.0 * snap.popShareUnder05) << "%"
+                  << std::endl;
+        std::cout << "[DEMOGRAPHY SNAPSHOT] year=" << simYear
+                  << " births=" << snap.birthsTotal
+                  << " deathsBase=" << snap.deathsBaseTotal
+                  << " deathsFamine=" << snap.deathsFamineTotal
+                  << " deathsEpi=" << snap.deathsEpiTotal
+                  << std::endl;
+
+        if (populationDebugLog.is_open()) {
+            populationDebugLog << simYear
+                               << "," << snap.worldPopOwned
+                               << "," << snap.worldFoodNeed
+                               << "," << snap.worldFoodProd
+                               << "," << snap.worldFoodImportsQty
+                               << "," << snap.worldFoodStock
+                               << "," << snap.worldFoodStockCap
+                               << "," << snap.worldShortage
+                               << "," << snap.meanFoodSecurityPopWeighted
+                               << "," << snap.meanNutritionPopWeighted
+                               << "," << snap.popShareUnder09
+                               << "," << snap.popShareUnder07
+                               << "," << snap.popShareUnder05
+                               << "," << snap.birthsTotal
+                               << "," << snap.deathsBaseTotal
+                               << "," << snap.deathsFamineTotal
+                               << "," << snap.deathsEpiTotal
+                               << "," << snap.fieldPopAll
+                               << "," << snap.fieldPopOwned
+                               << "," << snap.fieldPopUnowned
+                               << "\n";
+        }
+    };
+
+    maybeEmitWorldFoodSnapshot(startYear);
+
+    // Chunking is for progress/cancel responsiveness only; simulation itself remains yearly-exact.
+    const int megaChunkSize = 100;
+    const int totalChunks = (totalYears + megaChunkSize - 1) / megaChunkSize;
+
     const auto progressInterval = std::chrono::milliseconds(200);
     auto lastProgressReport = std::chrono::steady_clock::now();
     bool reportedProgressOnce = false;
@@ -4765,270 +4943,171 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
     };
 
     std::vector<size_t> lastTechCountPerCountry(countries.size(), 0u);
+    std::vector<uint8_t> wasAtWar(countries.size(), 0u);
+    auto syncPerCountryTracking = [&]() {
+        if (lastTechCountPerCountry.size() < countries.size()) {
+            const size_t oldSize = lastTechCountPerCountry.size();
+            lastTechCountPerCountry.resize(countries.size(), 0u);
+            for (size_t i = oldSize; i < countries.size(); ++i) {
+                lastTechCountPerCountry[i] = techManager.getUnlockedTechnologies(countries[i]).size();
+            }
+        }
+        if (wasAtWar.size() < countries.size()) {
+            const size_t oldSize = wasAtWar.size();
+            wasAtWar.resize(countries.size(), 0u);
+            for (size_t i = oldSize; i < countries.size(); ++i) {
+                wasAtWar[i] = countries[i].isAtWar() ? 1u : 0u;
+            }
+        }
+    };
     for (size_t i = 0; i < countries.size(); ++i) {
         lastTechCountPerCountry[i] = techManager.getUnlockedTechnologies(countries[i]).size();
+        wasAtWar[i] = countries[i].isAtWar() ? 1u : 0u;
     }
+
+    std::cout << "MEGA JUMP: " << totalYears << " years in " << totalChunks
+              << " progress chunks (" << megaChunkSize << "y each)." << std::endl;
+
+    // Adaptive "quiet period" windows: keep yearly simulation exact, but reduce
+    // coordination/progress overhead when the world is calm.
+    auto pickAdaptiveWindowYears = [&]() -> int {
+        if (m_plagueActive) {
+            return 1;
+        }
+
+        int activeCountries = 0;
+        int atWar = 0;
+        int lowStability = 0;
+        int autonomyStress = 0;
+
+        for (const Country& c : countries) {
+            if (c.getPopulation() <= 0) {
+                continue;
+            }
+            ++activeCountries;
+            if (c.isAtWar()) {
+                ++atWar;
+            }
+            if (c.getStability() < 0.35) {
+                ++lowStability;
+            }
+            if (c.getAutonomyPressure() > 0.68 || c.getAutonomyOverThresholdYears() >= 25) {
+                ++autonomyStress;
+            }
+        }
+
+        if (atWar > 0) {
+            return 1;
+        }
+        if (activeCountries <= 0) {
+            return 10;
+        }
+        if ((lowStability * 4) >= activeCountries || (autonomyStress * 5) >= activeCountries) {
+            return 5;
+        }
+        return 10;
+    };
+
+    constexpr int progressPollStrideYears = 5;
+    int yearsSinceProgressPoll = 0;
 
     for (int chunkStart = 0; chunkStart < totalYears; chunkStart += megaChunkSize) {
         if (cancelRequested && cancelRequested->load(std::memory_order_relaxed)) {
             canceled = true;
             break;
         }
-        int chunkYears = std::min(megaChunkSize, totalYears - chunkStart);
-        chunksProcessed++;
-        
+
+        const int chunkYears = std::min(megaChunkSize, totalYears - chunkStart);
         maybeReportProgress(false);
 
-        const float progressPercent = (totalYears > 0)
-            ? (static_cast<float>(chunkStart) / static_cast<float>(totalYears) * 100.0f)
-            : 100.0f;
-        
-        std::cout << "MEGA CHUNK " << chunksProcessed << "/" << totalChunks 
-                  << " (" << std::fixed << std::setprecision(1) << progressPercent << "%) - "
-                  << "Years " << currentYear << " to " << (currentYear + chunkYears)
-                  << std::endl;
-        
-        // Process this chunk
-        for (int year = 0; year < chunkYears; ++year) {
+        int chunkSimulatedYears = 0;
+        while (chunkSimulatedYears < chunkYears) {
             if (cancelRequested && cancelRequested->load(std::memory_order_relaxed)) {
                 canceled = true;
                 break;
             }
-            currentYear++;
-            if (currentYear == 0) currentYear = 1; // Skip year 0
 
-            maybeReportProgress(false);
-            
-            // 🦠 CONSISTENT PLAGUE TIMING - Same as normal mode (600-700 years)
-            if (currentYear == m_nextPlagueYear && !m_plagueActive) {
-                startPlague(currentYear, news);
-                initializePlagueCluster(countries); // Initialize geographic cluster
-                totalPlagues++;
-                
-                std::string plagueEvent = "🦠 MEGA PLAGUE ravages the world in " + std::to_string(currentYear);
-                if (currentYear < 0) plagueEvent += " BCE";
-                else plagueEvent += " CE";
-                majorEvents.push_back(plagueEvent);
-            }
-	            if (m_plagueActive && (currentYear == m_plagueStartYear + 3)) { // 3 year plagues
-	                endPlague(news);
-	            }
-
-		            // Phase 3 mega-jump support: update coarse fields in larger steps.
-		            if (isPopulationGridActive() && (currentYear % 10 == 0)) {
-		                updateControlGrid(countries, currentYear, 10);
-                        tickWeather(currentYear, 10);
-		                localEconomy.tickYear(currentYear, 10, *this, countries, techManager, localTrade, news);
-		                tickPopulationGrid(countries, currentYear, 10, nullptr);
-		                applyPopulationTotalsToCountries(countries);
-		                updateCitiesFromPopulation(countries, currentYear, 50, news);
-		                processPoliticalEvents(countries, localTrade, currentYear, news, techManager, cultureManager);
-		            }
-	            
-	            // MEGA COUNTRY UPDATES - calendar-based cadence (avoids chunk-boundary artifacts).
-	            const int simYearIndex = currentYear - startYear;
-
-            for (size_t i = 0; i < countries.size(); ++i) {
-                if ((i & 63u) == 0u) {
-                    if (cancelRequested && cancelRequested->load(std::memory_order_relaxed)) {
-                        canceled = true;
-                        break;
-                    }
+            const int windowYears = std::min(pickAdaptiveWindowYears(), chunkYears - chunkSimulatedYears);
+            for (int step = 0; step < windowYears; ++step) {
+                if (cancelRequested && cancelRequested->load(std::memory_order_relaxed)) {
+                    canceled = true;
+                    break;
                 }
-                if (countries[i].getPopulation() <= 0) continue; // Skip dead countries
-                
-                const bool plagueAffected = m_plagueActive && isCountryAffectedByPlague(static_cast<int>(i));
 
-                // Population growth, science/culture generation, and expansion (fast but calendar-aligned).
-                countries[i].fastForwardGrowth(simYearIndex, currentYear, m_isLandGrid, m_countryGrid, m_resourceGrid,
-                                               news, *this, techManager, gen, plagueAffected);
+                currentYear++;
+                if (currentYear == 0) currentYear = 1; // skip year 0
 
-                if (plagueAffected && !isPopulationGridActive()) {
-	                    // Plague effects: mortality hit (mirrors normal-mode magnitude).
-	                    const long long currentPop = countries[i].getPopulation();
-	                    double baseDeathRate = 0.05; // 5% typical country hit
-	                    long long deaths = static_cast<long long>(std::llround(static_cast<double>(currentPop) * baseDeathRate *
-	                                                                          countries[i].getPlagueMortalityMultiplier(techManager)));
-	                    deaths = std::min(deaths, currentPop);
-	                    countries[i].applyPlagueDeaths(deaths);
-	                    updatePlagueDeaths(deaths);
-	                }
-            }
+                const bool plagueBefore = m_plagueActive;
 
-            // Tech/culture progression: tick in multi-year steps (scales with dtYears).
-            if (currentYear % 5 == 0) {
-                techManager.tickYear(countries, *this, &localEconomy.getLastTradeIntensity(), currentYear, 5);
-                cultureManager.tickYear(countries, *this, techManager, &localEconomy.getLastTradeIntensity(), currentYear, 5, news);
+                // Exact yearly order from normal simulation loop (headless).
+                updateCountries(countries, currentYear, news, techManager);
+                if (!plagueBefore && m_plagueActive) {
+                    totalPlagues++;
+                }
+
+                tickWeather(currentYear, 1);
+                macroEconomy.tickYear(currentYear, 1, *this, countries, techManager, tradeManager, news);
+                tickDemographyAndCities(countries, currentYear, 1, news, &macroEconomy.getLastTradeIntensity());
+                techManager.tickYear(countries, *this, &macroEconomy.getLastTradeIntensity(), currentYear, 1);
+                cultureManager.tickYear(countries, *this, techManager, &macroEconomy.getLastTradeIntensity(), currentYear, 1, news);
+                greatPeopleManager.updateEffects(currentYear, countries, news, 1);
+                processPoliticalEvents(countries, tradeManager, currentYear, news, techManager, cultureManager, 1);
+                maybeEmitWorldFoodSnapshot(currentYear);
+
+                syncPerCountryTracking();
                 for (size_t i = 0; i < countries.size(); ++i) {
                     const size_t currentTechCount = techManager.getUnlockedTechnologies(countries[i]).size();
                     if (currentTechCount > lastTechCountPerCountry[i]) {
                         totalTechBreakthroughs += static_cast<int>(currentTechCount - lastTechCountPerCountry[i]);
-                        lastTechCountPerCountry[i] = currentTechCount;
                     }
-                }
-            }
-            
-            // 🗡️ MEGA WAR SIMULATION - Epic conflicts every 50 years instead of 25 (OPTIMIZATION)
-            if (currentYear % 50 == 0) {
-                for (size_t i = 0; i < countries.size(); ++i) {
-                    if (countries[i].getType() == Country::Type::Warmonger && 
-                        !countries[i].isAtWar() && countries[i].getPopulation() > 1000) {
-                        
-	                        // 💀 FIRST: Check for annihilation opportunities (weak neighbors)
-	                        Country* weakestNeighbor = nullptr;
-	                        double weakestMilitaryStrength = std::numeric_limits<double>::max();
-	                        
-	                        for (int neighborIndex : getAdjacentCountryIndices(countries[i].getCountryIndex())) {
-	                            if (neighborIndex < 0 || neighborIndex >= static_cast<int>(countries.size())) {
-	                                continue;
-	                            }
-	                            if (static_cast<int>(i) == neighborIndex) {
-	                                continue;
-	                            }
-	                            if (countries[static_cast<size_t>(neighborIndex)].getCountryIndex() != neighborIndex) {
-	                                continue;
-	                            }
-	                            if (countries[static_cast<size_t>(neighborIndex)].getPopulation() <= 0) {
-	                                continue;
-	                            }
+                    lastTechCountPerCountry[i] = currentTechCount;
 
-	                            double targetStrength = countries[static_cast<size_t>(neighborIndex)].getMilitaryStrength();
-	                            if (targetStrength < weakestMilitaryStrength &&
-	                                countries[i].canAnnihilateCountry(countries[static_cast<size_t>(neighborIndex)])) {
-	                                weakestMilitaryStrength = targetStrength;
-	                                weakestNeighbor = &countries[static_cast<size_t>(neighborIndex)];
-	                            }
-	                        }
-                        
-                        if (weakestNeighbor) {
-                            // 💀 ANNIHILATION ATTACK - Complete absorption
-                            countries[i].startWar(*weakestNeighbor, news);
-                            countries[i].absorbCountry(*weakestNeighbor, *this, news);
-                            totalWars++;
-                            
-                            std::string annihilationEvent = "💀 ANNIHILATION: " + countries[i].getName() + 
-                                                           " completely destroys " + weakestNeighbor->getName() + " in " + std::to_string(currentYear);
-                            if (currentYear < 0) annihilationEvent += " BCE";
-                            else annihilationEvent += " CE";
-                            majorEvents.push_back(annihilationEvent);
-                        } else {
-	                            // 🗡️ NORMAL WAR - Find the largest neighbor to attack
-	                            Country* largestNeighbor = nullptr;
-	                            long long largestPop = 0;
-	                            
-	                            for (int neighborIndex : getAdjacentCountryIndices(countries[i].getCountryIndex())) {
-	                                if (neighborIndex < 0 || neighborIndex >= static_cast<int>(countries.size())) {
-	                                    continue;
-	                                }
-	                                if (static_cast<int>(i) == neighborIndex) {
-	                                    continue;
-	                                }
-	                                if (countries[static_cast<size_t>(neighborIndex)].getCountryIndex() != neighborIndex) {
-	                                    continue;
-	                                }
-	                                long long pop = countries[static_cast<size_t>(neighborIndex)].getPopulation();
-	                                if (pop > largestPop) {
-	                                    largestPop = pop;
-	                                    largestNeighbor = &countries[static_cast<size_t>(neighborIndex)];
-	                                }
-	                            }
-                            
-                            if (largestNeighbor) {
-                                countries[i].startWar(*largestNeighbor, news);
-                                totalWars++;
-                                
-                                std::string warEvent = "⚔️ " + countries[i].getName() + " attacks " + largestNeighbor->getName() + " in " + std::to_string(currentYear);
-                                if (currentYear < 0) warEvent += " BCE";
-                                else warEvent += " CE";
-                                majorEvents.push_back(warEvent);
-                            }
-                        }
+                    const uint8_t nowAtWar = countries[i].isAtWar() ? 1u : 0u;
+                    if (nowAtWar != 0u && wasAtWar[i] == 0u) {
+                        totalWarStarts++;
                     }
+                    wasAtWar[i] = nowAtWar;
+                }
+
+                ++yearsSinceProgressPoll;
+                if (yearsSinceProgressPoll >= progressPollStrideYears) {
+                    maybeReportProgress(false);
+                    yearsSinceProgressPoll = 0;
                 }
             }
+
             if (canceled) {
                 break;
             }
-            
-            // MEGA GREAT PEOPLE - closer to normal cadence, still amortized.
-            if (currentYear % 5 == 0) {
-                greatPeopleManager.updateEffects(currentYear, countries, news);
-            }
+            chunkSimulatedYears += windowYears;
+            maybeReportProgress(false);
         }
+
         if (canceled) {
             break;
         }
-        
-        // 📊 Mark extinct countries and track superpowers (keep indices stable by never erasing).
-        long long totalWorldPopulation = 0;
-        for (const auto& country : countries) {
-            totalWorldPopulation += country.getPopulation();
-        }
-
-        long long superpowerThreshold = std::max(100000LL, totalWorldPopulation / 20); // Top 5% or min 100k
-
-        for (int i = 0; i < static_cast<int>(countries.size()); ++i) {
-            Country& country = countries[static_cast<size_t>(i)];
-
-            const bool alreadyExtinct = (country.getPopulation() <= 0) && country.getBoundaryPixels().empty();
-            const bool isExtinct = (country.getPopulation() <= 50) || country.getBoundaryPixels().empty();
-
-            if (!alreadyExtinct && isExtinct) {
-                extinctCountries.push_back(country.getName() + " (extinct in " + std::to_string(currentYear) +
-                                           " - Pop: " + std::to_string(country.getPopulation()) +
-                                           ", Territory: " + std::to_string(country.getBoundaryPixels().size()) + " pixels)");
-                markCountryExtinct(countries, i, currentYear, news);
-                continue;
-            }
-
-            if (!isExtinct && country.getPopulation() > superpowerThreshold) {
-                bool alreadyTracked = false;
-                for (const auto& power : superPowers) {
-                    if (power.find(country.getName()) != std::string::npos) {
-                        alreadyTracked = true;
-                        break;
-                    }
-                }
-                if (!alreadyTracked) {
-                    superPowers.push_back("🏛️ " + country.getName() + " becomes a superpower (" + std::to_string(country.getPopulation()) + " people in " + std::to_string(currentYear) + ")");
-                }
-            }
-        }
-        
-        // Track world population milestones naturally
-        // Only track significant natural milestones (powers of 10)
-        long long currentMilestone = 1;
-        while (currentMilestone <= totalWorldPopulation) {
-            currentMilestone *= 10;
-        }
-        currentMilestone /= 10; // Get the largest power of 10 below current population
-        
-        if (currentMilestone > lastMilestone && currentMilestone >= 1000000) { // Only track millions and above
-            majorEvents.push_back("🌍 World population reaches " + std::to_string(currentMilestone) + " in " + std::to_string(currentYear));
-            lastMilestone = currentMilestone;
-        }
 
         if (chunkCompletedCallback) {
-            chunkCompletedCallback(currentYear, chunkYears);
+            chunkCompletedCallback(currentYear, chunkSimulatedYears);
         }
     }
 
     maybeReportProgress(true);
 
+    if (populationDebugLog.is_open()) {
+        populationDebugLog.flush();
+        populationDebugLog.close();
+    }
+
     if (canceled) {
-        std::cout << "\n🛑🛑🛑 MEGA TIME JUMP CANCELED 🛑🛑🛑" << std::endl;
-        std::cout << "⏱️ Stopped at year " << currentYear << std::endl;
+        std::cout << "\nMEGA TIME JUMP CANCELED at year " << currentYear << std::endl;
         return false;
     }
-    
-    auto endTime = std::chrono::high_resolution_clock::now();
-    auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
-    
-    std::cout << "\n🎉🎉🎉 MEGA TIME JUMP COMPLETE! 🎉🎉🎉" << std::endl;
-    std::cout << "⏱️ Simulated " << totalYears << " years in " << (totalDuration.count() / 1000.0) << " seconds!" << std::endl;
-    std::cout << "⚡ Performance: " << (totalYears / (totalDuration.count() / 1000.0)) << " years/second" << std::endl;
-    
-    // Calculate final world population
+
+    const auto endTime = std::chrono::high_resolution_clock::now();
+    const auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+    const double seconds = std::max(0.001, totalDuration.count() / 1000.0);
+
     long long finalWorldPopulation = 0;
     int survivingCountries = 0;
     for (const auto& country : countries) {
@@ -5037,37 +5116,18 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
             survivingCountries++;
         }
     }
-    
-    std::cout << "\n📈 MEGA STATISTICS:" << std::endl;
-    std::cout << "   🏛️ Surviving countries: " << survivingCountries << std::endl;
-    std::cout << "   💀 Extinct countries: " << extinctCountries.size() << std::endl;
-    std::cout << "   🌍 Final world population: " << finalWorldPopulation << std::endl;
-    std::cout << "   ⚔️ Total wars: " << totalWars << std::endl;
-    std::cout << "   🦠 Total plagues: " << totalPlagues << std::endl;
-    std::cout << "   💀 Total plague deaths: " << m_plagueDeathToll << std::endl;
-    std::cout << "   🧠 Tech breakthroughs: " << totalTechBreakthroughs << std::endl;
-    
-    std::cout << "\n🌟 MAJOR HISTORICAL EVENTS:" << std::endl;
-    int eventCount = 0;
-    for (const auto& event : majorEvents) {
-        if (eventCount++ >= 10) break; // Show top 10 events
-        std::cout << "   " << event << std::endl;
-    }
-    
-    std::cout << "\n💀 EXTINCT CIVILIZATIONS:" << std::endl;
-    for (size_t i = 0; i < std::min(extinctCountries.size(), size_t(5)); ++i) {
-        std::cout << "   " << extinctCountries[i] << std::endl;
-    }
-    
-    std::cout << "\n🏛️ SUPERPOWERS EMERGED:" << std::endl;
-    for (const auto& power : superPowers) {
-        std::cout << "   " << power << std::endl;
-    }
-    
-    std::cout << "\n🌍 Welcome to " << currentYear;
-    if (currentYear < 0) std::cout << " BCE";
-    else std::cout << " CE";
-    std::cout << "! The world has changed dramatically!" << std::endl;
+
+    std::cout << "\nMEGA TIME JUMP COMPLETE (exact yearly kernel)." << std::endl;
+    std::cout << "  Years simulated: " << totalYears << std::endl;
+    std::cout << "  Wall time: " << seconds << " s" << std::endl;
+    std::cout << "  Throughput: " << (static_cast<double>(totalYears) / seconds) << " years/s" << std::endl;
+    std::cout << "  Surviving countries: " << survivingCountries << std::endl;
+    std::cout << "  Final world population: " << finalWorldPopulation << std::endl;
+    std::cout << "  War starts (country-side count): " << totalWarStarts << std::endl;
+    std::cout << "  Plague outbreaks: " << totalPlagues << std::endl;
+    std::cout << "  Plague deaths: " << m_plagueDeathToll << std::endl;
+    std::cout << "  Tech breakthroughs: " << totalTechBreakthroughs << std::endl;
+
     return true;
 }
 

@@ -71,83 +71,100 @@ int GreatPeopleManager::getRandomEventInterval() {
 
 // Each simulation year call updateEffects() to both remove expired great person effects
 // and possibly generate new ones.
-void GreatPeopleManager::updateEffects(int currentYear, std::vector<Country>& countries, News& news) {
-    // Remove expired effects.
-    m_activeEffects.erase(
-        std::remove_if(m_activeEffects.begin(), m_activeEffects.end(),
-            [currentYear](const GreatPersonEffect& effect) {
-                return currentYear >= effect.expiryYear;
-            }),
-        m_activeEffects.end());
+void GreatPeopleManager::updateEffects(int currentYear,
+                                       std::vector<Country>& countries,
+                                       News& news,
+                                       int dtYears) {
+    const int years = std::max(1, dtYears);
+    const int startYear = currentYear - years + 1;
 
-    // If it's time for a new great person event...
-    if (currentYear >= m_nextEventYear) {
-        int numCountries = static_cast<int>(countries.size());
-        int numGreatPeople = numCountries * 5 / 100; // 5% (rounded down)
-        if (numGreatPeople > 0) {
-            // Shuffle country indices.
-            std::vector<int> indices(numCountries);
-            for (int i = 0; i < numCountries; ++i)
-                indices[i] = i;
-            std::shuffle(indices.begin(), indices.end(), m_rng);
+    auto processOneYear = [&](int simYear) {
+        // Remove expired effects.
+        m_activeEffects.erase(
+            std::remove_if(m_activeEffects.begin(), m_activeEffects.end(),
+                [simYear](const GreatPersonEffect& effect) {
+                    return simYear >= effect.expiryYear;
+                }),
+            m_activeEffects.end());
 
-            // For the first numGreatPeople countries, create a new effect.
-            for (int i = 0; i < numGreatPeople; ++i) {
-                int countryIndex = indices[i];
-                GreatPersonField field = getRandomField();
-                double multiplier = getRandomMultiplier();
-                int duration = getRandomDuration();
-                int expiryYear = currentYear + duration;
-                std::string personName = generateRandomName();
+        // If it's time for a new great person event...
+        if (simYear >= m_nextEventYear) {
+            int numCountries = static_cast<int>(countries.size());
+            int numGreatPeople = numCountries * 5 / 100; // 5% (rounded down)
+            if (numGreatPeople > 0) {
+                // Shuffle country indices.
+                std::vector<int> indices(numCountries);
+                for (int i = 0; i < numCountries; ++i) {
+                    indices[i] = i;
+                }
+                std::shuffle(indices.begin(), indices.end(), m_rng);
 
-                GreatPersonEffect effect;
-                effect.countryIndex = countryIndex;
-                effect.field = field;
-                effect.name = personName;
-                effect.multiplier = multiplier;
-                effect.startYear = currentYear;
-                effect.duration = duration;
-                effect.expiryYear = expiryYear;
+                // For the first numGreatPeople countries, create a new effect.
+                for (int i = 0; i < numGreatPeople; ++i) {
+                    int countryIndex = indices[i];
+                    GreatPersonField field = getRandomField();
+                    double multiplier = getRandomMultiplier();
+                    int duration = getRandomDuration();
+                    int expiryYear = simYear + duration;
+                    std::string personName = generateRandomName();
 
-                m_activeEffects.push_back(effect);
+                    GreatPersonEffect effect;
+                    effect.countryIndex = countryIndex;
+                    effect.field = field;
+                    effect.name = personName;
+                    effect.multiplier = multiplier;
+                    effect.startYear = simYear;
+                    effect.duration = duration;
+                    effect.expiryYear = expiryYear;
 
-                // Announce the event.
-                std::string fieldName = (field == GreatPersonField::Military) ? "Military" : "Science";
-                std::string newsEvent = "Great " + fieldName + " Person " + personName +
-                    " was born in " + countries[countryIndex].getName() + "!";
-                news.addEvent(newsEvent);
+                    m_activeEffects.push_back(effect);
+
+                    // Announce the event.
+                    std::string fieldName = (field == GreatPersonField::Military) ? "Military" : "Science";
+                    std::string newsEvent = "Great " + fieldName + " Person " + personName +
+                        " was born in " + countries[static_cast<size_t>(countryIndex)].getName() + "!";
+                    news.addEvent(newsEvent);
+                }
+            }
+            // Schedule the next event.
+            m_nextEventYear = simYear + getRandomEventInterval();
+        }
+
+        // Now, for each country, update its military (and optionally science) stats directly.
+        // First, reset each country’s stat to its base value.
+        for (auto& country : countries) {
+            country.resetMilitaryStrength();
+            // (Similarly, you could reset science production if desired.)
+        }
+
+        // Then, for each active effect, if it applies to a given country and is active,
+        // apply the bonus. (If a country gets more than one effect in the same field,
+        // we use the highest multiplier.)
+        for (const auto& effect : m_activeEffects) {
+            if (simYear >= effect.startYear && simYear < effect.expiryYear) {
+                // For now, we only handle military field.
+                if (effect.field == GreatPersonField::Military) {
+                    const int idx = effect.countryIndex;
+                    if (idx < 0 || idx >= static_cast<int>(countries.size())) {
+                        continue;
+                    }
+                    // Apply the bonus directly.
+                    // (Note: if multiple effects apply, this simple method will multiply several times.
+                    // To simply use the maximum, you could first compute the max bonus per country.)
+                    // For a minimal integration that uses maximum, we do:
+                    double currentBonus = getMilitaryBonus(idx, simYear);
+                    // Reset the country to base, then apply the maximum bonus.
+                    // (Alternatively, you could compute a per-country max bonus outside the loop.)
+                    countries[static_cast<size_t>(idx)].resetMilitaryStrength();
+                    countries[static_cast<size_t>(idx)].applyMilitaryBonus(currentBonus);
+                }
+                // (Similarly, if you want to handle science, add a branch for GreatPersonField::Science.)
             }
         }
-        // Schedule the next event.
-        m_nextEventYear = currentYear + getRandomEventInterval();
-    }
+    };
 
-    // Now, for each country, update its military (and optionally science) stats directly.
-    // First, reset each country’s stat to its base value.
-    for (auto& country : countries) {
-        country.resetMilitaryStrength();
-        // (Similarly, you could reset science production if desired.)
-    }
-
-    // Then, for each active effect, if it applies to a given country and is active,
-    // apply the bonus. (If a country gets more than one effect in the same field,
-    // we use the highest multiplier.)
-    for (const auto& effect : m_activeEffects) {
-        if (currentYear >= effect.startYear && currentYear < effect.expiryYear) {
-            // For now, we only handle military field.
-            if (effect.field == GreatPersonField::Military) {
-                // Apply the bonus directly.
-                // (Note: if multiple effects apply, this simple method will multiply several times.
-                // To simply use the maximum, you could first compute the max bonus per country.)
-                // For a minimal integration that uses maximum, we do:
-                double currentBonus = getMilitaryBonus(effect.countryIndex, currentYear);
-                // Reset the country to base, then apply the maximum bonus.
-                // (Alternatively, you could compute a per-country max bonus outside the loop.)
-                countries[effect.countryIndex].resetMilitaryStrength();
-                countries[effect.countryIndex].applyMilitaryBonus(currentBonus);
-            }
-            // (Similarly, if you want to handle science, add a branch for GreatPersonField::Science.)
-        }
+    for (int simYear = startYear; simYear <= currentYear; ++simYear) {
+        processOneYear(simYear);
     }
 }
 

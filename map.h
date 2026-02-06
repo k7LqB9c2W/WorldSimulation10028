@@ -9,6 +9,7 @@
 #include <functional>
 #include <cstdint>
 #include <atomic>
+#include <string>
 #include "country.h"
 #include "resource.h"
 #include "news.h"
@@ -98,7 +99,8 @@ public:
 	                           int currentYear,
 	                           News& news,
 	                           class TechnologyManager& techManager,
-	                           class CultureManager& cultureManager);
+	                           class CultureManager& cultureManager,
+                               int dtYears = 1);
     
     // Fast Forward Mode - simulate multiple years quickly
     void fastForwardSimulation(std::vector<Country>& countries, int& currentYear, int targetYears, News& news, class TechnologyManager& technologyManager);
@@ -106,10 +108,14 @@ public:
 	    // MEGA TIME JUMP - simulate thousands of years with historical tracking
 	    bool megaTimeJump(std::vector<Country>& countries, int& currentYear, int targetYear, News& news,
 	                      class TechnologyManager& techManager, class CultureManager& cultureManager,
+	                      class EconomyModelCPU& macroEconomy,
+	                      TradeManager& tradeManager,
 	                      class GreatPeopleManager& greatPeopleManager,
 	                      std::function<void(int, int, float)> progressCallback = nullptr,
 	                      std::function<void(int, int)> chunkCompletedCallback = nullptr,
-	                      const std::atomic<bool>* cancelRequested = nullptr);
+	                      const std::atomic<bool>* cancelRequested = nullptr,
+                          bool enablePopulationDebugLog = false,
+                          const std::string& populationDebugLogPath = std::string());
 
     // Keep these for read-only access (const versions)
     const std::vector<std::vector<int>>& getCountryGrid() const;

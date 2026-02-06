@@ -143,6 +143,11 @@ public:
         double lastDepreciation = 0.0;
         double lastFoodShortage = 0.0;
         double lastNonFoodShortage = 0.0;
+        double lastBirths = 0.0;
+        double lastDeathsBase = 0.0;
+        double lastDeathsFamine = 0.0;
+        double lastDeathsEpi = 0.0;
+        double lastAvgNutrition = 1.0;
 
         double foodSecurity = 1.0;   // 0..1
         double marketAccess = 0.2;   // 0..1
