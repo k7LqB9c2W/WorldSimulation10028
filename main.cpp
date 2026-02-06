@@ -1902,6 +1902,8 @@ int main(int argc, char** argv) {
 		                            ImGui::Text("GDP: %s", formatMoneyAbbrev(c->getGDP()).c_str());
 		                            ImGui::Text("Exports: %s", formatMoneyAbbrev(c->getExports()).c_str());
 		                            ImGui::Text("Ideology: %s", c->getIdeologyString().c_str());
+		                            ImGui::Text("Stability: %.1f%%", c->getStability() * 100.0);
+		                            ImGui::Text("Legitimacy: %.1f%%", c->getLegitimacy() * 100.0);
 
 		                            if (ImGui::Button("Open Tech Editor")) {
 		                                guiShowTechEditor = true;
