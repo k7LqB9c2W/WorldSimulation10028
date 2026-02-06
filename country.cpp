@@ -496,22 +496,104 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
     sdbg.dbg_delta_debt_crisis = 0.0;
     sdbg.dbg_delta_control_decay = 0.0;
 
-    double spendRate = std::clamp(m_polity.treasurySpendRate, 0.3, 2.0);
-    if (m_isAtWar) {
-        spendRate = std::min(2.0, spendRate + 0.25);
-    }
-    const double expensesAnnual = incomeAnnual * spendRate;
+    // Desired spending is pressure-driven, then capped by what can be financed.
+    const double institutionCapacity = clamp01(m_macro.institutionCapacity);
+    const double connectivity = clamp01(m_macro.connectivityIndex);
+    const double financeLevel = clamp01(0.5 * institutionCapacity + 0.5 * connectivity);
 
-    m_gold += (incomeAnnual - expensesAnnual) * yearsD;
-    if (m_gold < 0.0) {
-        const double before = m_stability;
-        m_polity.debt += -m_gold;
-        m_gold = 0.0;
-        m_polity.legitimacy = clamp01(m_polity.legitimacy - 0.03);
-        m_stability = clamp01(m_stability - 0.03);
-        sdbg.dbg_delta_debt_crisis += (m_stability - before);
+    const double control = clamp01(m_avgControl);
+    const double lowControlPressure = clamp01((0.65 - control) / 0.65);
+    const double faminePressure = clamp01(m_macro.famineSeverity + std::max(0.0, 0.92 - m_macro.foodSecurity));
+    const double warPressure = m_isAtWar ? 1.0 : 0.0;
+    const double opportunityPressure = clamp01(0.5 * clamp01(m_macro.marketAccess) + 0.5 * connectivity);
+
+    double desiredSpendFactor = std::clamp(m_polity.treasurySpendRate, 0.35, 2.20);
+    desiredSpendFactor +=
+        0.22 * warPressure +
+        0.18 * lowControlPressure +
+        0.18 * faminePressure +
+        0.08 * opportunityPressure;
+
+    // Endogenous fiscal correction under debt-service pressure.
+    const double debtStart = std::max(0.0, m_polity.debt);
+    const double debtToIncomeStart = debtStart / std::max(1.0, incomeAnnual);
+    const double debtThresholdStart = 1.0 + 2.6 * financeLevel;
+    const double stressAboveDebtThreshold = clamp01((debtToIncomeStart - debtThresholdStart) / 3.0);
+    const double baselineInterest = 0.30 + (0.03 - 0.30) * financeLevel;
+    const double serviceToIncomeStart = (debtStart * baselineInterest) / std::max(1.0, incomeAnnual);
+    const double serviceStressStart = clamp01((serviceToIncomeStart - 0.25) / 0.35);
+    if (serviceToIncomeStart > 0.25 || debtToIncomeStart > debtThresholdStart) {
+        const double correction = yearsD * (0.03 + 0.05 * serviceStressStart + 0.04 * stressAboveDebtThreshold);
+        m_polity.treasurySpendRate = std::max(0.55, m_polity.treasurySpendRate - correction);
+
+        const double fiscalHeadroom = clamp01((m_polity.fiscalCapacity - 0.20) / 0.80);
+        const double taxEffort = yearsD * 0.010 * fiscalHeadroom * (0.35 + 0.65 * std::max(serviceStressStart, stressAboveDebtThreshold));
+        m_polity.taxRate = std::clamp(m_polity.taxRate + taxEffort, 0.02, 0.45);
+
+        desiredSpendFactor = std::max(0.55, desiredSpendFactor - (0.20 * serviceStressStart + 0.15 * stressAboveDebtThreshold));
     }
-    m_polity.debt *= std::pow(1.01, yearsD);
+
+    const double desiredAnnual = std::max(0.0, incomeAnnual * desiredSpendFactor);
+    const double desiredBlock = desiredAnnual * yearsD;
+
+    const double reserveMonthsTarget = std::clamp(0.75 - 0.45 * financeLevel, 0.25, 0.75);
+    const double reserveTarget = incomeAnnual * reserveMonthsTarget;
+    const double maxDrawFromReserves = std::max(0.0, m_gold - reserveTarget);
+
+    const bool borrowingEnabled = (financeLevel >= 0.15);
+    const double debtLimit =
+        incomeAnnual *
+        (0.2 + 3.0 * financeLevel) *
+        (0.3 + 0.7 * institutionCapacity);
+    const double maxNewBorrowing = borrowingEnabled ? std::max(0.0, debtLimit - debtStart) : 0.0;
+
+    const double interestRate = 0.30 + (0.03 - 0.30) * financeLevel;
+    const double debtServiceAnnual = debtStart * interestRate;
+    const double debtServiceBlock = debtServiceAnnual * yearsD;
+
+    const double incomeBlock = incomeAnnual * yearsD;
+    const double nonBorrowCapacity = incomeBlock + maxDrawFromReserves;
+    const double debtServicePaid = std::min(debtServiceBlock, nonBorrowCapacity);
+    const double debtServiceUnpaid = std::max(0.0, debtServiceBlock - debtServicePaid);
+
+    const double financeable =
+        std::max(0.0, nonBorrowCapacity - debtServicePaid) +
+        maxNewBorrowing;
+    const double actualSpending = std::min(desiredBlock, financeable);
+    const double shortfall = std::max(0.0, desiredBlock - actualSpending);
+
+    const double borrowUsed = borrowingEnabled
+        ? std::min(maxNewBorrowing, std::max(0.0, actualSpending - std::max(0.0, nonBorrowCapacity - debtServicePaid)))
+        : 0.0;
+    const double spendingFromOwnResources = std::max(0.0, actualSpending - borrowUsed);
+
+    const double nonBorrowOutflow = debtServicePaid + spendingFromOwnResources;
+    const double reservesUsed = std::max(0.0, nonBorrowOutflow - incomeBlock);
+    const double incomeSurplusToReserves = std::max(0.0, incomeBlock - nonBorrowOutflow);
+    m_gold = std::max(0.0, m_gold - reservesUsed + incomeSurplusToReserves);
+    m_polity.debt = std::max(0.0, debtStart + debtServiceUnpaid + borrowUsed);
+
+    const double shortfallStress = clamp01(shortfall / std::max(1.0, desiredBlock));
+    const double debtToIncome = m_polity.debt / std::max(1.0, incomeAnnual);
+    const double serviceToIncome = debtServiceAnnual / std::max(1.0, incomeAnnual);
+    const double debtThreshold = 1.0 + 2.6 * financeLevel;
+    const double debtStress = clamp01((debtToIncome - debtThreshold) / 3.0);
+    const double serviceStress = clamp01((serviceToIncome - 0.25) / 0.35);
+    const double burdenStress = std::max(serviceStress, debtStress);
+
+    // Financing shortfalls feed directly into state quality (without scripted policy rules).
+    m_polity.adminCapacity = clamp01(m_polity.adminCapacity - yearsD * 0.012 * shortfallStress);
+    m_militaryStrength = std::max(0.0, m_militaryStrength * (1.0 - std::min(0.30, 0.10 * shortfallStress * yearsD)));
+    m_polity.legitimacy = clamp01(m_polity.legitimacy - yearsD * 0.012 * shortfallStress);
+
+    // Replace binary "negative gold crisis" with burden-scaled penalties.
+    if (serviceToIncome > 0.25 || debtToIncome > debtThreshold) {
+        const double before = m_stability;
+        m_stability = clamp01(m_stability - yearsD * (0.012 * debtStress + 0.030 * serviceStress + 0.012 * shortfallStress));
+        sdbg.dbg_delta_debt_crisis += (m_stability - before);
+        m_polity.legitimacy = clamp01(m_polity.legitimacy - yearsD * (0.010 * debtStress + 0.026 * serviceStress + 0.010 * shortfallStress));
+        m_macro.leakageRate = std::clamp(m_macro.leakageRate + yearsD * (0.015 * burdenStress + 0.020 * shortfallStress), 0.02, 0.95);
+    }
 
     m_macro.educationInvestment = clamp01(m_polity.educationSpendingShare);
     m_macro.rndInvestment = clamp01(m_polity.rndSpendingShare);
@@ -542,6 +624,7 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
         stress += 0.7 * clamp01((0.70 - m_stability) / 0.70);
         stress += 0.8 * clamp01((0.92 - m_macro.foodSecurity) / 0.92);
         stress += 0.6 * clamp01((0.65 - m_avgControl) / 0.65);
+        stress += 0.8 * shortfallStress;
 
         const double adminDecay = yearsD * (0.00060 * stress);
         m_polity.adminCapacity = clamp01(m_polity.adminCapacity + adminGrowth - adminDecay);
@@ -556,7 +639,9 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
         d += 0.002 * (stability - 0.5);
         d -= std::max(0.0, taxRate - 0.12) * 0.04;
         d -= (1.0 - control) * 0.010;
-        if (incomeAnnual > 1.0 && m_polity.debt > incomeAnnual * 3.0) d -= 0.01;
+        d -= 0.008 * debtStress;
+        d -= 0.012 * serviceStress;
+        d -= 0.010 * shortfallStress;
         if (plagueAffected) d -= 0.02;
         if (m_isAtWar) d -= 0.01;
         m_polity.legitimacy = clamp01(m_polity.legitimacy + d * yearsD);
