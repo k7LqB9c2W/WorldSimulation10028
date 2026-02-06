@@ -55,17 +55,6 @@ public:
         Pacifist,
         Trader
     };
-    enum class ScienceType {
-        NS, // Normal Science
-        LS, // Less Science
-        MS  // More Science
-    };
-    // Add the enum for culture types
-    enum class CultureType {
-        NC, // Normal Culture (40% chance)
-        LC, // Less Culture (40% chance)
-        MC  // More Culture (20% chance)
-    };
     
     enum class Ideology {
         Tribal,        // Starting ideology
@@ -92,8 +81,6 @@ public:
             double growthRate,
             const std::string& name,
             Type type,
-            ScienceType scienceType,
-            CultureType cultureType,
             std::uint64_t rngSeed);
     void update(const std::vector<std::vector<bool>>& isLandGrid, std::vector<std::vector<int>>& countryGrid, std::mutex& gridMutex, int gridCellSize, int regionSize, std::unordered_set<int>& dirtyRegions, int currentYear, const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid, News& news, bool plagueActive, long long& plagueDeaths, Map& map, const class TechnologyManager& technologyManager, std::vector<Country>& allCountries);
     long long getPopulation() const;
@@ -137,11 +124,18 @@ public:
     struct MacroEconomyState {
         bool initialized = false;
         double foodStock = 0.0;
+        double foodStockCap = 0.0;
+        double spoilageRate = 0.12; // annual
         double nonFoodStock = 0.0;
         double capitalStock = 0.0;
         double infraStock = 0.0;
+        double militarySupplyStock = 0.0;
+        double servicesStock = 0.0;
 
         double lastFoodOutput = 0.0;
+        double lastGoodsOutput = 0.0;
+        double lastServicesOutput = 0.0;
+        double lastMilitaryOutput = 0.0;
         double lastNonFoodOutput = 0.0;
         double lastFoodCons = 0.0;
         double lastNonFoodCons = 0.0;
@@ -154,12 +148,46 @@ public:
         double marketAccess = 0.2;   // 0..1
         double importsValue = 0.0;   // yearly
         double exportsValue = 0.0;   // yearly
+
+        // Endogenous long-run development stocks (no player dials).
+        double humanCapital = 0.02;        // 0..1
+        double knowledgeStock = 0.01;      // 0..1
+        double inequality = 0.20;          // 0..1
+        double educationInvestment = 0.0;  // 0..1 budget share
+        double rndInvestment = 0.0;        // 0..1 budget share
+        double connectivityIndex = 0.0;    // 0..1 (trade + access)
+        double institutionCapacity = 0.0;  // 0..1 (derived)
+
+        // Scarcity prices / wage signals.
+        double priceFood = 1.0;
+        double priceGoods = 1.0;
+        double priceServices = 1.0;
+        double priceMilitarySupply = 1.0;
+        double cpi = 1.0;
+        double wage = 0.0;
+        double realWage = 0.0;
+
+        // State finance quality.
+        double compliance = 0.5;      // 0..1
+        double leakageRate = 0.15;    // 0..1
+        double netRevenue = 0.0;      // yearly
+
+        // Demography pressure signals.
+        double nutritionBalance = 0.0;       // calories available - required
+        double famineSeverity = 0.0;         // 0..1
+        double migrationPressureOut = 0.0;   // 0..1
+        double migrationAttractiveness = 0.0;// 0..1
+        double diseaseBurden = 0.0;          // 0..1
     };
 
     const MacroEconomyState& getMacroEconomy() const { return m_macro; }
     MacroEconomyState& getMacroEconomyMutable() { return m_macro; }
     double getFoodSecurity() const { return m_macro.foodSecurity; }
     double getMarketAccess() const { return m_macro.marketAccess; }
+    double getInstitutionCapacity() const { return m_macro.institutionCapacity; }
+    double getInequality() const { return m_macro.inequality; }
+    double getRealWage() const { return m_macro.realWage; }
+    double getConnectivityIndex() const { return m_macro.connectivityIndex; }
 
     // Phase 4/5A integration: last computed taxable base / tax take (annualized).
     double getLastTaxBase() const { return m_lastTaxBase; }
@@ -219,8 +247,16 @@ public:
     double getInfraSpendingShare() const { return m_polity.infraSpendingShare; }
     double getHealthSpendingShare() const { return m_polity.healthSpendingShare; }
     double getEducationSpendingShare() const { return m_polity.educationSpendingShare; }
+    double getRndSpendingShare() const { return m_polity.rndSpendingShare; }
     double getAvgControl() const { return m_avgControl; }
     void setAvgControl(double v);
+    void setTaxRate(double v);
+    void setBudgetShares(double military,
+                         double admin,
+                         double infra,
+                         double health,
+                         double education,
+                         double rnd);
 
     // Phase 5B: institution effects helpers.
     void addAdminCapacity(double dv);
@@ -229,6 +265,7 @@ public:
     void addDebt(double dv);
     void addEducationSpendingShare(double dv);
     void addHealthSpendingShare(double dv);
+    void addRndSpendingShare(double dv);
 
     double getMilitaryStrength() const;
     // Add a member variable to store science points
@@ -246,8 +283,6 @@ public:
     const std::string& getName() const;
     void setName(const std::string& name);
     Type getType() const; // Add a getter for the country type
-    ScienceType getScienceType() const;
-    CultureType getCultureType() const;
     bool canFoundCity() const;
     void checkCityGrowth(int currentYear, News& news); // Check for city upgrades and new cities
     void buildRoads(std::vector<Country>& allCountries,
@@ -385,6 +420,24 @@ public:
     bool canShareTechWith(const Country& target, int currentYear) const;
     void recordWarEnd(int enemyIndex, int currentYear);
 
+    // Country-level demography and epidemiology.
+    const std::array<double, 5>& getPopulationCohorts() const { return m_popCohorts; } // 0-4,5-14,15-49,50-64,65+
+    std::array<double, 5>& getPopulationCohortsMutable() { return m_popCohorts; }
+    struct EpidemicState {
+        double s = 0.995;
+        double i = 0.005;
+        double r = 0.0;
+    };
+    const EpidemicState& getEpidemicState() const { return m_epi; }
+    EpidemicState& getEpidemicStateMutable() { return m_epi; }
+    double getAutonomyPressure() const { return m_autonomyPressure; }
+    int getAutonomyOverThresholdYears() const { return m_autonomyOverThresholdYears; }
+    void setAutonomyPressure(double v) { m_autonomyPressure = std::clamp(v, 0.0, 1.0); }
+    void setAutonomyOverThresholdYears(int v) { m_autonomyOverThresholdYears = std::max(0, v); }
+    void initializePopulationCohorts();
+    void renormalizePopulationCohortsToTotal();
+    double getWorkingAgeLaborSupply() const;
+
 private:
 	    void attemptFactoryConstruction(const TechnologyManager& techManager,
 	                                    const std::vector<std::vector<bool>>& isLandGrid,
@@ -423,8 +476,6 @@ private:
         ExplorationState m_exploration{};
     double m_militaryStrength;  // Add military strength member
     Type m_type; // Add a member variable to store the country type
-    ScienceType m_scienceType;
-    CultureType m_cultureType;
     Ideology m_ideology;
     sf::Vector2i m_startingPixel; // Remember the original founding location for capital bonus
     double m_culturePoints; // For culture points
@@ -511,6 +562,7 @@ private:
 	    double infraSpendingShare = 0.38;
 	    double healthSpendingShare = 0.00;   // placeholder
 	    double educationSpendingShare = 0.00; // placeholder
+        double rndSpendingShare = 0.00;
 	    double debt = 0.0;
 	    int lastPolicyYear = -5000;
 	};
@@ -520,4 +572,9 @@ private:
 
         // Phase 2: coarse territorial control (set by Map control grid).
         double m_avgControl = 1.0; // 0..1
+
+        std::array<double, 5> m_popCohorts{}; // 0-4, 5-14, 15-49, 50-64, 65+
+        EpidemicState m_epi{};
+        double m_autonomyPressure = 0.0;
+        int m_autonomyOverThresholdYears = 0;
 	};

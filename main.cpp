@@ -406,8 +406,6 @@ int main(int argc, char** argv) {
         std::vector<int> unlockedCultures;
         long long initialPopulation = 5000; // Default starting population
         Country::Type countryType = Country::Type::Pacifist;
-        Country::ScienceType scienceType = Country::ScienceType::NS;
-        Country::CultureType cultureType = Country::CultureType::NC;
         Country::Ideology ideology = Country::Ideology::Tribal;
         bool useTemplate = false; // If false, use random generation
 	    };
@@ -700,7 +698,7 @@ int main(int argc, char** argv) {
 
                                 map.updateCountries(countries, currentYear, news, technologyManager);
                                 macroEconomy.tickYear(currentYear, 1, map, countries, technologyManager, tradeManager, news);
-                                map.tickDemographyAndCities(countries, currentYear, 1, news);
+                                map.tickDemographyAndCities(countries, currentYear, 1, news, &macroEconomy.getLastTradeIntensity());
 
                                 if (currentYear % 5 == 0) {
                                     technologyManager.tickYear(countries, map, &macroEconomy.getLastTradeIntensity(), currentYear, 5);
@@ -1094,8 +1092,6 @@ int main(int argc, char** argv) {
 	                        std::uniform_int_distribution<> popDist(1000, 10000);
 	                        std::uniform_real_distribution<> growthRateDist(0.0003, 0.001);
 	                        std::uniform_int_distribution<> typeDist(0, 2);
-	                        std::discrete_distribution<> scienceTypeDist({ 50, 40, 10 });
-	                        std::discrete_distribution<> cultureTypeDist({ 40, 40, 20 });
 
 	                        sf::Color countryColor(colorDist(gen), colorDist(gen), colorDist(gen));
 	                        double growthRate = growthRateDist(gen);
@@ -1108,19 +1104,13 @@ int main(int argc, char** argv) {
                         // Use custom template if available, otherwise use random generation
                         long long initialPopulation;
                         Country::Type countryType;
-                        Country::ScienceType scienceType;
-                        Country::CultureType cultureType;
                         
                         if (customCountryTemplate.useTemplate) {
                             initialPopulation = customCountryTemplate.initialPopulation;
                             countryType = customCountryTemplate.countryType;
-                            scienceType = customCountryTemplate.scienceType;
-                            cultureType = customCountryTemplate.cultureType;
                         } else {
                             initialPopulation = popDist(gen);
                             countryType = static_cast<Country::Type>(typeDist(gen));
-                            scienceType = static_cast<Country::ScienceType>(scienceTypeDist(gen));
-                            cultureType = static_cast<Country::CultureType>(cultureTypeDist(gen));
 	                        }
 
 	                        int newCountryIndex = countries.size();
@@ -1131,8 +1121,6 @@ int main(int argc, char** argv) {
 	                                               growthRate,
 	                                               countryName,
 	                                               countryType,
-	                                               scienceType,
-	                                               cultureType,
 	                                               ctx.seedForCountry(newCountryIndex));
 
                         // Use Map's methods to update the grid and dirty regions
@@ -1522,7 +1510,7 @@ int main(int argc, char** argv) {
 	            auto econStart = std::chrono::high_resolution_clock::now();
 	            macroEconomy.tickYear(currentYear, 1, map, countries, technologyManager, tradeManager, news);
             // Demography/cities step runs after macro economy so food security shortages affect births/deaths.
-            map.tickDemographyAndCities(countries, currentYear, 1, news);
+            map.tickDemographyAndCities(countries, currentYear, 1, news, &macroEconomy.getLastTradeIntensity());
             auto econEnd = std::chrono::high_resolution_clock::now();
             auto econTime = std::chrono::duration_cast<std::chrono::milliseconds>(econEnd - econStart);
 
@@ -2028,18 +2016,6 @@ int main(int argc, char** argv) {
 		                            customCountryTemplate.countryType = static_cast<Country::Type>(type);
 		                        }
 
-		                        int sci = static_cast<int>(customCountryTemplate.scienceType);
-		                        const char* scis[] = {"Normal", "Less", "More"};
-		                        if (ImGui::Combo("Science Type", &sci, scis, 3)) {
-		                            customCountryTemplate.scienceType = static_cast<Country::ScienceType>(sci);
-		                        }
-
-		                        int cul = static_cast<int>(customCountryTemplate.cultureType);
-		                        const char* culs[] = {"Normal", "Less", "More"};
-		                        if (ImGui::Combo("Culture Type", &cul, culs, 3)) {
-		                            customCountryTemplate.cultureType = static_cast<Country::CultureType>(cul);
-		                        }
-
 		                        ImGui::Separator();
 		                        ImGui::TextUnformatted("Technologies (IDs or 'all'):");
 		                        ImGui::InputText("##tmplTech", &guiTemplateTechIds);
@@ -2084,8 +2060,6 @@ int main(int argc, char** argv) {
 		                            customCountryTemplate.unlockedCultures.clear();
 		                            customCountryTemplate.initialPopulation = 5000;
 		                            customCountryTemplate.countryType = Country::Type::Pacifist;
-		                            customCountryTemplate.scienceType = Country::ScienceType::NS;
-		                            customCountryTemplate.cultureType = Country::CultureType::NC;
 		                            guiTemplateTechIds.clear();
 		                            guiTemplateCultureIds.clear();
 		                        }

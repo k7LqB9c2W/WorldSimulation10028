@@ -25,8 +25,6 @@ Country::Country(int countryIndex,
                  double growthRate,
                  const std::string& name,
                  Type type,
-                 ScienceType scienceType,
-                 CultureType cultureType,
                  std::uint64_t rngSeed) :
     m_countryIndex(countryIndex),
 	    m_rng(rngSeed),
@@ -37,8 +35,6 @@ Country::Country(int countryIndex,
     m_culturePoints(0.0), // Initialize culture points to zero
     m_name(name),
     m_type(type),
-    m_scienceType(scienceType),
-    m_cultureType(cultureType),
     m_ideology(Ideology::Tribal), // All countries start as Tribal
     m_startingPixel(startCell), // Remember the founding location
     m_hasCity(false),
@@ -181,6 +177,8 @@ Country::Country(int countryIndex,
 	    }
 	    std::uniform_int_distribution<int> policyOffset(0, 4);
 	    m_polity.lastPolicyYear = -5000 + policyOffset(m_rng);
+
+        initializePopulationCohorts();
 	}
 
 // Check if the country can declare war
@@ -351,6 +349,44 @@ void Country::setPopulation(long long population)
     m_population = population;
 }
 
+void Country::initializePopulationCohorts() {
+    const double pop = static_cast<double>(std::max<long long>(0, m_population));
+    // Pre-modern baseline age pyramid.
+    m_popCohorts = {
+        pop * 0.14, // 0-4
+        pop * 0.24, // 5-14
+        pop * 0.46, // 15-49
+        pop * 0.10, // 50-64
+        pop * 0.06  // 65+
+    };
+    renormalizePopulationCohortsToTotal();
+}
+
+void Country::renormalizePopulationCohortsToTotal() {
+    const double target = static_cast<double>(std::max<long long>(0, m_population));
+    double sum = 0.0;
+    for (double v : m_popCohorts) {
+        sum += std::max(0.0, v);
+    }
+    if (target <= 0.0) {
+        m_popCohorts.fill(0.0);
+        return;
+    }
+    if (sum <= 1e-9) {
+        initializePopulationCohorts();
+        return;
+    }
+    const double s = target / sum;
+    for (double& v : m_popCohorts) {
+        v = std::max(0.0, v * s);
+    }
+}
+
+double Country::getWorkingAgeLaborSupply() const {
+    // Most labor from 15-49, with lower participation in 50-64.
+    return std::max(0.0, m_popCohorts[2] + 0.45 * m_popCohorts[3]);
+}
+
 double Country::getStability() const {
     return m_stability;
 }
@@ -373,6 +409,40 @@ void Country::setStability(double stability) {
 
 void Country::setAvgControl(double v) {
     m_avgControl = std::max(0.0, std::min(1.0, v));
+}
+
+void Country::setTaxRate(double v) {
+    m_polity.taxRate = std::clamp(v, 0.0, 0.8);
+}
+
+void Country::setBudgetShares(double military,
+                              double admin,
+                              double infra,
+                              double health,
+                              double education,
+                              double rnd) {
+    military = std::max(0.0, military);
+    admin = std::max(0.0, admin);
+    infra = std::max(0.0, infra);
+    health = std::max(0.0, health);
+    education = std::max(0.0, education);
+    rnd = std::max(0.0, rnd);
+    double sum = military + admin + infra + health + education + rnd;
+    if (sum <= 1e-12) {
+        military = 0.34;
+        admin = 0.28;
+        infra = 0.28;
+        health = 0.05;
+        education = 0.04;
+        rnd = 0.01;
+        sum = 1.0;
+    }
+    m_polity.militarySpendingShare = military / sum;
+    m_polity.adminSpendingShare = admin / sum;
+    m_polity.infraSpendingShare = infra / sum;
+    m_polity.healthSpendingShare = health / sum;
+    m_polity.educationSpendingShare = education / sum;
+    m_polity.rndSpendingShare = rnd / sum;
 }
 
 void Country::setLegitimacy(double v) {
@@ -401,6 +471,10 @@ void Country::addEducationSpendingShare(double dv) {
 
 void Country::addHealthSpendingShare(double dv) {
     m_polity.healthSpendingShare = std::max(0.0, m_polity.healthSpendingShare + dv);
+}
+
+void Country::addRndSpendingShare(double dv) {
+    m_polity.rndSpendingShare = std::max(0.0, m_polity.rndSpendingShare + dv);
 }
 
 void Country::applyBudgetFromEconomy(double taxBaseAnnual,
@@ -432,10 +506,13 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
     }
     m_polity.debt *= std::pow(1.01, yearsD);
 
+    m_macro.educationInvestment = clamp01(m_polity.educationSpendingShare);
+    m_macro.rndInvestment = clamp01(m_polity.rndSpendingShare);
+
     // Capacity accumulation (slow), driven by spending shares and current technical level.
     const double techFactor = 1.0 + 0.015 * static_cast<double>(std::max(0, techCount));
     m_polity.adminCapacity = clamp01(m_polity.adminCapacity + yearsD * (0.00035 * m_polity.adminSpendingShare * techFactor));
-    m_polity.fiscalCapacity = clamp01(m_polity.fiscalCapacity + yearsD * (0.00030 * m_polity.adminSpendingShare * techFactor));
+    m_polity.fiscalCapacity = clamp01(m_polity.fiscalCapacity + yearsD * (0.00030 * (0.8 * m_polity.adminSpendingShare + 0.2 * m_polity.rndSpendingShare) * techFactor));
     m_polity.logisticsReach = clamp01(m_polity.logisticsReach + yearsD * (0.00040 * m_polity.infraSpendingShare * techFactor));
 
     // Administrative capacity emerges from how many specialists a polity can sustain and coordinate.
@@ -588,17 +665,20 @@ bool Country::isNeighbor(const Country& other) const {
 	        m_polity.infraSpendingShare = std::max(0.02, m_polity.infraSpendingShare);
 	        m_polity.healthSpendingShare = std::max(0.0, m_polity.healthSpendingShare);
 	        m_polity.educationSpendingShare = std::max(0.0, m_polity.educationSpendingShare);
+            m_polity.rndSpendingShare = std::max(0.0, m_polity.rndSpendingShare);
 	        const double sum = m_polity.militarySpendingShare +
 	                           m_polity.adminSpendingShare +
 	                           m_polity.infraSpendingShare +
 	                           m_polity.healthSpendingShare +
-	                           m_polity.educationSpendingShare;
+	                           m_polity.educationSpendingShare +
+                               m_polity.rndSpendingShare;
 	        if (sum <= 0.0) {
 	            m_polity.militarySpendingShare = 0.34;
 	            m_polity.adminSpendingShare = 0.28;
 	            m_polity.infraSpendingShare = 0.38;
 	            m_polity.healthSpendingShare = 0.0;
 	            m_polity.educationSpendingShare = 0.0;
+                m_polity.rndSpendingShare = 0.0;
 	            return;
 	        }
 	        m_polity.militarySpendingShare /= sum;
@@ -606,6 +686,7 @@ bool Country::isNeighbor(const Country& other) const {
 	        m_polity.infraSpendingShare /= sum;
 	        m_polity.healthSpendingShare /= sum;
 	        m_polity.educationSpendingShare /= sum;
+            m_polity.rndSpendingShare /= sum;
 	    };
 
 	    normalizeBudgetShares();
@@ -1392,6 +1473,8 @@ bool Country::isNeighbor(const Country& other) const {
     } else {
         m_yearsSinceWar = std::min(m_yearsSinceWar + 1, 10000);
     }
+
+    renormalizePopulationCohortsToTotal();
 }
 
 namespace {
@@ -1664,6 +1747,7 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
 
 	    // Track population across years for stability/stagnation calculations (works for both internal and grid-driven demography).
 	    m_prevYearPopulation = m_population;
+        renormalizePopulationCohortsToTotal();
 	}
 
 // Apply plague deaths during fast forward
@@ -1961,40 +2045,29 @@ double Country::getSciencePointsMultiplier() const {
 }
 
 double Country::calculateScienceGeneration() const {
-    // Base science from population and territory (wealth proxy)
-    double populationBase = static_cast<double>(m_population) / 100000.0; // ~20 for 2M population
-    double territoryBase = static_cast<double>(m_boundaryPixels.size()) / 1000.0; // ~10-50 for typical territories
-    double baseFromPopAndGdp = populationBase + territoryBase;
-    
-    // Education base (accumulated from education policies/buildings - simplified for now)
-    double baseFromEducation = m_educationScienceBase;
-    
-    // Buildings base (simplified - could be expanded later)
-    double baseFromBuildings = 5.0; // Base building science infrastructure
-    
-    // Total base science generation
-    double baseScienceGeneration = baseFromPopAndGdp + baseFromEducation + baseFromBuildings;
-    
-    // Apply trait multiplier (based on country type)
-    double traitMult = m_traitScienceMultiplier;
-    if (m_scienceType == ScienceType::MS) traitMult *= 1.25; // +25% for science-focused countries
-    else if (m_scienceType == ScienceType::LS) traitMult *= 0.75; // -25% for non-science countries
-    
-    // Policy multiplier (education policy bonus)
-    double policyMult = m_policyScienceMultiplier; // Default 1.0, could be set by policies
-    
-    // Technology multiplier (from research bonuses)
-    double techMult = getSciencePointsMultiplier();
-    
-    // Situation multiplier (war, unrest, etc.)
-    double situationMult = m_situationScienceMultiplier;
-    if (m_isAtWar) situationMult *= 0.85; // -15% during war
-    // Could add other situation modifiers here
-    
-    // Apply the full multiplier stack
-    double totalScienceGeneration = s_scienceScaler * baseScienceGeneration * traitMult * policyMult * techMult * situationMult;
-    
-    return totalScienceGeneration;
+    const auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+    const double pop = static_cast<double>(std::max<long long>(1, m_population));
+    const double urban = clamp01(m_totalCityPopulation / pop);
+    const double human = clamp01(m_macro.humanCapital);
+    const double know = clamp01(m_macro.knowledgeStock);
+    const double conn = clamp01(m_macro.connectivityIndex);
+    const double inst = clamp01(m_macro.institutionCapacity);
+    const double stable = clamp01(m_stability);
+    const double health = clamp01(1.0 - m_macro.diseaseBurden);
+    const double faminePenalty = clamp01(1.0 - m_macro.famineSeverity);
+    const double scale = std::sqrt(pop / 100000.0);
+
+    double gen = 8.0 * scale * (0.10 + 0.90 * urban) * (0.10 + 0.90 * conn);
+    gen *= (0.20 + 0.80 * know);
+    gen *= (0.25 + 0.75 * human);
+    gen *= (0.30 + 0.70 * inst);
+    gen *= (0.35 + 0.65 * stable);
+    gen *= (0.40 + 0.60 * health);
+    gen *= (0.45 + 0.55 * faminePenalty);
+    if (m_isAtWar) {
+        gen *= 0.88;
+    }
+    return s_scienceScaler * std::max(0.0, gen);
 }
 
 // 🚀 OPTIMIZED KNOWLEDGE DIFFUSION - Cache neighbors and update less frequently
@@ -2032,45 +2105,25 @@ double Country::calculateNeighborScienceBonus(const std::vector<Country>& allCou
 	        m_neighborRecalculationInterval = 20 + static_cast<int>(h % 61ull); // 20..80 inclusive
 	    }
     
-    // Now calculate bonus using cached neighbor list (much faster!)
+    // Endogenous neighbor diffusion bonus from connectivity and knowledge gaps.
     double totalBonus = 0.0;
     for (int neighborIndex : m_cachedNeighborIndices) {
         // Safety check - make sure neighbor still exists
         if (neighborIndex >= 0 && neighborIndex < static_cast<int>(allCountries.size())) {
             const Country& neighbor = allCountries[neighborIndex];
-            
-            // Calculate science bonus based on neighbor's science type
-            double neighborBonus = 0.0;
-            
-            switch(neighbor.getScienceType()) {
-                case ScienceType::MS: // More Science neighbors provide small bonus
-                    neighborBonus = 0.02; // Reduced from 0.12 to 0.02 for realism
-                    break;
-                case ScienceType::NS: // Normal Science neighbors provide tiny bonus
-                    neighborBonus = 0.01; // Reduced from 0.06 to 0.01 for realism
-                    break;
-                case ScienceType::LS: // Less Science neighbors provide no bonus
-                    neighborBonus = 0.0;
-                    break;
-            }
-            
-            // 🚀 OPTIMIZATION: Simplified tech multiplier - just use a rough estimate
-            // Instead of expensive lookup, use a simpler calculation based on science type
-            double techMultiplier = 1.0;
-            if (neighbor.getScienceType() == ScienceType::MS) {
-                techMultiplier = 1.1; // Reduced from 1.5 to 1.1 for realism
-            } else if (neighbor.getScienceType() == ScienceType::NS) {
-                techMultiplier = 1.05; // Reduced from 1.2 to 1.05 for realism
-            }
-            // LS countries get 1.0 (no bonus)
-            
-            neighborBonus *= techMultiplier;
-            totalBonus += neighborBonus;
+
+            const double ourKnow = std::clamp(m_macro.knowledgeStock, 0.0, 1.0);
+            const double theirKnow = std::clamp(neighbor.getMacroEconomy().knowledgeStock, 0.0, 1.0);
+            const double gap = std::max(0.0, theirKnow - ourKnow);
+            const double border = std::max(1, map.getBorderContactCount(m_countryIndex, neighborIndex));
+            const double contact = std::min(1.0, std::log1p(static_cast<double>(border)) / 3.0);
+            const double conn = 0.5 * std::clamp(m_macro.connectivityIndex + neighbor.getMacroEconomy().connectivityIndex, 0.0, 1.0);
+            const double add = 0.10 * gap * contact * (0.20 + 0.80 * conn);
+            totalBonus += add;
         }
     }
     
-    // Cap the total neighbor bonus to prevent runaway effects - REALISTIC REBALANCE
-    totalBonus = std::min(totalBonus, 0.2); // Reduced from 1.5 to 0.2 for realism
+    totalBonus = std::min(totalBonus, 0.25);
     
     return totalBonus;
 }
@@ -2385,11 +2438,6 @@ Country::Type Country::getType() const {
     return m_type;
 }
 
-// Get the science type
-Country::ScienceType Country::getScienceType() const {
-    return m_scienceType;
-}
-
 // Get the military strength (enhanced by technology)
 double Country::getMilitaryStrength() const {
     return m_militaryStrength * getMilitaryStrengthMultiplier();
@@ -2405,11 +2453,6 @@ void Country::addSciencePoints(double points) {
 
 void Country::setSciencePoints(double points) {
     m_sciencePoints = points;
-}
-
-// Get the culture type
-Country::CultureType Country::getCultureType() const {
-    return m_cultureType;
 }
 
 void Country::resetMilitaryStrength() {

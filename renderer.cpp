@@ -710,22 +710,6 @@ void Renderer::drawCountryInfo(const Country* country, const TechnologyManager& 
         case Country::Type::Trader: basicInfo += "Trader\n"; break;
     }
     
-    // Science type
-    basicInfo += "Science Type: ";
-    switch (country->getScienceType()) {
-        case Country::ScienceType::NS: basicInfo += "Normal Science\n"; break;
-        case Country::ScienceType::LS: basicInfo += "Less Science\n"; break;
-        case Country::ScienceType::MS: basicInfo += "More Science\n"; break;
-    }
-    
-    // Culture type
-    basicInfo += "Culture Type: ";
-    switch (country->getCultureType()) {
-        case Country::CultureType::NC: basicInfo += "Normal Culture\n"; break;
-        case Country::CultureType::LC: basicInfo += "Less Culture\n"; break;
-        case Country::CultureType::MC: basicInfo += "More Culture\n"; break;
-    }
-    
     // IDEOLOGY - Prominently displayed
     basicInfo += "Ideology: " + country->getIdeologyString() + "\n";
     
@@ -1955,16 +1939,8 @@ void Renderer::renderCountryAddEditor(const std::string& inputText, int editorSt
             stateText = "4. Choose Country Type";
             instructionText = "1=Warmonger, 2=Pacifist, 3=Trader";
             break;
-        case 4: // Science type
-            stateText = "5. Choose Science Type";
-            instructionText = "1=Normal Science, 2=Less Science, 3=More Science";
-            break;
-        case 5: // Culture type
-            stateText = "6. Choose Culture Type";
-            instructionText = "1=Normal Culture, 2=Less Culture, 3=More Culture";
-            break;
-        case 6: // Save/Reset
-            stateText = "7. Save or Reset";
+        case 4: // Save/Reset
+            stateText = "5. Save or Reset";
             instructionText = "1=Save Template, 2=Reset to Random";
             break;
     }

@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <cmath>
 #include <algorithm>
+#include <array>
 
 Map::Map(const sf::Image& baseImage, const sf::Image& resourceImage, int gridCellSize, const sf::Color& landColor, const sf::Color& waterColor, int regionSize, SimulationContext& ctx) :
     m_ctx(&ctx),
@@ -189,7 +190,10 @@ void Map::ensureFieldGrids() {
     const size_t n = static_cast<size_t>(std::max(0, m_fieldW)) * static_cast<size_t>(std::max(0, m_fieldH));
     m_fieldOwnerId.assign(n, -1);
     m_fieldControl.assign(n, 0.0f);
+    m_fieldMoveCost.assign(n, 1.0f);
     m_fieldFoodPotential.assign(n, 0.0f);
+    m_countryControlCache.clear();
+    m_controlCacheDirty = true;
 
     rebuildFieldFoodPotential();
     ensureClimateGrids();
@@ -703,14 +707,71 @@ void Map::rebuildFieldOwnerIdAssumingLocked(int countryCount) {
     }
 }
 
-void Map::updateControlGrid(std::vector<Country>& countries, int currentYear, int dtYears) {
-    (void)currentYear;
-    (void)dtYears;
+void Map::rebuildFieldMoveCost(const std::vector<Country>& countries) {
+    const size_t n = static_cast<size_t>(m_fieldW) * static_cast<size_t>(m_fieldH);
+    if (n == 0) return;
+    if (m_fieldMoveCost.size() != n) m_fieldMoveCost.assign(n, 1.0f);
 
-    ensureFieldGrids();
-    if (m_fieldW <= 0 || m_fieldH <= 0) {
-        return;
+    std::vector<float> roadFactor(n, 1.0f);
+    std::vector<float> portFactor(n, 1.0f);
+    std::vector<uint8_t> coastalMask(n, 0u);
+    for (int fi : m_fieldCoastalLandCandidates) {
+        if (fi >= 0 && static_cast<size_t>(fi) < n) {
+            coastalMask[static_cast<size_t>(fi)] = 1u;
+        }
     }
+
+    for (const Country& c : countries) {
+        if (c.getPopulation() <= 0) continue;
+        for (const auto& p : c.getRoads()) {
+            const int fx = std::max(0, std::min(m_fieldW - 1, p.x / kFieldCellSize));
+            const int fy = std::max(0, std::min(m_fieldH - 1, p.y / kFieldCellSize));
+            const size_t idx = static_cast<size_t>(fy) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(fx);
+            if (idx < roadFactor.size()) {
+                roadFactor[idx] = std::min(roadFactor[idx], 0.62f);
+            }
+        }
+        for (const auto& p : c.getPorts()) {
+            const int fx = std::max(0, std::min(m_fieldW - 1, p.x / kFieldCellSize));
+            const int fy = std::max(0, std::min(m_fieldH - 1, p.y / kFieldCellSize));
+            const size_t idx = static_cast<size_t>(fy) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(fx);
+            if (idx < portFactor.size()) {
+                portFactor[idx] = std::min(portFactor[idx], 0.70f);
+            }
+        }
+    }
+
+    for (size_t idx = 0; idx < n; ++idx) {
+        if (idx >= m_fieldLandMask.size() || m_fieldLandMask[idx] == 0u) {
+            m_fieldMoveCost[idx] = std::numeric_limits<float>::infinity();
+            continue;
+        }
+        const uint8_t biome = (idx < m_fieldBiome.size()) ? m_fieldBiome[idx] : 4u;
+        float base = 1.0f;
+        switch (biome) {
+            case 0u: base = 3.20f; break; // Ice
+            case 1u: base = 1.80f; break; // Tundra
+            case 2u: base = 1.45f; break; // Taiga
+            case 3u: base = 1.35f; break; // Temperate forest
+            case 4u: base = 1.00f; break; // Grassland
+            case 5u: base = 1.90f; break; // Desert
+            case 6u: base = 1.15f; break; // Savanna
+            case 7u: base = 1.65f; break; // Tropical forest
+            case 8u: base = 1.05f; break; // Mediterranean
+            default: base = 1.20f; break;
+        }
+        if (coastalMask[idx] != 0u) {
+            base *= 0.92f;
+        }
+        base *= roadFactor[idx];
+        base *= portFactor[idx];
+        m_fieldMoveCost[idx] = std::max(0.12f, base);
+    }
+}
+
+void Map::updateControlGrid(std::vector<Country>& countries, int currentYear, int dtYears) {
+    ensureFieldGrids();
+    if (m_fieldW <= 0 || m_fieldH <= 0) return;
 
     const int countryCount = static_cast<int>(countries.size());
     {
@@ -718,58 +779,204 @@ void Map::updateControlGrid(std::vector<Country>& countries, int currentYear, in
         rebuildFieldOwnerIdAssumingLocked(countryCount);
     }
 
-    auto clamp01f = [](float v) {
-        return std::max(0.0f, std::min(1.0f, v));
-    };
-    auto clamp01d = [](double v) {
-        return std::max(0.0, std::min(1.0, v));
-    };
+    const size_t nField = static_cast<size_t>(m_fieldW) * static_cast<size_t>(m_fieldH);
+    if (m_fieldControl.size() != nField) m_fieldControl.assign(nField, 0.0f);
+    std::fill(m_fieldControl.begin(), m_fieldControl.end(), 0.0f);
 
-    std::vector<int> capX(static_cast<size_t>(countryCount), 0);
-    std::vector<int> capY(static_cast<size_t>(countryCount), 0);
-    std::vector<float> range(static_cast<size_t>(countryCount), 1.0f);
+    if (countryCount <= 0 || nField == 0) return;
 
-    const float baseRangeCells = 60.0f;
-    for (int i = 0; i < countryCount; ++i) {
-        const sf::Vector2i cap = countries[static_cast<size_t>(i)].getCapitalLocation();
-        capX[static_cast<size_t>(i)] = std::max(0, std::min(m_fieldW - 1, cap.x / kFieldCellSize));
-        capY[static_cast<size_t>(i)] = std::max(0, std::min(m_fieldH - 1, cap.y / kFieldCellSize));
+    rebuildFieldMoveCost(countries);
 
-        const double admin = clamp01d(countries[static_cast<size_t>(i)].getAdminCapacity());
-        const double logi = clamp01d(countries[static_cast<size_t>(i)].getLogisticsReach());
-        const double r = static_cast<double>(baseRangeCells) * (0.25 + 0.75 * logi) * (0.25 + 0.75 * admin);
-        range[static_cast<size_t>(i)] = std::max(2.0f, static_cast<float>(r));
+    if (m_countryControlCache.size() < static_cast<size_t>(countryCount)) {
+        m_countryControlCache.resize(static_cast<size_t>(countryCount));
     }
 
-    std::vector<double> sumControl(static_cast<size_t>(countryCount), 0.0);
-    std::vector<int> countOwned(static_cast<size_t>(countryCount), 0);
-
-    for (int fy = 0; fy < m_fieldH; ++fy) {
-        for (int fx = 0; fx < m_fieldW; ++fx) {
-            const size_t idx = static_cast<size_t>(fy) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(fx);
-            const int owner = (idx < m_fieldOwnerId.size()) ? m_fieldOwnerId[idx] : -1;
-            float c = 0.0f;
-            if (owner >= 0 && owner < countryCount) {
-                const int dist = std::abs(fx - capX[static_cast<size_t>(owner)]) + std::abs(fy - capY[static_cast<size_t>(owner)]);
-                const float r = range[static_cast<size_t>(owner)];
-                c = clamp01f(1.0f - static_cast<float>(dist) / r);
-                sumControl[static_cast<size_t>(owner)] += static_cast<double>(c);
-                countOwned[static_cast<size_t>(owner)]++;
-            }
-            if (idx < m_fieldControl.size()) {
-                m_fieldControl[idx] = c;
-            }
-        }
+    std::vector<std::vector<int>> ownedByCountry(static_cast<size_t>(countryCount));
+    for (size_t fi = 0; fi < nField; ++fi) {
+        if (fi >= m_fieldOwnerId.size()) continue;
+        const int owner = m_fieldOwnerId[fi];
+        if (owner < 0 || owner >= countryCount) continue;
+        ownedByCountry[static_cast<size_t>(owner)].push_back(static_cast<int>(fi));
     }
+
+    auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+    auto sigmoid = [](double x) {
+        if (x > 20.0) return 1.0;
+        if (x < -20.0) return 0.0;
+        return 1.0 / (1.0 + std::exp(-x));
+    };
+
+    std::vector<int> fieldToLocal(nField, -1);
 
     for (int i = 0; i < countryCount; ++i) {
-        double avg = 0.0;
-        const int n = countOwned[static_cast<size_t>(i)];
-        if (n > 0) {
-            avg = sumControl[static_cast<size_t>(i)] / static_cast<double>(n);
+        Country& c = countries[static_cast<size_t>(i)];
+        CountryControlCache& cache = m_countryControlCache[static_cast<size_t>(i)];
+        const auto& owned = ownedByCountry[static_cast<size_t>(i)];
+        const size_t roadCount = c.getRoads().size();
+        const size_t portCount = c.getPorts().size();
+        if (owned.empty() || c.getPopulation() <= 0) {
+            c.setAvgControl(0.0);
+            cache.fieldIndices.clear();
+            cache.travelTimes.clear();
+            cache.lastComputedYear = currentYear;
+            cache.roadCount = roadCount;
+            cache.portCount = portCount;
+            continue;
         }
-        countries[static_cast<size_t>(i)].setAvgControl(avg);
+
+        const int cadence = 5 + (i % 6); // 5..10 years
+        const bool transportChange = (cache.roadCount != roadCount) || (cache.portCount != portCount);
+        const bool forceRecompute = m_controlCacheDirty || dtYears > 1 || cache.fieldIndices.empty() || transportChange;
+        const bool cadenceRecompute = (currentYear - cache.lastComputedYear) >= cadence;
+        const bool recompute = forceRecompute || cadenceRecompute;
+
+        if (recompute) {
+            cache.fieldIndices = owned;
+            cache.travelTimes.assign(owned.size(), std::numeric_limits<float>::infinity());
+            for (size_t li = 0; li < owned.size(); ++li) {
+                const int fi = owned[li];
+                if (fi >= 0 && static_cast<size_t>(fi) < nField) {
+                    fieldToLocal[static_cast<size_t>(fi)] = static_cast<int>(li);
+                }
+            }
+
+            // Multi-source weighted Dijkstra from capital and top cities.
+            std::vector<int> sourceField;
+            sourceField.reserve(8);
+            const sf::Vector2i capPx = c.getCapitalLocation();
+            const int capFx = std::max(0, std::min(m_fieldW - 1, capPx.x / kFieldCellSize));
+            const int capFy = std::max(0, std::min(m_fieldH - 1, capPx.y / kFieldCellSize));
+            const int capIdx = capFy * m_fieldW + capFx;
+            if (capIdx >= 0 && static_cast<size_t>(capIdx) < nField && m_fieldOwnerId[static_cast<size_t>(capIdx)] == i) {
+                sourceField.push_back(capIdx);
+            }
+
+            struct CitySeed {
+                float pop = 0.0f;
+                int idx = -1;
+                int y = 0;
+                int x = 0;
+            };
+            std::vector<CitySeed> seeds;
+            seeds.reserve(c.getCities().size());
+            for (const auto& city : c.getCities()) {
+                const int fx = std::max(0, std::min(m_fieldW - 1, city.getLocation().x / kFieldCellSize));
+                const int fy = std::max(0, std::min(m_fieldH - 1, city.getLocation().y / kFieldCellSize));
+                const int idx = fy * m_fieldW + fx;
+                if (idx < 0 || static_cast<size_t>(idx) >= nField) continue;
+                if (m_fieldOwnerId[static_cast<size_t>(idx)] != i) continue;
+                seeds.push_back(CitySeed{city.getPopulation(), idx, fy, fx});
+            }
+            std::sort(seeds.begin(), seeds.end(), [](const CitySeed& a, const CitySeed& b) {
+                if (a.pop != b.pop) return a.pop > b.pop;
+                if (a.y != b.y) return a.y < b.y;
+                return a.x < b.x;
+            });
+            const int maxCitySources = 7;
+            for (int s = 0; s < static_cast<int>(seeds.size()) && s < maxCitySources; ++s) {
+                sourceField.push_back(seeds[static_cast<size_t>(s)].idx);
+            }
+            std::sort(sourceField.begin(), sourceField.end());
+            sourceField.erase(std::unique(sourceField.begin(), sourceField.end()), sourceField.end());
+            if (sourceField.empty()) {
+                sourceField.push_back(owned.front());
+            }
+
+            struct Node {
+                float dist = 0.0f;
+                int field = -1;
+                int local = -1;
+            };
+            struct NodeCmp {
+                bool operator()(const Node& a, const Node& b) const {
+                    if (a.dist != b.dist) return a.dist > b.dist;
+                    return a.field > b.field;
+                }
+            };
+            std::priority_queue<Node, std::vector<Node>, NodeCmp> pq;
+            for (int src : sourceField) {
+                const int li = (src >= 0 && static_cast<size_t>(src) < nField) ? fieldToLocal[static_cast<size_t>(src)] : -1;
+                if (li < 0) continue;
+                if (cache.travelTimes[static_cast<size_t>(li)] > 0.0f) {
+                    cache.travelTimes[static_cast<size_t>(li)] = 0.0f;
+                    pq.push(Node{0.0f, src, li});
+                }
+            }
+
+            while (!pq.empty()) {
+                const Node cur = pq.top();
+                pq.pop();
+                if (cur.local < 0 || static_cast<size_t>(cur.local) >= cache.travelTimes.size()) continue;
+                if (cur.dist > cache.travelTimes[static_cast<size_t>(cur.local)] + 1e-6f) continue;
+
+                const int fx = cur.field % m_fieldW;
+                const int fy = cur.field / m_fieldW;
+                const int nxs[4] = {fx + 1, fx - 1, fx, fx};
+                const int nys[4] = {fy, fy, fy + 1, fy - 1};
+                for (int k = 0; k < 4; ++k) {
+                    const int x = nxs[k];
+                    const int y = nys[k];
+                    if (x < 0 || y < 0 || x >= m_fieldW || y >= m_fieldH) continue;
+                    const int nf = y * m_fieldW + x;
+                    if (nf < 0 || static_cast<size_t>(nf) >= nField) continue;
+                    if (m_fieldOwnerId[static_cast<size_t>(nf)] != i) continue;
+                    const int nli = fieldToLocal[static_cast<size_t>(nf)];
+                    if (nli < 0) continue;
+
+                    const float c0 = (static_cast<size_t>(cur.field) < m_fieldMoveCost.size()) ? m_fieldMoveCost[static_cast<size_t>(cur.field)] : 1.0f;
+                    const float c1 = (static_cast<size_t>(nf) < m_fieldMoveCost.size()) ? m_fieldMoveCost[static_cast<size_t>(nf)] : 1.0f;
+                    const float stepCost = std::max(0.08f, 0.5f * (c0 + c1));
+                    const float nd = cur.dist + stepCost;
+                    if (nd + 1e-6f < cache.travelTimes[static_cast<size_t>(nli)]) {
+                        cache.travelTimes[static_cast<size_t>(nli)] = nd;
+                        pq.push(Node{nd, nf, nli});
+                    }
+                }
+            }
+
+            for (int fi : owned) {
+                if (fi >= 0 && static_cast<size_t>(fi) < nField) {
+                    fieldToLocal[static_cast<size_t>(fi)] = -1;
+                }
+            }
+            cache.lastComputedYear = currentYear;
+            cache.roadCount = roadCount;
+            cache.portCount = portCount;
+        }
+
+        const double commsMul =
+            1.0 +
+            0.45 * clamp01(c.getMacroEconomy().knowledgeStock) +
+            0.30 * clamp01(c.getConnectivityIndex());
+
+        const double reachCapacity =
+            2.0 +
+            42.0 *
+            (0.30 * clamp01(c.getAdminSpendingShare()) +
+             0.24 * clamp01(c.getInfraSpendingShare()) +
+             0.18 * clamp01(c.getLogisticsReach()) +
+             0.18 * clamp01(c.getInstitutionCapacity()) +
+             0.10 * clamp01(c.getAvgControl())) *
+            commsMul *
+            (0.60 + 0.40 * clamp01(c.getLegitimacy()));
+        const double softness = std::max(1.25, 5.5 - 3.0 * clamp01(c.getInstitutionCapacity()));
+
+        double sumControl = 0.0;
+        int countControl = 0;
+        for (size_t k = 0; k < cache.fieldIndices.size() && k < cache.travelTimes.size(); ++k) {
+            const int fi = cache.fieldIndices[k];
+            if (fi < 0 || static_cast<size_t>(fi) >= m_fieldControl.size()) continue;
+            const float tt = cache.travelTimes[k];
+            if (!std::isfinite(tt)) continue;
+            const double ctl = sigmoid((reachCapacity - static_cast<double>(tt)) / softness);
+            m_fieldControl[static_cast<size_t>(fi)] = static_cast<float>(ctl);
+            sumControl += ctl;
+            countControl++;
+        }
+        c.setAvgControl((countControl > 0) ? (sumControl / static_cast<double>(countControl)) : 0.0);
     }
+
+    m_controlCacheDirty = false;
 }
 
 void Map::initializePopulationGridFromCountries(const std::vector<Country>& countries) {
@@ -909,100 +1116,34 @@ void Map::applyPopulationTotalsToCountries(std::vector<Country>& countries) cons
     }
 }
 
-void Map::tickPopulationGrid(const std::vector<Country>& countries, int currentYear, int dtYears) {
-    if (m_fieldPopulation.empty() || m_fieldFoodPotential.empty()) {
-        return;
-    }
-    if (currentYear <= m_lastPopulationUpdateYear) {
-        return;
-    }
+void Map::tickPopulationGrid(const std::vector<Country>& countries,
+                             int currentYear,
+                             int dtYears,
+                             const std::vector<float>* tradeIntensityMatrix) {
+    if (m_fieldPopulation.empty() || m_fieldFoodPotential.empty()) return;
+    if (currentYear <= m_lastPopulationUpdateYear) return;
     m_lastPopulationUpdateYear = currentYear;
 
-    auto clamp01 = [](double v) {
-        return std::max(0.0, std::min(1.0, v));
-    };
-
-    const double years = static_cast<double>(std::max(1, dtYears));
-    const float yearsF = static_cast<float>(years);
-
-    const double baseBirth = 0.045; // crude, pre-modern baseline
-    const double baseDeath = 0.036;
-
+    const int years = std::max(1, dtYears);
+    const double yearsD = static_cast<double>(years);
     const int countryCount = static_cast<int>(countries.size());
     const size_t n = m_fieldPopulation.size();
     const size_t ownerN = m_fieldOwnerId.size();
-    prepareCountryClimateCaches(countryCount);
+
+    auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+
+    if (m_fieldAttractiveness.size() != n) m_fieldAttractiveness.assign(n, 0.0f);
+    if (m_fieldPopDelta.size() != n) m_fieldPopDelta.assign(n, 0.0f);
 
     auto KFor = [&](size_t i) -> double {
         const double food = (i < m_fieldFoodPotential.size()) ? static_cast<double>(std::max(0.0f, m_fieldFoodPotential[i])) : 0.0;
         return std::max(1.0, food * 1200.0);
     };
 
-    // Demography: births/deaths with famine pressure when pop > K.
-    for (size_t i = 0; i < n; ++i) {
-        const float food = (i < m_fieldFoodPotential.size()) ? m_fieldFoodPotential[i] : 0.0f;
-        if (food <= 0.0f) {
-            continue;
-        }
-
-        const double K = KFor(i);
-        const double pop = static_cast<double>(std::max(0.0f, m_fieldPopulation[i]));
-        if (pop <= 0.0) {
-            continue;
-        }
-
-        const double crowd = pop / K;
-        double birthFactor = std::max(0.1, 1.15 - 0.75 * std::min(1.5, crowd));
-        double deathFactor = 0.85 + 2.8 * std::max(0.0, crowd - 1.0);
-
-        // Phase 4: macro food security feeds back into births/deaths (shortages bite).
-        if (i < ownerN) {
-            const int owner = m_fieldOwnerId[i];
-            if (owner >= 0 && owner < countryCount) {
-                const double fs = clamp01(countries[static_cast<size_t>(owner)].getFoodSecurity());
-                birthFactor *= (0.20 + 0.80 * fs);
-                deathFactor *= (1.00 + (1.0 - fs) * 1.60);
-
-                // Phase 6: drought years add a mortality bump (country-level precip anomaly mean).
-                if (owner >= 0 && owner < static_cast<int>(m_countryPrecipAnomMean.size())) {
-                    const double pa = static_cast<double>(m_countryPrecipAnomMean[static_cast<size_t>(owner)]);
-                    if (pa < -0.10) {
-                        const double drought = clamp01((-pa - 0.10) / 0.20);
-                        deathFactor *= (1.0 + 0.35 * drought);
-                        birthFactor *= (1.0 - 0.15 * drought);
-                    }
-                }
-            }
-        }
-
-        // Density disease pressure: scales smoothly with crowding and humidity.
-        {
-            const float pm = (i < m_fieldPrecipMean.size()) ? m_fieldPrecipMean[i] : 0.0f; // 0..1 baseline humidity proxy
-            const double humid = clamp01(static_cast<double>(pm));
-            deathFactor *= (1.0 + 0.28 * humid * std::max(0.0, crowd - 1.0));
-        }
-
-        // Plague: density-agnostic multiplier for now (density-aware later).
-        if (m_plagueActive && i < ownerN) {
-            const int owner = m_fieldOwnerId[i];
-            if (owner >= 0 && owner < countryCount && isCountryAffectedByPlague(owner)) {
-                deathFactor *= 2.2;
-            }
-        }
-
-        const double births = pop * baseBirth * birthFactor * years;
-        const double deaths = pop * baseDeath * deathFactor * years;
-
-        const double next = std::max(0.0, pop + births - deaths);
-        m_fieldPopulation[i] = static_cast<float>(next);
-    }
-
-    // Migration: cheap diffusion on attractiveness gradient.
-    const int microIters = (dtYears <= 1) ? 3 : 1;
-    const float migRate = (dtYears <= 1) ? 0.010f : (0.020f * yearsF);
+    const int microIters = (years <= 1) ? 3 : std::max(1, years / 2);
+    const float migRate = static_cast<float>(std::min(0.08, 0.010 * yearsD));
 
     for (int it = 0; it < microIters; ++it) {
-        // Attractiveness
         for (size_t i = 0; i < n; ++i) {
             const float food = (i < m_fieldFoodPotential.size()) ? m_fieldFoodPotential[i] : 0.0f;
             if (food <= 0.0f) {
@@ -1014,14 +1155,19 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries, int currentY
             const double crowd = (K > 0.0) ? (pop / K) : 2.0;
 
             float a = static_cast<float>(std::log(1.0 + static_cast<double>(food)));
-            a -= static_cast<float>(1.35 * crowd);
+            a -= static_cast<float>(1.20 * crowd);
 
             if (i < ownerN) {
                 const int owner = m_fieldOwnerId[i];
                 if (owner >= 0 && owner < countryCount) {
                     const Country& c = countries[static_cast<size_t>(owner)];
-                    a -= static_cast<float>(0.55 * clamp01(c.getTaxRate()));
-                    a -= static_cast<float>(0.45 * (1.0 - clamp01(c.getAvgControl())));
+                    const auto& m = c.getMacroEconomy();
+                    a += static_cast<float>(0.80 * clamp01(m.migrationAttractiveness));
+                    a -= static_cast<float>(0.70 * clamp01(m.migrationPressureOut));
+                    a += static_cast<float>(0.35 * clamp01(m.realWage / 2.0));
+                    a += static_cast<float>(0.22 * clamp01(c.getAvgControl()));
+                    a += static_cast<float>(0.18 * clamp01(c.getLegitimacy()));
+                    a -= static_cast<float>(0.50 * clamp01(m.diseaseBurden));
                     if (c.isAtWar()) a -= 0.35f;
                 }
             }
@@ -1049,7 +1195,7 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries, int currentY
                     if (nx < 0 || ny < 0 || nx >= m_fieldW || ny >= m_fieldH) return;
                     const size_t j = static_cast<size_t>(ny) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(nx);
                     if (j >= n) return;
-                    if (m_fieldFoodPotential[j] <= 0.0f) return; // water
+                    if (m_fieldFoodPotential[j] <= 0.0f) return;
                     const float d = m_fieldAttractiveness[j] - a0;
                     if (d <= 0.0f) return;
                     nb[nbCount++] = {j, d};
@@ -1060,7 +1206,6 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries, int currentY
                 addNb(x - 1, y);
                 addNb(x, y + 1);
                 addNb(x, y - 1);
-
                 if (nbCount == 0 || sumDiff <= 0.0f) continue;
 
                 const float move = std::min(pop, pop * migRate);
@@ -1075,6 +1220,96 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries, int currentY
         for (size_t i = 0; i < n; ++i) {
             m_fieldPopulation[i] = std::max(0.0f, m_fieldPopulation[i] + m_fieldPopDelta[i]);
         }
+    }
+
+    // Aggregate country totals for long-hop migration.
+    std::vector<double> countryTotal(static_cast<size_t>(countryCount), 0.0);
+    for (size_t fi = 0; fi < n; ++fi) {
+        if (fi >= ownerN) continue;
+        const int owner = m_fieldOwnerId[fi];
+        if (owner < 0 || owner >= countryCount) continue;
+        countryTotal[static_cast<size_t>(owner)] += static_cast<double>(std::max(0.0f, m_fieldPopulation[fi]));
+    }
+
+    std::vector<double> countryDelta(static_cast<size_t>(countryCount), 0.0);
+    const bool hasTradeMatrix =
+        tradeIntensityMatrix &&
+        tradeIntensityMatrix->size() >= static_cast<size_t>(countryCount) * static_cast<size_t>(countryCount);
+
+    for (int i = 0; i < countryCount; ++i) {
+        const Country& src = countries[static_cast<size_t>(i)];
+        if (src.getPopulation() <= 0) continue;
+
+        const auto& sm = src.getMacroEconomy();
+        const double outP = clamp01(sm.migrationPressureOut);
+        if (outP <= 1e-4) continue;
+
+        const double migrants = std::min(countryTotal[static_cast<size_t>(i)] * 0.06, countryTotal[static_cast<size_t>(i)] * outP * (0.0018 * yearsD));
+        if (migrants <= 1.0) continue;
+
+        struct Dest { int j = -1; double score = 0.0; };
+        std::vector<Dest> dest;
+        dest.reserve(static_cast<size_t>(countryCount));
+
+        for (int j = 0; j < countryCount; ++j) {
+            if (j == i) continue;
+            const Country& dst = countries[static_cast<size_t>(j)];
+            if (dst.getPopulation() <= 0) continue;
+            const auto& dm = dst.getMacroEconomy();
+
+            double conn = 0.0;
+            if (hasTradeMatrix) {
+                const size_t ij = static_cast<size_t>(i) * static_cast<size_t>(countryCount) + static_cast<size_t>(j);
+                const size_t ji = static_cast<size_t>(j) * static_cast<size_t>(countryCount) + static_cast<size_t>(i);
+                conn = static_cast<double>((*tradeIntensityMatrix)[ij]) + 0.6 * static_cast<double>((*tradeIntensityMatrix)[ji]);
+            } else if (areCountryIndicesNeighbors(i, j)) {
+                conn = 0.35;
+            }
+            if (conn <= 1e-6 && !areCountryIndicesNeighbors(i, j)) continue;
+
+            const double wageTerm = clamp01(dm.realWage / 2.0);
+            const double safety = 0.5 * clamp01(dst.getAvgControl()) + 0.5 * clamp01(dst.getLegitimacy());
+            const double disease = clamp01(dm.diseaseBurden);
+            const double nutrition = clamp01(dm.foodSecurity);
+            const double attract = clamp01(dm.migrationAttractiveness);
+            const double score = std::max(0.0, (0.32 * wageTerm + 0.24 * safety + 0.20 * nutrition + 0.24 * attract - 0.20 * disease) * (0.35 + 0.65 * clamp01(conn)));
+            if (score > 1e-6) {
+                dest.push_back(Dest{j, score});
+            }
+        }
+
+        if (dest.empty()) continue;
+        std::sort(dest.begin(), dest.end(), [](const Dest& a, const Dest& b) {
+            if (a.score != b.score) return a.score > b.score;
+            return a.j < b.j;
+        });
+        if (dest.size() > 6) dest.resize(6);
+
+        double sumScore = 0.0;
+        for (const auto& d : dest) sumScore += d.score;
+        if (sumScore <= 1e-9) continue;
+
+        countryDelta[static_cast<size_t>(i)] -= migrants;
+        for (const auto& d : dest) {
+            const double flow = migrants * (d.score / sumScore);
+            countryDelta[static_cast<size_t>(d.j)] += flow;
+        }
+    }
+
+    // Apply country-level long-hop migration as multiplicative rescaling over owned cells.
+    std::vector<double> scale(static_cast<size_t>(countryCount), 1.0);
+    for (int i = 0; i < countryCount; ++i) {
+        const double oldPop = countryTotal[static_cast<size_t>(i)];
+        if (oldPop <= 1e-9) continue;
+        const double newPop = std::max(0.0, oldPop + countryDelta[static_cast<size_t>(i)]);
+        scale[static_cast<size_t>(i)] = newPop / oldPop;
+    }
+
+    for (size_t fi = 0; fi < n; ++fi) {
+        if (fi >= ownerN) continue;
+        const int owner = m_fieldOwnerId[fi];
+        if (owner < 0 || owner >= countryCount) continue;
+        m_fieldPopulation[fi] = static_cast<float>(std::max(0.0, static_cast<double>(m_fieldPopulation[fi]) * scale[static_cast<size_t>(owner)]));
     }
 }
 
@@ -1538,8 +1773,6 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
     std::uniform_real_distribution<> spawnDist(0.0, 1.0);
 
     std::uniform_int_distribution<> typeDist(0, 2);
-    std::discrete_distribution<> scienceTypeDist({ 50, 40, 10 });
-    std::discrete_distribution<> cultureTypeDist({ 40, 40, 20 }); // 40% NC, 40% LC, 20% MC
 
     // ============================================================
     // Phase 0: realistic 5000 BCE global population (heavy tail)
@@ -1647,8 +1880,6 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
         countryName += " Tribe";
 
         Country::Type countryType = static_cast<Country::Type>(typeDist(rng));
-        Country::ScienceType scienceType = static_cast<Country::ScienceType>(scienceTypeDist(rng));
-        Country::CultureType cultureType = static_cast<Country::CultureType>(cultureTypeDist(rng));
         countries.emplace_back(i,
                                countryColor,
                                startCell,
@@ -1656,8 +1887,6 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
                                growthRate,
                                countryName,
                                countryType,
-                               scienceType,
-                               cultureType,
                                m_ctx->seedForCountry(i));
         setCountryOwnerAssumingLockedImpl(startCell.x, startCell.y, i);
 
@@ -1749,11 +1978,306 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
     */
 }
 
-void Map::tickDemographyAndCities(std::vector<Country>& countries, int currentYear, int dtYears, News& news) {
+void Map::tickDemographyAndCities(std::vector<Country>& countries,
+                                  int currentYear,
+                                  int dtYears,
+                                  News& news,
+                                  const std::vector<float>* tradeIntensityMatrix) {
     attachCountriesForOwnershipSync(&countries);
-    tickPopulationGrid(countries, currentYear, dtYears);
+    const int years = std::max(1, dtYears);
+    const double yearsD = static_cast<double>(years);
+    const int countryCount = static_cast<int>(countries.size());
+    if (countryCount <= 0 || m_fieldPopulation.empty() || m_fieldOwnerId.empty()) {
+        return;
+    }
+
+    auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+    auto sigmoid = [](double x) {
+        if (x > 20.0) return 1.0;
+        if (x < -20.0) return 0.0;
+        return 1.0 / (1.0 + std::exp(-x));
+    };
+
+    tickPopulationGrid(countries, currentYear, years, tradeIntensityMatrix);
+
+    // Aggregate owner totals after migration (before births/deaths).
+    std::vector<double> oldTotals(static_cast<size_t>(countryCount), 0.0);
+    const size_t nField = std::min(m_fieldPopulation.size(), m_fieldOwnerId.size());
+    for (size_t fi = 0; fi < nField; ++fi) {
+        const int owner = m_fieldOwnerId[fi];
+        if (owner < 0 || owner >= countryCount) continue;
+        oldTotals[static_cast<size_t>(owner)] += static_cast<double>(std::max(0.0f, m_fieldPopulation[fi]));
+    }
+
+    prepareCountryClimateCaches(countryCount);
+
+    // Use previous-year infection state as seed base for deterministic country-order independence.
+    std::vector<double> prevI(static_cast<size_t>(countryCount), 0.0);
+    for (int i = 0; i < countryCount; ++i) {
+        prevI[static_cast<size_t>(i)] = clamp01(countries[static_cast<size_t>(i)].getEpidemicState().i);
+    }
+
+    const bool hasTradeMatrix =
+        tradeIntensityMatrix &&
+        tradeIntensityMatrix->size() >= static_cast<size_t>(countryCount) * static_cast<size_t>(countryCount);
+
+    std::vector<double> newTotals(static_cast<size_t>(countryCount), 0.0);
+
+    for (int i = 0; i < countryCount; ++i) {
+        Country& c = countries[static_cast<size_t>(i)];
+        Country::MacroEconomyState& m = c.getMacroEconomyMutable();
+        const double oldPop = std::max(0.0, oldTotals[static_cast<size_t>(i)]);
+        if (oldPop <= 1e-9) {
+            c.setPopulation(0);
+            c.getPopulationCohortsMutable().fill(0.0);
+            auto& epi = c.getEpidemicStateMutable();
+            epi.s = 1.0;
+            epi.i = 0.0;
+            epi.r = 0.0;
+            continue;
+        }
+
+        c.setPopulation(static_cast<long long>(std::llround(oldPop)));
+        c.renormalizePopulationCohortsToTotal();
+        auto& cohorts = c.getPopulationCohortsMutable();
+        auto& epi = c.getEpidemicStateMutable();
+
+        // Infection import seeding from trade and borders.
+        double importedI = 0.0;
+        double importW = 0.0;
+        if (hasTradeMatrix) {
+            for (int j = 0; j < countryCount; ++j) {
+                if (j == i) continue;
+                const size_t ij = static_cast<size_t>(i) * static_cast<size_t>(countryCount) + static_cast<size_t>(j);
+                const size_t ji = static_cast<size_t>(j) * static_cast<size_t>(countryCount) + static_cast<size_t>(i);
+                const double w = static_cast<double>((*tradeIntensityMatrix)[ij]) + 0.4 * static_cast<double>((*tradeIntensityMatrix)[ji]);
+                if (w <= 1e-9) continue;
+                importedI += w * prevI[static_cast<size_t>(j)];
+                importW += w;
+            }
+        }
+        for (int j : getAdjacentCountryIndicesPublic(i)) {
+            if (j < 0 || j >= countryCount || j == i) continue;
+            importedI += 0.15 * prevI[static_cast<size_t>(j)];
+            importW += 0.15;
+        }
+        const double importSeed = (importW > 1e-9) ? (importedI / importW) : 0.0;
+
+        const double climateMult = std::max(0.05, static_cast<double>(getCountryClimateFoodMultiplier(i)));
+        const double humidityProxy = clamp01(0.55 + 0.35 * (1.0 - climateMult) + 0.25 * ((i < static_cast<int>(m_countryPrecipAnomMean.size())) ? static_cast<double>(m_countryPrecipAnomMean[static_cast<size_t>(i)]) : 0.0));
+        const double urban = (oldPop > 1.0) ? clamp01(c.getTotalCityPopulation() / oldPop) : 0.0;
+        const double control = clamp01(c.getAvgControl());
+        const double institution = clamp01(m.institutionCapacity);
+        const double healthSpend = clamp01(c.getHealthSpendingShare());
+        const double legitimacy = clamp01(c.getLegitimacy());
+        const double stability = clamp01(c.getStability());
+        const bool war = c.isAtWar();
+
+        // Beta/Gamma/Mu are yearly rates; we integrate in yearly substeps for dtYears stability.
+        const double beta = std::clamp(
+            0.55 *
+            (0.35 + 0.65 * urban) *
+            (0.45 + 0.55 * humidityProxy) *
+            (0.25 + 0.75 * m.connectivityIndex) *
+            (0.40 + 0.60 * (1.0 - institution)) *
+            (0.70 + 0.30 * (1.0 - healthSpend)),
+            0.03, 2.8);
+        const double gamma = std::clamp(0.22 + 0.30 * healthSpend + 0.20 * institution, 0.08, 0.85);
+        const double mu = std::clamp(0.010 + 0.025 * (1.0 - healthSpend) + 0.020 * (1.0 - institution), 0.001, 0.12);
+        const double waning = 0.02;
+
+        double popNow = oldPop;
+        int substeps = std::max(1, years);
+        const double subDt = yearsD / static_cast<double>(substeps);
+        double foodStock = std::max(0.0, m.foodStock);
+        double cumulativeShortage = 0.0;
+        double cumulativeRequired = 0.0;
+        double cumulativeInfDeaths = 0.0;
+
+        for (int step = 0; step < substeps; ++step) {
+            const double requiredStep =
+                (cohorts[0] * 0.00085 +
+                 cohorts[1] * 0.00100 +
+                 cohorts[2] * 0.00120 +
+                 cohorts[3] * 0.00110 +
+                 cohorts[4] * 0.00095) * subDt;
+            cumulativeRequired += requiredStep;
+
+            const double prodStep = std::max(0.0, m.lastFoodOutput) * subDt;
+            const double impQtyAnnual = (m.priceFood > 1e-9) ? (m.importsValue / m.priceFood) : 0.0;
+            const double impStep = std::max(0.0, impQtyAnnual) * subDt;
+            const double spoilStep = foodStock * (1.0 - std::pow(std::max(0.0, 1.0 - std::clamp(m.spoilageRate, 0.0, 0.95)), subDt));
+            foodStock = std::max(0.0, foodStock - spoilStep);
+
+            const double baseAvail = prodStep + impStep;
+            const double draw = std::min(foodStock, std::max(0.0, requiredStep - baseAvail));
+            const double avail = baseAvail + draw;
+            foodStock = std::max(0.0, foodStock - draw);
+            if (avail > requiredStep) {
+                foodStock = std::min(std::max(1.0, m.foodStockCap), foodStock + (avail - requiredStep));
+            }
+
+            const double shortage = std::max(0.0, requiredStep - avail);
+            cumulativeShortage += shortage;
+            const double nutrition = clamp01((requiredStep > 1e-9) ? (avail / requiredStep) : 1.0);
+            const double famine = 1.0 - nutrition;
+
+            // SIR dynamics.
+            const double externalI = 0.12 * importSeed;
+            const double forceI = clamp01(epi.i + externalI);
+            const double newInf = std::min(epi.s, beta * epi.s * forceI * subDt);
+            const double rec = std::min(epi.i, gamma * epi.i * subDt);
+            const double infDeathsFrac = std::min(epi.i - rec + newInf, mu * epi.i * subDt);
+            const double wane = std::min(epi.r, waning * epi.r * subDt);
+            epi.s = clamp01(epi.s - newInf + wane);
+            epi.i = clamp01(epi.i + newInf - rec - infDeathsFrac);
+            epi.r = clamp01(epi.r + rec - wane);
+            const double sirNorm = epi.s + epi.i + epi.r;
+            if (sirNorm > 1e-9) {
+                epi.s /= sirNorm;
+                epi.i /= sirNorm;
+                epi.r /= sirNorm;
+            } else {
+                epi.s = 1.0;
+                epi.i = 0.0;
+                epi.r = 0.0;
+            }
+
+            const double infDeathsCount = popNow * infDeathsFrac;
+            cumulativeInfDeaths += infDeathsCount;
+
+            const double fertility =
+                0.050 *
+                (0.25 + 0.75 * nutrition) *
+                (0.35 + 0.65 * stability) *
+                (0.40 + 0.60 * clamp01(m.realWage / 2.0)) *
+                (1.0 - 0.50 * epi.i) *
+                (war ? 0.88 : 1.0);
+            const double births = std::max(0.0, cohorts[2] * fertility * subDt);
+
+            std::array<double, 5> baseDeath = {0.012, 0.002, 0.004, 0.012, 0.050};
+            std::array<double, 5> famineAdd = {0.080, 0.020, 0.022, 0.040, 0.090};
+            std::array<double, 5> diseaseMult = {
+                1.0 + 1.4 * epi.i,
+                1.0 + 0.8 * epi.i,
+                1.0 + 1.0 * epi.i,
+                1.0 + 1.4 * epi.i,
+                1.0 + 2.0 * epi.i};
+
+            for (int k = 0; k < 5; ++k) {
+                const double rate = (baseDeath[static_cast<size_t>(k)] + famine * famineAdd[static_cast<size_t>(k)]) * diseaseMult[static_cast<size_t>(k)];
+                const double dead = std::min(cohorts[static_cast<size_t>(k)], cohorts[static_cast<size_t>(k)] * rate * subDt);
+                cohorts[static_cast<size_t>(k)] = std::max(0.0, cohorts[static_cast<size_t>(k)] - dead);
+            }
+
+            // Apply direct epidemic deaths with age weighting.
+            std::array<double, 5> infAgeW = {1.8, 0.9, 1.0, 1.4, 2.2};
+            double wsum = 0.0;
+            for (int k = 0; k < 5; ++k) {
+                wsum += infAgeW[static_cast<size_t>(k)] * cohorts[static_cast<size_t>(k)];
+            }
+            if (wsum > 1e-9 && infDeathsCount > 0.0) {
+                for (int k = 0; k < 5; ++k) {
+                    const double part = infDeathsCount * (infAgeW[static_cast<size_t>(k)] * cohorts[static_cast<size_t>(k)] / wsum);
+                    cohorts[static_cast<size_t>(k)] = std::max(0.0, cohorts[static_cast<size_t>(k)] - part);
+                }
+            }
+
+            // Aging transitions.
+            const double a01 = std::min(0.95, subDt / 5.0);
+            const double a12 = std::min(0.95, subDt / 10.0);
+            const double a23 = std::min(0.95, subDt / 35.0);
+            const double a34 = std::min(0.95, subDt / 15.0);
+            const double t01 = cohorts[0] * a01;
+            const double t12 = cohorts[1] * a12;
+            const double t23 = cohorts[2] * a23;
+            const double t34 = cohorts[3] * a34;
+            cohorts[0] = std::max(0.0, cohorts[0] - t01 + births);
+            cohorts[1] = std::max(0.0, cohorts[1] - t12 + t01);
+            cohorts[2] = std::max(0.0, cohorts[2] - t23 + t12);
+            cohorts[3] = std::max(0.0, cohorts[3] - t34 + t23);
+            cohorts[4] = std::max(0.0, cohorts[4] + t34);
+
+            popNow = cohorts[0] + cohorts[1] + cohorts[2] + cohorts[3] + cohorts[4];
+            if (popNow <= 1.0) {
+                cohorts.fill(0.0);
+                epi.s = 1.0;
+                epi.i = 0.0;
+                epi.r = 0.0;
+                popNow = 0.0;
+                break;
+            }
+        }
+
+        const double shortageRatio = (cumulativeRequired > 1e-9) ? clamp01(cumulativeShortage / cumulativeRequired) : 0.0;
+        m.famineSeverity = shortageRatio;
+        m.foodSecurity = clamp01(1.0 - shortageRatio);
+        m.foodStock = foodStock;
+        m.diseaseBurden = clamp01(epi.i);
+        m.migrationPressureOut = clamp01(
+            0.45 * m.famineSeverity +
+            0.25 * m.diseaseBurden +
+            0.12 * (war ? 1.0 : 0.0) +
+            0.10 * clamp01(m.inequality) +
+            0.08 * (1.0 - control));
+        m.migrationAttractiveness = clamp01(
+            0.30 * clamp01(m.realWage / 2.0) +
+            0.25 * m.foodSecurity +
+            0.20 * (1.0 - m.diseaseBurden) +
+            0.15 * institution +
+            0.10 * legitimacy);
+
+        // Autonomy pressure state (used by fragmentation logic).
+        const double autonomyUp =
+            0.35 * (1.0 - control) +
+            0.20 * clamp01(m.inequality) +
+            0.18 * (1.0 - legitimacy) +
+            0.15 * m.famineSeverity +
+            0.12 * (war ? 1.0 : 0.0);
+        const double autonomyDown =
+            0.34 * c.getAdminSpendingShare() +
+            0.26 * c.getInfraSpendingShare() +
+            0.20 * clamp01(m.realWage / 2.0) +
+            0.20 * m.humanCapital;
+        const double autonomy = clamp01(c.getAutonomyPressure() + yearsD * (0.06 * autonomyUp - 0.05 * autonomyDown));
+        c.setAutonomyPressure(autonomy);
+        if (autonomy > 0.72) {
+            c.setAutonomyOverThresholdYears(c.getAutonomyOverThresholdYears() + years);
+        } else {
+            c.setAutonomyOverThresholdYears(std::max(0, c.getAutonomyOverThresholdYears() - years));
+        }
+
+        const double newPop = std::max(0.0, cohorts[0] + cohorts[1] + cohorts[2] + cohorts[3] + cohorts[4]);
+        c.setPopulation(static_cast<long long>(std::llround(newPop)));
+        c.renormalizePopulationCohortsToTotal();
+        newTotals[static_cast<size_t>(i)] = static_cast<double>(std::max<long long>(0, c.getPopulation()));
+
+        // Additional stability/legitimacy feedback from severe stress.
+        c.setStability(c.getStability() - yearsD * (0.03 * shortageRatio + 0.02 * m.diseaseBurden));
+        c.setLegitimacy(c.getLegitimacy() - yearsD * (0.025 * shortageRatio + 0.015 * m.diseaseBurden));
+    }
+
+    // Reconcile country-level births/deaths onto field population grid via multiplicative owner scaling.
+    std::vector<double> ownerScale(static_cast<size_t>(countryCount), 1.0);
+    for (int i = 0; i < countryCount; ++i) {
+        const double oldPop = std::max(0.0, oldTotals[static_cast<size_t>(i)]);
+        const double newPop = std::max(0.0, newTotals[static_cast<size_t>(i)]);
+        if (oldPop > 1e-9) {
+            ownerScale[static_cast<size_t>(i)] = newPop / oldPop;
+        } else if (newPop <= 1e-9) {
+            ownerScale[static_cast<size_t>(i)] = 0.0;
+        } else {
+            ownerScale[static_cast<size_t>(i)] = 1.0;
+        }
+    }
+
+    for (size_t fi = 0; fi < nField; ++fi) {
+        const int owner = m_fieldOwnerId[fi];
+        if (owner < 0 || owner >= countryCount) continue;
+        m_fieldPopulation[fi] = static_cast<float>(std::max(0.0, static_cast<double>(m_fieldPopulation[fi]) * ownerScale[static_cast<size_t>(owner)]));
+    }
+
     applyPopulationTotalsToCountries(countries);
-    // City placement cadence (calendar-based) keeps artifacts low in fast-forward.
     const int createEveryNYears = (dtYears <= 1) ? 10 : 50;
     updateCitiesFromPopulation(countries, currentYear, createEveryNYears, news);
 }
@@ -1861,6 +2385,13 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
     const int minTerritoryPixels = 240;
     const long long minPopulation = 30000;
     const int fragmentationCooldownYears = 220;
+    const int autonomyBreakYears = 35;
+    const int localCenterMax = 8;
+    int autonomyDt = 1;
+    if (m_lastLocalAutonomyUpdateYear > -9'999'000) {
+        autonomyDt = std::max(1, currentYear - m_lastLocalAutonomyUpdateYear);
+    }
+    m_lastLocalAutonomyUpdateYear = currentYear;
 
     auto famineStress = [&](int idx) -> double {
         if (idx < 0) return 0.0;
@@ -1944,7 +2475,184 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
         return best;
     };
 
-    auto pickSeedBField = [&](int countryIndex, int capFx, int capFy) -> sf::Vector2i {
+    auto centerKey = [](int countryIndex, int fieldIdx) -> std::uint64_t {
+        const std::uint64_t hi = static_cast<std::uint64_t>(static_cast<std::uint32_t>(countryIndex + 1));
+        const std::uint64_t lo = static_cast<std::uint64_t>(static_cast<std::uint32_t>(fieldIdx + 1));
+        return (hi << 32) ^ lo;
+    };
+
+    auto lookupTravelTime = [&](int countryIndex, int fieldIdx) -> double {
+        if (countryIndex < 0 || countryIndex >= static_cast<int>(m_countryControlCache.size())) {
+            return std::numeric_limits<double>::infinity();
+        }
+        const CountryControlCache& cache = m_countryControlCache[static_cast<size_t>(countryIndex)];
+        const size_t sz = std::min(cache.fieldIndices.size(), cache.travelTimes.size());
+        for (size_t k = 0; k < sz; ++k) {
+            if (cache.fieldIndices[k] == fieldIdx) {
+                return static_cast<double>(cache.travelTimes[k]);
+            }
+        }
+        return std::numeric_limits<double>::infinity();
+    };
+
+    struct LocalCenterCandidate {
+        sf::Vector2i seedField = sf::Vector2i(-1, -1);
+        double pressure = 0.0;
+        int overYears = 0;
+    };
+
+    std::unordered_set<std::uint64_t> seenLocalCenters;
+    seenLocalCenters.reserve(countries.size() * 4u);
+
+    auto scoreAndTrackLocalCenters = [&](int countryIndex, LocalCenterCandidate& bestOut) {
+        bestOut = LocalCenterCandidate{};
+        if (countryIndex < 0 || countryIndex >= static_cast<int>(countries.size())) return;
+        const Country& c = countries[static_cast<size_t>(countryIndex)];
+        if (c.getPopulation() <= 0) return;
+
+        struct CenterSeed {
+            double pop = 0.0;
+            int field = -1;
+            int y = 0;
+            int x = 0;
+        };
+        std::vector<CenterSeed> seeds;
+        seeds.reserve(c.getCities().size() + 2);
+        for (const auto& city : c.getCities()) {
+            const int fx = std::max(0, std::min(m_fieldW - 1, city.getLocation().x / kFieldCellSize));
+            const int fy = std::max(0, std::min(m_fieldH - 1, city.getLocation().y / kFieldCellSize));
+            const int fi = fy * m_fieldW + fx;
+            if (fi < 0 || static_cast<size_t>(fi) >= m_fieldOwnerId.size()) continue;
+            if (m_fieldOwnerId[static_cast<size_t>(fi)] != countryIndex) continue;
+            seeds.push_back(CenterSeed{city.getPopulation(), fi, fy, fx});
+        }
+
+        if (seeds.empty() && countryIndex >= 0 && countryIndex < static_cast<int>(m_countryControlCache.size())) {
+            const CountryControlCache& cache = m_countryControlCache[static_cast<size_t>(countryIndex)];
+            const size_t sz = std::min(cache.fieldIndices.size(), cache.travelTimes.size());
+            float bestT = -1.0f;
+            int bestField = -1;
+            for (size_t k = 0; k < sz; ++k) {
+                const int fi = cache.fieldIndices[k];
+                if (fi < 0 || static_cast<size_t>(fi) >= m_fieldOwnerId.size()) continue;
+                if (m_fieldOwnerId[static_cast<size_t>(fi)] != countryIndex) continue;
+                const float tt = cache.travelTimes[k];
+                if (!std::isfinite(tt)) continue;
+                if (tt > bestT) {
+                    bestT = tt;
+                    bestField = fi;
+                }
+            }
+            if (bestField >= 0) {
+                const int fx = bestField % m_fieldW;
+                const int fy = bestField / m_fieldW;
+                seeds.push_back(CenterSeed{0.0, bestField, fy, fx});
+            }
+        }
+        if (seeds.empty()) return;
+
+        std::sort(seeds.begin(), seeds.end(), [](const CenterSeed& a, const CenterSeed& b) {
+            if (a.pop != b.pop) return a.pop > b.pop;
+            if (a.y != b.y) return a.y < b.y;
+            return a.x < b.x;
+        });
+        seeds.erase(std::unique(seeds.begin(), seeds.end(), [](const CenterSeed& a, const CenterSeed& b) {
+            return a.field == b.field;
+        }), seeds.end());
+        if (static_cast<int>(seeds.size()) > localCenterMax) {
+            seeds.resize(static_cast<size_t>(localCenterMax));
+        }
+
+        const sf::Vector2i capPx = c.getCapitalLocation();
+        const int capFx = std::max(0, std::min(m_fieldW - 1, capPx.x / kFieldCellSize));
+        const int capFy = std::max(0, std::min(m_fieldH - 1, capPx.y / kFieldCellSize));
+        const double legitimacy = clamp01(c.getLegitimacy());
+        const double inequality = clamp01(c.getInequality());
+        const double stability = clamp01(c.getStability());
+        const double realWage = clamp01(c.getRealWage() / 2.0);
+        const double adminShare = clamp01(c.getAdminSpendingShare());
+        const double infraShare = clamp01(c.getInfraSpendingShare());
+        const double humanCapital = clamp01(c.getMacroEconomy().humanCapital);
+        const double extraction = clamp01(c.getTaxRate() * (0.60 + 0.40 * inequality));
+
+        double bestScore = -1.0;
+        for (const CenterSeed& s : seeds) {
+            const std::uint64_t key = centerKey(countryIndex, s.field);
+            seenLocalCenters.insert(key);
+            LocalAutonomyState& state = m_localAutonomyByCenter[key];
+
+            const double localControl = clamp01((static_cast<size_t>(s.field) < m_fieldControl.size()) ? m_fieldControl[static_cast<size_t>(s.field)] : c.getAvgControl());
+            const double travelTime = lookupTravelTime(countryIndex, s.field);
+            const double travelNorm = std::isfinite(travelTime) ? clamp01(travelTime / 28.0) : 1.0;
+            const int capDist = std::abs(s.x - capFx) + std::abs(s.y - capFy);
+            const double capDistNorm = clamp01(static_cast<double>(capDist) / 24.0);
+
+            const double up =
+                0.30 * travelNorm +
+                0.16 * extraction +
+                0.16 * (1.0 - legitimacy) +
+                0.14 * inequality +
+                0.11 * (1.0 - localControl) +
+                0.08 * (1.0 - stability) +
+                0.05 * (c.isAtWar() ? 1.0 : 0.0);
+            const double down =
+                0.33 * adminShare +
+                0.24 * infraShare +
+                0.20 * realWage +
+                0.15 * humanCapital +
+                0.08 * stability;
+            state.pressure = clamp01(state.pressure + static_cast<double>(autonomyDt) * (0.080 * up - 0.055 * down));
+            if (state.pressure > 0.74) {
+                state.overYears += autonomyDt;
+            } else {
+                state.overYears = std::max(0, state.overYears - autonomyDt);
+            }
+
+            const double score =
+                state.pressure *
+                (0.30 + 0.70 * capDistNorm) *
+                (0.40 + 0.60 * travelNorm) *
+                (0.45 + 0.55 * (1.0 - localControl));
+            if (score > bestScore ||
+                (score == bestScore &&
+                 (s.y < bestOut.seedField.y || (s.y == bestOut.seedField.y && s.x < bestOut.seedField.x)))) {
+                bestScore = score;
+                bestOut.seedField = sf::Vector2i(s.x, s.y);
+                bestOut.pressure = state.pressure;
+                bestOut.overYears = state.overYears;
+            }
+        }
+    };
+
+    auto pickSeedBField = [&](int countryIndex, int capFx, int capFy, int preferredField) -> sf::Vector2i {
+        if (preferredField >= 0 && static_cast<size_t>(preferredField) < m_fieldOwnerId.size() &&
+            m_fieldOwnerId[static_cast<size_t>(preferredField)] == countryIndex) {
+            return sf::Vector2i(preferredField % m_fieldW, preferredField / m_fieldW);
+        }
+
+        if (countryIndex >= 0 && countryIndex < static_cast<int>(m_countryControlCache.size())) {
+            const CountryControlCache& cache = m_countryControlCache[static_cast<size_t>(countryIndex)];
+            const size_t sz = std::min(cache.fieldIndices.size(), cache.travelTimes.size());
+            int bestField = -1;
+            double bestScore = -1.0;
+            for (size_t k = 0; k < sz; ++k) {
+                const int fi = cache.fieldIndices[k];
+                if (fi < 0 || static_cast<size_t>(fi) >= m_fieldOwnerId.size() || static_cast<size_t>(fi) >= m_fieldControl.size()) continue;
+                if (m_fieldOwnerId[static_cast<size_t>(fi)] != countryIndex) continue;
+                const double travel = static_cast<double>(cache.travelTimes[k]);
+                if (!std::isfinite(travel)) continue;
+                const double control = clamp01(m_fieldControl[static_cast<size_t>(fi)]);
+                const double score = travel * (1.25 - 0.85 * control);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestField = fi;
+                }
+            }
+            if (bestField >= 0) {
+                return sf::Vector2i(bestField % m_fieldW, bestField / m_fieldW);
+            }
+        }
+
         sf::Vector2i best(-1, -1);
         double bestScore = -1.0;
         for (int fy = 0; fy < m_fieldH; ++fy) {
@@ -1965,7 +2673,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
         return best;
     };
 
-    auto trySplitCountry = [&](int countryIndex, double rRisk) -> bool {
+    auto trySplitCountry = [&](int countryIndex, double rRisk, const LocalCenterCandidate& localCenter) -> bool {
         if (countryIndex < 0 || countryIndex >= static_cast<int>(countries.size())) return false;
         if (static_cast<int>(countries.size()) >= maxCountries) return false;
         if (countries.size() + 1 > countries.capacity()) return false; // prevent pointer invalidation
@@ -1983,34 +2691,129 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
         const int capFy = std::max(0, std::min(m_fieldH - 1, capPx.y / kFieldCellSize));
 
         const sf::Vector2i seedA = pickSeedAField(countryIndex, capFx, capFy);
-        const sf::Vector2i seedB = pickSeedBField(countryIndex, capFx, capFy);
+        int preferredSeedField =
+            (localCenter.seedField.x >= 0 && localCenter.seedField.y >= 0)
+            ? (localCenter.seedField.y * m_fieldW + localCenter.seedField.x)
+            : -1;
+        if (preferredSeedField == (seedA.y * m_fieldW + seedA.x)) {
+            preferredSeedField = -1;
+        }
+        const sf::Vector2i seedB = pickSeedBField(countryIndex, capFx, capFy, preferredSeedField);
         if (seedA == seedB) return false;
+
+        std::vector<int> ownedFields;
+        ownedFields.reserve(static_cast<size_t>(territorySet.size() / std::max(1, kFieldCellSize)) + 64u);
+        for (size_t fi = 0; fi < m_fieldOwnerId.size(); ++fi) {
+            if (m_fieldOwnerId[fi] == countryIndex) {
+                ownedFields.push_back(static_cast<int>(fi));
+            }
+        }
+        if (ownedFields.empty()) return false;
+
+        std::unordered_map<int, int> localByField;
+        localByField.reserve(ownedFields.size() * 2u);
+        for (size_t li = 0; li < ownedFields.size(); ++li) {
+            localByField[ownedFields[li]] = static_cast<int>(li);
+        }
+
+        auto runDijkstra = [&](int seedField, std::vector<float>& distOut) -> bool {
+            auto itSeed = localByField.find(seedField);
+            if (itSeed == localByField.end()) return false;
+            distOut.assign(ownedFields.size(), std::numeric_limits<float>::infinity());
+            struct Node {
+                float dist = 0.0f;
+                int field = -1;
+            };
+            struct NodeCmp {
+                bool operator()(const Node& a, const Node& b) const {
+                    if (a.dist != b.dist) return a.dist > b.dist;
+                    return a.field > b.field;
+                }
+            };
+            std::priority_queue<Node, std::vector<Node>, NodeCmp> pq;
+            distOut[static_cast<size_t>(itSeed->second)] = 0.0f;
+            pq.push(Node{0.0f, seedField});
+
+            while (!pq.empty()) {
+                const Node cur = pq.top();
+                pq.pop();
+                const auto itCur = localByField.find(cur.field);
+                if (itCur == localByField.end()) continue;
+                const int curLocal = itCur->second;
+                if (curLocal < 0 || static_cast<size_t>(curLocal) >= distOut.size()) continue;
+                if (cur.dist > distOut[static_cast<size_t>(curLocal)] + 1e-6f) continue;
+
+                const int fx = cur.field % m_fieldW;
+                const int fy = cur.field / m_fieldW;
+                const int nxs[4] = {fx + 1, fx - 1, fx, fx};
+                const int nys[4] = {fy, fy, fy + 1, fy - 1};
+                for (int k = 0; k < 4; ++k) {
+                    const int x = nxs[k];
+                    const int y = nys[k];
+                    if (x < 0 || y < 0 || x >= m_fieldW || y >= m_fieldH) continue;
+                    const int nf = y * m_fieldW + x;
+                    const auto itNext = localByField.find(nf);
+                    if (itNext == localByField.end()) continue;
+
+                    const float c0 = (static_cast<size_t>(cur.field) < m_fieldMoveCost.size()) ? m_fieldMoveCost[static_cast<size_t>(cur.field)] : 1.0f;
+                    const float c1 = (static_cast<size_t>(nf) < m_fieldMoveCost.size()) ? m_fieldMoveCost[static_cast<size_t>(nf)] : 1.0f;
+                    const float stepCost = std::max(0.08f, 0.5f * (c0 + c1));
+                    const float nd = cur.dist + stepCost;
+                    const int nextLocal = itNext->second;
+                    if (nd + 1e-6f < distOut[static_cast<size_t>(nextLocal)]) {
+                        distOut[static_cast<size_t>(nextLocal)] = nd;
+                        pq.push(Node{nd, nf});
+                    }
+                }
+            }
+            return true;
+        };
+
+        const int seedFieldA = seedA.y * m_fieldW + seedA.x;
+        const int seedFieldB = seedB.y * m_fieldW + seedB.x;
+        std::vector<float> distA;
+        std::vector<float> distB;
+        if (!runDijkstra(seedFieldA, distA)) return false;
+        if (!runDijkstra(seedFieldB, distB)) return false;
 
         std::unordered_set<sf::Vector2i> groupA;
         std::unordered_set<sf::Vector2i> groupB;
         groupA.reserve(territorySet.size());
         groupB.reserve(territorySet.size() / 2);
+        const float rebelBias = static_cast<float>(-0.08 + 0.30 * clamp01(localCenter.pressure));
 
         for (const auto& cell : territorySet) {
-            const int fx = cell.x / kFieldCellSize;
-            const int fy = cell.y / kFieldCellSize;
-            const int dA = std::abs(fx - seedA.x) + std::abs(fy - seedA.y);
-            const int dB = std::abs(fx - seedB.x) + std::abs(fy - seedB.y);
-            if (dB < dA) groupB.insert(cell);
-            else groupA.insert(cell);
+            const int fx = std::max(0, std::min(m_fieldW - 1, cell.x / kFieldCellSize));
+            const int fy = std::max(0, std::min(m_fieldH - 1, cell.y / kFieldCellSize));
+            const int fi = fy * m_fieldW + fx;
+            const auto it = localByField.find(fi);
+            if (it == localByField.end()) {
+                groupA.insert(cell);
+                continue;
+            }
+            const int li = it->second;
+            const float da = distA[static_cast<size_t>(li)];
+            const float db = distB[static_cast<size_t>(li)];
+            if (std::isfinite(db) && (!std::isfinite(da) || db <= da + rebelBias)) {
+                groupB.insert(cell);
+            } else {
+                groupA.insert(cell);
+            }
         }
 
-	        const size_t total = groupA.size() + groupB.size();
-	        if (total == 0 || groupA.empty() || groupB.empty()) return false;
-	        double ratioB = static_cast<double>(groupB.size()) / static_cast<double>(total);
-	        if (ratioB < 0.22 || ratioB > 0.78) return false;
+        const size_t total = groupA.size() + groupB.size();
+        if (total == 0 || groupA.empty() || groupB.empty()) return false;
+        double ratioB = static_cast<double>(groupB.size()) / static_cast<double>(total);
+        if (ratioB < 0.18 || ratioB > 0.82) return false;
 
-	        if (groupB.count(capPx) > 0) {
-	            std::swap(groupA, groupB);
-	            ratioB = static_cast<double>(groupB.size()) / static_cast<double>(total);
-	        }
+        if (groupB.count(capPx) > 0) {
+            std::swap(groupA, groupB);
+            ratioB = static_cast<double>(groupB.size()) / static_cast<double>(total);
+        }
+        if (ratioB < 0.18 || ratioB > 0.82) return false;
 
-        const double lossFrac = std::clamp(0.06 + 0.10 * rRisk, 0.04, 0.20);
+        const double stress = clamp01(0.60 * rRisk + 0.40 * localCenter.pressure);
+        const double lossFrac = std::clamp(0.05 + 0.12 * stress, 0.04, 0.24);
         const long long totalPop = country.getPopulation();
         const long long remainingPop = std::max(0LL, static_cast<long long>(static_cast<double>(totalPop) * (1.0 - lossFrac)));
         const long long newPop = static_cast<long long>(static_cast<double>(remainingPop) * ratioB);
@@ -2062,10 +2865,12 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
 
         const int newIndex = static_cast<int>(countries.size());
         Country newCountry(newIndex, newColor, newStart, newPop, growthRate, newName, country.getType(),
-                           country.getScienceType(), country.getCultureType(), m_ctx->seedForCountry(newIndex));
+                           m_ctx->seedForCountry(newIndex));
         newCountry.setIdeology(country.getIdeology());
-        newCountry.setLegitimacy(0.35);
-        newCountry.setStability(0.42);
+        newCountry.setLegitimacy(std::clamp(0.20 + 0.35 * (1.0 - stress), 0.20, 0.55));
+        newCountry.setStability(std::clamp(0.28 + 0.35 * (1.0 - stress), 0.20, 0.60));
+        newCountry.setAutonomyPressure(std::max(0.30, localCenter.pressure));
+        newCountry.setAutonomyOverThresholdYears(std::max(0, localCenter.overYears / 2));
         newCountry.setFragmentationCooldown(fragmentationCooldownYears);
         newCountry.setYearsSinceWar(0);
         newCountry.resetStagnation();
@@ -2076,11 +2881,17 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
         newCountry.setGold(newGold);
         newCountry.initializeTechSharingTimer(currentYear);
 
+        const Country::MacroEconomyState parentMacroBefore = country.getMacroEconomy();
+        const std::array<double, 5> parentCohortsBefore = country.getPopulationCohorts();
+        const Country::EpidemicState parentEpiBefore = country.getEpidemicState();
+
         countries[static_cast<size_t>(countryIndex)].setStartingPixel(oldStart);
         countries[static_cast<size_t>(countryIndex)].setPopulation(oldPop);
         countries[static_cast<size_t>(countryIndex)].setGold(oldGold);
-        countries[static_cast<size_t>(countryIndex)].setLegitimacy(std::max(0.20, countries[static_cast<size_t>(countryIndex)].getLegitimacy() * 0.65));
-        countries[static_cast<size_t>(countryIndex)].setStability(std::max(0.25, countries[static_cast<size_t>(countryIndex)].getStability() * 0.70));
+        countries[static_cast<size_t>(countryIndex)].setLegitimacy(std::max(0.18, countries[static_cast<size_t>(countryIndex)].getLegitimacy() * (0.62 + 0.20 * (1.0 - stress))));
+        countries[static_cast<size_t>(countryIndex)].setStability(std::max(0.22, countries[static_cast<size_t>(countryIndex)].getStability() * (0.66 + 0.18 * (1.0 - stress))));
+        countries[static_cast<size_t>(countryIndex)].setAutonomyPressure(std::max(0.0, countries[static_cast<size_t>(countryIndex)].getAutonomyPressure() * 0.52));
+        countries[static_cast<size_t>(countryIndex)].setAutonomyOverThresholdYears(0);
         countries[static_cast<size_t>(countryIndex)].setFragmentationCooldown(fragmentationCooldownYears);
         countries[static_cast<size_t>(countryIndex)].setYearsSinceWar(0);
         countries[static_cast<size_t>(countryIndex)].resetStagnation();
@@ -2105,6 +2916,55 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
             const_cast<ResourceManager&>(countries[static_cast<size_t>(newIndex)].getResourceManager()).addResource(type, moved);
         }
 
+        auto splitStock = [&](double totalValue, double& oldV, double& newV) {
+            const double clamped = std::max(0.0, totalValue);
+            newV = clamped * ratioB;
+            oldV = std::max(0.0, clamped - newV);
+        };
+
+        Country::MacroEconomyState oldMacro = parentMacroBefore;
+        Country::MacroEconomyState newMacro = parentMacroBefore;
+        splitStock(parentMacroBefore.foodStock, oldMacro.foodStock, newMacro.foodStock);
+        splitStock(parentMacroBefore.foodStockCap, oldMacro.foodStockCap, newMacro.foodStockCap);
+        splitStock(parentMacroBefore.nonFoodStock, oldMacro.nonFoodStock, newMacro.nonFoodStock);
+        splitStock(parentMacroBefore.capitalStock, oldMacro.capitalStock, newMacro.capitalStock);
+        splitStock(parentMacroBefore.infraStock, oldMacro.infraStock, newMacro.infraStock);
+        splitStock(parentMacroBefore.servicesStock, oldMacro.servicesStock, newMacro.servicesStock);
+        splitStock(parentMacroBefore.militarySupplyStock, oldMacro.militarySupplyStock, newMacro.militarySupplyStock);
+        splitStock(parentMacroBefore.netRevenue, oldMacro.netRevenue, newMacro.netRevenue);
+
+        newMacro.marketAccess *= 0.82;
+        newMacro.connectivityIndex *= 0.78;
+        newMacro.institutionCapacity = clamp01(parentMacroBefore.institutionCapacity * (0.55 + 0.35 * clamp01(localCenter.pressure)));
+        newMacro.compliance = clamp01(parentMacroBefore.compliance * 0.86);
+        newMacro.leakageRate = std::clamp(parentMacroBefore.leakageRate + 0.10 + 0.15 * clamp01(localCenter.pressure), 0.02, 0.92);
+        newMacro.educationInvestment = clamp01(countries[static_cast<size_t>(newIndex)].getEducationSpendingShare());
+        newMacro.rndInvestment = clamp01(countries[static_cast<size_t>(newIndex)].getRndSpendingShare());
+
+        oldMacro.institutionCapacity = clamp01(parentMacroBefore.institutionCapacity * (0.90 - 0.08 * stress));
+        oldMacro.compliance = clamp01(parentMacroBefore.compliance * (0.92 - 0.10 * stress));
+        oldMacro.leakageRate = std::clamp(parentMacroBefore.leakageRate + 0.06 * stress, 0.02, 0.92);
+        oldMacro.educationInvestment = clamp01(countries[static_cast<size_t>(countryIndex)].getEducationSpendingShare());
+        oldMacro.rndInvestment = clamp01(countries[static_cast<size_t>(countryIndex)].getRndSpendingShare());
+
+        countries[static_cast<size_t>(countryIndex)].getMacroEconomyMutable() = oldMacro;
+        countries[static_cast<size_t>(newIndex)].getMacroEconomyMutable() = newMacro;
+
+        std::array<double, 5> oldCohorts{};
+        std::array<double, 5> newCohorts{};
+        for (size_t k = 0; k < oldCohorts.size(); ++k) {
+            const double v = std::max(0.0, parentCohortsBefore[k]);
+            const double moved = v * ratioB;
+            newCohorts[k] = moved;
+            oldCohorts[k] = std::max(0.0, v - moved);
+        }
+        countries[static_cast<size_t>(countryIndex)].getPopulationCohortsMutable() = oldCohorts;
+        countries[static_cast<size_t>(newIndex)].getPopulationCohortsMutable() = newCohorts;
+        countries[static_cast<size_t>(countryIndex)].renormalizePopulationCohortsToTotal();
+        countries[static_cast<size_t>(newIndex)].renormalizePopulationCohortsToTotal();
+        countries[static_cast<size_t>(countryIndex)].getEpidemicStateMutable() = parentEpiBefore;
+        countries[static_cast<size_t>(newIndex)].getEpidemicStateMutable() = parentEpiBefore;
+
         const int regionsPerRow = static_cast<int>(m_baseImage.getSize().x) / (m_gridCellSize * m_regionSize);
         {
             std::lock_guard<std::mutex> lock(m_gridMutex);
@@ -2116,6 +2976,19 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
                 }
             }
         }
+
+        auto clearLocalStatesForCountry = [&](int idx) {
+            const std::uint64_t hi = static_cast<std::uint64_t>(static_cast<std::uint32_t>(idx + 1));
+            for (auto it = m_localAutonomyByCenter.begin(); it != m_localAutonomyByCenter.end(); ) {
+                if ((it->first >> 32) == hi) {
+                    it = m_localAutonomyByCenter.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+        };
+        clearLocalStatesForCountry(countryIndex);
+        clearLocalStatesForCountry(newIndex);
 
         news.addEvent("Civil war fractures " + countries[static_cast<size_t>(countryIndex)].getName() + " into a new rival state: " + newName + "!");
         return true;
@@ -2133,8 +3006,24 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
         controlUpToDate = true;
     };
 
+    std::vector<LocalCenterCandidate> localCenterByCountry(countries.size());
+    for (int i = 0; i < static_cast<int>(countries.size()); ++i) {
+        scoreAndTrackLocalCenters(i, localCenterByCountry[static_cast<size_t>(i)]);
+    }
+    for (auto it = m_localAutonomyByCenter.begin(); it != m_localAutonomyByCenter.end(); ) {
+        if (seenLocalCenters.count(it->first) == 0) {
+            it = m_localAutonomyByCenter.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
     if (currentYear % 5 == 0) {
-        struct Candidate { int idx; double risk; };
+        struct Candidate {
+            int idx = -1;
+            double risk = 0.0;
+            LocalCenterCandidate localCenter{};
+        };
         std::vector<Candidate> cand;
         cand.reserve(countries.size());
 
@@ -2145,17 +3034,25 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
             if (c.getFragmentationCooldown() > 0) continue;
             if (c.getBoundaryPixels().size() < static_cast<size_t>(minTerritoryPixels)) continue;
 
-            const double r = revoltRisk(c, i);
-            if (r < 0.62) continue;
-            if (c.getAvgControl() > 0.70) continue;
-            cand.push_back({i, r});
+            const double revolt = revoltRisk(c, i);
+            const double autonomy = clamp01(c.getAutonomyPressure());
+            const LocalCenterCandidate local = localCenterByCountry[static_cast<size_t>(i)];
+            const double r = clamp01(0.45 * revolt + 0.25 * autonomy + 0.30 * local.pressure);
+            const bool sustainedAutonomy = c.getAutonomyOverThresholdYears() >= autonomyBreakYears;
+            const bool sustainedLocalAutonomy = local.overYears >= autonomyBreakYears;
+            if (r < 0.62 && !sustainedAutonomy && !sustainedLocalAutonomy) continue;
+            if (c.getAvgControl() > 0.70 && local.pressure < 0.82) continue;
+            cand.push_back(Candidate{i, r, local});
         }
 
-        std::sort(cand.begin(), cand.end(), [](const Candidate& a, const Candidate& b) { return a.risk > b.risk; });
+        std::sort(cand.begin(), cand.end(), [](const Candidate& a, const Candidate& b) {
+            if (a.risk != b.risk) return a.risk > b.risk;
+            return a.idx < b.idx;
+        });
         int splits = 0;
         for (const auto& c : cand) {
             if (splits >= 2) break;
-            if (trySplitCountry(c.idx, c.risk)) {
+            if (trySplitCountry(c.idx, c.risk, c.localCenter)) {
                 changedTerritory = true;
                 controlUpToDate = false;
                 splits++;
@@ -2595,7 +3492,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
 
 	            const int newIndex = static_cast<int>(countries.size());
 	            Country newCountry(newIndex, newColor, newStart, /*initialPop*/50000, /*growth*/0.0005, newName,
-	                               c.getType(), c.getScienceType(), c.getCultureType(), m_ctx->seedForCountry(newIndex));
+	                               c.getType(), m_ctx->seedForCountry(newIndex));
 	            newCountry.setIdeology(c.getIdeology());
 	            newCountry.setStability(std::max(0.30, std::min(0.60, c.getStability())));
 	            newCountry.setLegitimacy(std::max(0.20, std::min(0.55, c.getLegitimacy() * 0.90)));
@@ -2860,7 +3757,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
 
         int newIndex = static_cast<int>(countries.size());
         Country newCountry(newIndex, newColor, newStart, newPop, growthRate, newName, country.getType(),
-                           country.getScienceType(), country.getCultureType(), m_ctx->seedForCountry(newIndex));
+                           m_ctx->seedForCountry(newIndex));
         newCountry.setIdeology(country.getIdeology());
         newCountry.setStability(0.45);
         newCountry.setFragmentationCooldown(fragmentationCooldown);
@@ -3604,7 +4501,7 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
 		                updateControlGrid(countries, currentYear, 10);
                         tickWeather(currentYear, 10);
 		                localEconomy.tickYear(currentYear, 10, *this, countries, techManager, localTrade, news);
-		                tickPopulationGrid(countries, currentYear, 10);
+		                tickPopulationGrid(countries, currentYear, 10, nullptr);
 		                applyPopulationTotalsToCountries(countries);
 		                updateCitiesFromPopulation(countries, currentYear, 50, news);
 		                processPoliticalEvents(countries, localTrade, currentYear, news, techManager, cultureManager);
@@ -4008,6 +4905,7 @@ bool Map::setCountryOwnerAssumingLockedImpl(int x, int y, int newOwner) {
     }
 
     m_countryGrid[y][x] = newOwner;
+    m_controlCacheDirty = true;
     return true;
 }
 

@@ -41,7 +41,11 @@ public:
     void updateCountries(std::vector<Country>& countries, int currentYear, News& news, class TechnologyManager& technologyManager);
     // Phase 4 integration: run demography/migration + city updates as a separate step so
     // shortages computed by the macro economy can affect births/deaths in the same year.
-    void tickDemographyAndCities(std::vector<Country>& countries, int currentYear, int dtYears, News& news);
+    void tickDemographyAndCities(std::vector<Country>& countries,
+                                 int currentYear,
+                                 int dtYears,
+                                 News& news,
+                                 const std::vector<float>* tradeIntensityMatrix = nullptr);
     // Optional: allow Map ownership writes to keep Country territory containers in sync.
     // Recommended to call once after countries are created/reserved, and Map will also
     // re-attach automatically in methods that already have a `countries` reference.
@@ -224,6 +228,7 @@ public:
     int m_fieldH = 0;
     std::vector<int> m_fieldOwnerId;          // fieldW*fieldH, -1 for none
     std::vector<float> m_fieldControl;        // fieldW*fieldH, 0..1
+    std::vector<float> m_fieldMoveCost;       // fieldW*fieldH, travel-time friction
     std::vector<float> m_fieldFoodPotential;  // fieldW*fieldH, summed food potential per field cell
     std::vector<float> m_fieldPopulation;     // fieldW*fieldH, people stock per cell
     std::vector<float> m_fieldAttractiveness; // fieldW*fieldH, computed each migration tick
@@ -233,6 +238,21 @@ public:
     std::vector<float> m_fieldUrbanShare;     // fieldW*fieldH, 0..1 (debug)
     std::vector<float> m_fieldUrbanPop;       // fieldW*fieldH, people (debug)
     int m_lastPopulationUpdateYear = -9999999;
+    bool m_controlCacheDirty = true;
+    struct CountryControlCache {
+        int lastComputedYear = -9999999;
+        std::vector<int> fieldIndices;
+        std::vector<float> travelTimes;
+        size_t roadCount = 0;
+        size_t portCount = 0;
+    };
+    std::vector<CountryControlCache> m_countryControlCache;
+    struct LocalAutonomyState {
+        double pressure = 0.0; // 0..1
+        int overYears = 0;
+    };
+    std::unordered_map<std::uint64_t, LocalAutonomyState> m_localAutonomyByCenter;
+    int m_lastLocalAutonomyUpdateYear = -9999999;
     void ensureFieldGrids();
     void rebuildFieldFoodPotential();
 	void ensureClimateGrids();
@@ -241,9 +261,13 @@ public:
 	void rebuildFieldLandMask();
 	void rebuildFieldOwnerIdAssumingLocked(int countryCount);
 	void updateControlGrid(std::vector<Country>& countries, int currentYear, int dtYears);
+    void rebuildFieldMoveCost(const std::vector<Country>& countries);
 
     void initializePopulationGridFromCountries(const std::vector<Country>& countries);
-    void tickPopulationGrid(const std::vector<Country>& countries, int currentYear, int dtYears);
+    void tickPopulationGrid(const std::vector<Country>& countries,
+                            int currentYear,
+                            int dtYears,
+                            const std::vector<float>* tradeIntensityMatrix);
     void applyPopulationTotalsToCountries(std::vector<Country>& countries) const;
     void updateCitiesFromPopulation(std::vector<Country>& countries, int currentYear, int createEveryNYears, News& news);
 

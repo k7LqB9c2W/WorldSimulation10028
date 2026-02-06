@@ -338,6 +338,7 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         const double control = clamp01(c.getAvgControl());
 
         const auto& m = c.getMacroEconomy();
+        const double popScale = std::min(2.2, 0.30 + 0.24 * std::log1p(pop / 50000.0));
         const double nonFoodSurplus = std::max(0.0, m.lastNonFoodOutput - m.lastNonFoodCons);
         const double surplusPc = nonFoodSurplus / pop;
         const double surplusFactor = clamp01(surplusPc / 0.00085);
@@ -351,6 +352,7 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         innov *= (0.40 + 0.60 * legitimacy);
         innov *= (0.25 + 0.75 * urban);
         innov *= (0.75 + 0.70 * eduShare);
+        innov *= popScale;
         if (m.foodSecurity < 0.95) {
             innov *= (0.80 + 0.20 * clamp01(m.foodSecurity));
         }
@@ -390,12 +392,12 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
             innov *= (1.0 + 0.16 * std::log1p(infra));
         }
 
-        // Legacy country flavor types remain as mild innovation multipliers (no point hoarding).
-        if (c.getScienceType() == Country::ScienceType::MS) {
-            innov *= 1.22;
-        } else if (c.getScienceType() == Country::ScienceType::LS) {
-            innov *= 0.70;
-        }
+        // Constrain innovation by endogenous development stocks.
+        innov *= (0.25 + 0.75 * clamp01(m.humanCapital));   // human-capital limit
+        innov *= (0.20 + 0.80 * clamp01(m.knowledgeStock)); // applied know-how stock
+        innov *= (0.20 + 0.80 * clamp01(m.connectivityIndex));
+        innov *= (0.30 + 0.70 * clamp01(m.institutionCapacity));
+        innov *= (1.0 - 0.45 * clamp01(m.inequality));
         c.setInnovationRate(innov);
 
         double w[Country::kDomains] = { 1, 1, 1, 1, 1, 1, 1, 1 };
@@ -449,13 +451,24 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
             const Country& cb = countries[static_cast<size_t>(b)];
             const double accessAvg = 0.5 * (clamp01(ca.getMarketAccess()) + clamp01(cb.getMarketAccess()));
             const double openAvg = 0.5 * (clamp01(ca.getTraits()[5]) + clamp01(cb.getTraits()[5])); // Openness
+            const double connAvg = 0.5 * (clamp01(ca.getConnectivityIndex()) + clamp01(cb.getConnectivityIndex()));
+            const double instAvg = 0.5 * (clamp01(ca.getInstitutionCapacity()) + clamp01(cb.getInstitutionCapacity()));
+            const double controlAvg = 0.5 * (clamp01(ca.getAvgControl()) + clamp01(cb.getAvgControl()));
+            const double legitAvg = 0.5 * (clamp01(ca.getLegitimacy()) + clamp01(cb.getLegitimacy()));
+            const double ineqAvg = 0.5 * (clamp01(ca.getInequality()) + clamp01(cb.getInequality()));
             const double popA = static_cast<double>(std::max<long long>(1, ca.getPopulation()));
             const double popB = static_cast<double>(std::max<long long>(1, cb.getPopulation()));
             const double urbanA = clamp01(ca.getTotalCityPopulation() / popA);
             const double urbanB = clamp01(cb.getTotalCityPopulation() / popB);
             const double urbanAvg = 0.5 * (urbanA + urbanB);
 
-            const double rate = 0.0035 * (0.25 + 0.75 * accessAvg) * (0.25 + 0.75 * openAvg) * (0.35 + 0.65 * urbanAvg);
+            const double adoption =
+                (0.20 + 0.80 * instAvg) *
+                (0.20 + 0.80 * controlAvg) *
+                (0.20 + 0.80 * connAvg) *
+                (0.25 + 0.75 * legitAvg) *
+                (1.0 - 0.55 * ineqAvg);
+            const double rate = 0.0035 * (0.25 + 0.75 * accessAvg) * (0.25 + 0.75 * openAvg) * (0.35 + 0.65 * urbanAvg) * adoption;
             diffusePair(a, b, w, rate);
         }
     }
@@ -475,7 +488,18 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                     const Country& cb = countries[static_cast<size_t>(b)];
                     const double accessAvg = 0.5 * (clamp01(ca.getMarketAccess()) + clamp01(cb.getMarketAccess()));
                     const double openAvg = 0.5 * (clamp01(ca.getTraits()[5]) + clamp01(cb.getTraits()[5])); // Openness
-                    const double rate = 0.014 * (0.20 + 0.80 * accessAvg) * (0.25 + 0.75 * openAvg);
+                    const double connAvg = 0.5 * (clamp01(ca.getConnectivityIndex()) + clamp01(cb.getConnectivityIndex()));
+                    const double instAvg = 0.5 * (clamp01(ca.getInstitutionCapacity()) + clamp01(cb.getInstitutionCapacity()));
+                    const double controlAvg = 0.5 * (clamp01(ca.getAvgControl()) + clamp01(cb.getAvgControl()));
+                    const double legitAvg = 0.5 * (clamp01(ca.getLegitimacy()) + clamp01(cb.getLegitimacy()));
+                    const double ineqAvg = 0.5 * (clamp01(ca.getInequality()) + clamp01(cb.getInequality()));
+                    const double adoption =
+                        (0.20 + 0.80 * instAvg) *
+                        (0.20 + 0.80 * controlAvg) *
+                        (0.20 + 0.80 * connAvg) *
+                        (0.25 + 0.75 * legitAvg) *
+                        (1.0 - 0.55 * ineqAvg);
+                    const double rate = 0.014 * (0.20 + 0.80 * accessAvg) * (0.25 + 0.75 * openAvg) * adoption;
                     diffusePair(a, b, w, rate);
                 }
             }
