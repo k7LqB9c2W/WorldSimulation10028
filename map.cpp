@@ -1892,8 +1892,73 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
         }
     }
 
-    // Small initial territory clusters (prevents single-cell artifacts and keeps pop counted to owners).
-    std::uniform_int_distribution<int> territoryRadiusFieldDist(2, 6);
+    std::uniform_int_distribution<int> settlementSeedDist(2, 5);
+
+    auto getFieldYieldAtCell = [&](int x, int y) -> double {
+        if (m_fieldW <= 0 || m_fieldH <= 0 || m_fieldFoodYieldMult.empty()) {
+            return 1.0;
+        }
+        const int fx = std::max(0, std::min(m_fieldW - 1, x / kFieldCellSize));
+        const int fy = std::max(0, std::min(m_fieldH - 1, y / kFieldCellSize));
+        const size_t fi = static_cast<size_t>(fy) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(fx);
+        if (fi >= m_fieldFoodYieldMult.size()) {
+            return 1.0;
+        }
+        return std::clamp(static_cast<double>(m_fieldFoodYieldMult[fi]), 0.20, 1.80);
+    };
+    auto getFoodAtCell = [&](int x, int y) -> double {
+        const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(gridW) + static_cast<size_t>(x);
+        if (idx >= m_cellFood.size()) {
+            return 0.0;
+        }
+        return std::max(0.0, m_cellFood[idx]);
+    };
+    auto computeCellSuitability = [&](int x, int y, int frontierDist) -> double {
+        if (x < 0 || y < 0 || x >= gridW || y >= gridH) return -1e9;
+        if (!m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) return -1e9;
+
+        const double climateYield = getFieldYieldAtCell(x, y);
+        const double food = getFoodAtCell(x, y);
+        const double foodNorm = std::clamp((food * climateYield) / 130.0, 0.0, 1.35);
+        const double climateNorm = std::clamp((climateYield - 0.35) / 1.20, 0.0, 1.25);
+        const double riverCoastProxy = std::clamp((food - 45.0) / 70.0, 0.0, 1.0);
+
+        int waterAdj = 0;
+        int nAdj = 0;
+        for (int dy = -1; dy <= 1; ++dy) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                if (dx == 0 && dy == 0) continue;
+                const int nx = x + dx;
+                const int ny = y + dy;
+                ++nAdj;
+                if (nx < 0 || ny < 0 || nx >= gridW || ny >= gridH ||
+                    !m_isLandGrid[static_cast<size_t>(ny)][static_cast<size_t>(nx)]) {
+                    waterAdj++;
+                }
+            }
+        }
+        const double coastNorm = (nAdj > 0) ? (static_cast<double>(waterAdj) / static_cast<double>(nAdj)) : 0.0;
+        const double distancePenalty = 0.012 * static_cast<double>(std::max(0, frontierDist - 1));
+
+        return (0.55 * foodNorm) + (0.25 * coastNorm) + (0.20 * climateNorm) + (0.10 * riverCoastProxy) - distancePenalty;
+    };
+
+    struct SpawnFrontierNode {
+        double score = 0.0;
+        int packed = -1;
+        int seedId = -1;
+        int dist = 0;
+    };
+    struct SpawnFrontierCmp {
+        bool operator()(const SpawnFrontierNode& a, const SpawnFrontierNode& b) const {
+            if (a.score != b.score) return a.score < b.score; // max score first
+            if (a.dist != b.dist) return a.dist > b.dist;     // then closer first
+            if (a.seedId != b.seedId) return a.seedId > b.seedId;
+            return a.packed > b.packed;
+        }
+    };
+
+    const int regionsPerRow = (m_regionSize > 0) ? (gridW / m_regionSize) : 0;
 
     const int targetCountries = std::min(numCountries, static_cast<int>(allLandCells.size()));
     if (targetCountries < numCountries) {
@@ -1935,19 +2000,197 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
                                countryName,
                                countryType,
                                m_ctx->seedForCountry(i));
-        setCountryOwnerAssumingLockedImpl(startCell.x, startCell.y, i);
 
-        // Paint a small initial territory blob so population can be distributed over multiple field cells.
-        {
-            const int rField = territoryRadiusFieldDist(rng);
-            const int rPx = std::max(1, rField * kFieldCellSize);
-            std::vector<int> affected;
-            affected.reserve(64);
-            paintCells(i, startCell, rPx, /*erase*/false, /*allowOverwrite*/false, affected);
+        // Scale initial claimed area by population and local carrying potential.
+        double localFoodPotential = 0.0;
+        double localYield = 0.0;
+        int localSamples = 0;
+        const int localSampleRadius = 4;
+        for (int dy = -localSampleRadius; dy <= localSampleRadius; ++dy) {
+            for (int dx = -localSampleRadius; dx <= localSampleRadius; ++dx) {
+                const int x = startCell.x + dx;
+                const int y = startCell.y + dy;
+                if (x < 0 || y < 0 || x >= gridW || y >= gridH) continue;
+                if (!m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) continue;
+                localFoodPotential += getFoodAtCell(x, y);
+                localYield += getFieldYieldAtCell(x, y);
+                localSamples++;
+            }
+        }
+        if (localSamples <= 0) {
+            localFoodPotential = std::max(1.0, getFoodAtCell(startCell.x, startCell.y));
+            localYield = getFieldYieldAtCell(startCell.x, startCell.y);
+            localSamples = 1;
+        }
+        localFoodPotential /= static_cast<double>(localSamples);
+        localYield /= static_cast<double>(localSamples);
+
+        const int requestedSeedCount = settlementSeedDist(rng);
+        const double localCarrying = std::max(5.0, localFoodPotential * std::clamp(localYield, 0.35, 1.80));
+        const double targetDensity = std::clamp(220.0 + 8.5 * localCarrying, 240.0, 1900.0);
+        int requiredAreaCells = static_cast<int>(std::ceil(static_cast<double>(initialPopulation) / targetDensity));
+        requiredAreaCells = std::max(requiredAreaCells, requestedSeedCount * 3);
+        requiredAreaCells = std::clamp(requiredAreaCells, requestedSeedCount * 3, 1200);
+
+        // Pick 2-5 nearby settlement seeds, then grow each and finally fill by best-suitability frontier.
+        const int seedRadius = std::clamp(6 + static_cast<int>(std::sqrt(static_cast<double>(requiredAreaCells))), 8, 20);
+        const int minSeedSpacing = 4;
+        const int startPacked = startCell.y * gridW + startCell.x;
+        std::vector<int> seedPacked;
+        seedPacked.reserve(static_cast<size_t>(requestedSeedCount));
+        seedPacked.push_back(startPacked);
+
+        struct SeedCandidate {
+            int packed = -1;
+            double score = 0.0;
+        };
+        std::vector<SeedCandidate> seedCandidates;
+        seedCandidates.reserve(static_cast<size_t>((2 * seedRadius + 1) * (2 * seedRadius + 1)));
+        for (int y = std::max(0, startCell.y - seedRadius); y <= std::min(gridH - 1, startCell.y + seedRadius); ++y) {
+            for (int x = std::max(0, startCell.x - seedRadius); x <= std::min(gridW - 1, startCell.x + seedRadius); ++x) {
+                const int dx = x - startCell.x;
+                const int dy = y - startCell.y;
+                if (dx * dx + dy * dy > seedRadius * seedRadius) continue;
+                if (!m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) continue;
+                if (m_countryGrid[static_cast<size_t>(y)][static_cast<size_t>(x)] != -1) continue;
+                const int packed = y * gridW + x;
+                const double score = computeCellSuitability(x, y, /*frontierDist*/1) - 0.008 * std::sqrt(static_cast<double>(dx * dx + dy * dy));
+                seedCandidates.push_back(SeedCandidate{packed, score});
+            }
+        }
+        std::sort(seedCandidates.begin(), seedCandidates.end(), [](const SeedCandidate& a, const SeedCandidate& b) {
+            if (a.score != b.score) return a.score > b.score;
+            return a.packed < b.packed;
+        });
+
+        for (const SeedCandidate& c : seedCandidates) {
+            if (static_cast<int>(seedPacked.size()) >= requestedSeedCount) break;
+            if (c.packed == startPacked) continue;
+            const int cx = c.packed % gridW;
+            const int cy = c.packed / gridW;
+            bool spaced = true;
+            for (int sPacked : seedPacked) {
+                const int sx = sPacked % gridW;
+                const int sy = sPacked / gridW;
+                if (std::abs(cx - sx) + std::abs(cy - sy) < minSeedSpacing) {
+                    spaced = false;
+                    break;
+                }
+            }
+            if (spaced) {
+                seedPacked.push_back(c.packed);
+            }
+        }
+        // Fallback fill if spacing constraint was too strict (tiny islands/coasts).
+        for (const SeedCandidate& c : seedCandidates) {
+            if (static_cast<int>(seedPacked.size()) >= requestedSeedCount) break;
+            if (std::find(seedPacked.begin(), seedPacked.end(), c.packed) != seedPacked.end()) continue;
+            seedPacked.push_back(c.packed);
         }
 
-        int regionIndex = static_cast<int>(startCell.y / m_regionSize * (m_baseImage.getSize().x / m_gridCellSize / m_regionSize) + startCell.x / m_regionSize);
-        m_dirtyRegions.insert(regionIndex);
+        std::vector<int> claimedPacked;
+        claimedPacked.reserve(static_cast<size_t>(requiredAreaCells) + 32u);
+        std::vector<int> activeSeedPacked;
+        activeSeedPacked.reserve(seedPacked.size());
+
+        auto claimPackedAssumingLocked = [&](int packed) -> bool {
+            if (packed < 0) return false;
+            const int x = packed % gridW;
+            const int y = packed / gridW;
+            if (x < 0 || y < 0 || x >= gridW || y >= gridH) return false;
+            if (!m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) return false;
+            if (m_countryGrid[static_cast<size_t>(y)][static_cast<size_t>(x)] != -1) return false;
+            if (!setCountryOwnerAssumingLockedImpl(x, y, i)) return false;
+            claimedPacked.push_back(packed);
+            return true;
+        };
+
+        auto pushNeighbors = [&](int packed,
+                                 int seedId,
+                                 int nextDist,
+                                 std::priority_queue<SpawnFrontierNode, std::vector<SpawnFrontierNode>, SpawnFrontierCmp>& frontier,
+                                 std::unordered_set<int>& queued) {
+            static const int ndx[8] = { 1, -1, 0, 0, 1, 1, -1, -1 };
+            static const int ndy[8] = { 0, 0, 1, -1, 1, -1, 1, -1 };
+            const int x = packed % gridW;
+            const int y = packed / gridW;
+            for (int k = 0; k < 8; ++k) {
+                const int nx = x + ndx[k];
+                const int ny = y + ndy[k];
+                if (nx < 0 || ny < 0 || nx >= gridW || ny >= gridH) continue;
+                if (!m_isLandGrid[static_cast<size_t>(ny)][static_cast<size_t>(nx)]) continue;
+                if (m_countryGrid[static_cast<size_t>(ny)][static_cast<size_t>(nx)] != -1) continue;
+                const int npacked = ny * gridW + nx;
+                if (!queued.insert(npacked).second) continue;
+                frontier.push(SpawnFrontierNode{
+                    computeCellSuitability(nx, ny, nextDist),
+                    npacked,
+                    seedId,
+                    nextDist
+                });
+            }
+        };
+
+        {
+            std::lock_guard<std::mutex> lock(m_gridMutex);
+            for (int packed : seedPacked) {
+                if (static_cast<int>(claimedPacked.size()) >= requiredAreaCells) break;
+                if (claimPackedAssumingLocked(packed)) {
+                    activeSeedPacked.push_back(packed);
+                }
+            }
+            if (activeSeedPacked.empty()) {
+                claimPackedAssumingLocked(startPacked);
+                activeSeedPacked.push_back(startPacked);
+            }
+
+            const int activeSeeds = std::max(1, static_cast<int>(activeSeedPacked.size()));
+            const int localBurstTarget = std::max(2, requiredAreaCells / std::max(2, activeSeeds * 3));
+
+            for (int s = 0; s < static_cast<int>(activeSeedPacked.size()) &&
+                            static_cast<int>(claimedPacked.size()) < requiredAreaCells; ++s) {
+                std::priority_queue<SpawnFrontierNode, std::vector<SpawnFrontierNode>, SpawnFrontierCmp> localFrontier;
+                std::unordered_set<int> localQueued;
+                localQueued.reserve(256u);
+                int grown = 1;
+                pushNeighbors(activeSeedPacked[static_cast<size_t>(s)], s, 1, localFrontier, localQueued);
+                while (static_cast<int>(claimedPacked.size()) < requiredAreaCells &&
+                       grown < localBurstTarget &&
+                       !localFrontier.empty()) {
+                    const SpawnFrontierNode node = localFrontier.top();
+                    localFrontier.pop();
+                    if (!claimPackedAssumingLocked(node.packed)) continue;
+                    grown++;
+                    pushNeighbors(node.packed, s, node.dist + 1, localFrontier, localQueued);
+                }
+            }
+
+            std::priority_queue<SpawnFrontierNode, std::vector<SpawnFrontierNode>, SpawnFrontierCmp> frontier;
+            std::unordered_set<int> queued;
+            queued.reserve(std::max(512, requiredAreaCells * 4));
+            for (size_t cIdx = 0; cIdx < claimedPacked.size(); ++cIdx) {
+                pushNeighbors(claimedPacked[cIdx], static_cast<int>(cIdx % static_cast<size_t>(std::max(1, activeSeeds))), 1, frontier, queued);
+            }
+
+            while (static_cast<int>(claimedPacked.size()) < requiredAreaCells && !frontier.empty()) {
+                const SpawnFrontierNode node = frontier.top();
+                frontier.pop();
+                if (!claimPackedAssumingLocked(node.packed)) continue;
+                pushNeighbors(node.packed, node.seedId, node.dist + 1, frontier, queued);
+            }
+        }
+
+        if (regionsPerRow > 0) {
+            for (int packed : claimedPacked) {
+                const int x = packed % gridW;
+                const int y = packed / gridW;
+                const int regionX = x / m_regionSize;
+                const int regionY = y / m_regionSize;
+                m_dirtyRegions.insert(regionY * regionsPerRow + regionX);
+            }
+        } else {
+            m_dirtyRegions.insert(0);
+        }
     }
 
     // Build the initial adjacency/contact counts from the completed grid. From this point forward,

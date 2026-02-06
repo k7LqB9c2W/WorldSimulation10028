@@ -16,6 +16,20 @@ bool CultureManager::s_debugMode = false;
 namespace {
 double clamp01(double v) { return std::max(0.0, std::min(1.0, v)); }
 
+int modPositive(int v, int m) {
+    const int r = v % m;
+    return (r < 0) ? (r + m) : r;
+}
+
+bool intervalHitsStaggeredCadence(int startYear, int endYear, int index, int cadenceYears) {
+    if (cadenceYears <= 0 || startYear > endYear) return false;
+    const int targetResidue = modPositive(-index, cadenceYears); // y where (y + index) % cadence == 0
+    const int startResidue = modPositive(startYear, cadenceYears);
+    const int delta = modPositive(targetResidue - startResidue, cadenceYears);
+    const long long firstHit = static_cast<long long>(startYear) + static_cast<long long>(delta);
+    return firstHit <= static_cast<long long>(endYear);
+}
+
 enum TraitId {
     Religiosity = 0,
     Collectivism = 1,
@@ -344,12 +358,16 @@ void CultureManager::tickYear(std::vector<Country>& countries,
     }
 
     // Institution adoption cadence (deterministic; at most one attempt per cadence).
+    const int cadenceYears = 20;
+    const int startYear = currentYear - years + 1;
+    const int endYear = currentYear;
     for (int i = 0; i < n; ++i) {
         Country& c = countries[static_cast<size_t>(i)];
         if (c.getPopulation() <= 0) continue;
 
         // Stagger by country index to spread work and keep determinism.
-        if (((currentYear + i) % 20) != 0) {
+        // dtYears-safe: if any simulated year in [startYear, endYear] hits the cadence, evaluate once.
+        if (!intervalHitsStaggeredCadence(startYear, endYear, i, cadenceYears)) {
             continue;
         }
 

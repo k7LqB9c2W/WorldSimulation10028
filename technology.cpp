@@ -342,20 +342,22 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         const double nonFoodSurplus = std::max(0.0, m.lastNonFoodOutput - m.lastNonFoodCons);
         const double surplusPc = nonFoodSurplus / pop;
         const double surplusFactor = clamp01(surplusPc / 0.00085);
+        const double foodSecurity = clamp01(m.foodSecurity);
+        const double open = clamp01(c.getTraits()[5]); // Openness
 
-        // Key fix for realism: early societies without cities/education must not accumulate
-        // thousands of "knowledge" within a few centuries. Base innovation is small, then
-        // accelerates when institutions/urbanization/education appear.
-        double innov = 5.0 + 12.0 * surplusFactor;
-        innov *= (0.22 + 0.78 * access);
-        innov *= (0.35 + 0.65 * stability);
-        innov *= (0.40 + 0.60 * legitimacy);
-        innov *= (0.25 + 0.75 * urban);
-        innov *= (0.75 + 0.70 * eduShare);
-        innov *= popScale;
-        if (m.foodSecurity < 0.95) {
-            innov *= (0.80 + 0.20 * clamp01(m.foodSecurity));
-        }
+        // Baseline craft-tradition channel: slow, persistent tinkering and learning-by-doing.
+        // Intentionally independent from modern development stocks so early polities do not hard-stall.
+        const double craftBase = 1.1;
+        const double craftPop = std::min(2.0, 0.35 + 0.25 * std::log1p(pop / 20000.0));
+        const double contact = 0.60 + 0.40 * (0.5 * access + 0.5 * open);
+        const double order = (0.35 + 0.65 * stability) * (0.40 + 0.60 * legitimacy);
+        const double survival = 0.55 + 0.45 * foodSecurity;
+        const double warPenalty = c.isAtWar() ? 0.90 : 1.0;
+        const double baselineCraft = craftBase * craftPop * contact * order * survival * warPenalty;
+
+        // Advanced innovation channel: requires surplus + urban/education/governance conditions.
+        double adv = 12.0 * surplusFactor;
+        adv += 1.0 * urban; // small non-constant floor linked to development
 
         // Continuous "knowledge infrastructure" stock: speed-up is gradual and state-driven, not stepwise.
         {
@@ -389,16 +391,30 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
             infra = std::max(0.0, infra + (infraUp - infraDecay) * yearsD);
             c.setKnowledgeInfra(infra);
 
-            innov *= (1.0 + 0.16 * std::log1p(infra));
+            const double infraFactor = (1.0 + 0.16 * std::log1p(infra));
+            adv *= infraFactor;
         }
 
-        // Constrain innovation by endogenous development stocks.
-        innov *= (0.25 + 0.75 * clamp01(m.humanCapital));   // human-capital limit
-        innov *= (0.20 + 0.80 * clamp01(m.knowledgeStock)); // applied know-how stock
-        innov *= (0.20 + 0.80 * clamp01(m.connectivityIndex));
-        innov *= (0.30 + 0.70 * clamp01(m.institutionCapacity));
-        innov *= (1.0 - 0.45 * clamp01(m.inequality));
-        c.setInnovationRate(innov);
+        // Immediate conditions shape advanced channel strongly.
+        adv *= (0.22 + 0.78 * access);
+        adv *= (0.35 + 0.65 * stability);
+        adv *= (0.40 + 0.60 * legitimacy);
+        adv *= (0.25 + 0.75 * urban);
+        adv *= (0.75 + 0.70 * eduShare);
+        adv *= popScale;
+        if (foodSecurity < 0.95) {
+            adv *= (0.80 + 0.20 * foodSecurity);
+        }
+
+        // Endogenous development stocks accelerate/constrain advanced innovation only.
+        adv *= (0.25 + 0.75 * clamp01(m.humanCapital));   // human-capital limit
+        adv *= (0.20 + 0.80 * clamp01(m.knowledgeStock)); // applied know-how stock
+        adv *= (0.20 + 0.80 * clamp01(m.connectivityIndex));
+        adv *= (0.30 + 0.70 * clamp01(m.institutionCapacity));
+        adv *= (1.0 - 0.45 * clamp01(m.inequality));
+
+        const double totalInnovPerYear = std::max(0.0, baselineCraft + std::max(0.0, adv));
+        c.setInnovationRate(totalInnovPerYear);
 
         double w[Country::kDomains] = { 1, 1, 1, 1, 1, 1, 1, 1 };
         // Domain weights respond to pressures and institutions/spending.
@@ -415,7 +431,7 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
 
         Country::KnowledgeVec& k = c.getKnowledgeMutable();
         for (int d = 0; d < Country::kDomains; ++d) {
-            k[static_cast<size_t>(d)] = std::max(0.0, k[static_cast<size_t>(d)] + (innov * (w[d] / sumW) * yearsD));
+            k[static_cast<size_t>(d)] = std::max(0.0, k[static_cast<size_t>(d)] + (totalInnovPerYear * (w[d] / sumW) * yearsD));
         }
     }
 
