@@ -1324,6 +1324,7 @@ void EconomyModelCPU::tickYear(int year,
         laborServices[static_cast<size_t>(i)] = l[2];
         laborAdmin[static_cast<size_t>(i)] = l[3];
         laborMilitary[static_cast<size_t>(i)] = l[4];
+        m.lastLaborFoodShare = (laborTotal > 1e-9) ? clamp01(l[0] / laborTotal) : 0.0;
 
         foodOutAnnual[static_cast<size_t>(i)] = sectorOutput(0, l[0]);
         goodsOutAnnual[static_cast<size_t>(i)] = sectorOutput(1, l[1]);

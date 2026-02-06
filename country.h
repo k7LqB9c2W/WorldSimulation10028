@@ -148,6 +148,7 @@ public:
         double lastDeathsFamine = 0.0;
         double lastDeathsEpi = 0.0;
         double lastAvgNutrition = 1.0;
+        double lastLaborFoodShare = 0.0; // 0..1
 
         double foodSecurity = 1.0;   // 0..1
         double marketAccess = 0.2;   // 0..1
@@ -183,6 +184,45 @@ public:
         double migrationPressureOut = 0.0;   // 0..1
         double migrationAttractiveness = 0.0;// 0..1
         double diseaseBurden = 0.0;          // 0..1
+
+        // Stability debug state (recomputed each simulated year).
+        struct StabilityDebug {
+            double dbg_pop_country_before_update = 0.0;
+            double dbg_pop_grid_oldTotals = 0.0;
+            double dbg_pop_mismatch_ratio = 1.0;
+
+            double dbg_stab_start_year = 0.0;
+            double dbg_stab_after_country_update = 0.0;
+            double dbg_stab_after_budget = 0.0;
+            double dbg_stab_after_demography = 0.0;
+
+            double dbg_stab_delta_update = 0.0;
+            double dbg_stab_delta_budget = 0.0;
+            double dbg_stab_delta_demog = 0.0;
+            double dbg_stab_delta_total = 0.0;
+
+            double dbg_growthRatio_used = 0.0;
+            int dbg_stagnationYears = 0;
+            bool dbg_isAtWar = false;
+            bool dbg_plagueAffected = false;
+
+            double dbg_delta_war = 0.0;
+            double dbg_delta_plague = 0.0;
+            double dbg_delta_stagnation = 0.0;
+            double dbg_delta_peace_recover = 0.0;
+
+            double dbg_delta_debt_crisis = 0.0;
+            double dbg_delta_control_decay = 0.0;
+            double dbg_avgControl = 0.0;
+            double dbg_gold = 0.0;
+            double dbg_debt = 0.0;
+            double dbg_incomeAnnual = 0.0;
+
+            double dbg_shortageRatio = 0.0;
+            double dbg_diseaseBurden = 0.0;
+            double dbg_delta_demog_stress = 0.0;
+        };
+        StabilityDebug stabilityDebug{};
     };
 
     const MacroEconomyState& getMacroEconomy() const { return m_macro; }
@@ -340,6 +380,7 @@ public:
     void clearEnemies();
     void setPopulation(long long population);
     double getStability() const;
+    int getStagnationYears() const { return m_stagnationYears; }
     int getYearsSinceWar() const;
     bool isFragmentationReady() const;
     int getFragmentationCooldown() const;

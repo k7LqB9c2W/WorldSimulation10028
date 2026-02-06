@@ -483,6 +483,7 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
                                     int techCount,
                                     bool plagueAffected) {
     auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+    auto& sdbg = m_macro.stabilityDebug;
 
     const int years = std::max(1, dtYears);
     const double yearsD = static_cast<double>(years);
@@ -490,6 +491,10 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
     setLastTaxStats(taxBaseAnnual, taxTakeAnnual);
 
     const double incomeAnnual = std::max(0.0, taxTakeAnnual);
+    sdbg.dbg_incomeAnnual = incomeAnnual;
+    sdbg.dbg_avgControl = clamp01(m_avgControl);
+    sdbg.dbg_delta_debt_crisis = 0.0;
+    sdbg.dbg_delta_control_decay = 0.0;
 
     double spendRate = std::clamp(m_polity.treasurySpendRate, 0.3, 2.0);
     if (m_isAtWar) {
@@ -499,10 +504,12 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
 
     m_gold += (incomeAnnual - expensesAnnual) * yearsD;
     if (m_gold < 0.0) {
+        const double before = m_stability;
         m_polity.debt += -m_gold;
         m_gold = 0.0;
         m_polity.legitimacy = clamp01(m_polity.legitimacy - 0.03);
         m_stability = clamp01(m_stability - 0.03);
+        sdbg.dbg_delta_debt_crisis += (m_stability - before);
     }
     m_polity.debt *= std::pow(1.01, yearsD);
 
@@ -556,7 +563,17 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
     }
 
     // Low territorial control creates local failure that feeds back into stability.
-    m_stability = clamp01(m_stability - yearsD * (1.0 - std::clamp(m_avgControl, 0.0, 1.0)) * 0.006);
+    {
+        const double before = m_stability;
+        const double controlDecay = yearsD * (1.0 - std::clamp(m_avgControl, 0.0, 1.0)) * 0.006;
+        m_stability = clamp01(m_stability - controlDecay);
+        sdbg.dbg_delta_control_decay = (m_stability - before);
+    }
+
+    sdbg.dbg_gold = std::max(0.0, m_gold);
+    sdbg.dbg_debt = std::max(0.0, m_polity.debt);
+    sdbg.dbg_stab_after_budget = clamp01(m_stability);
+    sdbg.dbg_stab_delta_budget = sdbg.dbg_stab_after_budget - sdbg.dbg_stab_after_country_update;
 }
 
 void Country::setFragmentationCooldown(int years) {
@@ -658,6 +675,10 @@ bool Country::isNeighbor(const Country& other) const {
 	    auto clamp01 = [](double v) {
 	        return std::max(0.0, std::min(1.0, v));
 	    };
+
+        auto& sdbg = m_macro.stabilityDebug;
+        sdbg.dbg_pop_country_before_update = static_cast<double>(std::max<long long>(0, m_population));
+        sdbg.dbg_stab_start_year = clamp01(m_stability);
 
 	    auto normalizeBudgetShares = [&]() {
 	        m_polity.militarySpendingShare = std::max(0.02, m_polity.militarySpendingShare);
@@ -1405,20 +1426,38 @@ bool Country::isNeighbor(const Country& other) const {
 
     bool plagueAffected = plagueActive && map.isCountryAffectedByPlague(m_countryIndex);
     double stabilityDelta = 0.0;
+    double deltaWar = 0.0;
+    double deltaPlague = 0.0;
+    double deltaStagnation = 0.0;
+    double deltaPeaceRecover = 0.0;
     if (isAtWar()) {
-        stabilityDelta -= 0.05;
+        deltaWar = -0.05;
+        stabilityDelta += deltaWar;
     }
     if (plagueAffected) {
-        stabilityDelta -= 0.08;
+        deltaPlague = -0.08;
+        stabilityDelta += deltaPlague;
     }
     if (m_stagnationYears > 20) {
-        stabilityDelta -= 0.02;
+        deltaStagnation = -0.02;
+        stabilityDelta += deltaStagnation;
     }
     if (!isAtWar() && !plagueAffected) {
-        stabilityDelta += (growthRatio > 0.003) ? 0.02 : 0.005;
+        deltaPeaceRecover = (growthRatio > 0.003) ? 0.02 : 0.005;
+        stabilityDelta += deltaPeaceRecover;
     }
 
     m_stability = std::max(0.0, std::min(1.0, m_stability + stabilityDelta));
+    sdbg.dbg_growthRatio_used = growthRatio;
+    sdbg.dbg_stagnationYears = m_stagnationYears;
+    sdbg.dbg_isAtWar = isAtWar();
+    sdbg.dbg_plagueAffected = plagueAffected;
+    sdbg.dbg_delta_war = deltaWar;
+    sdbg.dbg_delta_plague = deltaPlague;
+    sdbg.dbg_delta_stagnation = deltaStagnation;
+    sdbg.dbg_delta_peace_recover = deltaPeaceRecover;
+    sdbg.dbg_stab_after_country_update = clamp01(m_stability);
+    sdbg.dbg_stab_delta_update = sdbg.dbg_stab_after_country_update - sdbg.dbg_stab_start_year;
     if (m_fragmentationCooldown > 0) {
         m_fragmentationCooldown--;
     }

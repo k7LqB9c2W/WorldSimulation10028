@@ -2239,11 +2239,22 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
     // No need for tempGrid here anymore - tempGrid is handled within Country::update
     // std::vector<std::vector<int>> tempGrid = m_countryGrid; // REMOVE THIS LINE
 
-	    // 🛡️ PERFORMANCE FIX: Remove OpenMP to prevent mutex contention and thread blocking
-	    for (int i = 0; i < countries.size(); ++i) {
-	        countries[i].update(m_isLandGrid, m_countryGrid, m_gridMutex, m_gridCellSize, m_regionSize, m_dirtyRegions, currentYear, m_resourceGrid, news, m_plagueActive, m_plagueDeathToll, *this, technologyManager, countries);
-	        countries[i].attemptTechnologySharing(currentYear, countries, technologyManager, *this, news);
-	    }
+		    // 🛡️ PERFORMANCE FIX: Remove OpenMP to prevent mutex contention and thread blocking
+		    for (int i = 0; i < countries.size(); ++i) {
+                Country& c = countries[static_cast<size_t>(i)];
+                auto& sdbg = c.getMacroEconomyMutable().stabilityDebug;
+                sdbg = Country::MacroEconomyState::StabilityDebug{};
+                sdbg.dbg_stab_start_year = std::clamp(c.getStability(), 0.0, 1.0);
+                sdbg.dbg_stab_after_country_update = sdbg.dbg_stab_start_year;
+                sdbg.dbg_stab_after_budget = sdbg.dbg_stab_start_year;
+                sdbg.dbg_stab_after_demography = sdbg.dbg_stab_start_year;
+                sdbg.dbg_pop_country_before_update = static_cast<double>(std::max<long long>(0, c.getPopulation()));
+                sdbg.dbg_gold = std::max(0.0, c.getGold());
+                sdbg.dbg_debt = std::max(0.0, c.getDebt());
+                sdbg.dbg_avgControl = std::clamp(c.getAvgControl(), 0.0, 1.0);
+		        countries[i].update(m_isLandGrid, m_countryGrid, m_gridMutex, m_gridCellSize, m_regionSize, m_dirtyRegions, currentYear, m_resourceGrid, news, m_plagueActive, m_plagueDeathToll, *this, technologyManager, countries);
+		        countries[i].attemptTechnologySharing(currentYear, countries, technologyManager, *this, news);
+		    }
 
     // Clean up extinct countries without erasing (keeps country indices stable).
     for (int i = 0; i < static_cast<int>(countries.size()); ++i) {
@@ -2318,7 +2329,11 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
     for (int i = 0; i < countryCount; ++i) {
         Country& c = countries[static_cast<size_t>(i)];
         Country::MacroEconomyState& m = c.getMacroEconomyMutable();
+        auto& sdbg = m.stabilityDebug;
         const double oldPop = std::max(0.0, oldTotals[static_cast<size_t>(i)]);
+        sdbg.dbg_pop_grid_oldTotals = oldPop;
+        const double popBeforeUpdate = std::max(1.0, sdbg.dbg_pop_country_before_update);
+        sdbg.dbg_pop_mismatch_ratio = oldPop / popBeforeUpdate;
         if (oldPop <= 1e-9) {
             c.setPopulation(0);
             c.getPopulationCohortsMutable().fill(0.0);
@@ -2331,6 +2346,12 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
             m.lastDeathsFamine = 0.0;
             m.lastDeathsEpi = 0.0;
             m.lastAvgNutrition = 1.0;
+            sdbg.dbg_shortageRatio = 0.0;
+            sdbg.dbg_diseaseBurden = 0.0;
+            sdbg.dbg_delta_demog_stress = 0.0;
+            sdbg.dbg_stab_after_demography = clamp01(c.getStability());
+            sdbg.dbg_stab_delta_demog = sdbg.dbg_stab_after_demography - sdbg.dbg_stab_after_budget;
+            sdbg.dbg_stab_delta_total = sdbg.dbg_stab_after_demography - sdbg.dbg_stab_start_year;
             continue;
         }
 
@@ -2367,7 +2388,6 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
         const double institution = clamp01(m.institutionCapacity);
         const double healthSpend = clamp01(c.getHealthSpendingShare());
         const double legitimacy = clamp01(c.getLegitimacy());
-        const double stability = clamp01(c.getStability());
         const bool war = c.isAtWar();
 
         // Beta/Gamma/Mu are yearly rates; we integrate in yearly substeps for dtYears stability.
@@ -2449,14 +2469,14 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
 
             const double infDeathsCount = popNow * infDeathsFrac;
 
-            const double fertility =
-                0.050 *
+            // February 5, 2026: removed stability multiplier from fertility due to a stability bug suppressing births.
+            const double fertilityFemaleRate =
+                0.20 *
                 (0.25 + 0.75 * nutrition) *
-                (0.35 + 0.65 * stability) *
                 (0.40 + 0.60 * clamp01(m.realWage / 2.0)) *
                 (1.0 - 0.50 * epi.i) *
                 (war ? 0.88 : 1.0);
-            const double births = std::max(0.0, cohorts[2] * fertility * subDt);
+            const double births = std::max(0.0, cohorts[2] * 0.5 * fertilityFemaleRate * subDt);
             cumulativeBirths += births;
 
             std::array<double, 5> baseDeath = {0.012, 0.002, 0.004, 0.012, 0.050};
@@ -2572,8 +2592,15 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
         newTotals[static_cast<size_t>(i)] = static_cast<double>(std::max<long long>(0, c.getPopulation()));
 
         // Additional stability/legitimacy feedback from severe stress.
-        c.setStability(c.getStability() - yearsD * (0.03 * shortageRatio + 0.02 * m.diseaseBurden));
+        const double demogStressDelta = -yearsD * (0.03 * shortageRatio + 0.02 * m.diseaseBurden);
+        c.setStability(c.getStability() + demogStressDelta);
         c.setLegitimacy(c.getLegitimacy() - yearsD * (0.025 * shortageRatio + 0.015 * m.diseaseBurden));
+        sdbg.dbg_shortageRatio = shortageRatio;
+        sdbg.dbg_diseaseBurden = m.diseaseBurden;
+        sdbg.dbg_delta_demog_stress = demogStressDelta;
+        sdbg.dbg_stab_after_demography = clamp01(c.getStability());
+        sdbg.dbg_stab_delta_demog = sdbg.dbg_stab_after_demography - sdbg.dbg_stab_after_budget;
+        sdbg.dbg_stab_delta_total = sdbg.dbg_stab_after_demography - sdbg.dbg_stab_start_year;
     }
 
     // Reconcile country-level births/deaths onto field population grid via multiplicative owner scaling.
@@ -4785,6 +4812,8 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
         double fieldPopUnowned = 0.0;
     };
 
+    auto clamp01d = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+
     auto computeWorldFoodSnapshot = [&]() -> WorldFoodSnapshot {
         WorldFoodSnapshot snap;
         double foodSecurityWeighted = 0.0;
@@ -4821,8 +4850,8 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
             snap.deathsFamineTotal += std::max(0.0, m.lastDeathsFamine);
             snap.deathsEpiTotal += std::max(0.0, m.lastDeathsEpi);
 
-            const double fs = clamp01(static_cast<float>(m.foodSecurity));
-            const double nutrition = clamp01(static_cast<float>(m.lastAvgNutrition));
+            const double fs = clamp01d(m.foodSecurity);
+            const double nutrition = clamp01d(m.lastAvgNutrition);
             foodSecurityWeighted += fs * pop;
             nutritionWeighted += nutrition * pop;
             if (fs < 0.9) popUnder09 += pop;
@@ -4880,6 +4909,365 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
                   << " deathsFamine=" << snap.deathsFamineTotal
                   << " deathsEpi=" << snap.deathsEpiTotal
                   << std::endl;
+
+        struct WorstFoodCountry {
+            int index = -1;
+            double score = 0.0;
+            double pop = 0.0;
+            double foodSecurity = 1.0;
+            double famineSeverity = 0.0;
+            double subsistenceFoodNeedAnnual = 0.0;
+            double lastFoodOutput = 0.0;
+            double importsQtyAnnual = 0.0;
+            double foodStock = 0.0;
+            double foodStockCap = 0.0;
+            double laborFoodShare = 0.0;
+            double realWage = 0.0;
+            double stability = 1.0;
+            double control = 1.0;
+        };
+
+        std::vector<WorstFoodCountry> worstCountries;
+        worstCountries.reserve(countries.size());
+        for (size_t i = 0; i < countries.size(); ++i) {
+            const Country& c = countries[i];
+            const long long popLL = c.getPopulation();
+            if (popLL <= 0) {
+                continue;
+            }
+
+            const double pop = static_cast<double>(popLL);
+            const auto& cohorts = c.getPopulationCohorts();
+            const Country::MacroEconomyState& m = c.getMacroEconomy();
+            const double subsistenceFoodNeedAnnual =
+                cohorts[0] * 0.00085 +
+                cohorts[1] * 0.00100 +
+                cohorts[2] * 0.00120 +
+                cohorts[3] * 0.00110 +
+                cohorts[4] * 0.00095;
+
+            WorstFoodCountry row;
+            row.index = static_cast<int>(i);
+            row.pop = pop;
+            row.famineSeverity = std::max(0.0, m.famineSeverity);
+            row.score = row.pop * row.famineSeverity;
+            row.foodSecurity = clamp01d(m.foodSecurity);
+            row.subsistenceFoodNeedAnnual = subsistenceFoodNeedAnnual;
+            row.lastFoodOutput = std::max(0.0, m.lastFoodOutput);
+            row.importsQtyAnnual = std::max(0.0, m.importsValue / std::max(1e-9, m.priceFood));
+            row.foodStock = std::max(0.0, m.foodStock);
+            row.foodStockCap = std::max(0.0, m.foodStockCap);
+            row.laborFoodShare = clamp01d(m.lastLaborFoodShare);
+            row.realWage = m.realWage;
+            row.stability = clamp01d(c.getStability());
+            row.control = clamp01d(c.getAvgControl());
+            worstCountries.push_back(row);
+        }
+
+        std::sort(worstCountries.begin(), worstCountries.end(),
+                  [](const WorstFoodCountry& a, const WorstFoodCountry& b) {
+                      if (a.score != b.score) return a.score > b.score;
+                      if (a.pop != b.pop) return a.pop > b.pop;
+                      return a.index < b.index;
+                  });
+
+        const size_t worstCount = std::min<size_t>(5, worstCountries.size());
+        std::cout << "[FOOD WORST5] year=" << simYear << " count=" << worstCount << std::endl;
+        for (size_t rank = 0; rank < worstCount; ++rank) {
+            const WorstFoodCountry& row = worstCountries[rank];
+            const Country& c = countries[static_cast<size_t>(row.index)];
+            std::cout << "  #" << (rank + 1)
+                      << " " << c.getName()
+                      << " (id=" << c.getCountryIndex() << ")"
+                      << " pop=" << static_cast<long long>(std::llround(row.pop))
+                      << " foodSecurity=" << row.foodSecurity
+                      << " famineSeverity=" << row.famineSeverity
+                      << " subsistenceNeed=" << row.subsistenceFoodNeedAnnual
+                      << " foodOutput=" << row.lastFoodOutput
+                      << " importsQty=" << row.importsQtyAnnual
+                      << " foodStock=" << row.foodStock
+                      << " foodStockCap=" << row.foodStockCap
+                      << " laborFoodShare=" << row.laborFoodShare
+                      << " realWage=" << row.realWage
+                      << " stability=" << row.stability
+                      << " control=" << row.control
+                      << std::endl;
+        }
+
+        struct WorstDemographyCountry {
+            int index = -1;
+            double score = 0.0;
+            double pop = 0.0;
+            double c0SharePct = 0.0;
+            double c1SharePct = 0.0;
+            double c2SharePct = 0.0;
+            double c3SharePct = 0.0;
+            double c4SharePct = 0.0;
+            double fertility = 0.0;
+            double nutritionMult = 1.0;
+            double stabilityMult = 1.0;
+            double wageMult = 1.0;
+            double crudeBirthRate = 0.0;
+            double crudeDeathRate = 0.0;
+            int stagnationYears = 0;
+            double stability = 1.0;
+        };
+
+        std::vector<WorstDemographyCountry> worstDemography;
+        worstDemography.reserve(countries.size());
+        for (size_t i = 0; i < countries.size(); ++i) {
+            const Country& c = countries[i];
+            const long long popLL = c.getPopulation();
+            if (popLL <= 0) {
+                continue;
+            }
+
+            const double pop = static_cast<double>(popLL);
+            const Country::MacroEconomyState& m = c.getMacroEconomy();
+            const auto& cohorts = c.getPopulationCohorts();
+            const double popDen = std::max(1.0, pop);
+            const double nutrition = clamp01d(m.lastAvgNutrition);
+            const double stability = clamp01d(c.getStability());
+            const double wageNorm = clamp01d(m.realWage / 2.0);
+            const double nutritionMult = 0.25 + 0.75 * nutrition;
+            const double stabilityMult = 0.35 + 0.65 * stability;
+            const double wageMult = 0.40 + 0.60 * wageNorm;
+            const double fertilityFemaleRate =
+                0.20 *
+                nutritionMult *
+                wageMult *
+                (1.0 - 0.50 * clamp01d(m.diseaseBurden)) *
+                (c.isAtWar() ? 0.88 : 1.0);
+
+            const double births = std::max(0.0, m.lastBirths);
+            const double deathsThisYear = std::max(0.0, m.lastDeathsBase + m.lastDeathsFamine + m.lastDeathsEpi);
+            const double crudeBirthRate = births / popDen;
+            const double crudeDeathRate = deathsThisYear / popDen;
+
+            WorstDemographyCountry row;
+            row.index = static_cast<int>(i);
+            row.pop = pop;
+            row.c0SharePct = 100.0 * std::max(0.0, cohorts[0]) / popDen;
+            row.c1SharePct = 100.0 * std::max(0.0, cohorts[1]) / popDen;
+            row.c2SharePct = 100.0 * std::max(0.0, cohorts[2]) / popDen;
+            row.c3SharePct = 100.0 * std::max(0.0, cohorts[3]) / popDen;
+            row.c4SharePct = 100.0 * std::max(0.0, cohorts[4]) / popDen;
+            row.fertility = fertilityFemaleRate;
+            row.nutritionMult = nutritionMult;
+            row.stabilityMult = stabilityMult;
+            row.wageMult = wageMult;
+            row.crudeBirthRate = crudeBirthRate;
+            row.crudeDeathRate = crudeDeathRate;
+            row.stagnationYears = c.getStagnationYears();
+            row.stability = stability;
+            row.score = pop * std::max(0.0, crudeDeathRate - crudeBirthRate);
+            worstDemography.push_back(row);
+        }
+
+        std::sort(worstDemography.begin(), worstDemography.end(),
+                  [](const WorstDemographyCountry& a, const WorstDemographyCountry& b) {
+                      if (a.score != b.score) return a.score > b.score;
+                      const double aGap = a.crudeDeathRate - a.crudeBirthRate;
+                      const double bGap = b.crudeDeathRate - b.crudeBirthRate;
+                      if (aGap != bGap) return aGap > bGap;
+                      if (a.pop != b.pop) return a.pop > b.pop;
+                      return a.index < b.index;
+                  });
+
+        const size_t worstDemoCount = std::min<size_t>(5, worstDemography.size());
+        std::cout << "[DEMOGRAPHY WORST5] year=" << simYear << " count=" << worstDemoCount << std::endl;
+        for (size_t rank = 0; rank < worstDemoCount; ++rank) {
+            const WorstDemographyCountry& row = worstDemography[rank];
+            const Country& c = countries[static_cast<size_t>(row.index)];
+            std::cout << "  #" << (rank + 1)
+                      << " " << c.getName()
+                      << " (id=" << c.getCountryIndex() << ")"
+                      << " pop=" << static_cast<long long>(std::llround(row.pop))
+                      << " c0=" << row.c0SharePct << "%"
+                      << " c1=" << row.c1SharePct << "%"
+                      << " c2=" << row.c2SharePct << "%"
+                      << " c3=" << row.c3SharePct << "%"
+                      << " c4=" << row.c4SharePct << "%"
+                      << " fertility=" << row.fertility
+                      << " nutritionMult=" << row.nutritionMult
+                      << " stabilityMult=" << row.stabilityMult
+                      << " wageMult=" << row.wageMult
+                      << " crudeBirthRate=" << row.crudeBirthRate
+                      << " crudeDeathRate=" << row.crudeDeathRate
+                      << " stagnationYears=" << row.stagnationYears
+                      << " stability=" << row.stability
+                      << std::endl;
+        }
+
+        struct StabilitySnapshot {
+            double popOwned = 0.0;
+            double stabMean = 1.0;
+            double stabP10 = 1.0;
+            double popShareUnder02 = 0.0;
+            double popShareUnder04 = 0.0;
+            double popShareUnder06 = 0.0;
+            double meanDeltaUpdate = 0.0;
+            double meanDeltaBudget = 0.0;
+            double meanDeltaDemog = 0.0;
+            double meanDeltaTotal = 0.0;
+            int countStagnationGt20 = 0;
+            double meanGrowthRatioUsed = 0.0;
+        };
+
+        auto computeStabilitySnapshot = [&]() -> StabilitySnapshot {
+            StabilitySnapshot out;
+            double wStability = 0.0;
+            double wDeltaUpdate = 0.0;
+            double wDeltaBudget = 0.0;
+            double wDeltaDemog = 0.0;
+            double wDeltaTotal = 0.0;
+            double wGrowthRatio = 0.0;
+            double popUnder02 = 0.0;
+            double popUnder04 = 0.0;
+            double popUnder06 = 0.0;
+            std::vector<std::pair<double, double>> stabPop;
+            stabPop.reserve(countries.size());
+
+            for (const Country& c : countries) {
+                const long long popLL = c.getPopulation();
+                if (popLL <= 0) {
+                    continue;
+                }
+                const double pop = static_cast<double>(popLL);
+                const double stab = clamp01d(c.getStability());
+                const auto& sd = c.getMacroEconomy().stabilityDebug;
+
+                out.popOwned += pop;
+                wStability += stab * pop;
+                wDeltaUpdate += sd.dbg_stab_delta_update * pop;
+                wDeltaBudget += sd.dbg_stab_delta_budget * pop;
+                wDeltaDemog += sd.dbg_stab_delta_demog * pop;
+                wDeltaTotal += sd.dbg_stab_delta_total * pop;
+                wGrowthRatio += sd.dbg_growthRatio_used * pop;
+                if (stab < 0.2) popUnder02 += pop;
+                if (stab < 0.4) popUnder04 += pop;
+                if (stab < 0.6) popUnder06 += pop;
+                if (sd.dbg_stagnationYears > 20) {
+                    out.countStagnationGt20++;
+                }
+                stabPop.emplace_back(stab, pop);
+            }
+
+            const double popDen = std::max(1.0, out.popOwned);
+            out.stabMean = wStability / popDen;
+            out.popShareUnder02 = popUnder02 / popDen;
+            out.popShareUnder04 = popUnder04 / popDen;
+            out.popShareUnder06 = popUnder06 / popDen;
+            out.meanDeltaUpdate = wDeltaUpdate / popDen;
+            out.meanDeltaBudget = wDeltaBudget / popDen;
+            out.meanDeltaDemog = wDeltaDemog / popDen;
+            out.meanDeltaTotal = wDeltaTotal / popDen;
+            out.meanGrowthRatioUsed = wGrowthRatio / popDen;
+
+            std::sort(stabPop.begin(), stabPop.end(),
+                      [](const std::pair<double, double>& a, const std::pair<double, double>& b) {
+                          if (a.first != b.first) return a.first < b.first;
+                          return a.second > b.second;
+                      });
+            double acc = 0.0;
+            const double target = 0.10 * out.popOwned;
+            out.stabP10 = 1.0;
+            for (const auto& v : stabPop) {
+                acc += v.second;
+                out.stabP10 = v.first;
+                if (acc >= target) {
+                    break;
+                }
+            }
+            return out;
+        };
+
+        const StabilitySnapshot stabilitySnapshot = computeStabilitySnapshot();
+        std::cout << "[STABILITY SNAPSHOT] year=" << simYear
+                  << " popOwned=" << static_cast<long long>(std::llround(stabilitySnapshot.popOwned))
+                  << " stabMean=" << stabilitySnapshot.stabMean
+                  << " stabP10=" << stabilitySnapshot.stabP10
+                  << " pop<0.2=" << (100.0 * stabilitySnapshot.popShareUnder02) << "%"
+                  << " pop<0.4=" << (100.0 * stabilitySnapshot.popShareUnder04) << "%"
+                  << " pop<0.6=" << (100.0 * stabilitySnapshot.popShareUnder06) << "%"
+                  << " meanDeltaTotal=" << stabilitySnapshot.meanDeltaTotal
+                  << " meanDeltaUpdate=" << stabilitySnapshot.meanDeltaUpdate
+                  << " meanDeltaBudget=" << stabilitySnapshot.meanDeltaBudget
+                  << " meanDeltaDemog=" << stabilitySnapshot.meanDeltaDemog
+                  << " countStagn>20=" << stabilitySnapshot.countStagnationGt20
+                  << " meanGrowthRatio=" << stabilitySnapshot.meanGrowthRatioUsed
+                  << std::endl;
+
+        struct WorstStabilityCountry {
+            int index = -1;
+            double score = 0.0;
+            double pop = 0.0;
+            Country::MacroEconomyState::StabilityDebug dbg{};
+        };
+
+        std::vector<WorstStabilityCountry> worstStability;
+        worstStability.reserve(countries.size());
+        for (size_t i = 0; i < countries.size(); ++i) {
+            const Country& c = countries[i];
+            const long long popLL = c.getPopulation();
+            if (popLL <= 0) {
+                continue;
+            }
+            WorstStabilityCountry row;
+            row.index = static_cast<int>(i);
+            row.pop = static_cast<double>(popLL);
+            row.dbg = c.getMacroEconomy().stabilityDebug;
+            row.score = row.dbg.dbg_stab_delta_total;
+            worstStability.push_back(row);
+        }
+
+        std::sort(worstStability.begin(), worstStability.end(),
+                  [](const WorstStabilityCountry& a, const WorstStabilityCountry& b) {
+                      if (a.score != b.score) return a.score < b.score; // more negative is worse
+                      if (a.dbg.dbg_stab_after_demography != b.dbg.dbg_stab_after_demography) {
+                          return a.dbg.dbg_stab_after_demography < b.dbg.dbg_stab_after_demography;
+                      }
+                      if (a.pop != b.pop) return a.pop > b.pop;
+                      return a.index < b.index;
+                  });
+
+        const size_t worstStabilityCount = std::min<size_t>(5, worstStability.size());
+        std::cout << "[STABILITY WORST5] year=" << simYear << " count=" << worstStabilityCount << std::endl;
+        for (size_t rank = 0; rank < worstStabilityCount; ++rank) {
+            const WorstStabilityCountry& row = worstStability[rank];
+            const Country& c = countries[static_cast<size_t>(row.index)];
+            const auto& sd = row.dbg;
+            std::cout << "  #" << (rank + 1)
+                      << " " << c.getName()
+                      << " (id=" << c.getCountryIndex() << ")"
+                      << " pop=" << static_cast<long long>(std::llround(row.pop))
+                      << " stabStart=" << sd.dbg_stab_start_year
+                      << " stabAfterUpdate=" << sd.dbg_stab_after_country_update
+                      << " stabAfterBudget=" << sd.dbg_stab_after_budget
+                      << " stabAfterDemog=" << sd.dbg_stab_after_demography
+                      << " deltas(update=" << sd.dbg_stab_delta_update
+                      << ", budget=" << sd.dbg_stab_delta_budget
+                      << ", demog=" << sd.dbg_stab_delta_demog
+                      << ", total=" << sd.dbg_stab_delta_total << ")"
+                      << " growthRatio=" << sd.dbg_growthRatio_used
+                      << " stagnYears=" << sd.dbg_stagnationYears
+                      << " war=" << (sd.dbg_isAtWar ? 1 : 0)
+                      << " plague=" << (sd.dbg_plagueAffected ? 1 : 0)
+                      << " deltas(war=" << sd.dbg_delta_war
+                      << ", plague=" << sd.dbg_delta_plague
+                      << ", stagn=" << sd.dbg_delta_stagnation
+                      << ", peaceRec=" << sd.dbg_delta_peace_recover << ")"
+                      << " deltas(debt=" << sd.dbg_delta_debt_crisis
+                      << ", control=" << sd.dbg_delta_control_decay
+                      << ", demogStress=" << sd.dbg_delta_demog_stress << ")"
+                      << " control=" << sd.dbg_avgControl
+                      << " shortage=" << sd.dbg_shortageRatio
+                      << " disease=" << sd.dbg_diseaseBurden
+                      << " popCountryBeforeUpdate=" << sd.dbg_pop_country_before_update
+                      << " popGridOld=" << sd.dbg_pop_grid_oldTotals
+                      << " mismatch=" << sd.dbg_pop_mismatch_ratio
+                      << std::endl;
+        }
 
         if (populationDebugLog.is_open()) {
             populationDebugLog << simYear
