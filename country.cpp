@@ -484,6 +484,7 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
                                     bool plagueAffected) {
     auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
     auto& sdbg = m_macro.stabilityDebug;
+    auto& ldbg = m_macro.legitimacyDebug;
 
     const int years = std::max(1, dtYears);
     const double yearsD = static_cast<double>(years);
@@ -495,6 +496,7 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
     sdbg.dbg_avgControl = clamp01(m_avgControl);
     sdbg.dbg_delta_debt_crisis = 0.0;
     sdbg.dbg_delta_control_decay = 0.0;
+    ldbg.dbg_legit_budget_incomeAnnual = incomeAnnual;
 
     // Desired spending is pressure-driven, then capped by what can be financed.
     const double institutionCapacity = clamp01(m_macro.institutionCapacity);
@@ -581,18 +583,53 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
     const double serviceStress = clamp01((serviceToIncome - 0.25) / 0.35);
     const double burdenStress = std::max(serviceStress, debtStress);
 
+    ldbg.dbg_legit_budget_desiredBlock = desiredBlock;
+    ldbg.dbg_legit_budget_actualSpending = actualSpending;
+    ldbg.dbg_legit_budget_shortfall = shortfall;
+    ldbg.dbg_legit_budget_shortfallStress = shortfallStress;
+    ldbg.dbg_legit_budget_debtStart = debtStart;
+    ldbg.dbg_legit_budget_debtEnd = std::max(0.0, m_polity.debt);
+    ldbg.dbg_legit_budget_debtToIncome = debtToIncome;
+    ldbg.dbg_legit_budget_interestRate = interestRate;
+    ldbg.dbg_legit_budget_debtServiceAnnual = debtServiceAnnual;
+    ldbg.dbg_legit_budget_serviceToIncome = serviceToIncome;
+    ldbg.dbg_legit_budget_taxRate = std::clamp(m_polity.taxRate, 0.02, 0.45);
+    ldbg.dbg_legit_budget_avgControl = std::clamp(m_avgControl, 0.0, 1.0);
+    ldbg.dbg_legit_budget_stability = std::clamp(m_stability, 0.0, 1.0);
+    ldbg.dbg_legit_budget_borrowingEnabled = borrowingEnabled;
+    ldbg.dbg_legit_budget_debtLimit = debtLimit;
+    ldbg.dbg_legit_budget_war = m_isAtWar;
+    ldbg.dbg_legit_budget_plagueAffected = plagueAffected;
+    ldbg.dbg_legit_budget_debtStress = debtStress;
+    ldbg.dbg_legit_budget_serviceStress = serviceStress;
+
+    auto applyBudgetLegitimacyDelta = [&](double delta) {
+        const double before = clamp01(m_polity.legitimacy);
+        const double target = before + delta;
+        if (target < 0.0 && before > 0.0) {
+            ldbg.dbg_legit_clamp_to_zero_budget++;
+        }
+        m_polity.legitimacy = clamp01(target);
+        return clamp01(m_polity.legitimacy) - before;
+    };
+
     // Financing shortfalls feed directly into state quality (without scripted policy rules).
     m_polity.adminCapacity = clamp01(m_polity.adminCapacity - yearsD * 0.012 * shortfallStress);
     m_militaryStrength = std::max(0.0, m_militaryStrength * (1.0 - std::min(0.30, 0.10 * shortfallStress * yearsD)));
-    m_polity.legitimacy = clamp01(m_polity.legitimacy - yearsD * 0.012 * shortfallStress);
+    ldbg.dbg_legit_budget_shortfall_direct = -(yearsD * 0.012 * shortfallStress);
+    applyBudgetLegitimacyDelta(ldbg.dbg_legit_budget_shortfall_direct);
 
     // Replace binary "negative gold crisis" with burden-scaled penalties.
     if (serviceToIncome > 0.25 || debtToIncome > debtThreshold) {
         const double before = m_stability;
         m_stability = clamp01(m_stability - yearsD * (0.012 * debtStress + 0.030 * serviceStress + 0.012 * shortfallStress));
         sdbg.dbg_delta_debt_crisis += (m_stability - before);
-        m_polity.legitimacy = clamp01(m_polity.legitimacy - yearsD * (0.010 * debtStress + 0.026 * serviceStress + 0.010 * shortfallStress));
+        ldbg.dbg_legit_budget_burden_penalty =
+            -(yearsD * (0.010 * debtStress + 0.026 * serviceStress + 0.010 * shortfallStress));
+        applyBudgetLegitimacyDelta(ldbg.dbg_legit_budget_burden_penalty);
         m_macro.leakageRate = std::clamp(m_macro.leakageRate + yearsD * (0.015 * burdenStress + 0.020 * shortfallStress), 0.02, 0.95);
+    } else {
+        ldbg.dbg_legit_budget_burden_penalty = 0.0;
     }
 
     m_macro.educationInvestment = clamp01(m_polity.educationSpendingShare);
@@ -635,16 +672,24 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
         const double taxRate = std::clamp(m_polity.taxRate, 0.02, 0.45);
         const double control = std::clamp(m_avgControl, 0.0, 1.0);
         const double stability = std::clamp(m_stability, 0.0, 1.0);
-        double d = 0.0;
-        d += 0.002 * (stability - 0.5);
-        d -= std::max(0.0, taxRate - 0.12) * 0.04;
-        d -= (1.0 - control) * 0.010;
-        d -= 0.008 * debtStress;
-        d -= 0.012 * serviceStress;
-        d -= 0.010 * shortfallStress;
-        if (plagueAffected) d -= 0.02;
-        if (m_isAtWar) d -= 0.01;
-        m_polity.legitimacy = clamp01(m_polity.legitimacy + d * yearsD);
+        ldbg.dbg_legit_budget_drift_stability = +0.002 * (stability - 0.5) * yearsD;
+        ldbg.dbg_legit_budget_drift_tax = -std::max(0.0, taxRate - 0.12) * 0.04 * yearsD;
+        ldbg.dbg_legit_budget_drift_control = -(1.0 - control) * 0.010 * yearsD;
+        ldbg.dbg_legit_budget_drift_debt = -0.008 * debtStress * yearsD;
+        ldbg.dbg_legit_budget_drift_service = -0.012 * serviceStress * yearsD;
+        ldbg.dbg_legit_budget_drift_shortfall = -0.010 * shortfallStress * yearsD;
+        ldbg.dbg_legit_budget_drift_plague = plagueAffected ? (-0.02 * yearsD) : 0.0;
+        ldbg.dbg_legit_budget_drift_war = m_isAtWar ? (-0.01 * yearsD) : 0.0;
+        ldbg.dbg_legit_budget_drift_total =
+            ldbg.dbg_legit_budget_drift_stability +
+            ldbg.dbg_legit_budget_drift_tax +
+            ldbg.dbg_legit_budget_drift_control +
+            ldbg.dbg_legit_budget_drift_debt +
+            ldbg.dbg_legit_budget_drift_service +
+            ldbg.dbg_legit_budget_drift_shortfall +
+            ldbg.dbg_legit_budget_drift_plague +
+            ldbg.dbg_legit_budget_drift_war;
+        applyBudgetLegitimacyDelta(ldbg.dbg_legit_budget_drift_total);
     }
 
     // Low territorial control creates local failure that feeds back into stability.
@@ -659,6 +704,9 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
     sdbg.dbg_debt = std::max(0.0, m_polity.debt);
     sdbg.dbg_stab_after_budget = clamp01(m_stability);
     sdbg.dbg_stab_delta_budget = sdbg.dbg_stab_after_budget - sdbg.dbg_stab_after_country_update;
+    ldbg.dbg_legit_budget_debtEnd = std::max(0.0, m_polity.debt);
+    ldbg.dbg_legit_after_budget = clamp01(m_polity.legitimacy);
+    ldbg.dbg_legit_delta_budget = ldbg.dbg_legit_after_budget - ldbg.dbg_legit_after_economy;
 }
 
 void Country::setFragmentationCooldown(int years) {

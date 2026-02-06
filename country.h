@@ -223,6 +223,84 @@ public:
             double dbg_delta_demog_stress = 0.0;
         };
         StabilityDebug stabilityDebug{};
+
+        // Legitimacy debug state (recomputed each simulated year).
+        struct LegitimacyDebug {
+            double dbg_legit_start = 0.0;
+            double dbg_legit_after_economy = 0.0;
+            double dbg_legit_after_budget = 0.0;
+            double dbg_legit_after_demog = 0.0;
+            double dbg_legit_after_culture = 0.0;
+            double dbg_legit_end = 0.0;
+
+            double dbg_legit_delta_economy = 0.0;
+            double dbg_legit_delta_budget = 0.0;
+            double dbg_legit_delta_demog = 0.0;
+            double dbg_legit_delta_culture = 0.0;
+            double dbg_legit_delta_events = 0.0;
+            double dbg_legit_delta_total = 0.0;
+
+            // Economy drift inputs/components.
+            double dbg_legit_econ_instCap = 0.0;
+            double dbg_legit_econ_wageGain = 0.0;
+            double dbg_legit_econ_famineSeverity = 0.0;
+            double dbg_legit_econ_ineq = 0.0;
+            double dbg_legit_econ_disease = 0.0;
+            double dbg_legit_econ_yearsD = 0.0;
+            double dbg_legit_econ_up_inst = 0.0;
+            double dbg_legit_econ_up_wage = 0.0;
+            double dbg_legit_econ_down_famine = 0.0;
+            double dbg_legit_econ_down_ineq = 0.0;
+            double dbg_legit_econ_down_disease = 0.0;
+
+            // Budget inputs/checks.
+            double dbg_legit_budget_incomeAnnual = 0.0;
+            double dbg_legit_budget_desiredBlock = 0.0;
+            double dbg_legit_budget_actualSpending = 0.0;
+            double dbg_legit_budget_shortfall = 0.0;
+            double dbg_legit_budget_shortfallStress = 0.0;
+            double dbg_legit_budget_debtStart = 0.0;
+            double dbg_legit_budget_debtEnd = 0.0;
+            double dbg_legit_budget_debtToIncome = 0.0;
+            double dbg_legit_budget_interestRate = 0.0;
+            double dbg_legit_budget_debtServiceAnnual = 0.0;
+            double dbg_legit_budget_serviceToIncome = 0.0;
+            double dbg_legit_budget_taxRate = 0.0;
+            double dbg_legit_budget_avgControl = 0.0;
+            double dbg_legit_budget_stability = 0.0;
+            bool dbg_legit_budget_borrowingEnabled = false;
+            double dbg_legit_budget_debtLimit = 0.0;
+            bool dbg_legit_budget_war = false;
+            bool dbg_legit_budget_plagueAffected = false;
+            double dbg_legit_budget_debtStress = 0.0;
+            double dbg_legit_budget_serviceStress = 0.0;
+
+            // Budget legitimacy delta components.
+            double dbg_legit_budget_shortfall_direct = 0.0;
+            double dbg_legit_budget_burden_penalty = 0.0;
+            double dbg_legit_budget_drift_stability = 0.0;
+            double dbg_legit_budget_drift_tax = 0.0;
+            double dbg_legit_budget_drift_control = 0.0;
+            double dbg_legit_budget_drift_debt = 0.0;
+            double dbg_legit_budget_drift_service = 0.0;
+            double dbg_legit_budget_drift_shortfall = 0.0;
+            double dbg_legit_budget_drift_plague = 0.0;
+            double dbg_legit_budget_drift_war = 0.0;
+            double dbg_legit_budget_drift_total = 0.0;
+            int dbg_legit_clamp_to_zero_budget = 0;
+
+            // Demography stress.
+            double dbg_legit_demog_shortageRatio = 0.0;
+            double dbg_legit_demog_diseaseBurden = 0.0;
+            double dbg_legit_delta_demog_stress = 0.0;
+            int dbg_legit_clamp_to_zero_demog = 0;
+
+            // Political/culture counters.
+            int dbg_legit_event_splits = 0;
+            int dbg_legit_event_tag_replacements = 0;
+            int dbg_legit_clamp_to_zero_events = 0;
+        };
+        LegitimacyDebug legitimacyDebug{};
     };
 
     const MacroEconomyState& getMacroEconomy() const { return m_macro; }

@@ -85,6 +85,7 @@ std::string megaTimeJumpInput = "";
 bool megaTimeJumpDebugLogEnabled = false;
 std::string megaTimeJumpInputError = "";
 bool megaTimeJumpFocusInputNextFrame = false;
+int megaTimeJumpInputSessionId = 0;
 
 namespace {
 std::string buildMegaDebugLogPath(const char* argv0) {
@@ -439,6 +440,7 @@ int main(int argc, char** argv) {
 	    bool megaTimeJumpPendingClose = false;
 	    int megaTimeJumpStartYear = 0;
 	    int megaTimeJumpTargetYear = 0;
+        bool megaTimeJumpSuppressOpenKeyText = false;
 	    std::thread megaTimeJumpThread;
 	    std::atomic<bool> megaTimeJumpCancelRequested{ false };
 	    std::atomic<bool> megaTimeJumpDone{ false };
@@ -473,7 +475,7 @@ int main(int argc, char** argv) {
 	        }
 		    } megaTimeJumpThreadGuard{ megaTimeJumpThread, megaTimeJumpCancelRequested };
 
-        auto tryLaunchMegaTimeJumpFromInput = [&]() -> bool {
+	        auto tryLaunchMegaTimeJumpFromInput = [&]() -> bool {
             if (megaTimeJumpInput.empty()) {
                 megaTimeJumpInputError = "Enter a target year.";
                 return false;
@@ -498,6 +500,7 @@ int main(int argc, char** argv) {
 
             megaTimeJumpMode = false;
             megaTimeJumpInputError.clear();
+            megaTimeJumpSuppressOpenKeyText = false;
 
             megaTimeJumpStartYear = currentYear;
             megaTimeJumpTargetYear = targetYear;
@@ -576,11 +579,11 @@ int main(int argc, char** argv) {
 
 		    sf::Clock imguiDeltaClock;
 
-			    while (window.isOpen()) {
-			        frameClock.restart(); // Start frame timing
-			        const sf::Time imguiDt = imguiDeltaClock.restart();
+	        while (window.isOpen()) {
+		        frameClock.restart(); // Start frame timing
+		        const sf::Time imguiDt = imguiDeltaClock.restart();
 		        
-		        sf::Event event;
+	        sf::Event event;
 	        auto tryGetGridUnderMouse = [&](const sf::Vector2i& mousePos, sf::Vector2i& outGrid) -> bool {
 	            if (viewMode == ViewMode::Globe) {
 	                return renderer.globeScreenToGrid(mousePos, map, outGrid);
@@ -602,7 +605,17 @@ int main(int argc, char** argv) {
 		                continue;
 		            }
 
-		            if (guiVisible || megaTimeJumpMode) {
+                    bool suppressImGuiEvent = false;
+                    if (megaTimeJumpMode &&
+                        event.type == sf::Event::TextEntered &&
+                        (event.text.unicode == static_cast<sf::Uint32>('z') || event.text.unicode == static_cast<sf::Uint32>('Z')) &&
+                        (megaTimeJumpSuppressOpenKeyText || sf::Keyboard::isKeyPressed(sf::Keyboard::Z))) {
+                        suppressImGuiEvent = true;
+                    } else if (event.type == sf::Event::TextEntered) {
+                        megaTimeJumpSuppressOpenKeyText = false;
+                    }
+
+		            if ((guiVisible || megaTimeJumpMode) && !suppressImGuiEvent) {
 		                ImGui::SFML::ProcessEvent(window, event);
 		            }
 
@@ -616,13 +629,14 @@ int main(int argc, char** argv) {
 	                    continue;
 	                }
 
-	                if (megaTimeJumpMode) {
-	                    if (event.key.code == sf::Keyboard::Escape) {
-	                        megaTimeJumpMode = false;
-	                        megaTimeJumpInputError.clear();
-	                    }
-	                    continue;
-	                }
+			                if (megaTimeJumpMode) {
+			                    if (event.key.code == sf::Keyboard::Escape) {
+			                        megaTimeJumpMode = false;
+			                        megaTimeJumpInputError.clear();
+                                megaTimeJumpSuppressOpenKeyText = false;
+			                    }
+			                    continue;
+			                }
 
 	                const bool guiCapturesKeyboard = guiVisible && ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().WantCaptureKeyboard;
 	                if (guiCapturesKeyboard) {
@@ -939,13 +953,15 @@ int main(int argc, char** argv) {
 	                        std::cout << "Select a country first (click one) to edit its technologies." << std::endl;
 	                    }
 	                }
-	                else if (event.key.code == sf::Keyboard::Z) { // 🚀 MEGA TIME JUMP MODE
-	                    megaTimeJumpMode = true;
+		                else if (event.key.code == sf::Keyboard::Z) { // 🚀 MEGA TIME JUMP MODE
+		                    megaTimeJumpMode = true;
+                        ++megaTimeJumpInputSessionId;
                         megaTimeJumpInput = std::to_string(std::clamp(currentYear + 1, -5000, 2025));
                         megaTimeJumpInputError.clear();
                         megaTimeJumpFocusInputNextFrame = true;
-	                    std::cout << "\n🚀 MEGA TIME JUMP MODE ACTIVATED!" << std::endl;
-	                }
+                        megaTimeJumpSuppressOpenKeyText = true;
+		                    std::cout << "\n🚀 MEGA TIME JUMP MODE ACTIVATED!" << std::endl;
+		                }
 		                else if (event.key.code == sf::Keyboard::G && !megaTimeJumpMode) { // 🌍 TOGGLE GLOBE VIEW
 		                    viewMode = (viewMode == ViewMode::Flat2D) ? ViewMode::Globe : ViewMode::Flat2D;
 		                    if (viewMode == ViewMode::Globe) {
@@ -1387,10 +1403,12 @@ int main(int argc, char** argv) {
 	                    megaTimeJumpThread.join();
 	                }
 
-	                megaTimeJumpRunning = false;
-	                megaTimeJumpDone.store(false, std::memory_order_relaxed);
-	                megaTimeJumpGpuChunkActive = false;
-	                megaTimeJumpGpuChunkNeedsTerritorySync = false;
+		                megaTimeJumpRunning = false;
+		                megaTimeJumpDone.store(false, std::memory_order_relaxed);
+		                megaTimeJumpGpuChunkActive = false;
+		                megaTimeJumpGpuChunkNeedsTerritorySync = false;
+                        megaTimeJumpSuppressOpenKeyText = false;
+                        megaTimeJumpFocusInputNextFrame = false;
 
 	                // Prevent an immediate real-time year jump after a long background run.
 	                yearClock.restart();
@@ -1616,12 +1634,19 @@ int main(int argc, char** argv) {
                         if (ImGui::Begin("Mega Time Jump", nullptr, flags)) {
                             ImGui::Text("Current Year: %d", currentYear);
                             ImGui::TextUnformatted("Enter target year (-5000 to 2025)");
-                            if (megaTimeJumpFocusInputNextFrame) {
-                                ImGui::SetKeyboardFocusHere();
-                                megaTimeJumpFocusInputNextFrame = false;
-                            }
-                            ImGui::InputText("Target Year", &megaTimeJumpInput);
-                            ImGui::Checkbox("Debug CSV logging", &megaTimeJumpDebugLogEnabled);
+	                            if (megaTimeJumpFocusInputNextFrame) {
+	                                ImGui::SetKeyboardFocusHere();
+	                                megaTimeJumpFocusInputNextFrame = false;
+	                            }
+                                const std::string targetYearLabel = "Target Year##mega_target_" + std::to_string(megaTimeJumpInputSessionId);
+                                ImGui::InputText(
+                                    targetYearLabel.c_str(),
+                                    &megaTimeJumpInput,
+                                    ImGuiInputTextFlags_AutoSelectAll);
+                                if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+                                    megaTimeJumpSuppressOpenKeyText = false;
+                                }
+	                            ImGui::Checkbox("Debug CSV logging", &megaTimeJumpDebugLogEnabled);
                             if (megaTimeJumpDebugLogEnabled) {
                                 ImGui::TextWrapped("Log file: %s", megaTimeJumpDebugLogPath.c_str());
                             }
@@ -1629,19 +1654,16 @@ int main(int argc, char** argv) {
                                 ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.45f, 1.0f), "%s", megaTimeJumpInputError.c_str());
                             }
 
-                            bool startRequested = ImGui::Button("Start Jump");
-                            ImGui::SameLine();
-                            if (ImGui::Button("Cancel")) {
-                                megaTimeJumpMode = false;
-                                megaTimeJumpInputError.clear();
-                            }
-                            if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
-                                ImGui::IsKeyPressed(ImGuiKey_Enter)) {
-                                startRequested = true;
-                            }
-                            if (startRequested) {
-                                tryLaunchMegaTimeJumpFromInput();
-                            }
+		                            bool startRequested = ImGui::Button("Start Jump");
+		                            ImGui::SameLine();
+			                            if (ImGui::Button("Cancel")) {
+			                                megaTimeJumpMode = false;
+			                                megaTimeJumpInputError.clear();
+                                    megaTimeJumpSuppressOpenKeyText = false;
+			                            }
+	                            if (startRequested) {
+	                                tryLaunchMegaTimeJumpFromInput();
+	                            }
                         }
                         ImGui::End();
                     };

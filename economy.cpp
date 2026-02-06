@@ -1628,6 +1628,7 @@ void EconomyModelCPU::tickYear(int year,
     for (int i = 0; i < n; ++i) {
         Country& c = countries[static_cast<size_t>(i)];
         Country::MacroEconomyState& m = c.getMacroEconomyMutable();
+        auto& ldbg = m.legitimacyDebug;
 
         const double pop = static_cast<double>(std::max<long long>(0, c.getPopulation()));
         const double control = clamp01(c.getAvgControl());
@@ -1759,13 +1760,27 @@ void EconomyModelCPU::tickYear(int year,
             0.12 * m.connectivityIndex);
 
         // Political feedback.
+        ldbg.dbg_legit_econ_instCap = m.institutionCapacity;
+        ldbg.dbg_legit_econ_wageGain = clamp01(wageGain);
+        ldbg.dbg_legit_econ_famineSeverity = m.famineSeverity;
+        ldbg.dbg_legit_econ_ineq = clamp01(m.inequality);
+        ldbg.dbg_legit_econ_disease = diseaseBurden;
+        ldbg.dbg_legit_econ_yearsD = yearsD;
+        ldbg.dbg_legit_econ_up_inst = +0.010 * m.institutionCapacity * yearsD;
+        ldbg.dbg_legit_econ_up_wage = +0.008 * clamp01(wageGain) * yearsD;
+        ldbg.dbg_legit_econ_down_famine = -0.020 * m.famineSeverity * yearsD;
+        ldbg.dbg_legit_econ_down_ineq = -0.015 * clamp01(m.inequality) * yearsD;
+        ldbg.dbg_legit_econ_down_disease = -0.010 * diseaseBurden * yearsD;
         const double legitDrift =
-            + 0.010 * m.institutionCapacity
-            + 0.008 * clamp01(wageGain)
-            - 0.020 * m.famineSeverity
-            - 0.015 * clamp01(m.inequality)
-            - 0.010 * diseaseBurden;
-        c.setLegitimacy(legitimacy + legitDrift * yearsD);
+            ldbg.dbg_legit_econ_up_inst +
+            ldbg.dbg_legit_econ_up_wage +
+            ldbg.dbg_legit_econ_down_famine +
+            ldbg.dbg_legit_econ_down_ineq +
+            ldbg.dbg_legit_econ_down_disease;
+        const double legitBeforeEconomy = clamp01(c.getLegitimacy());
+        c.setLegitimacy(legitBeforeEconomy + legitDrift);
+        ldbg.dbg_legit_after_economy = clamp01(c.getLegitimacy());
+        ldbg.dbg_legit_delta_economy = ldbg.dbg_legit_after_economy - ldbg.dbg_legit_start;
         c.setStability(stability + (0.008 * m.institutionCapacity - 0.018 * m.famineSeverity - 0.012 * diseaseBurden - 0.008 * (c.isAtWar() ? 1.0 : 0.0)) * yearsD);
 
         // Apply fiscal state update with compliance/leakage-adjusted net revenue.

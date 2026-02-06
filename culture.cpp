@@ -225,6 +225,8 @@ void CultureManager::unlockCivic(Country& country, int civicId) {
         return;
     }
     const Civic& civic = itCivic->second;
+    auto& ldbg = country.getMacroEconomyMutable().legitimacyDebug;
+    const double legitBefore = clamp01(country.getLegitimacy());
 
     m_unlockedCivics[country.getCountryIndex()].push_back(civicId);
 
@@ -240,6 +242,9 @@ void CultureManager::unlockCivic(Country& country, int civicId) {
 
     if (civic.stabilityBonus != 0.0) country.setStability(country.getStability() + civic.stabilityBonus);
     if (civic.legitimacyBonus != 0.0) country.setLegitimacy(country.getLegitimacy() + civic.legitimacyBonus);
+    const double legitAfter = clamp01(country.getLegitimacy());
+    ldbg.dbg_legit_delta_culture += (legitAfter - legitBefore);
+    ldbg.dbg_legit_after_culture = legitAfter;
 
     // Trait nudges (one-time, small; long-run drift handled in tickYear).
     auto& t = country.getTraitsMutable();
@@ -411,6 +416,12 @@ void CultureManager::tickYear(std::vector<Country>& countries,
             unlockCivic(c, best.id);
             news.addEvent("🏛️ Institution adopted: " + c.getName() + " implements " + name + ".");
         }
+    }
+
+    for (int i = 0; i < n; ++i) {
+        Country& c = countries[static_cast<size_t>(i)];
+        auto& ldbg = c.getMacroEconomyMutable().legitimacyDebug;
+        ldbg.dbg_legit_after_culture = clamp01(c.getLegitimacy());
     }
 }
 
