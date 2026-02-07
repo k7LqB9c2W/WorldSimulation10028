@@ -68,3 +68,39 @@ endif()
 set_target_properties(WorldSimulation PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+add_custom_command(TARGET WorldSimulation POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_SOURCE_DIR}/assets"
+    "$<TARGET_FILE_DIR:WorldSimulation>/assets"
+)
+
+if(WIN32 AND SFML_ROOT)
+  set(SFML_RUNTIME_DLLS
+    "${SFML_ROOT}/bin/openal32.dll"
+    "${SFML_ROOT}/bin/sfml-system-2.dll"
+    "${SFML_ROOT}/bin/sfml-window-2.dll"
+    "${SFML_ROOT}/bin/sfml-graphics-2.dll"
+    "${SFML_ROOT}/bin/sfml-audio-2.dll"
+    "${SFML_ROOT}/bin/sfml-system-d-2.dll"
+    "${SFML_ROOT}/bin/sfml-window-d-2.dll"
+    "${SFML_ROOT}/bin/sfml-graphics-d-2.dll"
+    "${SFML_ROOT}/bin/sfml-audio-d-2.dll"
+  )
+
+  set(EXISTING_SFML_RUNTIME_DLLS)
+  foreach(dll IN LISTS SFML_RUNTIME_DLLS)
+    if(EXISTS "${dll}")
+      list(APPEND EXISTING_SFML_RUNTIME_DLLS "${dll}")
+    endif()
+  endforeach()
+
+  if(EXISTING_SFML_RUNTIME_DLLS)
+    add_custom_command(TARGET WorldSimulation POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${EXISTING_SFML_RUNTIME_DLLS}
+        "$<TARGET_FILE_DIR:WorldSimulation>"
+      COMMAND_EXPAND_LISTS
+    )
+  endif()
+endif()

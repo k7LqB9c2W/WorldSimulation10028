@@ -222,13 +222,13 @@ int main(int argc, char** argv) {
 	    } imguiGuard;
 
     sf::Image baseImage;
-    if (!baseImage.loadFromFile("map.png")) {
+    if (!baseImage.loadFromFile("assets/images/map.png")) {
         std::cerr << "Error: Could not load map image." << std::endl;
         return -1;
     }
 
     sf::Image resourceImage;
-    if (!resourceImage.loadFromFile("resource.png")) {
+    if (!resourceImage.loadFromFile("assets/images/resource.png")) {
         std::cerr << "Error: Could not load resource image." << std::endl;
         return -1;
     }
@@ -269,7 +269,7 @@ int main(int argc, char** argv) {
     tempRenderer.showLoadingScreen();
 
     // Load spawn zones before initializing countries
-    if (!map.loadSpawnZones("spawn.png")) {
+    if (!map.loadSpawnZones("assets/images/spawn.png")) {
         return -1;
     }
 
@@ -430,7 +430,7 @@ int main(int argc, char** argv) {
 	    
 	    CountryTemplate customCountryTemplate;
 	    sf::Font m_font; // Font loading moved outside the loop
-	    if (!m_font.loadFromFile("arial.ttf")) {
+	    if (!m_font.loadFromFile("assets/fonts/arial.ttf")) {
 	        std::cerr << "Error: Could not load font file." << std::endl;
 	        return -1;
 	    }

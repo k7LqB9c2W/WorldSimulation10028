@@ -174,7 +174,7 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
     m_baseTexture.loadFromImage(map.getBaseImage());
     m_baseSprite.setTexture(m_baseTexture);
 
-    if (!m_font.loadFromFile("arial.ttf")) {
+    if (!m_font.loadFromFile("assets/fonts/arial.ttf")) {
         // Handle error - font not found
     }
 
@@ -241,7 +241,7 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
         }
     }
 
-    if (m_factoryTexture.loadFromFile("factory.png")) {
+    if (m_factoryTexture.loadFromFile("assets/images/factory.png")) {
         sf::Vector2u texSize = m_factoryTexture.getSize();
         m_factorySprite.setTexture(m_factoryTexture);
         m_factorySprite.setOrigin(static_cast<float>(texSize.x) / 2.f, static_cast<float>(texSize.y) / 2.f);
@@ -253,7 +253,7 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
         }
     }
 
-	    if (tryLoadPlaneTexture(m_planeTexture, "plane.png", "Plane.png")) {
+	    if (tryLoadPlaneTexture(m_planeTexture, "assets/images/plane.png", "")) {
 	        sf::Vector2u texSize = m_planeTexture.getSize();
 	        m_planeSprite.setTexture(m_planeTexture);
 	        m_planeSprite.setOrigin(static_cast<float>(texSize.x) * 0.5f, static_cast<float>(texSize.y) * 0.5f);
@@ -266,7 +266,7 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
         m_planeSprite.setColor(sf::Color(255, 255, 255, 230));
     }
 
-    if (tryLoadPlaneTexture(m_shipTexture, "containership.png", "ContainerShip.png")) {
+    if (tryLoadPlaneTexture(m_shipTexture, "assets/images/containership.png", "")) {
         sf::Vector2u texSize = m_shipTexture.getSize();
         m_shipSprite.setTexture(m_shipTexture);
         m_shipSprite.setOrigin(static_cast<float>(texSize.x) * 0.5f, static_cast<float>(texSize.y) * 0.5f);
@@ -1664,7 +1664,7 @@ void Renderer::handleWindowRecreated(const Map& map) {
         }
     }
 
-    if (m_factoryTexture.loadFromFile("factory.png")) {
+    if (m_factoryTexture.loadFromFile("assets/images/factory.png")) {
         sf::Vector2u texSize = m_factoryTexture.getSize();
         m_factorySprite.setTexture(m_factoryTexture);
         m_factorySprite.setOrigin(static_cast<float>(texSize.x) / 2.f, static_cast<float>(texSize.y) / 2.f);
@@ -1676,7 +1676,7 @@ void Renderer::handleWindowRecreated(const Map& map) {
         }
     }
 
-    if (tryLoadPlaneTexture(m_planeTexture, "plane.png", "Plane.png")) {
+    if (tryLoadPlaneTexture(m_planeTexture, "assets/images/plane.png", "")) {
         sf::Vector2u texSize = m_planeTexture.getSize();
         m_planeSprite.setTexture(m_planeTexture);
         m_planeSprite.setOrigin(static_cast<float>(texSize.x) * 0.5f, static_cast<float>(texSize.y) * 0.5f);
@@ -1689,7 +1689,7 @@ void Renderer::handleWindowRecreated(const Map& map) {
 	        m_planeSprite.setColor(sf::Color(255, 255, 255, 230));
 	    }
 
-    if (tryLoadPlaneTexture(m_shipTexture, "containership.png", "ContainerShip.png")) {
+    if (tryLoadPlaneTexture(m_shipTexture, "assets/images/containership.png", "")) {
         sf::Vector2u texSize = m_shipTexture.getSize();
         m_shipSprite.setTexture(m_shipTexture);
         m_shipSprite.setOrigin(static_cast<float>(texSize.x) * 0.5f, static_cast<float>(texSize.y) * 0.5f);
