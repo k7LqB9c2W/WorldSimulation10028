@@ -32,7 +32,7 @@ if errorlevel 1 exit /b 1
 
 echo.
 echo Done.
-echo - Open: out\build\vs2022\CountrySimulator.sln
+echo - Open: out\build\vs2022\WorldSimulation.sln
 echo - In VS: Debug ^> Performance Profiler... ^> CPU Usage ^> Start
 echo - Tip: Set Debugging Working Directory to the repo root so assets load.
 endlocal

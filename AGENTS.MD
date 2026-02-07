@@ -1,1 +1,2 @@
-DO NOT EVER, EVER TRY TO RUN A BUILD. UNLESS TOLD TO BUILD AND COMPILE. DO NOT EVER TRY TO COMPILE AND BUILD UNLESS TOLD TO.
+For your info, we are trying to build a simulation. A world simulation model. We are dropping in humans in 5000
+BCE and trying to seee what societies and all evolve.
