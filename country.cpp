@@ -492,11 +492,13 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
     setLastTaxStats(taxBaseAnnual, taxTakeAnnual);
 
     const double incomeAnnual = std::max(0.0, taxTakeAnnual);
+    const double incomeSafe = std::max(1.0, incomeAnnual);
     sdbg.dbg_incomeAnnual = incomeAnnual;
     sdbg.dbg_avgControl = clamp01(m_avgControl);
     sdbg.dbg_delta_debt_crisis = 0.0;
     sdbg.dbg_delta_control_decay = 0.0;
     ldbg.dbg_legit_budget_incomeAnnual = incomeAnnual;
+    ldbg.dbg_legit_budget_incomeSafe = incomeSafe;
 
     // Desired spending is pressure-driven, then capped by what can be financed.
     const double institutionCapacity = clamp01(m_macro.institutionCapacity);
@@ -518,11 +520,13 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
 
     // Endogenous fiscal correction under debt-service pressure.
     const double debtStart = std::max(0.0, m_polity.debt);
-    const double debtToIncomeStart = debtStart / std::max(1.0, incomeAnnual);
+    const double debtToIncomeStartRaw = debtStart / incomeSafe;
+    const double debtToIncomeStart = std::clamp(debtToIncomeStartRaw, 0.0, 10.0);
     const double debtThresholdStart = 1.0 + 2.6 * financeLevel;
     const double stressAboveDebtThreshold = clamp01((debtToIncomeStart - debtThresholdStart) / 3.0);
     const double baselineInterest = 0.30 + (0.03 - 0.30) * financeLevel;
-    const double serviceToIncomeStart = (debtStart * baselineInterest) / std::max(1.0, incomeAnnual);
+    const double serviceToIncomeStartRaw = (debtStart * baselineInterest) / incomeSafe;
+    const double serviceToIncomeStart = std::clamp(serviceToIncomeStartRaw, 0.0, 10.0);
     const double serviceStressStart = clamp01((serviceToIncomeStart - 0.25) / 0.35);
     if (serviceToIncomeStart > 0.25 || debtToIncomeStart > debtThresholdStart) {
         const double correction = yearsD * (0.03 + 0.05 * serviceStressStart + 0.04 * stressAboveDebtThreshold);
@@ -531,6 +535,7 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
         const double fiscalHeadroom = clamp01((m_polity.fiscalCapacity - 0.20) / 0.80);
         const double taxEffort = yearsD * 0.010 * fiscalHeadroom * (0.35 + 0.65 * std::max(serviceStressStart, stressAboveDebtThreshold));
         m_polity.taxRate = std::clamp(m_polity.taxRate + taxEffort, 0.02, 0.45);
+        ldbg.dbg_legit_budget_taxRateSource = 2; // budget debt-service adjustment
 
         desiredSpendFactor = std::max(0.55, desiredSpendFactor - (0.20 * serviceStressStart + 0.15 * stressAboveDebtThreshold));
     }
@@ -576,8 +581,10 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
     m_polity.debt = std::max(0.0, debtStart + debtServiceUnpaid + borrowUsed);
 
     const double shortfallStress = clamp01(shortfall / std::max(1.0, desiredBlock));
-    const double debtToIncome = m_polity.debt / std::max(1.0, incomeAnnual);
-    const double serviceToIncome = debtServiceAnnual / std::max(1.0, incomeAnnual);
+    const double debtToIncomeRaw = m_polity.debt / incomeSafe;
+    const double serviceToIncomeRaw = debtServiceAnnual / incomeSafe;
+    const double debtToIncome = std::clamp(debtToIncomeRaw, 0.0, 10.0);
+    const double serviceToIncome = std::clamp(serviceToIncomeRaw, 0.0, 10.0);
     const double debtThreshold = 1.0 + 2.6 * financeLevel;
     const double debtStress = clamp01((debtToIncome - debtThreshold) / 3.0);
     const double serviceStress = clamp01((serviceToIncome - 0.25) / 0.35);
@@ -590,9 +597,11 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
     ldbg.dbg_legit_budget_debtStart = debtStart;
     ldbg.dbg_legit_budget_debtEnd = std::max(0.0, m_polity.debt);
     ldbg.dbg_legit_budget_debtToIncome = debtToIncome;
+    ldbg.dbg_legit_budget_debtToIncomeRaw = debtToIncomeRaw;
     ldbg.dbg_legit_budget_interestRate = interestRate;
     ldbg.dbg_legit_budget_debtServiceAnnual = debtServiceAnnual;
     ldbg.dbg_legit_budget_serviceToIncome = serviceToIncome;
+    ldbg.dbg_legit_budget_serviceToIncomeRaw = serviceToIncomeRaw;
     ldbg.dbg_legit_budget_taxRate = std::clamp(m_polity.taxRate, 0.02, 0.45);
     ldbg.dbg_legit_budget_avgControl = std::clamp(m_avgControl, 0.0, 1.0);
     ldbg.dbg_legit_budget_stability = std::clamp(m_stability, 0.0, 1.0);
@@ -602,6 +611,7 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
     ldbg.dbg_legit_budget_plagueAffected = plagueAffected;
     ldbg.dbg_legit_budget_debtStress = debtStress;
     ldbg.dbg_legit_budget_serviceStress = serviceStress;
+    ldbg.dbg_legit_budget_ratioOver5 = (debtToIncomeRaw > 5.0 || serviceToIncomeRaw > 5.0);
 
     auto applyBudgetLegitimacyDelta = [&](double delta) {
         const double before = clamp01(m_polity.legitimacy);
@@ -656,7 +666,7 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
 
         double stress = 0.0;
         if (m_isAtWar) stress += 1.0;
-        stress += 0.9 * clamp01(m_polity.debt / std::max(1.0, incomeAnnual * 6.0));
+        stress += 0.9 * clamp01(m_polity.debt / std::max(1.0, incomeSafe * 6.0));
         stress += 0.7 * clamp01((0.60 - m_polity.legitimacy) / 0.60);
         stress += 0.7 * clamp01((0.70 - m_stability) / 0.70);
         stress += 0.8 * clamp01((0.92 - m_macro.foodSecurity) / 0.92);
@@ -672,8 +682,12 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
         const double taxRate = std::clamp(m_polity.taxRate, 0.02, 0.45);
         const double control = std::clamp(m_avgControl, 0.0, 1.0);
         const double stability = std::clamp(m_stability, 0.0, 1.0);
+        const double legitimacyNow = clamp01(m_polity.legitimacy);
+        const double complianceNow = clamp01(m_macro.compliance);
+        const double taxPain = clamp01(0.60 * (1.0 - legitimacyNow) + 0.40 * (1.0 - complianceNow));
+        const double taxPenaltySlope = 0.014 + 0.026 * taxPain;
         ldbg.dbg_legit_budget_drift_stability = +0.002 * (stability - 0.5) * yearsD;
-        ldbg.dbg_legit_budget_drift_tax = -std::max(0.0, taxRate - 0.12) * 0.04 * yearsD;
+        ldbg.dbg_legit_budget_drift_tax = -std::max(0.0, taxRate - 0.12) * taxPenaltySlope * yearsD;
         ldbg.dbg_legit_budget_drift_control = -(1.0 - control) * 0.010 * yearsD;
         ldbg.dbg_legit_budget_drift_debt = -0.008 * debtStress * yearsD;
         ldbg.dbg_legit_budget_drift_service = -0.012 * serviceStress * yearsD;
@@ -705,6 +719,7 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
     sdbg.dbg_stab_after_budget = clamp01(m_stability);
     sdbg.dbg_stab_delta_budget = sdbg.dbg_stab_after_budget - sdbg.dbg_stab_after_country_update;
     ldbg.dbg_legit_budget_debtEnd = std::max(0.0, m_polity.debt);
+    ldbg.dbg_legit_budget_taxRateAfter = std::clamp(m_polity.taxRate, 0.02, 0.45);
     ldbg.dbg_legit_after_budget = clamp01(m_polity.legitimacy);
     ldbg.dbg_legit_delta_budget = ldbg.dbg_legit_after_budget - ldbg.dbg_legit_after_economy;
 }

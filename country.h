@@ -252,9 +252,11 @@ public:
             double dbg_legit_econ_down_famine = 0.0;
             double dbg_legit_econ_down_ineq = 0.0;
             double dbg_legit_econ_down_disease = 0.0;
+            int dbg_legit_clamp_to_zero_economy = 0;
 
             // Budget inputs/checks.
             double dbg_legit_budget_incomeAnnual = 0.0;
+            double dbg_legit_budget_incomeSafe = 1.0;
             double dbg_legit_budget_desiredBlock = 0.0;
             double dbg_legit_budget_actualSpending = 0.0;
             double dbg_legit_budget_shortfall = 0.0;
@@ -262,10 +264,16 @@ public:
             double dbg_legit_budget_debtStart = 0.0;
             double dbg_legit_budget_debtEnd = 0.0;
             double dbg_legit_budget_debtToIncome = 0.0;
+            double dbg_legit_budget_debtToIncomeRaw = 0.0;
             double dbg_legit_budget_interestRate = 0.0;
             double dbg_legit_budget_debtServiceAnnual = 0.0;
             double dbg_legit_budget_serviceToIncome = 0.0;
+            double dbg_legit_budget_serviceToIncomeRaw = 0.0;
             double dbg_legit_budget_taxRate = 0.0;
+            double dbg_legit_budget_taxRateTarget = 0.0;
+            double dbg_legit_budget_taxRateBefore = 0.0;
+            double dbg_legit_budget_taxRateAfter = 0.0;
+            int dbg_legit_budget_taxRateSource = 0; // 1=economy target
             double dbg_legit_budget_avgControl = 0.0;
             double dbg_legit_budget_stability = 0.0;
             bool dbg_legit_budget_borrowingEnabled = false;
@@ -274,6 +282,7 @@ public:
             bool dbg_legit_budget_plagueAffected = false;
             double dbg_legit_budget_debtStress = 0.0;
             double dbg_legit_budget_serviceStress = 0.0;
+            bool dbg_legit_budget_ratioOver5 = false;
 
             // Budget legitimacy delta components.
             double dbg_legit_budget_shortfall_direct = 0.0;

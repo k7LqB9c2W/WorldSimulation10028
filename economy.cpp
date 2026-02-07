@@ -1144,6 +1144,7 @@ void EconomyModelCPU::tickYear(int year,
     for (int i = 0; i < n; ++i) {
         Country& c = countries[static_cast<size_t>(i)];
         Country::MacroEconomyState& m = c.getMacroEconomyMutable();
+        auto& ldbg = m.legitimacyDebug;
         oldRealWage[static_cast<size_t>(i)] = m.realWage;
 
         const double pop = static_cast<double>(std::max<long long>(0, c.getPopulation()));
@@ -1194,8 +1195,23 @@ void EconomyModelCPU::tickYear(int year,
         c.setBudgetShares(sMilitary, sAdmin, sInfra, sHealth, sEducation, sRnd);
 
         const double taxStress = 0.35 * controlPressure + 0.25 * faminePressure + 0.20 * diseasePressure + 0.20 * warPressure;
-        const double taxTarget = std::clamp(0.08 + 0.20 * (1.0 - clamp01(c.getInequality())) + 0.08 * (1.0 - taxStress), 0.03, 0.42);
-        c.setTaxRate(0.80 * c.getTaxRate() + 0.20 * taxTarget);
+        const double fiscalCapacity = clamp01(c.getFiscalCapacity());
+        const double institutionCapacityForTax = clamp01(m.institutionCapacity);
+        const double taxCapacity = clamp01(0.50 * fiscalCapacity + 0.50 * institutionCapacityForTax);
+        const double taxFloor = 0.02 + 0.02 * taxCapacity;
+        const double taxCeiling = 0.10 + 0.24 * taxCapacity;
+        const double taxTargetRaw =
+            0.03 +
+            0.08 * taxCapacity +
+            0.06 * (1.0 - clamp01(c.getInequality())) * (0.35 + 0.65 * taxCapacity) +
+            0.03 * (1.0 - taxStress) * (0.30 + 0.70 * taxCapacity);
+        const double taxTarget = std::clamp(taxTargetRaw, taxFloor, taxCeiling);
+        const double taxBefore = c.getTaxRate();
+        c.setTaxRate(0.80 * taxBefore + 0.20 * taxTarget);
+        ldbg.dbg_legit_budget_taxRateTarget = taxTarget;
+        ldbg.dbg_legit_budget_taxRateBefore = taxBefore;
+        ldbg.dbg_legit_budget_taxRateAfter = c.getTaxRate();
+        ldbg.dbg_legit_budget_taxRateSource = 1;
 
         const auto& cohorts = c.getPopulationCohorts();
         const double laborTotal = std::max(0.0, c.getWorkingAgeLaborSupply());
@@ -1778,6 +1794,9 @@ void EconomyModelCPU::tickYear(int year,
             ldbg.dbg_legit_econ_down_ineq +
             ldbg.dbg_legit_econ_down_disease;
         const double legitBeforeEconomy = clamp01(c.getLegitimacy());
+        if ((legitBeforeEconomy + legitDrift) < 0.0 && legitBeforeEconomy > 0.0) {
+            ldbg.dbg_legit_clamp_to_zero_economy++;
+        }
         c.setLegitimacy(legitBeforeEconomy + legitDrift);
         ldbg.dbg_legit_after_economy = clamp01(c.getLegitimacy());
         ldbg.dbg_legit_delta_economy = ldbg.dbg_legit_after_economy - ldbg.dbg_legit_start;
