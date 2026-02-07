@@ -68,6 +68,15 @@ public:
         Theocracy,     // Religious rule
         CityState      // Independent city-state
     };
+
+    enum class WarGoal {
+        Raid,
+        BorderShift,
+        Tribute,
+        Vassalization,
+        RegimeChange,
+        Annihilation
+    };
     // Getter for m_nextWarCheckYear
     int getNextWarCheckYear() const;
 
@@ -131,6 +140,9 @@ public:
         double infraStock = 0.0;
         double militarySupplyStock = 0.0;
         double servicesStock = 0.0;
+        double cumulativeOreExtraction = 0.0;
+        double cumulativeCoalExtraction = 0.0;
+        double refugeePush = 0.0; // 0..1 transient migration shock pressure
 
         double lastFoodOutput = 0.0;
         double lastGoodsOutput = 0.0;
@@ -359,6 +371,16 @@ public:
     const ExplorationState& getExploration() const { return m_exploration; }
     ExplorationState& getExplorationMutable() { return m_exploration; }
 
+    struct RegionalState {
+        double popShare = 0.0;         // 0..1
+        double localControl = 0.0;     // 0..1
+        double grievance = 0.0;        // 0..1
+        double elitePower = 0.0;       // 0..1
+        double distancePenalty = 0.0;  // 0..1
+    };
+    const std::vector<RegionalState>& getRegions() const { return m_regions; }
+    std::vector<RegionalState>& getRegionsMutable() { return m_regions; }
+
     bool canAttemptColonization(const class TechnologyManager& techManager, const CultureManager& cultureManager) const;
     float computeColonizationPressure(const CultureManager& cultureManager,
                                       double marketAccess,
@@ -448,6 +470,9 @@ public:
     void startWar(Country& target, News& news);
     void endWar(int currentYear = 0);
     bool isAtWar() const;
+    WarGoal getActiveWarGoal() const { return m_activeWarGoal; }
+    double getWarExhaustion() const { return m_warExhaustion; }
+    double getWarSupplyCapacity() const { return m_warSupplyCapacity; }
     bool isNeighbor(const Country& other) const;
     int getWarDuration() const;
     void setWarDuration(int duration);
@@ -567,6 +592,8 @@ public:
     int getAutonomyOverThresholdYears() const { return m_autonomyOverThresholdYears; }
     void setAutonomyPressure(double v) { m_autonomyPressure = std::clamp(v, 0.0, 1.0); }
     void setAutonomyOverThresholdYears(int v) { m_autonomyOverThresholdYears = std::max(0, v); }
+    double getEliteDefectionPressure() const { return m_eliteDefectionPressure; }
+    int getNextSuccessionYear() const { return m_nextSuccessionYear; }
     void initializePopulationCohorts();
     void renormalizePopulationCohortsToTotal();
     double getWorkingAgeLaborSupply() const;
@@ -634,6 +661,10 @@ private:
     int m_warDuration;
     bool m_isWarofAnnihilation;
     bool m_isWarofConquest;
+    WarGoal m_activeWarGoal = WarGoal::BorderShift;
+    WarGoal m_pendingWarGoal = WarGoal::BorderShift;
+    double m_warExhaustion = 0.0;
+    double m_warSupplyCapacity = 0.0;
     int m_peaceDuration;
     long long m_preWarPopulation;
     int m_warCheckCooldown;  // Cooldown period before checking for war again
@@ -710,4 +741,7 @@ private:
         EpidemicState m_epi{};
         double m_autonomyPressure = 0.0;
         int m_autonomyOverThresholdYears = 0;
+        std::vector<RegionalState> m_regions;
+        int m_nextSuccessionYear = -5000;
+        double m_eliteDefectionPressure = 0.0;
 	};

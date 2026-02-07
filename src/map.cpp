@@ -74,7 +74,9 @@ Map::Map(const sf::Image& baseImage,
 
 	    initializeResourceGrid();
 		    rebuildCellFoodCache();
-		    rebuildCellNonFoodCache();
+            rebuildCellOreCache();
+            rebuildCellEnergyCache();
+            rebuildCellConstructionCache();
 		    ensureFieldGrids();
 	        initializeClimateBaseline();
 	        tickWeather(-5000, 1);
@@ -100,25 +102,47 @@ void Map::initializeResourceGrid() {
     for (int y = 0; y < static_cast<int>(m_isLandGrid.size()); ++y) {
         for (size_t x = 0; x < m_isLandGrid[y].size(); ++x) {
             if (m_isLandGrid[y][x]) {
-                // OPTIMIZATION 2: Simplified food calculation (no nested loops)
-                // Check only immediate neighbors for water (much faster)
-                double foodAmount = 51.2; // Inland food (supports 61,440 people)
-                
-                // Quick water proximity check (only 8 directions, not 49 pixels!)
+                // Food potential baseline: strong ecological gradients from latitude + humidity + coast.
+                double foodAmount = 0.0;
+
+                const int mapH = static_cast<int>(m_isLandGrid.size());
+                const int mapW = (mapH > 0) ? static_cast<int>(m_isLandGrid[0].size()) : 1;
+                const double lat01 = std::abs(((static_cast<double>(y) + 0.5) / static_cast<double>(std::max(1, mapH))) - 0.5) * 2.0;
+                const double x01 = (mapW > 1) ? (static_cast<double>(x) / static_cast<double>(mapW - 1)) : 0.5;
+
+                auto clamp01d = [](double v) { return std::max(0.0, std::min(1.0, v)); };
                 const int dx[] = {-1, -1, -1, 0, 0, 1, 1, 1};
                 const int dy[] = {-1, 0, 1, -1, 1, -1, 0, 1};
-                
+                bool coastalAdj = false;
                 for (int i = 0; i < 8; ++i) {
                     int nx = static_cast<int>(x) + dx[i];
                     int ny = y + dy[i];
                     if (nx >= 0 && nx < static_cast<int>(m_isLandGrid[0].size()) && 
                         ny >= 0 && ny < static_cast<int>(m_isLandGrid.size())) {
                         if (!m_isLandGrid[ny][nx]) { // Found water
-                            foodAmount = 102.4; // Coastal bonus (supports 122,880 people)
+                            coastalAdj = true;
                             break;
                         }
                     }
                 }
+
+                const double equatorialWet = std::exp(-std::pow(lat01 / 0.34, 2.0));
+                const double subtropicalDry = std::exp(-std::pow((lat01 - 0.30) / 0.12, 2.0));
+                const double polarPenalty = std::pow(lat01, 1.45);
+                const double continentalWave = 0.5 + 0.5 * std::sin((x01 * 6.283185307179586) + (lat01 * 4.5));
+                const double humidity = clamp01d(0.18 + 0.86 * equatorialWet + 0.24 * continentalWave - 0.52 * subtropicalDry - 0.36 * polarPenalty);
+
+                const double coastBoost = coastalAdj ? std::max(1.0, m_ctx->config.food.coastalBonus) : 1.0;
+                const double thermal = std::max(0.10, 1.22 - 1.30 * std::pow(lat01, 1.35));
+                const double foragingPot = std::max(2.0, m_ctx->config.food.baseForaging *
+                                                         (0.22 + 1.45 * humidity) *
+                                                         (0.30 + 0.90 * thermal) *
+                                                         (coastalAdj ? 1.08 : 1.0));
+                const double farmingPot = std::max(2.0, m_ctx->config.food.baseFarming *
+                                                        (0.12 + 1.60 * humidity) *
+                                                        std::max(0.10, 0.18 + 1.05 * thermal) *
+                                                        coastBoost);
+                foodAmount = foragingPot + 0.40 * farmingPot;
                 
                 sf::Vector2u pixelPos(static_cast<unsigned int>(x * m_gridCellSize), static_cast<unsigned int>(y * m_gridCellSize));
                 const sf::Color resourcePixelColor = m_resourceImage.getPixel(pixelPos.x, pixelPos.y);
@@ -137,13 +161,15 @@ void Map::initializeResourceGrid() {
                 if (hasRiverland) {
                     riverlandCells++;
                     const double uFood = unitHash(0x5249564552464F4Full);
-                    foodAmount = std::max(foodAmount, 153.6);
-                    foodAmount *= (1.0 + 0.10 * uFood);
+                    foodAmount = std::max(foodAmount, m_ctx->config.food.riverlandFoodFloor);
+                    foodAmount *= (1.0 + 0.08 * uFood);
 
                     const double uClay = unitHash(0x434C415942415345ull);
                     const double uClayHot = unitHash(0x434C4159484F5421ull);
-                    double clayAmount = 0.8 + 2.2 * uClay;
-                    if (uClayHot < 0.08) {
+                    const double clayMin = std::max(0.01, m_ctx->config.food.clayMin);
+                    const double clayMax = std::max(clayMin, m_ctx->config.food.clayMax);
+                    double clayAmount = clayMin + (clayMax - clayMin) * uClay;
+                    if (uClayHot < std::clamp(m_ctx->config.food.clayHotspotChance, 0.0, 1.0)) {
                         clayAmount *= 2.0;
                     }
                     m_resourceGrid[y][x][Resource::Type::CLAY] += clayAmount;
@@ -222,39 +248,80 @@ void Map::rebuildCellFoodCache() {
     const int height = static_cast<int>(m_resourceGrid.size());
     const int width = (height > 0) ? static_cast<int>(m_resourceGrid[0].size()) : 0;
     m_cellFood.assign(static_cast<size_t>(height * width), 0.0);
+    m_cellForaging.assign(static_cast<size_t>(height * width), 0.0);
+    m_cellFarming.assign(static_cast<size_t>(height * width), 0.0);
+
+    auto clamp01d = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+    const int dx[8] = {-1, -1, -1, 0, 0, 1, 1, 1};
+    const int dy[8] = {-1, 0, 1, -1, 1, -1, 0, 1};
+
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             if (!m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) {
                 continue;
             }
+
+            bool coastalAdj = false;
+            for (int k = 0; k < 8; ++k) {
+                const int nx = x + dx[k];
+                const int ny = y + dy[k];
+                if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+                if (!m_isLandGrid[static_cast<size_t>(ny)][static_cast<size_t>(nx)]) {
+                    coastalAdj = true;
+                    break;
+                }
+            }
+
+            const double lat01 = std::abs(((static_cast<double>(y) + 0.5) / static_cast<double>(std::max(1, height))) - 0.5) * 2.0;
+            const double eco = std::max(0.08, 1.15 - 0.95 * std::pow(lat01, 1.30));
+            double foragingPot = std::max(1.0, m_ctx->config.food.baseForaging *
+                                                (0.30 + 0.95 * eco) *
+                                                (coastalAdj ? 1.08 : 1.0));
+            double farmingPot = std::max(1.0, m_ctx->config.food.baseFarming *
+                                               std::max(0.08, 0.18 + 1.15 * eco) *
+                                               (coastalAdj ? std::max(1.0, m_ctx->config.food.coastalBonus) : 1.0));
+
             const auto& cell = m_resourceGrid[static_cast<size_t>(y)][static_cast<size_t>(x)];
             auto it = cell.find(Resource::Type::FOOD);
             if (it != cell.end()) {
-                m_cellFood[static_cast<size_t>(y * width + x)] = it->second;
+                const double baseFood = std::max(0.0, it->second);
+                const double denom = std::max(1e-6, foragingPot + 0.40 * farmingPot);
+                const double scale = std::max(0.2, baseFood / denom);
+                foragingPot *= scale;
+                farmingPot *= scale;
             }
+
+            const sf::Vector2u pixelPos(static_cast<unsigned int>(x * m_gridCellSize), static_cast<unsigned int>(y * m_gridCellSize));
+            const sf::Color riverlandPixelColor = m_riverlandImage.getPixel(pixelPos.x, pixelPos.y);
+            const bool hasRiverland = riverlandPixelColor.a > 0 &&
+                                      isColorNear(riverlandPixelColor, sf::Color(24, 255, 239), 6);
+            if (hasRiverland) {
+                farmingPot = std::max(farmingPot, m_ctx->config.food.riverlandFoodFloor);
+                foragingPot *= 1.06;
+            }
+
+            const size_t idx = static_cast<size_t>(y * width + x);
+            m_cellForaging[idx] = std::max(0.0, foragingPot);
+            m_cellFarming[idx] = std::max(0.0, farmingPot);
+            m_cellFood[idx] = std::max(0.0, foragingPot + 0.40 * farmingPot);
         }
     }
 }
 
-void Map::rebuildCellNonFoodCache() {
+void Map::rebuildCellOreCache() {
     const int height = static_cast<int>(m_resourceGrid.size());
     const int width = (height > 0) ? static_cast<int>(m_resourceGrid[0].size()) : 0;
-    m_cellNonFood.assign(static_cast<size_t>(height * width), 0.0);
+    m_cellOre.assign(static_cast<size_t>(height * width), 0.0);
 
     auto getAmount = [&](const std::unordered_map<Resource::Type, double>& cell, Resource::Type t) -> double {
         auto it = cell.find(t);
         return (it != cell.end()) ? it->second : 0.0;
     };
 
-    // Weights are tuned for "macro" extraction potential (relative, not a stockpile).
-    constexpr double wIron = 55.0;
-    constexpr double wCoal = 55.0;
-    constexpr double wSalt = 30.0;
-    constexpr double wHorses = 20.0;
-    constexpr double wGold = 65.0;
-    constexpr double wCopper = 55.0;
-    constexpr double wTin = 90.0;
-    constexpr double wClay = 35.0;
+    const double wIron = std::max(0.0, m_ctx->config.resources.oreWeightIron);
+    const double wCopper = std::max(0.0, m_ctx->config.resources.oreWeightCopper);
+    const double wTin = std::max(0.0, m_ctx->config.resources.oreWeightTin);
+    const double scale = 120.0 / std::max(1e-6, m_ctx->config.resources.oreNormalization);
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
@@ -263,16 +330,81 @@ void Map::rebuildCellNonFoodCache() {
             }
             const auto& cell = m_resourceGrid[static_cast<size_t>(y)][static_cast<size_t>(x)];
             const double iron = getAmount(cell, Resource::Type::IRON);
+            const double copper = getAmount(cell, Resource::Type::COPPER);
+            const double tin = getAmount(cell, Resource::Type::TIN);
+            const double raw = iron * wIron + copper * wCopper + tin * wTin;
+            m_cellOre[static_cast<size_t>(y * width + x)] = std::max(0.0, raw * scale);
+        }
+    }
+}
+
+void Map::rebuildCellEnergyCache() {
+    const int height = static_cast<int>(m_resourceGrid.size());
+    const int width = (height > 0) ? static_cast<int>(m_resourceGrid[0].size()) : 0;
+    m_cellEnergy.assign(static_cast<size_t>(height * width), 0.0);
+
+    auto getAmount = [&](const std::unordered_map<Resource::Type, double>& cell, Resource::Type t) -> double {
+        auto it = cell.find(t);
+        return (it != cell.end()) ? it->second : 0.0;
+    };
+
+    const double biomass = std::max(0.0, m_ctx->config.resources.energyBiomassBase);
+    const double coalW = std::max(0.0, m_ctx->config.resources.energyCoalWeight);
+    const double scale = 100.0 / std::max(1e-6, m_ctx->config.resources.energyNormalization);
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            if (!m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) {
+                continue;
+            }
+            const auto& cell = m_resourceGrid[static_cast<size_t>(y)][static_cast<size_t>(x)];
             const double coal = getAmount(cell, Resource::Type::COAL);
+            const double raw = biomass + coal * coalW;
+            m_cellEnergy[static_cast<size_t>(y * width + x)] = std::max(0.0, raw * scale);
+        }
+    }
+}
+
+void Map::rebuildCellConstructionCache() {
+    const int height = static_cast<int>(m_resourceGrid.size());
+    const int width = (height > 0) ? static_cast<int>(m_resourceGrid[0].size()) : 0;
+    m_cellConstruction.assign(static_cast<size_t>(height * width), 0.0);
+    m_cellNonFood.assign(static_cast<size_t>(height * width), 0.0);
+
+    auto getAmount = [&](const std::unordered_map<Resource::Type, double>& cell, Resource::Type t) -> double {
+        auto it = cell.find(t);
+        return (it != cell.end()) ? it->second : 0.0;
+    };
+
+    const double clayW = std::max(0.0, m_ctx->config.resources.constructionClayWeight);
+    const double stoneBase = std::max(0.0, m_ctx->config.resources.constructionStoneBase);
+    const double cScale = 100.0 / std::max(1e-6, m_ctx->config.resources.constructionNormalization);
+
+    for (int y = 0; y < height; ++y) {
+        const double lat01 = std::abs(((static_cast<double>(y) + 0.5) / static_cast<double>(std::max(1, height))) - 0.5) * 2.0;
+        for (int x = 0; x < width; ++x) {
+            if (!m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) {
+                continue;
+            }
+            const size_t idx = static_cast<size_t>(y * width + x);
+            const auto& cell = m_resourceGrid[static_cast<size_t>(y)][static_cast<size_t>(x)];
+            const double clay = getAmount(cell, Resource::Type::CLAY);
+            const double stoneProxy = stoneBase * (0.65 + 0.55 * std::abs(0.35 - lat01));
+            const double construction = std::max(0.0, (clay * clayW + stoneProxy) * cScale);
+            m_cellConstruction[idx] = construction;
+
+            const double ore = (idx < m_cellOre.size()) ? m_cellOre[idx] : 0.0;
+            const double energy = (idx < m_cellEnergy.size()) ? m_cellEnergy[idx] : 0.0;
             const double salt = getAmount(cell, Resource::Type::SALT);
             const double horses = getAmount(cell, Resource::Type::HORSES);
             const double gold = getAmount(cell, Resource::Type::GOLD);
-            const double copper = getAmount(cell, Resource::Type::COPPER);
-            const double tin = getAmount(cell, Resource::Type::TIN);
-            const double clay = getAmount(cell, Resource::Type::CLAY);
-            const double pot = iron * wIron + coal * wCoal + salt * wSalt + horses * wHorses +
-                               gold * wGold + copper * wCopper + tin * wTin + clay * wClay;
-            m_cellNonFood[static_cast<size_t>(y * width + x)] = std::max(0.0, pot);
+            m_cellNonFood[idx] = std::max(0.0,
+                                          0.55 * ore +
+                                          0.30 * energy +
+                                          0.25 * construction +
+                                          4.0 * salt +
+                                          2.5 * horses +
+                                          1.0 * gold);
         }
     }
 }
@@ -295,6 +427,7 @@ void Map::ensureFieldGrids() {
     m_fieldOwnerId.assign(n, -1);
     m_fieldControl.assign(n, 0.0f);
     m_fieldMoveCost.assign(n, 1.0f);
+    m_fieldCorridorWeight.assign(n, 1.0f);
     m_fieldFoodPotential.assign(n, 0.0f);
     m_countryControlCache.clear();
     m_controlCacheDirty = true;
@@ -815,6 +948,7 @@ void Map::rebuildFieldMoveCost(const std::vector<Country>& countries) {
     const size_t n = static_cast<size_t>(m_fieldW) * static_cast<size_t>(m_fieldH);
     if (n == 0) return;
     if (m_fieldMoveCost.size() != n) m_fieldMoveCost.assign(n, 1.0f);
+    if (m_fieldCorridorWeight.size() != n) m_fieldCorridorWeight.assign(n, 1.0f);
 
     std::vector<float> roadFactor(n, 1.0f);
     std::vector<float> portFactor(n, 1.0f);
@@ -848,6 +982,7 @@ void Map::rebuildFieldMoveCost(const std::vector<Country>& countries) {
     for (size_t idx = 0; idx < n; ++idx) {
         if (idx >= m_fieldLandMask.size() || m_fieldLandMask[idx] == 0u) {
             m_fieldMoveCost[idx] = std::numeric_limits<float>::infinity();
+            m_fieldCorridorWeight[idx] = 0.0f;
             continue;
         }
         const uint8_t biome = (idx < m_fieldBiome.size()) ? m_fieldBiome[idx] : 4u;
@@ -877,6 +1012,27 @@ void Map::rebuildFieldMoveCost(const std::vector<Country>& countries) {
         base *= roadFactor[idx];
         base *= portFactor[idx];
         m_fieldMoveCost[idx] = std::max(0.12f, base);
+
+        float corridor = 1.0f / std::max(0.12f, m_fieldMoveCost[idx]);
+        if (coastalMask[idx] != 0u) {
+            corridor += static_cast<float>(std::max(0.0, m_ctx->config.migration.corridorCoastBonus));
+        }
+        if (idx < m_fieldFoodPotential.size()) {
+            const float avgFood = m_fieldFoodPotential[idx] / static_cast<float>(kFieldCellSize * kFieldCellSize);
+            if (avgFood >= static_cast<float>(std::max(20.0, m_ctx->config.food.riverlandFoodFloor * 0.75))) {
+                corridor += static_cast<float>(std::max(0.0, m_ctx->config.migration.corridorRiverlandBonus));
+            }
+        }
+        if (biome == 4u || biome == 6u) {
+            corridor += static_cast<float>(std::max(0.0, m_ctx->config.migration.corridorSteppeBonus));
+        }
+        if (biome == 5u) {
+            corridor *= static_cast<float>(std::max(0.05, 1.0 - m_ctx->config.migration.corridorDesertPenalty));
+        }
+        if (biome == 0u || biome == 1u || biome == 2u) {
+            corridor *= static_cast<float>(std::max(0.05, 1.0 - m_ctx->config.migration.corridorMountainPenalty));
+        }
+        m_fieldCorridorWeight[idx] = std::max(0.01f, corridor);
     }
 }
 
@@ -1242,6 +1398,27 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries,
     const size_t ownerN = m_fieldOwnerId.size();
 
     auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+    auto traitDistance = [](const Country& a, const Country& b) -> double {
+        double sumSq = 0.0;
+        for (int k = 0; k < Country::kTraits; ++k) {
+            const double da = a.getTraits()[static_cast<size_t>(k)];
+            const double db = b.getTraits()[static_cast<size_t>(k)];
+            const double d = da - db;
+            sumSq += d * d;
+        }
+        return std::sqrt(sumSq / static_cast<double>(Country::kTraits));
+    };
+
+    std::vector<double> refugeePush(static_cast<size_t>(countryCount), 0.0);
+    for (int i = 0; i < countryCount; ++i) {
+        double p = 0.0;
+        if (static_cast<size_t>(i) < m_countryRefugeePush.size()) {
+            p = m_countryRefugeePush[static_cast<size_t>(i)];
+        } else {
+            p = countries[static_cast<size_t>(i)].getMacroEconomy().refugeePush;
+        }
+        refugeePush[static_cast<size_t>(i)] = clamp01(p);
+    }
 
     if (m_fieldAttractiveness.size() != n) m_fieldAttractiveness.assign(n, 0.0f);
     if (m_fieldPopDelta.size() != n) m_fieldPopDelta.assign(n, 0.0f);
@@ -1273,8 +1450,10 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries,
                 if (owner >= 0 && owner < countryCount) {
                     const Country& c = countries[static_cast<size_t>(owner)];
                     const auto& m = c.getMacroEconomy();
+                    const double push = refugeePush[static_cast<size_t>(owner)];
                     a += static_cast<float>(0.80 * clamp01(m.migrationAttractiveness));
                     a -= static_cast<float>(0.70 * clamp01(m.migrationPressureOut));
+                    a -= static_cast<float>(0.55 * push);
                     a += static_cast<float>(0.35 * clamp01(m.realWage / 2.0));
                     a += static_cast<float>(0.22 * clamp01(c.getAvgControl()));
                     a += static_cast<float>(0.18 * clamp01(c.getLegitimacy()));
@@ -1307,8 +1486,11 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries,
                     const size_t j = static_cast<size_t>(ny) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(nx);
                     if (j >= n) return;
                     if (m_fieldFoodPotential[j] <= 0.0f) return;
-                    const float d = m_fieldAttractiveness[j] - a0;
+                    float d = m_fieldAttractiveness[j] - a0;
                     if (d <= 0.0f) return;
+                    const float cw0 = (i < m_fieldCorridorWeight.size()) ? m_fieldCorridorWeight[i] : 1.0f;
+                    const float cw1 = (j < m_fieldCorridorWeight.size()) ? m_fieldCorridorWeight[j] : 1.0f;
+                    d *= std::max(0.05f, 0.5f * (cw0 + cw1));
                     nb[nbCount++] = {j, d};
                     sumDiff += d;
                 };
@@ -1352,7 +1534,7 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries,
         if (src.getPopulation() <= 0) continue;
 
         const auto& sm = src.getMacroEconomy();
-        const double outP = clamp01(sm.migrationPressureOut);
+        const double outP = clamp01(sm.migrationPressureOut + 0.65 * refugeePush[static_cast<size_t>(i)]);
         if (outP <= 1e-4) continue;
 
         const double migrants = std::min(countryTotal[static_cast<size_t>(i)] * 0.06, countryTotal[static_cast<size_t>(i)] * outP * (0.0018 * yearsD));
@@ -1367,6 +1549,7 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries,
             const Country& dst = countries[static_cast<size_t>(j)];
             if (dst.getPopulation() <= 0) continue;
             const auto& dm = dst.getMacroEconomy();
+            const double dstPush = refugeePush[static_cast<size_t>(j)];
 
             double conn = 0.0;
             if (hasTradeMatrix) {
@@ -1383,7 +1566,17 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries,
             const double disease = clamp01(dm.diseaseBurden);
             const double nutrition = clamp01(dm.foodSecurity);
             const double attract = clamp01(dm.migrationAttractiveness);
-            const double score = std::max(0.0, (0.32 * wageTerm + 0.24 * safety + 0.20 * nutrition + 0.24 * attract - 0.20 * disease) * (0.35 + 0.65 * clamp01(conn)));
+            const double culturalPreference = clamp01(m_ctx->config.migration.culturalPreference);
+            const double dist = traitDistance(src, dst);
+            const double culturalClose = std::exp(-std::max(0.0, m_ctx->config.tech.culturalFrictionStrength) * dist);
+            const double culturalTerm = (1.0 - culturalPreference) + culturalPreference * culturalClose;
+            const double refugeeSinkPenalty = 1.0 - 0.45 * dstPush;
+            const double score = std::max(
+                0.0,
+                (0.32 * wageTerm + 0.24 * safety + 0.20 * nutrition + 0.24 * attract - 0.20 * disease) *
+                (0.35 + 0.65 * clamp01(conn)) *
+                culturalTerm *
+                std::max(0.20, refugeeSinkPenalty));
             if (score > 1e-6) {
                 dest.push_back(Dest{j, score});
             }
@@ -1717,6 +1910,11 @@ void Map::ensureCountryAggregateCapacityForIndex(int idx) {
     if (m_countryLandCellCount.size() < need) {
         m_countryLandCellCount.resize(need, 0);
         m_countryFoodPotential.resize(need, 0.0);
+        m_countryForagingPotential.resize(need, 0.0);
+        m_countryFarmingPotential.resize(need, 0.0);
+        m_countryOrePotential.resize(need, 0.0);
+        m_countryEnergyPotential.resize(need, 0.0);
+        m_countryConstructionPotential.resize(need, 0.0);
         m_countryNonFoodPotential.resize(need, 0.0);
     }
 }
@@ -1725,12 +1923,22 @@ void Map::rebuildCountryPotentials(int countryCount) {
     if (countryCount <= 0) {
         m_countryLandCellCount.clear();
         m_countryFoodPotential.clear();
+        m_countryForagingPotential.clear();
+        m_countryFarmingPotential.clear();
+        m_countryOrePotential.clear();
+        m_countryEnergyPotential.clear();
+        m_countryConstructionPotential.clear();
         m_countryNonFoodPotential.clear();
         return;
     }
 
     m_countryLandCellCount.assign(static_cast<size_t>(countryCount), 0);
     m_countryFoodPotential.assign(static_cast<size_t>(countryCount), 0.0);
+    m_countryForagingPotential.assign(static_cast<size_t>(countryCount), 0.0);
+    m_countryFarmingPotential.assign(static_cast<size_t>(countryCount), 0.0);
+    m_countryOrePotential.assign(static_cast<size_t>(countryCount), 0.0);
+    m_countryEnergyPotential.assign(static_cast<size_t>(countryCount), 0.0);
+    m_countryConstructionPotential.assign(static_cast<size_t>(countryCount), 0.0);
     m_countryNonFoodPotential.assign(static_cast<size_t>(countryCount), 0.0);
 
     const int height = static_cast<int>(m_countryGrid.size());
@@ -1746,6 +1954,21 @@ void Map::rebuildCountryPotentials(int countryCount) {
             m_countryLandCellCount[static_cast<size_t>(owner)] += 1;
             if (idx < m_cellFood.size()) {
                 m_countryFoodPotential[static_cast<size_t>(owner)] += m_cellFood[idx];
+            }
+            if (idx < m_cellForaging.size()) {
+                m_countryForagingPotential[static_cast<size_t>(owner)] += m_cellForaging[idx];
+            }
+            if (idx < m_cellFarming.size()) {
+                m_countryFarmingPotential[static_cast<size_t>(owner)] += m_cellFarming[idx];
+            }
+            if (idx < m_cellOre.size()) {
+                m_countryOrePotential[static_cast<size_t>(owner)] += m_cellOre[idx];
+            }
+            if (idx < m_cellEnergy.size()) {
+                m_countryEnergyPotential[static_cast<size_t>(owner)] += m_cellEnergy[idx];
+            }
+            if (idx < m_cellConstruction.size()) {
+                m_countryConstructionPotential[static_cast<size_t>(owner)] += m_cellConstruction[idx];
             }
             if (idx < m_cellNonFood.size()) {
                 m_countryNonFoodPotential[static_cast<size_t>(owner)] += m_cellNonFood[idx];
@@ -1793,6 +2016,28 @@ double Map::getCountryFoodSum(int countryIndex) const {
     return m_countryFoodPotential[idx];
 }
 
+double Map::getCountryForagingPotential(int countryIndex) const {
+    if (countryIndex < 0) {
+        return 0.0;
+    }
+    const size_t idx = static_cast<size_t>(countryIndex);
+    if (idx >= m_countryForagingPotential.size()) {
+        return 0.0;
+    }
+    return m_countryForagingPotential[idx];
+}
+
+double Map::getCountryFarmingPotential(int countryIndex) const {
+    if (countryIndex < 0) {
+        return 0.0;
+    }
+    const size_t idx = static_cast<size_t>(countryIndex);
+    if (idx >= m_countryFarmingPotential.size()) {
+        return 0.0;
+    }
+    return m_countryFarmingPotential[idx];
+}
+
 double Map::getCountryNonFoodPotential(int countryIndex) const {
     if (countryIndex < 0) {
         return 0.0;
@@ -1802,6 +2047,39 @@ double Map::getCountryNonFoodPotential(int countryIndex) const {
         return 0.0;
     }
     return m_countryNonFoodPotential[idx];
+}
+
+double Map::getCountryOrePotential(int countryIndex) const {
+    if (countryIndex < 0) {
+        return 0.0;
+    }
+    const size_t idx = static_cast<size_t>(countryIndex);
+    if (idx >= m_countryOrePotential.size()) {
+        return 0.0;
+    }
+    return m_countryOrePotential[idx];
+}
+
+double Map::getCountryEnergyPotential(int countryIndex) const {
+    if (countryIndex < 0) {
+        return 0.0;
+    }
+    const size_t idx = static_cast<size_t>(countryIndex);
+    if (idx >= m_countryEnergyPotential.size()) {
+        return 0.0;
+    }
+    return m_countryEnergyPotential[idx];
+}
+
+double Map::getCountryConstructionPotential(int countryIndex) const {
+    if (countryIndex < 0) {
+        return 0.0;
+    }
+    const size_t idx = static_cast<size_t>(countryIndex);
+    if (idx >= m_countryConstructionPotential.size()) {
+        return 0.0;
+    }
+    return m_countryConstructionPotential[idx];
 }
 
 int Map::getCountryLandCellCount(int countryIndex) const {
@@ -2412,6 +2690,9 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
     if (countryCount <= 0 || m_fieldPopulation.empty() || m_fieldOwnerId.empty()) {
         return;
     }
+    if (m_countryRefugeePush.size() != static_cast<size_t>(countryCount)) {
+        m_countryRefugeePush.assign(static_cast<size_t>(countryCount), 0.0);
+    }
 
     auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
     auto sigmoid = [](double x) {
@@ -2466,6 +2747,8 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
             m.lastDeathsFamine = 0.0;
             m.lastDeathsEpi = 0.0;
             m.lastAvgNutrition = 1.0;
+            m.refugeePush = 0.0;
+            m_countryRefugeePush[static_cast<size_t>(i)] = 0.0;
             sdbg.dbg_shortageRatio = 0.0;
             sdbg.dbg_diseaseBurden = 0.0;
             sdbg.dbg_delta_demog_stress = 0.0;
@@ -2690,6 +2973,20 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
             0.20 * (1.0 - m.diseaseBurden) +
             0.15 * institution +
             0.10 * legitimacy);
+
+        // Shock-driven refugee pressure with exponential half-life decay.
+        const double halfLife = std::max(0.5, m_ctx->config.migration.refugeeHalfLifeYears);
+        const double decay = std::exp(-std::log(2.0) * yearsD / halfLife);
+        const double famineShock = std::max(0.0, m.famineSeverity - m_ctx->config.migration.famineShockThreshold);
+        const double epiShock = std::max(0.0, m.diseaseBurden - m_ctx->config.migration.epidemicShockThreshold);
+        const double warShock = std::max(0.0, c.getWarExhaustion() - m_ctx->config.migration.warShockThreshold);
+        const double shockAdd = clamp01(
+            famineShock * std::max(0.0, m_ctx->config.migration.famineShockMultiplier) +
+            epiShock * std::max(0.0, m_ctx->config.migration.epidemicShockMultiplier) +
+            warShock * std::max(0.0, m_ctx->config.migration.warShockMultiplier));
+        m.refugeePush = clamp01(m.refugeePush * decay + shockAdd);
+        m_countryRefugeePush[static_cast<size_t>(i)] = m.refugeePush;
+        m.migrationPressureOut = clamp01(m.migrationPressureOut + 0.55 * m.refugeePush);
 
         // Autonomy pressure state (used by fragmentation logic).
         const double autonomyUp =
@@ -5954,6 +6251,10 @@ const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& Map:
     return m_resourceGrid;
 }
 
+const SimulationConfig& Map::getConfig() const {
+    return m_ctx->config;
+}
+
 // Getter implementation (in country.cpp)
 int Country::getNextWarCheckYear() const {
     return m_nextWarCheckYear;
@@ -6002,16 +6303,26 @@ bool Map::setCountryOwnerAssumingLockedImpl(int x, int y, int newOwner) {
         return false;
     }
 
-    // Incremental per-country aggregates (food/non-food potential and land cell count).
+    // Incremental per-country aggregates (food/typed-nonfood potential and land cell count).
     // These are used by fast-forward / mega simulation to compute carrying capacity cheaply.
     const size_t cellIdx = static_cast<size_t>(y * width + x);
     const double cellFood = (cellIdx < m_cellFood.size()) ? m_cellFood[cellIdx] : 0.0;
+    const double cellForaging = (cellIdx < m_cellForaging.size()) ? m_cellForaging[cellIdx] : 0.0;
+    const double cellFarming = (cellIdx < m_cellFarming.size()) ? m_cellFarming[cellIdx] : 0.0;
+    const double cellOre = (cellIdx < m_cellOre.size()) ? m_cellOre[cellIdx] : 0.0;
+    const double cellEnergy = (cellIdx < m_cellEnergy.size()) ? m_cellEnergy[cellIdx] : 0.0;
+    const double cellConstruction = (cellIdx < m_cellConstruction.size()) ? m_cellConstruction[cellIdx] : 0.0;
     const double cellNonFood = (cellIdx < m_cellNonFood.size()) ? m_cellNonFood[cellIdx] : 0.0;
 
     if (oldOwner >= 0) {
         ensureCountryAggregateCapacityForIndex(oldOwner);
         m_countryLandCellCount[static_cast<size_t>(oldOwner)] -= 1;
         m_countryFoodPotential[static_cast<size_t>(oldOwner)] -= cellFood;
+        m_countryForagingPotential[static_cast<size_t>(oldOwner)] -= cellForaging;
+        m_countryFarmingPotential[static_cast<size_t>(oldOwner)] -= cellFarming;
+        m_countryOrePotential[static_cast<size_t>(oldOwner)] -= cellOre;
+        m_countryEnergyPotential[static_cast<size_t>(oldOwner)] -= cellEnergy;
+        m_countryConstructionPotential[static_cast<size_t>(oldOwner)] -= cellConstruction;
         m_countryNonFoodPotential[static_cast<size_t>(oldOwner)] -= cellNonFood;
         if (m_countryLandCellCount[static_cast<size_t>(oldOwner)] < 0) {
             m_countryLandCellCount[static_cast<size_t>(oldOwner)] = 0;
@@ -6023,11 +6334,31 @@ bool Map::setCountryOwnerAssumingLockedImpl(int x, int y, int newOwner) {
         if (m_countryNonFoodPotential[static_cast<size_t>(oldOwner)] < 0.0) {
             m_countryNonFoodPotential[static_cast<size_t>(oldOwner)] = 0.0;
         }
+        if (m_countryForagingPotential[static_cast<size_t>(oldOwner)] < 0.0) {
+            m_countryForagingPotential[static_cast<size_t>(oldOwner)] = 0.0;
+        }
+        if (m_countryFarmingPotential[static_cast<size_t>(oldOwner)] < 0.0) {
+            m_countryFarmingPotential[static_cast<size_t>(oldOwner)] = 0.0;
+        }
+        if (m_countryOrePotential[static_cast<size_t>(oldOwner)] < 0.0) {
+            m_countryOrePotential[static_cast<size_t>(oldOwner)] = 0.0;
+        }
+        if (m_countryEnergyPotential[static_cast<size_t>(oldOwner)] < 0.0) {
+            m_countryEnergyPotential[static_cast<size_t>(oldOwner)] = 0.0;
+        }
+        if (m_countryConstructionPotential[static_cast<size_t>(oldOwner)] < 0.0) {
+            m_countryConstructionPotential[static_cast<size_t>(oldOwner)] = 0.0;
+        }
     }
     if (newOwner >= 0) {
         ensureCountryAggregateCapacityForIndex(newOwner);
         m_countryLandCellCount[static_cast<size_t>(newOwner)] += 1;
         m_countryFoodPotential[static_cast<size_t>(newOwner)] += cellFood;
+        m_countryForagingPotential[static_cast<size_t>(newOwner)] += cellForaging;
+        m_countryFarmingPotential[static_cast<size_t>(newOwner)] += cellFarming;
+        m_countryOrePotential[static_cast<size_t>(newOwner)] += cellOre;
+        m_countryEnergyPotential[static_cast<size_t>(newOwner)] += cellEnergy;
+        m_countryConstructionPotential[static_cast<size_t>(newOwner)] += cellConstruction;
         m_countryNonFoodPotential[static_cast<size_t>(newOwner)] += cellNonFood;
     }
 

@@ -150,10 +150,53 @@ void TechnologyManager::initializeTechnologies() {
         return 1;
     };
 
+    auto secondaryDomainFor = [](int primaryDomain) -> int {
+        switch (primaryDomain) {
+            case 0: return 2; // ecological intensification + construction systems
+            case 1: return 7; // materials + force projection
+            case 2: return 1; // construction + materials
+            case 3: return 4; // logistics + bureaucracy/markets
+            case 4: return 6; // institutions + information systems
+            case 5: return 6; // health + information systems
+            case 6: return 4; // information + institutions
+            case 7: return 1; // warfare + materials
+            default: return (primaryDomain + 1) % Country::kDomains;
+        }
+    };
+
+    auto capabilityTagFor = [](int domainId) -> std::string {
+        switch (domainId) {
+            case 0: return "ecological-intensification";
+            case 1: return "materials-energy-conversion";
+            case 2: return "construction-systems";
+            case 3: return "long-range-logistics";
+            case 4: return "bureaucracy-exchange-protocols";
+            case 5: return "public-health-biocontrol";
+            case 6: return "information-inference-systems";
+            case 7: return "organized-force-projection";
+            default: return "general-capability";
+        }
+    };
+
+    m_capabilityGates.clear();
+    m_capabilityGates.reserve(m_technologies.size());
     for (auto& kv : m_technologies) {
         Technology& t = kv.second;
         t.threshold = static_cast<double>(t.cost);
         t.domainId = domainFor(t.id, t.name);
+        t.capabilityTag = capabilityTagFor(t.domainId);
+
+        const double complexity = std::clamp(std::log10(1.0 + t.threshold) / 5.5, 0.05, 1.0);
+        CapabilityGate g;
+        g.primaryDomain = t.domainId;
+        g.secondaryDomain = secondaryDomainFor(t.domainId);
+        g.primaryThreshold = t.threshold;
+        g.secondaryThreshold = t.threshold * (0.26 + 0.34 * complexity);
+        g.institutionThreshold = std::clamp(0.05 + 0.60 * complexity, 0.05, 0.85);
+        g.energyThreshold = std::clamp(0.10 + 0.75 * complexity, 0.08, 0.95);
+        g.oreThreshold = std::clamp(0.08 + 0.72 * complexity, 0.06, 0.95);
+        g.constructionThreshold = std::clamp(0.06 + 0.65 * complexity, 0.05, 0.95);
+        m_capabilityGates[t.id] = g;
     }
 
 #ifndef NDEBUG
@@ -206,11 +249,26 @@ void TechnologyManager::initializeTechnologies() {
 #endif
 }
 
-void TechnologyManager::updateCountry(Country& country) {
+void TechnologyManager::updateCountry(Country& country, const Map& map) {
     // Unlock technologies by knowledge thresholds, but cap per-tick unlock count so a large
     // overshoot doesn't instantly grant an entire era in a single year.
+    const SimulationConfig& cfg = map.getConfig();
     const double pop = static_cast<double>(std::max<long long>(1, country.getPopulation()));
     const double urban = std::clamp(country.getTotalCityPopulation() / pop, 0.0, 1.0);
+    const int countryIndex = country.getCountryIndex();
+
+    const double orePot = std::max(0.0, map.getCountryOrePotential(countryIndex));
+    const double energyPot = std::max(0.0, map.getCountryEnergyPotential(countryIndex));
+    const double constructionPot = std::max(0.0, map.getCountryConstructionPotential(countryIndex));
+    const double resourceScale = 40.0 + 0.00015 * pop;
+    auto sat = [](double x, double s) {
+        const double d = std::max(1e-9, s);
+        const double v = std::max(0.0, x);
+        return v / (v + d);
+    };
+    const double oreAvail = sat(orePot, resourceScale * std::max(0.5, cfg.resources.oreNormalization / 120.0));
+    const double energyAvail = sat(energyPot, resourceScale * std::max(0.5, cfg.resources.energyNormalization / 120.0));
+    const double constructionAvail = sat(constructionPot, resourceScale * std::max(0.5, cfg.resources.constructionNormalization / 120.0));
 
     int maxUnlocks = 1;
     if (urban > 0.06) maxUnlocks += 1;
@@ -224,14 +282,42 @@ void TechnologyManager::updateCountry(Country& country) {
     bool progress = true;
     while (progress && unlockedThisTick < maxUnlocks) {
         progress = false;
+        const double thresholdScale = std::max(0.25, cfg.tech.capabilityThresholdScale);
         for (int techId : m_sortedIds) {
             const Technology& tech = m_technologies.at(techId);
-            if (canUnlockTechnology(country, techId) && country.getKnowledgeDomain(tech.domainId) >= tech.threshold) {
-                unlockTechnology(country, techId);
-                unlockedThisTick++;
-                progress = true;
-                break; // restart because prereqs/unlocks changed
+            if (!canUnlockTechnology(country, techId)) continue;
+
+            CapabilityGate gate{};
+            auto gateIt = m_capabilityGates.find(techId);
+            if (gateIt != m_capabilityGates.end()) {
+                gate = gateIt->second;
+            } else {
+                gate.primaryDomain = tech.domainId;
+                gate.secondaryDomain = (tech.domainId + 1) % Country::kDomains;
+                gate.primaryThreshold = tech.threshold;
+                gate.secondaryThreshold = 0.35 * tech.threshold;
+                gate.institutionThreshold = 0.15;
+                gate.energyThreshold = 0.2;
+                gate.oreThreshold = 0.2;
+                gate.constructionThreshold = 0.2;
             }
+
+            const double kPrimary = country.getKnowledgeDomain(gate.primaryDomain);
+            const double kSecondary = country.getKnowledgeDomain(gate.secondaryDomain);
+            const double institution = std::clamp(country.getInstitutionCapacity(), 0.0, 1.0);
+            if (kPrimary < gate.primaryThreshold * thresholdScale) continue;
+            if (kSecondary < gate.secondaryThreshold * thresholdScale) continue;
+            if (institution < gate.institutionThreshold) continue;
+
+            const double energyReq = std::clamp(gate.energyThreshold * std::max(0.0, cfg.tech.resourceReqEnergy), 0.0, 0.98);
+            const double oreReq = std::clamp(gate.oreThreshold * std::max(0.0, cfg.tech.resourceReqOre), 0.0, 0.98);
+            const double constructionReq = std::clamp(gate.constructionThreshold * std::max(0.0, cfg.tech.resourceReqConstruction), 0.0, 0.98);
+            if (energyAvail < energyReq || oreAvail < oreReq || constructionAvail < constructionReq) continue;
+
+            unlockTechnology(country, techId);
+            unlockedThisTick++;
+            progress = true;
+            break; // restart because prereqs/unlocks changed
         }
     }
 }
@@ -253,6 +339,7 @@ bool TechnologyManager::canUnlockTechnology(const Country& country, int techId) 
     }
 
     const Technology& tech = itTech->second;
+    int missingPrereqs = 0;
     for (int requiredTechId : tech.requiredTechs) {
         bool found = false;
         if (itCountry != m_unlockedTechnologies.end()) {
@@ -262,7 +349,21 @@ bool TechnologyManager::canUnlockTechnology(const Country& country, int techId) 
             }
         }
         if (!found) {
-            return false; // Required tech not unlocked
+            missingPrereqs++;
+        }
+    }
+
+    if (missingPrereqs > 0) {
+        // Capability-graph flexibility: allow narrow prereq bypasses when capability stocks are already high.
+        if (missingPrereqs > 1) {
+            return false;
+        }
+        const int secondaryDomain = (tech.domainId + 1) % Country::kDomains;
+        const double primary = country.getKnowledgeDomain(tech.domainId);
+        const double secondary = country.getKnowledgeDomain(secondaryDomain);
+        const double institution = std::clamp(country.getInstitutionCapacity(), 0.0, 1.0);
+        if (!(primary >= tech.threshold * 1.35 && secondary >= tech.threshold * 0.55 && institution >= 0.55)) {
+            return false;
         }
     }
 
@@ -314,8 +415,19 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
     if (n <= 0) {
         return;
     }
+    const SimulationConfig& cfg = map.getConfig();
 
     auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+    auto traitDistance = [](const Country& a, const Country& b) -> double {
+        double sumSq = 0.0;
+        for (int k = 0; k < Country::kTraits; ++k) {
+            const double da = a.getTraits()[static_cast<size_t>(k)];
+            const double db = b.getTraits()[static_cast<size_t>(k)];
+            const double d = da - db;
+            sumSq += d * d;
+        }
+        return std::sqrt(sumSq / static_cast<double>(Country::kTraits));
+    };
 
     std::vector<Country::KnowledgeVec> delta(static_cast<size_t>(n), Country::KnowledgeVec{});
 
@@ -338,6 +450,22 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         const double control = clamp01(c.getAvgControl());
 
         const auto& m = c.getMacroEconomy();
+        const double orePot = std::max(0.0, map.getCountryOrePotential(i));
+        const double energyPot = std::max(0.0, map.getCountryEnergyPotential(i));
+        const double constructionPot = std::max(0.0, map.getCountryConstructionPotential(i));
+        auto sat = [](double x, double s) {
+            const double d = std::max(1e-9, s);
+            const double v = std::max(0.0, x);
+            return v / (v + d);
+        };
+        const double resourceScale = 50.0 + 0.0002 * pop;
+        const double oreSat = sat(orePot, resourceScale * std::max(0.5, cfg.resources.oreNormalization / 120.0));
+        const double energySat = sat(energyPot, resourceScale * std::max(0.5, cfg.resources.energyNormalization / 120.0));
+        const double constructionSat = sat(constructionPot, resourceScale * std::max(0.5, cfg.resources.constructionNormalization / 120.0));
+        const double resourceReqE = std::clamp(cfg.tech.resourceReqEnergy, 0.05, 2.0);
+        const double resourceReqO = std::clamp(cfg.tech.resourceReqOre, 0.05, 2.0);
+        const double resourceReqC = std::clamp(cfg.tech.resourceReqConstruction, 0.05, 2.0);
+        const double resourceGate = clamp01(std::min({energySat / resourceReqE, oreSat / resourceReqO, constructionSat / resourceReqC}));
         const double popScale = std::min(2.2, 0.30 + 0.24 * std::log1p(pop / 50000.0));
         const double nonFoodSurplus = std::max(0.0, m.lastNonFoodOutput - m.lastNonFoodCons);
         const double surplusPc = nonFoodSurplus / pop;
@@ -412,6 +540,7 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         adv *= (0.20 + 0.80 * clamp01(m.connectivityIndex));
         adv *= (0.30 + 0.70 * clamp01(m.institutionCapacity));
         adv *= (1.0 - 0.45 * clamp01(m.inequality));
+        adv *= (0.28 + 0.72 * resourceGate);
 
         const double totalInnovPerYear = std::max(0.0, baselineCraft + std::max(0.0, adv));
         c.setInnovationRate(totalInnovPerYear);
@@ -438,17 +567,25 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
     auto diffusePair = [&](int a, int b, double w, double rate) {
         if (a < 0 || b < 0 || a >= n || b >= n || a == b) return;
         if (w <= 0.0) return;
-        const double r = rate * w * yearsD;
+        const Country& ca = countries[static_cast<size_t>(a)];
+        const Country& cb = countries[static_cast<size_t>(b)];
+        const double dist = traitDistance(ca, cb);
+        const double friction = std::exp(-std::max(0.0, cfg.tech.culturalFrictionStrength) * dist);
+        const double base = std::max(0.0, cfg.tech.diffusionBase);
+        const double contact = std::clamp(w, 0.0, 1.0);
+        const double absorbA = 0.20 + 0.80 * clamp01(ca.getInstitutionCapacity());
+        const double absorbB = 0.20 + 0.80 * clamp01(cb.getInstitutionCapacity());
+        const double r = base * rate * contact * friction * yearsD;
         if (r <= 0.0) return;
-        const Country::KnowledgeVec& ka = countries[static_cast<size_t>(a)].getKnowledge();
-        const Country::KnowledgeVec& kb = countries[static_cast<size_t>(b)].getKnowledge();
+        const Country::KnowledgeVec& ka = ca.getKnowledge();
+        const Country::KnowledgeVec& kb = cb.getKnowledge();
         for (int d = 0; d < Country::kDomains; ++d) {
             const double va = ka[static_cast<size_t>(d)];
             const double vb = kb[static_cast<size_t>(d)];
             if (vb > va) {
-                delta[static_cast<size_t>(a)][static_cast<size_t>(d)] += r * (vb - va);
+                delta[static_cast<size_t>(a)][static_cast<size_t>(d)] += r * absorbA * (vb - va);
             } else if (va > vb) {
-                delta[static_cast<size_t>(b)][static_cast<size_t>(d)] += r * (va - vb);
+                delta[static_cast<size_t>(b)][static_cast<size_t>(d)] += r * absorbB * (va - vb);
             }
         }
     };
@@ -484,7 +621,7 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                 (0.20 + 0.80 * connAvg) *
                 (0.25 + 0.75 * legitAvg) *
                 (1.0 - 0.55 * ineqAvg);
-            const double rate = 0.0035 * (0.25 + 0.75 * accessAvg) * (0.25 + 0.75 * openAvg) * (0.35 + 0.65 * urbanAvg) * adoption;
+            const double rate = 0.32 * (0.25 + 0.75 * accessAvg) * (0.25 + 0.75 * openAvg) * (0.35 + 0.65 * urbanAvg) * adoption;
             diffusePair(a, b, w, rate);
         }
     }
@@ -515,7 +652,7 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                         (0.20 + 0.80 * connAvg) *
                         (0.25 + 0.75 * legitAvg) *
                         (1.0 - 0.55 * ineqAvg);
-                    const double rate = 0.014 * (0.20 + 0.80 * accessAvg) * (0.25 + 0.75 * openAvg) * adoption;
+                    const double rate = 0.95 * (0.20 + 0.80 * accessAvg) * (0.25 + 0.75 * openAvg) * adoption;
                     diffusePair(a, b, w, rate);
                 }
             }
@@ -552,7 +689,7 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
     // Unlock technologies by knowledge thresholds (no spending).
     for (int i = 0; i < n; ++i) {
         if (countries[static_cast<size_t>(i)].getPopulation() <= 0) continue;
-        updateCountry(countries[static_cast<size_t>(i)]);
+        updateCountry(countries[static_cast<size_t>(i)], map);
     }
 }
 

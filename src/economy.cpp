@@ -1055,6 +1055,7 @@ void EconomyModelCPU::tickYear(int year,
     const double yearsD = static_cast<double>(years);
     const int n = static_cast<int>(countries.size());
     if (n <= 0) return;
+    const SimulationConfig& cfg = m_ctx->config;
 
     map.prepareCountryClimateCaches(n);
 
@@ -1160,8 +1161,21 @@ void EconomyModelCPU::tickYear(int year,
         oldRealWage[static_cast<size_t>(i)] = m.realWage;
 
         const double pop = static_cast<double>(std::max<long long>(0, c.getPopulation()));
+        const double foragingPot = std::max(0.0, map.getCountryForagingPotential(i));
+        const double farmingPot = std::max(0.0, map.getCountryFarmingPotential(i));
         const double foodPot = std::max(0.0, map.getCountryFoodPotential(i));
-        const double nonFoodPot = std::max(0.0, map.getCountryNonFoodPotential(i));
+        const double orePotRaw = std::max(0.0, map.getCountryOrePotential(i));
+        const double energyPotRaw = std::max(0.0, map.getCountryEnergyPotential(i));
+        const double constructionPot = std::max(0.0, map.getCountryConstructionPotential(i));
+        const double oreBase = std::max(1.0, orePotRaw * 600.0);
+        const double coalBase = std::max(1.0, energyPotRaw * 600.0);
+        const double oreDecline = 1.0 / (1.0 + std::max(0.0, cfg.resources.oreDepletionRate) *
+                                                 (m.cumulativeOreExtraction / oreBase));
+        const double coalDecline = 1.0 / (1.0 + std::max(0.0, cfg.resources.coalDepletionRate) *
+                                                  (m.cumulativeCoalExtraction / coalBase));
+        const double orePot = orePotRaw * oreDecline;
+        const double energyPot = energyPotRaw * coalDecline;
+        const double nonFoodPot = std::max(0.0, 0.55 * orePot + 0.30 * energyPot + 0.25 * constructionPot);
         const double climateMult = std::max(0.05, static_cast<double>(map.getCountryClimateFoodMultiplier(i)));
 
         const double control = clamp01(c.getAvgControl());
@@ -1245,30 +1259,53 @@ void EconomyModelCPU::tickYear(int year,
             if (sector == 0) { // food
                 const bool irr = TechnologyManager::hasTech(tech, c, 10);
                 const bool agr = TechnologyManager::hasTech(tech, c, 20);
-                const double techMul = 1.0 + (irr ? 0.16 : 0.0) + (agr ? 0.30 : 0.0);
-                const double laborScale = std::max(1.0, 0.0015 * foodPot / std::max(0.35, 0.65 * ctl + 0.35 * std::min(1.5, techMul)));
+                const bool storage = TechnologyManager::hasTech(tech, c, 1); // Pottery
+                const double foragingShare = agr ? std::clamp(cfg.food.foragingWithAgriShare, 0.0, 1.0)
+                                                 : std::clamp(cfg.food.foragingNoAgriShare, 0.0, 1.0);
+                const double farmingShare = agr ? std::clamp(cfg.food.farmingWithAgriShare, 0.0, 2.0) : 0.10;
+                const double farmTechMul = 1.0 + (irr ? 0.22 : 0.0) + (agr ? 0.45 : 0.0) + (storage ? 0.10 : 0.0);
+                const double laborScale = std::max(1.0, 0.0014 * (foragingPot + farmingPot) /
+                                                        std::max(0.35, 0.65 * ctl + 0.35 * std::min(1.8, farmTechMul)));
                 const double laborFrac = (w > 0.0) ? (w / (w + laborScale)) : 0.0;
-                const double deploy = clamp01((0.45 + 0.55 * ctl) * (0.80 + 0.20 * std::min(1.5, techMul)));
-                const double env = clamp01(climateMult * (1.0 - 0.30 * diseaseBurden));
+                const double deploy = clamp01((0.45 + 0.55 * ctl) * (0.80 + 0.20 * std::min(1.8, farmTechMul)));
+                const double env = clamp01(climateMult * (1.0 - 0.30 * diseaseBurden) * (0.40 + 0.60 * std::max(0.2, 1.0 - cfg.food.climateSensitivity * (1.0 - climateMult))));
                 const double exploitation = clamp01(laborFrac * deploy * env);
-                return foodPot * exploitation;
+                const double foragingOut = foragingPot * foragingShare * exploitation;
+                const double farmingOut = farmingPot * farmingShare * exploitation *
+                                          (0.40 + 0.60 * ctl) * (0.35 + 0.65 * inst);
+                return std::max(0.0, foragingOut + farmingOut);
             }
             if (sector == 1) { // goods
                 const bool mining = TechnologyManager::hasTech(tech, c, 4);
                 const bool metal = TechnologyManager::hasTech(tech, c, TechId::METALLURGY);
                 const bool ind = TechnologyManager::hasTech(tech, c, 52);
                 const double techMul = 1.0 + (mining ? 0.18 : 0.0) + (metal ? 0.25 : 0.0) + (ind ? 0.45 : 0.0);
-                return nonFoodPot * techMul * ctl * access * std::pow(w + 1.0, 0.70) * (0.010 + 0.0006 * cap);
+                const double oreCap = std::max(1.0, orePot * (0.25 + 0.75 * ctl));
+                const double energyCap = std::max(1.0, energyPot * (0.20 + 0.80 * access));
+                const double constrCap = std::max(1.0, constructionPot * (0.30 + 0.70 * inst));
+                const double oreNeed = 45.0 + std::max(0.05, cfg.economy.oreIntensity) * std::pow(w + 1.0, 0.85);
+                const double energyNeed = 35.0 + std::max(0.05, cfg.economy.energyIntensity) * std::pow(w + 1.0, 0.85);
+                const double constrNeed = 20.0 + 0.40 * std::pow(w + 1.0, 0.70);
+                const double inputLimiter = std::clamp(std::min({oreCap / oreNeed, energyCap / energyNeed, constrCap / constrNeed}), 0.0, 1.0);
+                const double base = (0.45 * oreCap + 0.25 * constrCap + 0.30 * energyCap);
+                return base * techMul * ctl * access * inputLimiter *
+                       std::pow(w + 1.0, std::max(0.35, cfg.economy.goodsLaborElasticity)) *
+                       (0.004 + 0.00035 * cap);
             }
             if (sector == 2) { // services
                 const double urbanMul = 0.20 + 0.80 * urban;
-                return (0.002 + 0.0004 * cap) * inst * access * urbanMul * std::pow(w + 1.0, 0.78);
+                const double energySoftLimit = 0.85 + 0.15 * std::clamp(energyPot / (energyPot + 75.0), 0.0, 1.0);
+                return (0.002 + 0.0004 * cap) * inst * access * urbanMul * energySoftLimit *
+                       std::pow(w + 1.0, std::max(0.35, cfg.economy.servicesLaborElasticity));
             }
             if (sector == 3) { // admin
                 return (0.00025 * pop) * (0.30 + 0.70 * admin) * std::pow(w + 1.0, 0.80);
             }
             // military
-            return (0.00018 * pop) * (0.25 + 0.75 * logi) * std::pow(w + 1.0, 0.84);
+            const double milInputNeed = 28.0 + std::max(0.05, cfg.economy.goodsToMilitary) * std::pow(w + 1.0, 0.88);
+            const double milInputAvail = 0.55 * std::max(1.0, orePot) + 0.45 * std::max(1.0, energyPot);
+            const double milInputLimiter = std::clamp(milInputAvail / milInputNeed, 0.0, 1.0);
+            return (0.00018 * pop) * (0.25 + 0.75 * logi) * milInputLimiter * std::pow(w + 1.0, 0.84);
         };
 
         const double subsistenceFoodNeedAnnual =
@@ -1367,9 +1404,14 @@ void EconomyModelCPU::tickYear(int year,
         m.lastNonFoodOutput = m.lastGoodsOutput + m.lastServicesOutput;
 
         // Storage/spoilage dynamics.
-        m.foodStockCap = std::max(1.0, (0.35 + 1.25 * m.marketAccess + 0.95 * m.institutionCapacity) * std::max(1.0, subsistenceFoodNeedAnnual));
+        const bool potteryStorage = TechnologyManager::hasTech(tech, c, 1); // Pottery/storage
+        const bool preservation = TechnologyManager::hasTech(tech, c, 71);  // Preservation
+        const double storageTechBonus = (potteryStorage ? 0.30 : 0.0) + (preservation ? 0.22 : 0.0);
+        m.foodStockCap = std::max(1.0, (std::max(0.05, cfg.food.storageBase) + 1.10 * m.marketAccess + 0.85 * m.institutionCapacity + storageTechBonus) * std::max(1.0, subsistenceFoodNeedAnnual));
         const double climateSpoilage = clamp01((1.0 - climateMult) * 0.6 + 0.3);
-        m.spoilageRate = std::clamp(0.08 + 0.20 * climateSpoilage - 0.06 * m.institutionCapacity - 0.04 * TechnologyManager::hasTech(tech, c, 71), 0.03, 0.35);
+        m.spoilageRate = std::clamp(std::max(0.0, cfg.food.spoilageBase) + 0.18 * climateSpoilage - 0.05 * m.institutionCapacity -
+                                        (potteryStorage ? 0.04 : 0.0) - (preservation ? 0.05 : 0.0),
+                                    0.01, 0.35);
         const double spoilageTotal = m.foodStock * (1.0 - std::pow(std::max(0.0, 1.0 - m.spoilageRate), yearsD));
 
         const double incomeProxy = std::max(0.0, oldRealWage[static_cast<size_t>(i)]);
@@ -1664,6 +1706,8 @@ void EconomyModelCPU::tickYear(int year,
         const double stability = clamp01(c.getStability());
         const double urban = (pop > 1.0) ? clamp01(c.getTotalCityPopulation() / pop) : 0.0;
         const double diseaseBurden = clamp01(m.diseaseBurden);
+        const double orePot = std::max(0.0, map.getCountryOrePotential(i));
+        const double energyPot = std::max(0.0, map.getCountryEnergyPotential(i));
 
         const double fNeed = foodNeed[static_cast<size_t>(i)];
         const double gNeed = goodsNeed[static_cast<size_t>(i)];
@@ -1691,6 +1735,20 @@ void EconomyModelCPU::tickYear(int year,
         m.nonFoodStock = std::max(0.0, gAvail - gNeed);
         m.servicesStock = std::max(0.0, sAvail - sNeed);
         m.militarySupplyStock = std::max(0.0, milAvail - milNeed);
+
+        // Lightweight extraction depletion tracking (best deposits are exhausted first).
+        const double oreExtractAnnual =
+            std::max(0.0, m.lastGoodsOutput) * std::max(0.05, cfg.economy.oreIntensity) +
+            std::max(0.0, m.lastMilitaryOutput) * 0.35 * std::max(0.05, cfg.economy.oreIntensity);
+        const double coalExtractAnnual =
+            (std::max(0.0, m.lastGoodsOutput) + 0.80 * std::max(0.0, m.lastMilitaryOutput)) *
+            std::max(0.05, cfg.economy.energyIntensity);
+        if (orePot > 1e-6) {
+            m.cumulativeOreExtraction = std::max(0.0, m.cumulativeOreExtraction + oreExtractAnnual * yearsD);
+        }
+        if (energyPot > 1e-6) {
+            m.cumulativeCoalExtraction = std::max(0.0, m.cumulativeCoalExtraction + coalExtractAnnual * yearsD);
+        }
 
         const double depTotal = m_cfg.depRate * std::max(0.0, m.capitalStock) * yearsD;
         const double investInput = std::max(0.0, m.nonFoodStock) * (0.15 + 0.45 * c.getRndSpendingShare() + 0.40 * c.getInfraSpendingShare());

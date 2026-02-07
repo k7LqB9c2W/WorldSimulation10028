@@ -14,6 +14,7 @@ struct Technology {
     std::vector<int> requiredTechs;
     int domainId = 0;       // Phase 5A: knowledge domain index (0..Country::kDomains-1)
     double threshold = 0.0; // Phase 5A: knowledge threshold to unlock (no point spending)
+    std::string capabilityTag;
 };
 
 // Authoritative technology ID constants.
@@ -42,7 +43,7 @@ class TechnologyManager {
 public:
     TechnologyManager();
     void initializeTechnologies(); // Call this in the constructor
-    void updateCountry(Country& country);
+    void updateCountry(Country& country, const Map& map);
     bool canUnlockTechnology(const Country& country, int techId) const;
     void unlockTechnology(Country& country, int techId);
     const std::unordered_map<int, Technology>& getTechnologies() const;
@@ -67,7 +68,19 @@ public:
     static bool getDebugMode() { return s_debugMode; }
 
 private:
+    struct CapabilityGate {
+        int primaryDomain = 0;
+        int secondaryDomain = 0;
+        double primaryThreshold = 0.0;
+        double secondaryThreshold = 0.0;
+        double institutionThreshold = 0.0;
+        double energyThreshold = 0.0;        // 0..1 normalized requirement
+        double oreThreshold = 0.0;           // 0..1 normalized requirement
+        double constructionThreshold = 0.0;  // 0..1 normalized requirement
+    };
+
     std::unordered_map<int, Technology> m_technologies;
+    std::unordered_map<int, CapabilityGate> m_capabilityGates;
     std::unordered_map<int, std::vector<int>> m_unlockedTechnologies;
     std::vector<int> m_sortedIds; // Sorted technology IDs for stable unlock ordering
     static bool s_debugMode; // Debug mode flag

@@ -138,13 +138,19 @@ public:
     std::unordered_set<int>& getDirtyRegions();
 
     const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& getResourceGrid() const;
+    const SimulationConfig& getConfig() const;
 
     // Fast cached accessors (used by fast-forward / mega time jump).
     double getCellFood(int x, int y) const;
     int getCellOwner(int x, int y) const;
     double getCountryFoodSum(int countryIndex) const;
     double getCountryFoodPotential(int countryIndex) const { return getCountryFoodSum(countryIndex); }
+    double getCountryForagingPotential(int countryIndex) const;
+    double getCountryFarmingPotential(int countryIndex) const;
     double getCountryNonFoodPotential(int countryIndex) const;
+    double getCountryOrePotential(int countryIndex) const;
+    double getCountryEnergyPotential(int countryIndex) const;
+    double getCountryConstructionPotential(int countryIndex) const;
     int getCountryLandCellCount(int countryIndex) const;
 
     // Phase 2/3 field systems (econ-grid resolution)
@@ -197,14 +203,26 @@ public:
 
     // Cached FOOD values per cell (y * width + x). 0 for non-land.
     std::vector<double> m_cellFood;
+    std::vector<double> m_cellForaging;
+    std::vector<double> m_cellFarming;
     void rebuildCellFoodCache();
-    // Cached NON-FOOD potential per cell (y * width + x). 0 for non-land.
+    // Typed non-food potential caches per cell (y * width + x). 0 for non-land.
+    std::vector<double> m_cellOre;
+    std::vector<double> m_cellEnergy;
+    std::vector<double> m_cellConstruction;
     std::vector<double> m_cellNonFood;
-    void rebuildCellNonFoodCache();
+    void rebuildCellOreCache();
+    void rebuildCellEnergyCache();
+    void rebuildCellConstructionCache();
 
     // Incremental per-country aggregates (kept consistent via setCountryOwnerAssumingLockedImpl).
     std::vector<int> m_countryLandCellCount;
     std::vector<double> m_countryFoodPotential;
+    std::vector<double> m_countryForagingPotential;
+    std::vector<double> m_countryFarmingPotential;
+    std::vector<double> m_countryOrePotential;
+    std::vector<double> m_countryEnergyPotential;
+    std::vector<double> m_countryConstructionPotential;
     std::vector<double> m_countryNonFoodPotential;
     void ensureCountryAggregateCapacityForIndex(int idx);
     void rebuildCountryPotentials(int countryCount);
@@ -249,6 +267,7 @@ public:
     std::vector<int> m_fieldOwnerId;          // fieldW*fieldH, -1 for none
     std::vector<float> m_fieldControl;        // fieldW*fieldH, 0..1
     std::vector<float> m_fieldMoveCost;       // fieldW*fieldH, travel-time friction
+    std::vector<float> m_fieldCorridorWeight; // fieldW*fieldH, preferred migration corridor weight
     std::vector<float> m_fieldFoodPotential;  // fieldW*fieldH, summed food potential per field cell
     std::vector<float> m_fieldPopulation;     // fieldW*fieldH, people stock per cell
     std::vector<float> m_fieldAttractiveness; // fieldW*fieldH, computed each migration tick
@@ -313,8 +332,9 @@ public:
 
 	// Per-country aggregates (computed on-demand by scanning the field grid).
 	mutable std::vector<float> m_countryClimateFoodMult;
-	mutable std::vector<float> m_countryPrecipAnomMean;
-	mutable int m_countryClimateCacheN = 0;
+    mutable std::vector<float> m_countryPrecipAnomMean;
+    mutable int m_countryClimateCacheN = 0;
+    std::vector<double> m_countryRefugeePush;
 
 	// Phase 7: debug overlay - marks overseas field cells (updated every ~20 years).
 	mutable std::vector<uint8_t> m_fieldOverseasMask;

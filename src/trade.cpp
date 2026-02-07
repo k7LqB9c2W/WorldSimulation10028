@@ -1360,11 +1360,14 @@ double TradeManager::calculateResourceDemand(Resource::Type resource, const Coun
     const double goodsProxy = std::clamp(country.getGDP() / (pop * 450.0), 0.0, 2.5);
     const double militaryProxy = std::clamp(country.getMilitaryStrength() / (pop * 0.0025), 0.0, 2.5);
     const double infraProxy = std::clamp(country.getInfraSpendingShare() + country.getConnectivityIndex(), 0.0, 2.0);
+    const auto& macro = country.getMacroEconomy();
+    const double nonFoodScarcity = std::clamp(macro.lastNonFoodShortage / (0.00025 * pop + 1.0), 0.0, 2.5);
+    const double energyStress = std::clamp((1.0 - macro.foodSecurity) * 0.5 + nonFoodScarcity * 0.4, 0.0, 2.0);
     
     // Adjust based on resource type and country needs
     switch(resource) {
         case Resource::Type::FOOD:
-            baseDemand *= 2.0; // Everyone needs food
+            baseDemand *= 2.0 + 1.2 * std::clamp(1.0 - macro.foodSecurity, 0.0, 1.0); // Everyone needs food
             break;
         case Resource::Type::HORSES:
             if (country.getType() == Country::Type::Warmonger) baseDemand *= 1.5;
@@ -1374,16 +1377,16 @@ double TradeManager::calculateResourceDemand(Resource::Type resource, const Coun
             if (country.getType() == Country::Type::Warmonger) baseDemand *= 1.8;
             break;
         case Resource::Type::COAL:
-            baseDemand *= 0.9 + 0.5 * urbanizationProxy + 0.6 * goodsProxy;
+            baseDemand *= 0.9 + 0.5 * urbanizationProxy + 0.6 * goodsProxy + 0.7 * energyStress;
             break;
         case Resource::Type::COPPER:
-            baseDemand *= 0.9 + 0.8 * goodsProxy + 0.45 * militaryProxy;
+            baseDemand *= 0.9 + 0.8 * goodsProxy + 0.45 * militaryProxy + 0.8 * nonFoodScarcity;
             break;
         case Resource::Type::TIN:
-            baseDemand *= 0.65 + 0.95 * goodsProxy + 0.35 * militaryProxy;
+            baseDemand *= 0.65 + 0.95 * goodsProxy + 0.35 * militaryProxy + 0.9 * nonFoodScarcity;
             break;
         case Resource::Type::CLAY:
-            baseDemand *= 0.8 + 0.75 * urbanizationProxy + 0.5 * infraProxy;
+            baseDemand *= 0.8 + 0.75 * urbanizationProxy + 0.5 * infraProxy + 0.35 * nonFoodScarcity;
             break;
         case Resource::Type::GOLD:
             if (country.getType() == Country::Type::Trader) baseDemand *= 1.5;

@@ -12,6 +12,7 @@
 #include <mutex>
 #include <unordered_set>
 #include <queue>
+#include <numeric>
 #include <cmath> // For std::llround
 
 // Initialize static science scaler (tuned for realistic science progression)
@@ -177,6 +178,10 @@ Country::Country(int countryIndex,
 	    }
 	    std::uniform_int_distribution<int> policyOffset(0, 4);
 	    m_polity.lastPolicyYear = -5000 + policyOffset(m_rng);
+        {
+            std::uniform_int_distribution<int> successionInterval(18, 45);
+            m_nextSuccessionYear = -5000 + successionInterval(m_rng);
+        }
 
         initializePopulationCohorts();
 	}
@@ -194,21 +199,36 @@ void Country::startWar(Country& target, News& news) {
         // Target is NOT already an enemy
 
         m_isAtWar = true;
+        m_warExhaustion = 0.0;
         
         // Phase 1: deterministic war duration (pressure will end wars early via budgets/legitimacy).
         const double ourPower = getMilitaryStrength() * std::sqrt(std::max(1.0, static_cast<double>(m_population) / 10000.0));
         const double theirPower = target.getMilitaryStrength() * std::sqrt(std::max(1.0, static_cast<double>(target.getPopulation()) / 10000.0));
         const double ratio = (theirPower > 1e-6) ? (ourPower / theirPower) : 2.0;
-        const int baseWarDuration = std::clamp(8 + static_cast<int>(std::round(10.0 / std::max(0.6, ratio))), 6, 24);
+        const double logistic = std::clamp(0.5 * getLogisticsReach() + 0.5 * getMarketAccess(), 0.0, 1.0);
+        const int baseWarDuration = std::clamp(8 + static_cast<int>(std::round(10.0 / std::max(0.6, ratio))) +
+                                               static_cast<int>(std::round(8.0 * (1.0 - logistic))), 6, 36);
         const double durationReduction = getWarDurationReduction();
         m_warDuration = std::max(3, static_cast<int>(std::round(static_cast<double>(baseWarDuration) * (1.0 - durationReduction))));
         
         m_preWarPopulation = m_population;
 
-        // Phase 1: war is an explicit action; default to conquest.
-        m_isWarofConquest = true;
-        m_isWarofAnnihilation = false;
-        news.addEvent(m_name + " has declared war on " + target.getName() + "!");
+        m_activeWarGoal = m_pendingWarGoal;
+        m_isWarofAnnihilation = (m_activeWarGoal == WarGoal::Annihilation);
+        m_isWarofConquest = (m_activeWarGoal == WarGoal::BorderShift || m_activeWarGoal == WarGoal::Vassalization);
+
+        auto warGoalLabel = [&](WarGoal goal) -> const char* {
+            switch (goal) {
+                case WarGoal::Raid: return "raid";
+                case WarGoal::BorderShift: return "border";
+                case WarGoal::Tribute: return "tribute";
+                case WarGoal::Vassalization: return "vassalization";
+                case WarGoal::RegimeChange: return "regime-change";
+                case WarGoal::Annihilation: return "annihilation";
+                default: return "war";
+            }
+        };
+        news.addEvent(m_name + " has declared war on " + target.getName() + " (" + warGoalLabel(m_activeWarGoal) + ").");
 
         // Add target to the list of enemies
         addEnemy(&target);
@@ -225,6 +245,9 @@ void Country::endWar(int currentYear) {
     m_warDuration = 0;
     m_isWarofAnnihilation = false;
     m_isWarofConquest = false;
+    m_activeWarGoal = WarGoal::BorderShift;
+    m_warExhaustion = 0.0;
+    m_warSupplyCapacity = 0.0;
     m_peaceDuration = std::clamp(10 + static_cast<int>(std::round(30.0 * (1.0 - m_stability))), 8, 40);
     
     // Record war end time for technology sharing history
@@ -245,6 +268,9 @@ void Country::clearWarState() {
     m_warDuration = 0;
     m_isWarofAnnihilation = false;
     m_isWarofConquest = false;
+    m_activeWarGoal = WarGoal::BorderShift;
+    m_warExhaustion = 0.0;
+    m_warSupplyCapacity = 0.0;
     m_peaceDuration = 0;
     clearEnemies();
 }
@@ -872,6 +898,115 @@ bool Country::isNeighbor(const Country& other) const {
 		        spendRate = std::min(2.0, spendRate + 0.25);
 		    }
 		    const double expenses = income * spendRate;
+        const SimulationConfig& simCfg = map.getConfig();
+
+        // Regional polity state (cheap internal structure model for grievance/control/elite bargaining).
+        {
+            std::uniform_real_distribution<double> u01(0.0, 1.0);
+            const int minRegions = std::max(1, simCfg.polity.regionCountMin);
+            const int maxRegions = std::max(minRegions, simCfg.polity.regionCountMax);
+            if (m_regions.empty()) {
+                std::uniform_int_distribution<int> regionDist(minRegions, maxRegions);
+                const int nRegions = regionDist(gen);
+                m_regions.assign(static_cast<size_t>(nRegions), RegionalState{});
+
+                std::vector<double> w(static_cast<size_t>(nRegions), 0.0);
+                double sumW = 0.0;
+                for (int r = 0; r < nRegions; ++r) {
+                    w[static_cast<size_t>(r)] = 0.35 + u01(gen);
+                    sumW += w[static_cast<size_t>(r)];
+                }
+                std::sort(w.begin(), w.end(), std::greater<double>());
+                for (int r = 0; r < nRegions; ++r) {
+                    RegionalState& rs = m_regions[static_cast<size_t>(r)];
+                    rs.popShare = (sumW > 1e-9) ? (w[static_cast<size_t>(r)] / sumW) : (1.0 / static_cast<double>(nRegions));
+                    rs.distancePenalty = (nRegions > 1) ? (static_cast<double>(r) / static_cast<double>(nRegions - 1)) : 0.0;
+                    rs.localControl = clamp01(0.45 + 0.45 * m_avgControl * (1.0 - 0.6 * rs.distancePenalty));
+                    rs.grievance = clamp01(0.08 + 0.20 * rs.distancePenalty);
+                    rs.elitePower = clamp01(0.30 + 0.50 * u01(gen) + 0.15 * rs.distancePenalty);
+                }
+            }
+
+            const double famine = clamp01(m_macro.famineSeverity);
+            const double extraction = clamp01(m_polity.taxRate);
+            const double legitimacy = clamp01(m_polity.legitimacy);
+            const double adminCap = clamp01(m_polity.adminCapacity);
+            const double infraShare = clamp01(m_polity.infraSpendingShare);
+            const double war = m_isAtWar ? 1.0 : 0.0;
+            const double eliteSensitivity = std::max(0.0, simCfg.polity.eliteDefectionSensitivity);
+            const double farPenalty = std::max(0.0, simCfg.polity.farRegionPenalty);
+
+            double defectionWeighted = 0.0;
+            for (RegionalState& rs : m_regions) {
+                const double controlTarget = clamp01(m_avgControl - farPenalty * rs.distancePenalty + 0.35 * adminCap + 0.15 * infraShare);
+                rs.localControl = clamp01(rs.localControl + 0.35 * (controlTarget - rs.localControl));
+
+                const double grievanceUp =
+                    0.35 * extraction +
+                    0.24 * (1.0 - legitimacy) +
+                    0.20 * famine +
+                    0.14 * war +
+                    0.18 * (1.0 - rs.localControl) +
+                    0.10 * rs.distancePenalty;
+                const double grievanceDown =
+                    0.32 * adminCap +
+                    0.18 * infraShare +
+                    0.18 * clamp01(m_macro.realWage / 2.0) +
+                    0.10 * (1.0 - clamp01(m_macro.inequality));
+                rs.grievance = clamp01(rs.grievance + 0.11 * grievanceUp - 0.08 * grievanceDown);
+
+                const double defectionProb = clamp01(
+                    eliteSensitivity *
+                    (0.50 * rs.grievance +
+                     0.22 * rs.elitePower +
+                     0.18 * rs.distancePenalty +
+                     0.10 * extraction) *
+                    (1.0 - 0.55 * adminCap));
+                if (u01(gen) < defectionProb * 0.10) {
+                    rs.elitePower = clamp01(rs.elitePower + 0.06 + 0.12 * rs.grievance);
+                    rs.grievance = clamp01(rs.grievance + 0.05);
+                } else {
+                    rs.elitePower = clamp01(rs.elitePower - 0.015 * (0.35 + adminCap));
+                }
+
+                defectionWeighted += rs.popShare * rs.elitePower * std::max(0.0, rs.grievance - 0.35);
+            }
+            m_eliteDefectionPressure = clamp01(0.85 * m_eliteDefectionPressure + 0.15 * defectionWeighted);
+
+            // Succession shock cadence.
+            if (currentYear >= m_nextSuccessionYear) {
+                std::uniform_int_distribution<int> nextSuccession(
+                    std::max(1, simCfg.polity.successionIntervalMin),
+                    std::max(std::max(1, simCfg.polity.successionIntervalMin), simCfg.polity.successionIntervalMax));
+                m_nextSuccessionYear = currentYear + nextSuccession(gen);
+
+                const double risk = clamp01(
+                    0.40 * m_eliteDefectionPressure +
+                    0.22 * (1.0 - adminCap) +
+                    0.18 * war +
+                    0.14 * famine +
+                    0.06 * (expenses > income ? 1.0 : 0.0));
+                const double draw = u01(gen);
+                if (draw < risk) {
+                    const double legitDrop = 0.06 + 0.16 * risk;
+                    const double stabDrop = 0.04 + 0.12 * risk;
+                    m_polity.legitimacy = clamp01(m_polity.legitimacy - legitDrop);
+                    m_stability = clamp01(m_stability - stabDrop);
+                    m_autonomyPressure = clamp01(m_autonomyPressure + 0.12 + 0.25 * risk);
+                    m_autonomyOverThresholdYears += 2;
+                    news.addEvent("Succession crisis destabilizes " + m_name + ".");
+                } else {
+                    m_polity.legitimacy = clamp01(m_polity.legitimacy + 0.02 + 0.04 * (1.0 - risk));
+                    m_stability = clamp01(m_stability + 0.01 + 0.03 * (1.0 - risk));
+                }
+            }
+
+            const double meanRegionalControl = std::accumulate(
+                m_regions.begin(), m_regions.end(), 0.0,
+                [](double acc, const RegionalState& rs) { return acc + rs.popShare * rs.localControl; });
+            m_avgControl = clamp01(0.70 * m_avgControl + 0.30 * meanRegionalControl - 0.06 * m_eliteDefectionPressure);
+            m_autonomyPressure = clamp01(m_autonomyPressure + 0.05 * m_eliteDefectionPressure);
+        }
 
 	    // Phase 1: pressures & constraint-driven action selection (cadenced).
 	    struct Pressures { double survival = 0.0, revenue = 0.0, legitimacy = 0.0, opportunity = 0.0; };
@@ -980,6 +1115,33 @@ bool Country::isNeighbor(const Country& other) const {
 	        } else {
 	            m_expansionBudgetCells = 3 + static_cast<int>(std::round(12.0 * pressures.opportunity));
 	            if (!m_isAtWar && bestTarget >= 0 && pressures.opportunity > 0.75 && m_gold > income * 0.5 && canDeclareWar()) {
+                    const Country& target = allCountries[static_cast<size_t>(bestTarget)];
+                    const double ourPowerLocal = militaryPower(*this);
+                    const double theirPowerLocal = militaryPower(target);
+                    const double powerRatio = (theirPowerLocal > 1e-6) ? (ourPowerLocal / theirPowerLocal) : 2.0;
+                    const double scarcity = clamp01(m_macro.lastFoodShortage + m_macro.lastNonFoodShortage);
+                    const double tribal = clamp01((0.25 - m_polity.adminCapacity) / 0.25);
+                    const double institutional = clamp01(m_polity.adminCapacity);
+
+                    struct GoalWeight {
+                        WarGoal goal;
+                        double weight;
+                    };
+                    std::vector<GoalWeight> goals = {
+                        {WarGoal::Raid,          std::max(0.05, simCfg.war.objectiveRaidWeight + 0.35 * scarcity + 0.20 * tribal)},
+                        {WarGoal::BorderShift,   std::max(0.05, simCfg.war.objectiveBorderWeight + 0.20 * institutional)},
+                        {WarGoal::Tribute,       std::max(0.01, simCfg.war.objectiveTributeWeight + 0.18 * institutional + 0.10 * scarcity)},
+                        {WarGoal::Vassalization, std::max(0.01, simCfg.war.objectiveVassalWeight + 0.15 * std::max(0.0, powerRatio - 1.0))},
+                        {WarGoal::RegimeChange,  std::max(0.01, simCfg.war.objectiveRegimeWeight + 0.10 * (1.0 - target.getLegitimacy()))},
+                        {WarGoal::Annihilation,  std::max(0.01, simCfg.war.objectiveAnnihilationWeight +
+                                                               simCfg.war.earlyAnnihilationBias * tribal -
+                                                               simCfg.war.highInstitutionAnnihilationDamp * institutional)}
+                    };
+                    std::vector<double> ws;
+                    ws.reserve(goals.size());
+                    for (const GoalWeight& g : goals) ws.push_back(std::max(0.0, g.weight));
+                    std::discrete_distribution<int> pickGoal(ws.begin(), ws.end());
+                    m_pendingWarGoal = goals[static_cast<size_t>(pickGoal(gen))].goal;
 	                startWar(allCountries[static_cast<size_t>(bestTarget)], news);
 	            }
 	            m_polity.infraSpendingShare += 0.02;
@@ -1633,10 +1795,61 @@ bool Country::isNeighbor(const Country& other) const {
     // ✈️ AIRWAY CONNECTIONS - Invisible long-range connections (for future air travel)
     buildAirways(allCountries, map, technologyManager, currentYear, news);
 
+    // War logistics/exhaustion dynamics (goal-agnostic constraints; no hard rarity rules).
+    if (isAtWar()) {
+        const double logistics = clamp01(getLogisticsReach());
+        const double market = clamp01(getMarketAccess());
+        const double control = clamp01(getAvgControl());
+        const double roadMobility = clamp01(std::sqrt(static_cast<double>(m_roads.size())) / 140.0 +
+                                            std::sqrt(static_cast<double>(m_ports.size())) / 20.0);
+        const double terrainRuggedness = clamp01(
+            map.getCountryConstructionPotential(m_countryIndex) /
+            (20.0 + map.getCountryFoodPotential(m_countryIndex)));
+        const double terrainDefense = clamp01(std::max(0.0, simCfg.war.terrainDefenseWeight) * terrainRuggedness);
+        const double energy = clamp01(m_macro.lastGoodsOutput / std::max(1.0, static_cast<double>(m_population) * 0.0002));
+        const double foodStockRatio = clamp01(m_macro.foodStock / std::max(1.0, m_macro.foodStockCap));
+        const double supplyScore = clamp01(
+            std::max(0.0, simCfg.war.supplyBase) +
+            std::max(0.0, simCfg.war.supplyLogisticsWeight) * logistics +
+            std::max(0.0, simCfg.war.supplyMarketWeight) * market +
+            std::max(0.0, simCfg.war.supplyControlWeight) * control +
+            std::max(0.0, simCfg.war.supplyEnergyWeight) * energy +
+            std::max(0.0, simCfg.war.supplyFoodStockWeight) * foodStockRatio +
+            0.10 * roadMobility +
+            0.10 * terrainDefense);
+        m_warSupplyCapacity = supplyScore;
+
+        const double demandScore = clamp01(0.20 + 1.25 * m_polity.militarySpendingShare +
+                                           0.15 * (1.0 - roadMobility) +
+                                           (m_activeWarGoal == WarGoal::Annihilation ? 0.25 : 0.0));
+        const double overdraw = std::max(0.0, demandScore - supplyScore);
+        const double exhaustionDelta =
+            std::max(0.0, simCfg.war.exhaustionRise) * (0.50 + overdraw) +
+            std::max(0.0, simCfg.war.overSupplyAttrition) * overdraw +
+            0.02 * (1.0 - clamp01(m_stability));
+        m_warExhaustion = clamp01(m_warExhaustion + exhaustionDelta);
+
+        if (overdraw > 1e-6) {
+            const double attrition = std::min(0.30, std::max(0.0, simCfg.war.overSupplyAttrition) * overdraw);
+            m_militaryStrength = std::max(0.0, m_militaryStrength * (1.0 - attrition));
+            m_stability = clamp01(m_stability - 0.03 * overdraw);
+            m_polity.legitimacy = clamp01(m_polity.legitimacy - 0.02 * overdraw);
+            m_macro.foodStock = std::max(0.0, m_macro.foodStock * (1.0 - 0.08 * overdraw)); // border devastation proxy
+        }
+    } else {
+        m_warExhaustion = std::max(0.0, m_warExhaustion - 0.08);
+        m_warSupplyCapacity = 0.0;
+    }
+
     // Decrement war and peace durations
     if (isAtWar()) {
+        if (m_warExhaustion >= simCfg.war.exhaustionPeaceThreshold) {
+            m_warDuration = 0;
+        }
         decrementWarDuration();
         if (m_warDuration <= 0) {
+            const double endedExhaustion = m_warExhaustion;
+            const WarGoal endedGoal = m_activeWarGoal;
             // Get the name of the enemy before ending the war
             std::string enemyName;
             if (!m_enemies.empty()) {
@@ -1644,6 +1857,41 @@ bool Country::isNeighbor(const Country& other) const {
             }
 
             endWar(currentYear);
+            {
+                const double reconBase = std::max(0.0, simCfg.war.peaceReconstructionDrag);
+                const double recon = clamp01(reconBase * (0.55 + 0.90 * endedExhaustion));
+                m_macro.capitalStock = std::max(0.0, m_macro.capitalStock * (1.0 - recon));
+                m_macro.infraStock = std::max(0.0, m_macro.infraStock * (1.0 - 0.85 * recon));
+                m_macro.lastGoodsOutput = std::max(0.0, m_macro.lastGoodsOutput * (1.0 - 0.70 * recon));
+                m_macro.lastServicesOutput = std::max(0.0, m_macro.lastServicesOutput * (1.0 - 0.45 * recon));
+
+                double legitShift = 0.0;
+                switch (endedGoal) {
+                    case WarGoal::Raid: legitShift += 0.01; break;
+                    case WarGoal::BorderShift: legitShift += 0.00; break;
+                    case WarGoal::Tribute: legitShift += 0.02; break;
+                    case WarGoal::Vassalization: legitShift += 0.01; break;
+                    case WarGoal::RegimeChange: legitShift -= 0.01; break;
+                    case WarGoal::Annihilation: legitShift -= 0.04; break;
+                    default: break;
+                }
+                legitShift -= 0.08 * endedExhaustion;
+                m_polity.legitimacy = clamp01(m_polity.legitimacy + legitShift);
+                m_stability = clamp01(m_stability - 0.06 * endedExhaustion + 0.02 * (1.0 - recon));
+
+                if (endedGoal == WarGoal::Tribute || endedGoal == WarGoal::Vassalization) {
+                    const double transfer = (simCfg.war.peaceTributeWeight + simCfg.war.peaceReparationsWeight) *
+                                            std::max(0.0, m_macro.lastGoodsOutput) * 0.08;
+                    m_gold += std::max(0.0, transfer);
+                }
+            }
+            if (m_polity.adminCapacity < 0.18) {
+                m_peaceDuration = std::max(0, simCfg.war.cooldownMinYears / 2); // tribal follow-up wars can occur quickly
+            } else {
+                const int cdMin = std::max(0, simCfg.war.cooldownMinYears);
+                const int cdMax = std::max(cdMin, simCfg.war.cooldownMaxYears);
+                m_peaceDuration = std::clamp(m_peaceDuration, cdMin, cdMax);
+            }
 
             // Add news event after ending the war
             if (!enemyName.empty()) {
