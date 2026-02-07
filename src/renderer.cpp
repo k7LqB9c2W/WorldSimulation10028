@@ -233,7 +233,7 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
         for (size_t x = 0; x < resourceGridInit[y].size(); ++x) {
             const auto& resources = resourceGridInit[y][x];
             for (const auto& entry : resources) {
-                if (entry.first == Resource::Type::FOOD) {
+                if (entry.first == Resource::Type::FOOD || entry.first == Resource::Type::CLAY) {
                     continue;
                 }
                 m_resourceCells.push_back({sf::Vector2i(static_cast<int>(x), static_cast<int>(y)), entry.first});
@@ -2154,6 +2154,10 @@ void Renderer::updateExtractorVertices(const Map& map, const std::vector<Country
     float cellSize = static_cast<float>(map.getGridCellSize());
 
     for (const auto& cell : m_resourceCells) {
+        if (cell.type == Resource::Type::CLAY) {
+            continue;
+        }
+
         int x = cell.position.x;
         int y = cell.position.y;
 

@@ -40,6 +40,7 @@ target_include_directories(WorldSimulation PRIVATE
   include
   third_party/imgui
   third_party/imgui-sfml
+  third_party/tomlplusplus/include
 )
 
 if(MSVC)
