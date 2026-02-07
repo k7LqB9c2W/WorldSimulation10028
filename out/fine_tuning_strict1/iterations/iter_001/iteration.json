@@ -1,0 +1,124 @@
+{
+  "iteration": 1,
+  "subsystem_group": "food",
+  "parameter_edits": [
+    {
+      "path": "food.baseForaging",
+      "old": 21.0,
+      "new": 19.5,
+      "recommended_step": 1.5
+    }
+  ],
+  "top_violations_before": [
+    "STORAGE_SMOOTHING_CHEAT"
+  ],
+  "top_violations_after": [
+    "STORAGE_SMOOTHING_CHEAT"
+  ],
+  "objective_tuning": 40.10594745379787,
+  "score_delta": 0.6385570324096577,
+  "gates": {
+    "metric_availability": true,
+    "canary_pass": true,
+    "backend_parity_pass": true,
+    "holdout_pass": true,
+    "tuning_hardfails": [],
+    "holdout_hardfails": []
+  },
+  "holdout_objective": 38.81183010890724,
+  "accepted": true,
+  "best_so_far": {
+    "objective": 40.10594745379787,
+    "holdout_objective": 38.81183010890724,
+    "config_path": "/mnt/c/WS/WorldSimulation10028/out/fine_tuning_strict1/best_sim_config.toml",
+    "config_hash16": "7fc85ba76c8db42e"
+  },
+  "canary_detail": [
+    {
+      "metric": "world_pop_total",
+      "mode": "relative",
+      "eps": 0.0005,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_food_adequacy_index",
+      "mode": "absolute",
+      "eps": 0.002,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "habitable_cell_share_pop_gt_small",
+      "mode": "absolute",
+      "eps": 0.002,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_trade_intensity",
+      "mode": "relative",
+      "eps": 0.0025,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_urban_share_proxy",
+      "mode": "absolute",
+      "eps": 0.002,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "event_rates_per_century_per_billion",
+      "mode": "absolute",
+      "eps": 0.05,
+      "max_error": 0.0,
+      "pass": true
+    }
+  ],
+  "parity_detail": [
+    {
+      "metric": "world_pop_total",
+      "mode": "relative",
+      "eps": 0.002,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_food_adequacy_index",
+      "mode": "absolute",
+      "eps": 0.01,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "habitable_cell_share_pop_gt_small",
+      "mode": "absolute",
+      "eps": 0.01,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_trade_intensity",
+      "mode": "relative",
+      "eps": 0.01,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_urban_share_proxy",
+      "mode": "absolute",
+      "eps": 0.01,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "event_rates_per_century_per_billion",
+      "mode": "absolute",
+      "eps": 0.2,
+      "max_error": 0.0,
+      "pass": true
+    }
+  ]
+}

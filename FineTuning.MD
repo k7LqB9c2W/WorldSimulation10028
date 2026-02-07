@@ -497,3 +497,8 @@ If STRUCTURAL_CHANGE_SIGNAL triggers:
 - definitions_version increments whenever realism_definitions changes.
 - scoring_version increments when component formulas or weights change.
 - Never compare scores across version changes.
+
+
+15) Add early termination for hard-fail trajectories
+
+If a run hits a “no chance” state (broken accounting, invariant failure, persistent extinction), stop simulating further years and still write the required artifacts with a hard-fail reason. That can cut a lot of wasted compute in bad configs, especially early in search. This aligns with your hard-fail gates and extinction grace logic.

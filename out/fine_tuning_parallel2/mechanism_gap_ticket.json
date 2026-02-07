@@ -1,0 +1,17 @@
+{
+  "ticket_type": "mechanism-gap",
+  "top_violations": [
+    "STORAGE_SMOOTHING_CHEAT"
+  ],
+  "evidence": {
+    "objective_plateau": true,
+    "plateau_iterations": 8
+  },
+  "likely_missing_mechanism": "Observed violations persist under one-group parameter perturbations.",
+  "code_areas_hint": [
+    "src/cli_main.cpp",
+    "src/map.cpp",
+    "src/country.cpp",
+    "src/trade.cpp"
+  ]
+}

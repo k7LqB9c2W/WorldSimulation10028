@@ -1,0 +1,21 @@
+{
+  "tuning": {
+    "score_median": 39.06339067436872,
+    "stddev": 0.8995350907800912,
+    "hardfail_rate": 0.0,
+    "variance_penalty": 0.0,
+    "hardfail_penalty": 0.0,
+    "objective": 39.06339067436872
+  },
+  "holdout": {
+    "score_median": 39.63870554752166,
+    "stddev": 0.666850469894051,
+    "hardfail_rate": 0.0,
+    "variance_penalty": 0.0,
+    "hardfail_penalty": 0.0,
+    "objective": 39.63870554752166
+  },
+  "top3": [
+    "STORAGE_SMOOTHING_CHEAT"
+  ]
+}

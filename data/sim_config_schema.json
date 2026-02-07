@@ -1,0 +1,156 @@
+{
+  "schema_version": "fine_tuning_v1",
+  "tuning_seeds": [101, 202, 303, 404],
+  "holdout_seeds": [505, 606],
+  "checkpoint_every_years": 50,
+  "plateau_iterations_structural": 8,
+  "convergence_iterations": 50,
+  "target_objective": 90.0,
+  "major_violation_threshold": 50.0,
+  "parameters": [
+    {
+      "path": "food.baseForaging",
+      "group": "food",
+      "type": "float",
+      "min": 12.0,
+      "max": 80.0,
+      "recommended_step": 1.5,
+      "safe_to_auto_tune": true
+    },
+    {
+      "path": "food.baseFarming",
+      "group": "food",
+      "type": "float",
+      "min": 20.0,
+      "max": 110.0,
+      "recommended_step": 2.0,
+      "safe_to_auto_tune": true
+    },
+    {
+      "path": "food.spoilageBase",
+      "group": "food",
+      "type": "float",
+      "min": 0.05,
+      "max": 0.45,
+      "recommended_step": 0.01,
+      "safe_to_auto_tune": true
+    },
+    {
+      "path": "food.storageBase",
+      "group": "food",
+      "type": "float",
+      "min": 0.20,
+      "max": 0.95,
+      "recommended_step": 0.02,
+      "safe_to_auto_tune": true
+    },
+    {
+      "path": "migration.famineShockMultiplier",
+      "group": "migration",
+      "type": "float",
+      "min": 0.70,
+      "max": 2.20,
+      "recommended_step": 0.05,
+      "safe_to_auto_tune": true
+    },
+    {
+      "path": "migration.warShockMultiplier",
+      "group": "migration",
+      "type": "float",
+      "min": 0.70,
+      "max": 2.20,
+      "recommended_step": 0.05,
+      "safe_to_auto_tune": true
+    },
+    {
+      "path": "disease.endemicBase",
+      "group": "disease",
+      "type": "float",
+      "min": 0.0002,
+      "max": 0.006,
+      "recommended_step": 0.0002,
+      "safe_to_auto_tune": true
+    },
+    {
+      "path": "disease.warAmplifier",
+      "group": "disease",
+      "type": "float",
+      "min": 0.05,
+      "max": 0.80,
+      "recommended_step": 0.02,
+      "safe_to_auto_tune": true
+    },
+    {
+      "path": "war.overSupplyAttrition",
+      "group": "war",
+      "type": "float",
+      "min": 0.01,
+      "max": 0.35,
+      "recommended_step": 0.01,
+      "safe_to_auto_tune": true
+    },
+    {
+      "path": "war.cooldownMinYears",
+      "group": "war",
+      "type": "int",
+      "min": 2,
+      "max": 20,
+      "recommended_step": 1,
+      "safe_to_auto_tune": true
+    },
+    {
+      "path": "tech.diffusionBase",
+      "group": "tech",
+      "type": "float",
+      "min": 0.002,
+      "max": 0.04,
+      "recommended_step": 0.001,
+      "safe_to_auto_tune": true
+    },
+    {
+      "path": "tech.capabilityThresholdScale",
+      "group": "tech",
+      "type": "float",
+      "min": 0.60,
+      "max": 1.40,
+      "recommended_step": 0.02,
+      "safe_to_auto_tune": true
+    },
+    {
+      "path": "economy.tradeIntensityScale",
+      "group": "economy",
+      "type": "float",
+      "min": 1.0,
+      "max": 30.0,
+      "recommended_step": 0.75,
+      "safe_to_auto_tune": true
+    },
+    {
+      "path": "economy.tradeIntensityMemory",
+      "group": "economy",
+      "type": "float",
+      "min": 0.10,
+      "max": 0.95,
+      "recommended_step": 0.03,
+      "safe_to_auto_tune": true
+    },
+    {
+      "path": "economy.tradeScarcityCapacityBoost",
+      "group": "economy",
+      "type": "float",
+      "min": 0.30,
+      "max": 1.80,
+      "recommended_step": 0.05,
+      "safe_to_auto_tune": true
+    },
+    {
+      "path": "polity.demogShortageStabilityHit",
+      "group": "polity",
+      "type": "float",
+      "min": 0.002,
+      "max": 0.050,
+      "recommended_step": 0.001,
+      "safe_to_auto_tune": true
+    }
+  ]
+}

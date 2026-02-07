@@ -1,0 +1,38 @@
+{
+  "iteration": 10,
+  "subsystem_group": "disease",
+  "parameter_edits": [
+    {
+      "path": "disease.warAmplifier",
+      "old": 0.25,
+      "new": 0.27,
+      "recommended_step": 0.02
+    }
+  ],
+  "top_violations_before": [
+    "STORAGE_SMOOTHING_CHEAT"
+  ],
+  "top_violations_after": [
+    "STORAGE_SMOOTHING_CHEAT"
+  ],
+  "objective_tuning": 40.63005742234003,
+  "score_delta": -0.09428714872470323,
+  "gates": {
+    "metric_availability": true,
+    "canary_pass": false,
+    "backend_parity_pass": false,
+    "holdout_pass": false,
+    "tuning_hardfails": [],
+    "holdout_hardfails": []
+  },
+  "holdout_objective": null,
+  "accepted": false,
+  "best_so_far": {
+    "objective": 40.724344571064734,
+    "holdout_objective": 38.731423353681365,
+    "config_path": "/mnt/c/WS/WorldSimulation10028/out/fine_tuning_parallel1/best_sim_config.toml",
+    "config_hash16": "f26dbf166d674f45"
+  },
+  "canary_detail": [],
+  "parity_detail": []
+}

@@ -1,0 +1,109 @@
+{
+  "iteration": 2,
+  "subsystem_group": null,
+  "parameter_edits": [],
+  "best_so_far_config": {
+    "path": "data/sim_config.toml",
+    "hash16": "23952a4a97827e31",
+    "changed_this_iteration": false
+  },
+  "top_violations_before": [
+    {
+      "id": "MISSING_METRIC",
+      "severity": 100
+    }
+  ],
+  "top_violations_after": [
+    {
+      "id": "MISSING_METRIC",
+      "severity": 100
+    }
+  ],
+  "objective_tuning": null,
+  "score_delta": null,
+  "gates": {
+    "metric_availability": false,
+    "canary_pass": false,
+    "backend_parity_pass": false,
+    "holdout_pass": false,
+    "hardfail_id": "MISSING_METRIC"
+  },
+  "missing_metric_snapshot": {
+    "missing_artifacts": [
+      "run_meta.json",
+      "violations.json",
+      "iteration.json"
+    ],
+    "missing_timeseries_columns_count": 46,
+    "missing_timeseries_columns": [
+      "world_pop_total",
+      "world_pop_growth_rate_annual",
+      "world_food_adequacy_index",
+      "world_famine_death_rate",
+      "world_disease_death_rate",
+      "world_war_death_rate",
+      "world_trade_intensity",
+      "world_urban_share_proxy",
+      "world_tech_capability_index_median",
+      "world_tech_capability_index_p90",
+      "world_state_capacity_index_median",
+      "world_state_capacity_index_p10",
+      "migration_rate_t",
+      "famine_exposure_share_t",
+      "habitable_cell_share_pop_gt_0",
+      "habitable_cell_share_pop_gt_small",
+      "pop_share_by_lat_band",
+      "pop_share_coastal_vs_inland",
+      "pop_share_river_proximal",
+      "market_access_p10",
+      "market_access_median",
+      "food_adequacy_p10",
+      "food_adequacy_median",
+      "travel_cost_index_median",
+      "country_pop_median",
+      "country_pop_p90",
+      "country_pop_top1_share",
+      "country_area_median",
+      "country_area_p90",
+      "country_area_top1_share",
+      "control_median",
+      "control_p10",
+      "wars_active_count",
+      "city_pop_top1",
+      "city_pop_top10_sum_share",
+      "city_tail_index",
+      "famine_wave_count",
+      "epidemic_wave_count",
+      "major_war_count",
+      "civil_conflict_count",
+      "fragmentation_count",
+      "mass_migration_count",
+      "logistics_capability_index",
+      "storage_capability_index",
+      "health_capability_index",
+      "transport_cost_index"
+    ],
+    "missing_run_meta_keys": [
+      "seed",
+      "config_path",
+      "config_hash",
+      "git_commit",
+      "backend",
+      "start_year",
+      "end_year",
+      "map_hash",
+      "goals_version",
+      "evaluator_version",
+      "definitions_version",
+      "scoring_version"
+    ],
+    "missing_run_summary_keys": [
+      "total_score",
+      "gates",
+      "top_violations"
+    ]
+  },
+  "accepted": false,
+  "consecutive_hard_gate_failures": 2,
+  "stop_condition": null
+}

@@ -1,6 +1,7 @@
 #include <SFML/Graphics.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <cstdint>
@@ -13,6 +14,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <memory>
 
@@ -52,27 +54,81 @@ struct RunOptions {
 
 struct MetricsSnapshot {
     int year = 0;
-    double worldPopulation = 0.0;
-    double urbanShare = 0.0;
-    double medianCountryPop = 0.0;
-    double medianCountryArea = 0.0;
-    double warFrequencyPerCentury = 0.0;
-    double tradeIntensity = 0.0;
-    double tradeActivePairShare = 0.0;
-    double capabilityTier1Share = 0.0;
-    double capabilityTier2Share = 0.0;
-    double capabilityTier3Share = 0.0;
-    int collapseCount = 0;
-    double foodSecurityMean = 0.0;
-    double foodSecurityP10 = 0.0;
-    double diseaseBurdenMean = 0.0;
-    double diseaseBurdenP90 = 0.0;
-    double stabilityMean = 0.0;
-    double stabilityP10 = 0.0;
-    double legitimacyMean = 0.0;
-    double legitimacyP10 = 0.0;
-    double lowStabilityPopShare = 0.0;
-    double lowLegitimacyPopShare = 0.0;
+    double world_pop_total = 0.0;
+    double world_pop_growth_rate_annual = 0.0;
+    double world_food_adequacy_index = 0.0;
+    double world_famine_death_rate = 0.0;
+    double world_disease_death_rate = 0.0;
+    double world_war_death_rate = 0.0;
+    double world_trade_intensity = 0.0;
+    double world_urban_share_proxy = 0.0;
+    double world_tech_capability_index_median = 0.0;
+    double world_tech_capability_index_p90 = 0.0;
+    double world_state_capacity_index_median = 0.0;
+    double world_state_capacity_index_p10 = 0.0;
+    double migration_rate_t = 0.0;
+    double famine_exposure_share_t = 0.0;
+
+    double habitable_cell_share_pop_gt_0 = 0.0;
+    double habitable_cell_share_pop_gt_small = 0.0;
+    std::array<double, 6> pop_share_by_lat_band{{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
+    double pop_share_coastal_vs_inland = 0.0;
+    double pop_share_river_proximal = 0.0;
+    double market_access_p10 = 0.0;
+    double market_access_median = 0.0;
+    double food_adequacy_p10 = 0.0;
+    double food_adequacy_median = 0.0;
+    double travel_cost_index_median = 0.0;
+
+    double country_pop_median = 0.0;
+    double country_pop_p90 = 0.0;
+    double country_pop_top1_share = 0.0;
+    double country_area_median = 0.0;
+    double country_area_p90 = 0.0;
+    double country_area_top1_share = 0.0;
+    double control_median = 0.0;
+    double control_p10 = 0.0;
+    int wars_active_count = 0;
+    double city_pop_top1 = 0.0;
+    double city_pop_top10_sum_share = 0.0;
+    double city_tail_index = 0.0;
+
+    int famine_wave_count = 0;
+    int epidemic_wave_count = 0;
+    int major_war_count = 0;
+    int civil_conflict_count = 0;
+    int fragmentation_count = 0;
+    int mass_migration_count = 0;
+
+    double logistics_capability_index = 0.0;
+    double storage_capability_index = 0.0;
+    double health_capability_index = 0.0;
+    double transport_cost_index = 0.0;
+
+    // Derived support metrics for anti-loophole checks.
+    double spoilage_kcal = 0.0;
+    double storage_loss_kcal = 0.0;
+    double available_kcal_before_losses = 0.0;
+    double trade_volume_total = 0.0;
+    double trade_volume_long = 0.0;
+    double long_distance_trade_proxy = 0.0;
+    double extraction_index = 0.0;
+};
+
+struct FieldGeoCache {
+    int fieldW = 0;
+    int fieldH = 0;
+    std::vector<uint8_t> coastalMask; // size=fieldW*fieldH
+    std::vector<uint8_t> riverMask;   // proxy mask (high food-potential inland cells)
+};
+
+struct EventWindowCounters {
+    int famine_wave_count = 0;
+    int epidemic_wave_count = 0;
+    int major_war_count = 0;
+    int civil_conflict_count = 0;
+    int fragmentation_count = 0;
+    int mass_migration_count = 0;
 };
 
 bool parseUInt64(const std::string& s, std::uint64_t& out) {
@@ -216,6 +272,118 @@ double percentile(std::vector<double> values, double p) {
     return values[lo] * (1.0 - t) + values[hi] * t;
 }
 
+double clamp01(double v) {
+    return std::max(0.0, std::min(1.0, v));
+}
+
+double mean(const std::vector<double>& values) {
+    if (values.empty()) return 0.0;
+    const double s = std::accumulate(values.begin(), values.end(), 0.0);
+    return s / static_cast<double>(values.size());
+}
+
+double hillEstimatorTopTail(const std::vector<double>& values) {
+    std::vector<double> pos;
+    pos.reserve(values.size());
+    for (double v : values) {
+        if (v > 0.0 && std::isfinite(v)) pos.push_back(v);
+    }
+    if (pos.size() < 2) return 0.0;
+    std::sort(pos.begin(), pos.end(), std::greater<double>());
+    const size_t k = std::min<size_t>(20, pos.size());
+    const double xk = pos[k - 1];
+    if (!(xk > 0.0)) return 0.0;
+    double s = 0.0;
+    for (size_t i = 0; i < k; ++i) {
+        s += std::log(std::max(1.0, pos[i] / xk));
+    }
+    if (s <= 1e-12) return 0.0;
+    return static_cast<double>(k) / s;
+}
+
+std::string latBandsToString(const std::array<double, 6>& bands) {
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(6);
+    for (size_t i = 0; i < bands.size(); ++i) {
+        if (i > 0) oss << "|";
+        oss << bands[i];
+    }
+    return oss.str();
+}
+
+FieldGeoCache buildFieldGeoCache(const Map& map) {
+    FieldGeoCache out;
+    out.fieldW = map.getFieldWidth();
+    out.fieldH = map.getFieldHeight();
+    if (out.fieldW <= 0 || out.fieldH <= 0) return out;
+
+    const size_t n = static_cast<size_t>(out.fieldW * out.fieldH);
+    out.coastalMask.assign(n, 0u);
+    out.riverMask.assign(n, 0u);
+
+    const auto& isLand = map.getIsLandGrid();
+    if (isLand.empty() || isLand[0].empty()) return out;
+    const int H = static_cast<int>(isLand.size());
+    const int W = static_cast<int>(isLand[0].size());
+    const int step = Map::kFieldCellSize;
+
+    auto landAt = [&](int x, int y) -> bool {
+        if (x < 0 || y < 0 || x >= W || y >= H) return false;
+        return isLand[static_cast<size_t>(y)][static_cast<size_t>(x)];
+    };
+
+    const auto& food = map.getFieldFoodPotential();
+    std::vector<double> foodVals;
+    foodVals.reserve(n);
+    for (size_t i = 0; i < food.size(); ++i) {
+        if (food[i] > 0.0f) {
+            foodVals.push_back(static_cast<double>(food[i]));
+        }
+    }
+    const double riverThreshold = percentile(foodVals, 0.75);
+
+    for (int fy = 0; fy < out.fieldH; ++fy) {
+        for (int fx = 0; fx < out.fieldW; ++fx) {
+            const size_t idx = static_cast<size_t>(fy * out.fieldW + fx);
+            const int x0 = fx * step;
+            const int y0 = fy * step;
+            const int x1 = std::min(W - 1, x0 + step - 1);
+            const int y1 = std::min(H - 1, y0 + step - 1);
+            const int cx = (x0 + x1) / 2;
+            const int cy = (y0 + y1) / 2;
+
+            bool cellLand = landAt(cx, cy);
+            if (!cellLand) {
+                // Fallback: any land pixel in the block marks it as land.
+                for (int y = y0; y <= y1 && !cellLand; ++y) {
+                    for (int x = x0; x <= x1; ++x) {
+                        if (landAt(x, y)) {
+                            cellLand = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!cellLand) continue;
+
+            bool coastal = false;
+            for (int x = x0; x <= x1 && !coastal; ++x) {
+                coastal = coastal || !landAt(x, y0 - 1) || !landAt(x, y1 + 1);
+            }
+            for (int y = y0; y <= y1 && !coastal; ++y) {
+                coastal = coastal || !landAt(x0 - 1, y) || !landAt(x1 + 1, y);
+            }
+            out.coastalMask[idx] = coastal ? 1u : 0u;
+
+            const double fp = (idx < food.size()) ? static_cast<double>(food[idx]) : 0.0;
+            const bool riverProxy = (!coastal) && (fp >= riverThreshold) && (fp > 0.0);
+            out.riverMask[idx] = riverProxy ? 1u : 0u;
+        }
+    }
+
+    return out;
+}
+
 bool isFiniteNonNegative(double v) {
     return std::isfinite(v) && v >= 0.0;
 }
@@ -273,41 +441,57 @@ std::string checkInvariants(const std::vector<Country>& countries,
 }
 
 MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
+                                const Map& map,
+                                const TradeManager& tradeManager,
+                                const FieldGeoCache& geo,
                                 int year,
                                 const std::vector<Country>& countries,
                                 const std::vector<float>& tradeIntensity,
-                                long long warStarts,
-                                int yearsElapsed,
-                                int collapseCount) {
+                                const EventWindowCounters& events,
+                                const MetricsSnapshot* prevSnapshot,
+                                int yearsSinceLastCheckpoint) {
     MetricsSnapshot s;
     s.year = year;
-    s.collapseCount = collapseCount;
 
     std::vector<double> pops;
     std::vector<double> areas;
     std::vector<double> foodSec;
     std::vector<double> disease;
-    std::vector<double> stability;
-    std::vector<double> legitimacy;
+    std::vector<double> marketAccess;
+    std::vector<double> controls;
+    std::vector<double> stateCap;
+    std::vector<double> techCapIdx;
+    std::vector<double> logisticsCapIdx;
+    std::vector<double> storageCapIdx;
+    std::vector<double> healthCapIdx;
+    std::vector<double> cityPops;
     pops.reserve(countries.size());
     areas.reserve(countries.size());
     foodSec.reserve(countries.size());
     disease.reserve(countries.size());
-    stability.reserve(countries.size());
-    legitimacy.reserve(countries.size());
+    marketAccess.reserve(countries.size());
+    controls.reserve(countries.size());
+    stateCap.reserve(countries.size());
+    techCapIdx.reserve(countries.size());
+    logisticsCapIdx.reserve(countries.size());
+    storageCapIdx.reserve(countries.size());
+    healthCapIdx.reserve(countries.size());
+    cityPops.reserve(countries.size() * 2);
 
     double totalPop = 0.0;
     double totalUrban = 0.0;
-    double lowStabilityPop = 0.0;
-    double lowLegitimacyPop = 0.0;
+    double faminePop = 0.0;
+    double migrationWeighted = 0.0;
+    double famineDeaths = 0.0;
+    double diseaseDeaths = 0.0;
+    double availableBeforeLoss = 0.0;
+    double storageLoss = 0.0;
+    double spoilage = 0.0;
+    double extraction = 0.0;
     int live = 0;
-    int tier1 = 0;
-    int tier2 = 0;
-    int tier3 = 0;
+    int warsActive = 0;
 
     const double tScale = std::max(0.25, ctx.config.tech.capabilityThresholdScale);
-    const double t1 = 350.0 * tScale;
-    const double t2 = 2800.0 * tScale;
     const double t3 = 16000.0 * tScale;
 
     for (size_t i = 0; i < countries.size(); ++i) {
@@ -315,59 +499,125 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
         if (c.getPopulation() <= 0) continue;
         const double pop = static_cast<double>(c.getPopulation());
         const double area = static_cast<double>(c.getTerritoryVec().size());
+        const auto& m = c.getMacroEconomy();
         totalPop += pop;
         totalUrban += std::max(0.0, c.getTotalCityPopulation());
         pops.push_back(pop);
         areas.push_back(area);
-        foodSec.push_back(std::clamp(c.getMacroEconomy().foodSecurity, 0.0, 1.0));
-        disease.push_back(std::clamp(c.getMacroEconomy().diseaseBurden, 0.0, 1.0));
-        const double st = std::clamp(c.getStability(), 0.0, 1.0);
-        const double lg = std::clamp(c.getLegitimacy(), 0.0, 1.0);
-        stability.push_back(st);
-        legitimacy.push_back(lg);
-        if (st < 0.10) {
-            lowStabilityPop += pop;
-        }
-        if (lg < 0.10) {
-            lowLegitimacyPop += pop;
-        }
-        live++;
+        const double fs = std::clamp(m.foodSecurity, 0.0, 2.0);
+        const double db = std::clamp(m.diseaseBurden, 0.0, 1.0);
+        const double ma = std::clamp(m.marketAccess, 0.0, 1.0);
+        const double ctrl = std::clamp(c.getAvgControl(), 0.0, 1.0);
+        const double inst = std::clamp(m.institutionCapacity, 0.0, 1.0);
+        foodSec.push_back(fs);
+        disease.push_back(db);
+        marketAccess.push_back(ma);
+        controls.push_back(ctrl);
+        stateCap.push_back(inst);
+        migrationWeighted += pop * std::clamp(m.migrationPressureOut, 0.0, 1.0);
+        if (fs < 1.0) faminePop += pop;
+        famineDeaths += std::max(0.0, m.lastDeathsFamine);
+        diseaseDeaths += std::max(0.0, m.lastDeathsEpi);
+        const double avail = std::max(0.0, m.lastFoodOutput + m.foodStock);
+        availableBeforeLoss += avail;
+        const double lossNow = std::max(0.0, avail - m.lastFoodCons - std::max(0.0, m.foodStock));
+        storageLoss += lossNow;
+        spoilage += std::max(0.0, m.foodStock * std::clamp(m.spoilageRate, 0.0, 1.0));
+        extraction += std::max(0.0, m.cumulativeOreExtraction + m.cumulativeCoalExtraction);
 
         const auto& k = c.getKnowledge();
         double meanDomain = 0.0;
         for (double v : k) meanDomain += std::max(0.0, v);
         meanDomain /= static_cast<double>(Country::kDomains);
+        const double composite = meanDomain * (0.7 + 0.3 * ma) * (0.7 + 0.3 * inst);
+        const double techIdx = std::clamp(composite / std::max(1.0, t3), 0.0, 1.0);
+        techCapIdx.push_back(techIdx);
 
-        const double access = std::clamp(c.getMarketAccess(), 0.0, 1.0);
-        const double inst = std::clamp(c.getInstitutionCapacity(), 0.0, 1.0);
-        const double composite = meanDomain * (0.7 + 0.3 * access) * (0.7 + 0.3 * inst);
-        if (composite >= t1) tier1++;
-        if (composite >= t2) tier2++;
-        if (composite >= t3) tier3++;
+        const double logIdx = clamp01(0.50 * ma + 0.30 * std::clamp(c.getLogisticsReach(), 0.0, 1.0) + 0.20 * ctrl);
+        const double stockRatio = (m.foodStockCap > 1e-9) ? std::clamp(m.foodStock / m.foodStockCap, 0.0, 2.0) : 0.0;
+        const double storIdx = clamp01(0.60 * std::clamp(stockRatio, 0.0, 1.0) + 0.20 * inst + 0.20 * (1.0 - std::clamp(m.spoilageRate, 0.0, 1.0)));
+        const double healthIdx = clamp01(0.45 * std::clamp(c.getHealthSpendingShare(), 0.0, 1.0) + 0.35 * inst + 0.20 * (1.0 - db));
+        logisticsCapIdx.push_back(logIdx);
+        storageCapIdx.push_back(storIdx);
+        healthCapIdx.push_back(healthIdx);
+
+        for (const City& city : c.getCities()) {
+            if (city.getPopulation() > 0.0f) {
+                cityPops.push_back(static_cast<double>(city.getPopulation()));
+            }
+        }
+
+        if (c.isAtWar()) warsActive++;
+        live++;
     }
 
-    s.worldPopulation = totalPop;
-    s.urbanShare = (totalPop > 1e-9) ? std::clamp(totalUrban / totalPop, 0.0, 1.0) : 0.0;
-    s.medianCountryPop = percentile(pops, 0.50);
-    s.medianCountryArea = percentile(areas, 0.50);
-    s.foodSecurityMean = foodSec.empty() ? 0.0 : (std::accumulate(foodSec.begin(), foodSec.end(), 0.0) / static_cast<double>(foodSec.size()));
-    s.foodSecurityP10 = percentile(foodSec, 0.10);
-    s.diseaseBurdenMean = disease.empty() ? 0.0 : (std::accumulate(disease.begin(), disease.end(), 0.0) / static_cast<double>(disease.size()));
-    s.diseaseBurdenP90 = percentile(disease, 0.90);
-    s.stabilityMean = stability.empty() ? 0.0 : (std::accumulate(stability.begin(), stability.end(), 0.0) / static_cast<double>(stability.size()));
-    s.stabilityP10 = percentile(stability, 0.10);
-    s.legitimacyMean = legitimacy.empty() ? 0.0 : (std::accumulate(legitimacy.begin(), legitimacy.end(), 0.0) / static_cast<double>(legitimacy.size()));
-    s.legitimacyP10 = percentile(legitimacy, 0.10);
-    s.lowStabilityPopShare = (totalPop > 1e-9) ? std::clamp(lowStabilityPop / totalPop, 0.0, 1.0) : 0.0;
-    s.lowLegitimacyPopShare = (totalPop > 1e-9) ? std::clamp(lowLegitimacyPop / totalPop, 0.0, 1.0) : 0.0;
+    s.world_pop_total = totalPop;
+    s.world_urban_share_proxy = (totalPop > 1e-9) ? std::clamp(totalUrban / totalPop, 0.0, 1.0) : 0.0;
+    s.world_food_adequacy_index = std::clamp(mean(foodSec), 0.0, 2.0);
+    s.world_famine_death_rate = (totalPop > 1e-9) ? std::max(0.0, famineDeaths) / totalPop : 0.0;
+    s.world_disease_death_rate = (totalPop > 1e-9) ? std::max(0.0, diseaseDeaths) / totalPop : 0.0;
+    s.world_trade_intensity = 0.0;
+    s.world_tech_capability_index_median = percentile(techCapIdx, 0.50);
+    s.world_tech_capability_index_p90 = percentile(techCapIdx, 0.90);
+    s.world_state_capacity_index_median = percentile(stateCap, 0.50);
+    s.world_state_capacity_index_p10 = percentile(stateCap, 0.10);
+    s.migration_rate_t = (totalPop > 1e-9) ? std::clamp(migrationWeighted / totalPop, 0.0, 1.0) : 0.0;
+    s.famine_exposure_share_t = (totalPop > 1e-9) ? std::clamp(faminePop / totalPop, 0.0, 1.0) : 0.0;
+    s.market_access_p10 = percentile(marketAccess, 0.10);
+    s.market_access_median = percentile(marketAccess, 0.50);
+    s.food_adequacy_p10 = percentile(foodSec, 0.10);
+    s.food_adequacy_median = percentile(foodSec, 0.50);
+    s.travel_cost_index_median = std::clamp(1.0 - s.market_access_median, 0.0, 1.0);
 
-    s.capabilityTier1Share = (live > 0) ? static_cast<double>(tier1) / static_cast<double>(live) : 0.0;
-    s.capabilityTier2Share = (live > 0) ? static_cast<double>(tier2) / static_cast<double>(live) : 0.0;
-    s.capabilityTier3Share = (live > 0) ? static_cast<double>(tier3) / static_cast<double>(live) : 0.0;
-
-    if (yearsElapsed > 0) {
-        s.warFrequencyPerCentury = (100.0 * static_cast<double>(warStarts)) / static_cast<double>(yearsElapsed);
+    s.country_pop_median = percentile(pops, 0.50);
+    s.country_pop_p90 = percentile(pops, 0.90);
+    s.country_pop_top1_share = (!pops.empty() && totalPop > 1e-9) ? (*std::max_element(pops.begin(), pops.end()) / totalPop) : 0.0;
+    s.country_area_median = percentile(areas, 0.50);
+    s.country_area_p90 = percentile(areas, 0.90);
+    {
+        const double areaSum = std::accumulate(areas.begin(), areas.end(), 0.0);
+        s.country_area_top1_share = (!areas.empty() && areaSum > 1e-9) ? (*std::max_element(areas.begin(), areas.end()) / areaSum) : 0.0;
     }
+    s.control_median = percentile(controls, 0.50);
+    s.control_p10 = percentile(controls, 0.10);
+    s.wars_active_count = warsActive;
+
+    if (prevSnapshot != nullptr && yearsSinceLastCheckpoint > 0) {
+        const double prevPop = std::max(1.0, prevSnapshot->world_pop_total);
+        const double ratio = std::max(1e-9, s.world_pop_total / prevPop);
+        s.world_pop_growth_rate_annual = std::pow(ratio, 1.0 / static_cast<double>(yearsSinceLastCheckpoint)) - 1.0;
+    } else {
+        s.world_pop_growth_rate_annual = 0.0;
+    }
+
+    s.famine_wave_count = events.famine_wave_count;
+    s.epidemic_wave_count = events.epidemic_wave_count;
+    s.major_war_count = events.major_war_count;
+    s.civil_conflict_count = events.civil_conflict_count;
+    s.fragmentation_count = events.fragmentation_count;
+    s.mass_migration_count = events.mass_migration_count;
+    const double yearsSafe = static_cast<double>(std::max(1, yearsSinceLastCheckpoint));
+    s.world_war_death_rate =
+        std::max(0.0, 0.00035 * static_cast<double>(s.wars_active_count) + 0.00010 * (static_cast<double>(s.major_war_count) / yearsSafe));
+
+    std::sort(cityPops.begin(), cityPops.end(), std::greater<double>());
+    s.city_pop_top1 = cityPops.empty() ? 0.0 : cityPops.front();
+    if (!cityPops.empty() && totalPop > 1e-9) {
+        const size_t k = std::min<size_t>(10, cityPops.size());
+        double t10 = 0.0;
+        for (size_t i = 0; i < k; ++i) t10 += cityPops[i];
+        s.city_pop_top10_sum_share = std::clamp(t10 / totalPop, 0.0, 1.0);
+    }
+    s.city_tail_index = hillEstimatorTopTail(cityPops);
+
+    s.logistics_capability_index = percentile(logisticsCapIdx, 0.50);
+    s.storage_capability_index = percentile(storageCapIdx, 0.50);
+    s.health_capability_index = percentile(healthCapIdx, 0.50);
+    s.transport_cost_index = std::clamp(1.0 - s.logistics_capability_index, 0.0, 1.0);
+    s.available_kcal_before_losses = availableBeforeLoss;
+    s.storage_loss_kcal = storageLoss;
+    s.spoilage_kcal = spoilage;
+    s.extraction_index = extraction;
 
     const int n = static_cast<int>(countries.size());
     if (n > 1 && tradeIntensity.size() >= static_cast<size_t>(n) * static_cast<size_t>(n)) {
@@ -385,13 +635,55 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
                 cnt++;
             }
         }
-        if (activeCnt > 0) {
-            s.tradeIntensity = sum / static_cast<double>(activeCnt);
-        } else {
-            s.tradeIntensity = 0.0;
+        s.world_trade_intensity = (activeCnt > 0) ? (sum / static_cast<double>(activeCnt)) : 0.0;
+    }
+
+    const auto& routes = tradeManager.getTradeRoutes();
+    double tradeLong = 0.0;
+    double tradeTot = 0.0;
+    for (const auto& r : routes) {
+        if (!r.isActive) continue;
+        const double flow = std::max(0.0, r.capacity * std::max(0.0, r.efficiency));
+        tradeTot += flow;
+        if (r.distance > 800.0) tradeLong += flow;
+    }
+    s.trade_volume_total = tradeTot;
+    s.trade_volume_long = tradeLong;
+    s.long_distance_trade_proxy = (tradeTot > 1e-12) ? std::clamp(tradeLong / tradeTot, 0.0, 1.0) : 0.0;
+
+    // Spatial distributions from field grid.
+    if (geo.fieldW > 0 && geo.fieldH > 0) {
+        const auto& fp = map.getFieldPopulation();
+        const auto& hab = map.getFieldFoodPotential();
+        const int nbands = static_cast<int>(s.pop_share_by_lat_band.size());
+        std::array<double, 6> latPop{{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
+        int habitableCells = 0;
+        int popCellsGt0 = 0;
+        int popCellsGtSmall = 0;
+        double popCoastal = 0.0;
+        double popRiver = 0.0;
+        for (int fy = 0; fy < geo.fieldH; ++fy) {
+            for (int fx = 0; fx < geo.fieldW; ++fx) {
+                const size_t idx = static_cast<size_t>(fy * geo.fieldW + fx);
+                const double h = (idx < hab.size()) ? static_cast<double>(hab[idx]) : 0.0;
+                const double p = (idx < fp.size()) ? std::max(0.0, static_cast<double>(fp[idx])) : 0.0;
+                if (h > 0.0) {
+                    habitableCells++;
+                    if (p > 0.0) popCellsGt0++;
+                    if (p > 50.0) popCellsGtSmall++;
+                }
+                const int b = std::min(nbands - 1, std::max(0, (fy * nbands) / std::max(1, geo.fieldH)));
+                latPop[static_cast<size_t>(b)] += p;
+                if (idx < geo.coastalMask.size() && geo.coastalMask[idx] != 0u) popCoastal += p;
+                if (idx < geo.riverMask.size() && geo.riverMask[idx] != 0u) popRiver += p;
+            }
         }
-        if (cnt > 0) {
-            s.tradeActivePairShare = static_cast<double>(activeCnt) / static_cast<double>(cnt);
+        s.habitable_cell_share_pop_gt_0 = (habitableCells > 0) ? (static_cast<double>(popCellsGt0) / static_cast<double>(habitableCells)) : 0.0;
+        s.habitable_cell_share_pop_gt_small = (habitableCells > 0) ? (static_cast<double>(popCellsGtSmall) / static_cast<double>(habitableCells)) : 0.0;
+        if (totalPop > 1e-9) {
+            for (size_t i = 0; i < latPop.size(); ++i) s.pop_share_by_lat_band[i] = std::clamp(latPop[i] / totalPop, 0.0, 1.0);
+            s.pop_share_coastal_vs_inland = std::clamp(popCoastal / totalPop, 0.0, 1.0);
+            s.pop_share_river_proximal = std::clamp(popRiver / totalPop, 0.0, 1.0);
         }
     }
 
@@ -1016,12 +1308,18 @@ int main(int argc, char** argv) {
     std::vector<MetricsSnapshot> checkpoints;
     checkpoints.reserve(static_cast<size_t>(1 + std::max(0, (endYear - startYear) / std::max(1, opt.checkpointEveryYears))));
 
-    long long warStarts = 0;
-    int collapseCount = 0;
+    const FieldGeoCache geo = buildFieldGeoCache(map);
+
+    EventWindowCounters eventsWindow{};
     std::set<std::string> seenNewsTokens;
 
     bool invariantsOk = true;
     std::string invariantError;
+    int lastCheckpointYear = startYear;
+
+    std::vector<uint8_t> famineWave(countries.size(), 0u);
+    std::vector<uint8_t> epidemicWave(countries.size(), 0u);
+    std::vector<uint8_t> migrationWave(countries.size(), 0u);
 
     for (int y = startYear; y <= endYear; ++y) {
         simulateOneYear(y);
@@ -1033,13 +1331,31 @@ int main(int argc, char** argv) {
                 wasAtWar[i] = countries[i].isAtWar() ? 1u : 0u;
             }
         }
+        if (famineWave.size() < countries.size()) famineWave.resize(countries.size(), 0u);
+        if (epidemicWave.size() < countries.size()) epidemicWave.resize(countries.size(), 0u);
+        if (migrationWave.size() < countries.size()) migrationWave.resize(countries.size(), 0u);
 
         for (size_t i = 0; i < countries.size(); ++i) {
-            const uint8_t now = countries[i].isAtWar() ? 1u : 0u;
+            const Country& c = countries[i];
+            const uint8_t now = c.isAtWar() ? 1u : 0u;
             if (now != 0u && wasAtWar[i] == 0u) {
-                warStarts++;
+                eventsWindow.major_war_count++;
             }
             wasAtWar[i] = now;
+
+            if (c.getPopulation() <= 0) continue;
+            const auto& m = c.getMacroEconomy();
+            const bool famineNow = (m.famineSeverity > 0.20) || (m.foodSecurity < 0.92);
+            if (famineNow && famineWave[i] == 0u) eventsWindow.famine_wave_count++;
+            famineWave[i] = famineNow ? 1u : 0u;
+
+            const bool epiNow = (m.diseaseBurden > 0.02);
+            if (epiNow && epidemicWave[i] == 0u) eventsWindow.epidemic_wave_count++;
+            epidemicWave[i] = epiNow ? 1u : 0u;
+
+            const bool migNow = (m.migrationPressureOut > 0.22);
+            if (migNow && migrationWave[i] == 0u) eventsWindow.mass_migration_count++;
+            migrationWave[i] = migNow ? 1u : 0u;
         }
 
         for (const std::string& e : news.getEvents()) {
@@ -1047,11 +1363,12 @@ int main(int argc, char** argv) {
             if (!seenNewsTokens.insert(token).second) {
                 continue;
             }
-            if (e.find("Civil war fractures") != std::string::npos ||
-                e.find("Breakaway") != std::string::npos ||
-                e.find("collapses and becomes extinct") != std::string::npos) {
-                collapseCount++;
-            }
+            const bool civil = (e.find("Civil war") != std::string::npos) || (e.find("civil war") != std::string::npos);
+            const bool frag = (e.find("Breakaway") != std::string::npos) || (e.find("fragments") != std::string::npos);
+            const bool migrationEvt = (e.find("migration") != std::string::npos) || (e.find("refugee") != std::string::npos);
+            if (civil) eventsWindow.civil_conflict_count++;
+            if (frag) eventsWindow.fragmentation_count++;
+            if (migrationEvt) eventsWindow.mass_migration_count++;
         }
 
         const std::string inv = checkInvariants(countries, map, macroEconomy.getLastTradeIntensity());
@@ -1063,44 +1380,95 @@ int main(int argc, char** argv) {
 
         const bool cadenceHit = ((y - startYear) % opt.checkpointEveryYears) == 0;
         if (y == startYear || y == endYear || cadenceHit || containsYear(explicitCheckpoints, y)) {
-            const int yearsElapsed = std::max(1, y - startYear + 1);
-            checkpoints.push_back(computeSnapshot(ctx, y, countries, macroEconomy.getLastTradeIntensity(), warStarts, yearsElapsed, collapseCount));
+            const int yearsSinceLast = std::max(1, y - lastCheckpointYear);
+            const MetricsSnapshot* prev = checkpoints.empty() ? nullptr : &checkpoints.back();
+            checkpoints.push_back(computeSnapshot(ctx,
+                                                  map,
+                                                  tradeManager,
+                                                  geo,
+                                                  y,
+                                                  countries,
+                                                  macroEconomy.getLastTradeIntensity(),
+                                                  eventsWindow,
+                                                  prev,
+                                                  yearsSinceLast));
+            eventsWindow = EventWindowCounters{};
+            lastCheckpointYear = y;
         }
     }
 
     const std::filesystem::path outDir(opt.outDir);
     const std::filesystem::path csvPath = outDir / "timeseries.csv";
     const std::filesystem::path jsonPath = outDir / "run_summary.json";
+    const std::filesystem::path metaPath = outDir / "run_meta.json";
+    const std::filesystem::path violationsPath = outDir / "violations.json";
 
     {
         std::ofstream csv(csvPath);
-        csv << "year,worldPopulation,urbanShare,medianCountryPop,medianCountryArea,warFrequencyPerCentury,tradeIntensity,tradeActivePairShare,"
-               "capabilityTier1Share,capabilityTier2Share,capabilityTier3Share,collapseCount,foodSecurityMean,foodSecurityP10,"
-               "diseaseBurdenMean,diseaseBurdenP90,stabilityMean,stabilityP10,legitimacyMean,legitimacyP10,lowStabilityPopShare,lowLegitimacyPopShare\n";
+        csv << "year,world_pop_total,world_pop_growth_rate_annual,world_food_adequacy_index,world_famine_death_rate,world_disease_death_rate,world_war_death_rate,"
+               "world_trade_intensity,world_urban_share_proxy,world_tech_capability_index_median,world_tech_capability_index_p90,world_state_capacity_index_median,"
+               "world_state_capacity_index_p10,migration_rate_t,famine_exposure_share_t,habitable_cell_share_pop_gt_0,habitable_cell_share_pop_gt_small,pop_share_by_lat_band,"
+               "pop_share_coastal_vs_inland,pop_share_river_proximal,market_access_p10,market_access_median,food_adequacy_p10,food_adequacy_median,travel_cost_index_median,"
+               "country_pop_median,country_pop_p90,country_pop_top1_share,country_area_median,country_area_p90,country_area_top1_share,control_median,control_p10,"
+               "wars_active_count,city_pop_top1,city_pop_top10_sum_share,city_tail_index,famine_wave_count,epidemic_wave_count,major_war_count,civil_conflict_count,"
+               "fragmentation_count,mass_migration_count,logistics_capability_index,storage_capability_index,health_capability_index,transport_cost_index,"
+               "spoilage_kcal,storage_loss_kcal,available_kcal_before_losses,trade_volume_total,trade_volume_long,long_distance_trade_proxy,extraction_index\n";
         csv << std::fixed << std::setprecision(6);
         for (const MetricsSnapshot& s : checkpoints) {
             csv << s.year << ","
-                << s.worldPopulation << ","
-                << s.urbanShare << ","
-                << s.medianCountryPop << ","
-                << s.medianCountryArea << ","
-                << s.warFrequencyPerCentury << ","
-                << s.tradeIntensity << ","
-                << s.tradeActivePairShare << ","
-                << s.capabilityTier1Share << ","
-                << s.capabilityTier2Share << ","
-                << s.capabilityTier3Share << ","
-                << s.collapseCount << ","
-                << s.foodSecurityMean << ","
-                << s.foodSecurityP10 << ","
-                << s.diseaseBurdenMean << ","
-                << s.diseaseBurdenP90 << ","
-                << s.stabilityMean << ","
-                << s.stabilityP10 << ","
-                << s.legitimacyMean << ","
-                << s.legitimacyP10 << ","
-                << s.lowStabilityPopShare << ","
-                << s.lowLegitimacyPopShare << "\n";
+                << s.world_pop_total << ","
+                << s.world_pop_growth_rate_annual << ","
+                << s.world_food_adequacy_index << ","
+                << s.world_famine_death_rate << ","
+                << s.world_disease_death_rate << ","
+                << s.world_war_death_rate << ","
+                << s.world_trade_intensity << ","
+                << s.world_urban_share_proxy << ","
+                << s.world_tech_capability_index_median << ","
+                << s.world_tech_capability_index_p90 << ","
+                << s.world_state_capacity_index_median << ","
+                << s.world_state_capacity_index_p10 << ","
+                << s.migration_rate_t << ","
+                << s.famine_exposure_share_t << ","
+                << s.habitable_cell_share_pop_gt_0 << ","
+                << s.habitable_cell_share_pop_gt_small << ","
+                << latBandsToString(s.pop_share_by_lat_band) << ","
+                << s.pop_share_coastal_vs_inland << ","
+                << s.pop_share_river_proximal << ","
+                << s.market_access_p10 << ","
+                << s.market_access_median << ","
+                << s.food_adequacy_p10 << ","
+                << s.food_adequacy_median << ","
+                << s.travel_cost_index_median << ","
+                << s.country_pop_median << ","
+                << s.country_pop_p90 << ","
+                << s.country_pop_top1_share << ","
+                << s.country_area_median << ","
+                << s.country_area_p90 << ","
+                << s.country_area_top1_share << ","
+                << s.control_median << ","
+                << s.control_p10 << ","
+                << s.wars_active_count << ","
+                << s.city_pop_top1 << ","
+                << s.city_pop_top10_sum_share << ","
+                << s.city_tail_index << ","
+                << s.famine_wave_count << ","
+                << s.epidemic_wave_count << ","
+                << s.major_war_count << ","
+                << s.civil_conflict_count << ","
+                << s.fragmentation_count << ","
+                << s.mass_migration_count << ","
+                << s.logistics_capability_index << ","
+                << s.storage_capability_index << ","
+                << s.health_capability_index << ","
+                << s.transport_cost_index << ","
+                << s.spoilage_kcal << ","
+                << s.storage_loss_kcal << ","
+                << s.available_kcal_before_losses << ","
+                << s.trade_volume_total << ","
+                << s.trade_volume_long << ","
+                << s.long_distance_trade_proxy << ","
+                << s.extraction_index << "\n";
         }
     }
 
@@ -1115,6 +1483,14 @@ int main(int argc, char** argv) {
         js << "  \"endYear\": " << endYear << ",\n";
         js << "  \"worldStartYear\": " << worldStartYear << ",\n";
         js << "  \"useGPU\": " << (ctx.config.economy.useGPU ? "true" : "false") << ",\n";
+        js << "  \"total_score\": 0.0,\n";
+        js << "  \"gates\": {\n";
+        js << "    \"metric_availability\": true,\n";
+        js << "    \"canary_pass\": false,\n";
+        js << "    \"backend_parity_pass\": false,\n";
+        js << "    \"hardfail\": \"" << (invariantsOk ? "" : "BROKEN_ACCOUNTING") << "\"\n";
+        js << "  },\n";
+        js << "  \"top_violations\": [],\n";
         js << "  \"invariants\": {\n";
         js << "    \"ok\": " << (invariantsOk ? "true" : "false") << ",\n";
         js << "    \"message\": \"" << jsonEscape(invariantError) << "\"\n";
@@ -1124,42 +1500,48 @@ int main(int argc, char** argv) {
             const MetricsSnapshot& s = checkpoints[i];
             js << "    {\n";
             js << "      \"year\": " << s.year << ",\n";
-            js << "      \"worldPopulation\": " << s.worldPopulation << ",\n";
-            js << "      \"urbanShare\": " << s.urbanShare << ",\n";
-            js << "      \"medianCountryPop\": " << s.medianCountryPop << ",\n";
-            js << "      \"medianCountryArea\": " << s.medianCountryArea << ",\n";
-            js << "      \"warFrequencyPerCentury\": " << s.warFrequencyPerCentury << ",\n";
-            js << "      \"tradeIntensity\": " << s.tradeIntensity << ",\n";
-            js << "      \"tradeActivePairShare\": " << s.tradeActivePairShare << ",\n";
-            js << "      \"techCapabilityLevels\": {\n";
-            js << "        \"tier1Share\": " << s.capabilityTier1Share << ",\n";
-            js << "        \"tier2Share\": " << s.capabilityTier2Share << ",\n";
-            js << "        \"tier3Share\": " << s.capabilityTier3Share << "\n";
-            js << "      },\n";
-            js << "      \"collapseCount\": " << s.collapseCount << ",\n";
-            js << "      \"foodSecurity\": {\n";
-            js << "        \"mean\": " << s.foodSecurityMean << ",\n";
-            js << "        \"p10\": " << s.foodSecurityP10 << "\n";
-            js << "      },\n";
-            js << "      \"diseaseBurden\": {\n";
-            js << "        \"mean\": " << s.diseaseBurdenMean << ",\n";
-            js << "        \"p90\": " << s.diseaseBurdenP90 << "\n";
-            js << "      },\n";
-            js << "      \"stateQuality\": {\n";
-            js << "        \"stabilityMean\": " << s.stabilityMean << ",\n";
-            js << "        \"stabilityP10\": " << s.stabilityP10 << ",\n";
-            js << "        \"legitimacyMean\": " << s.legitimacyMean << ",\n";
-            js << "        \"legitimacyP10\": " << s.legitimacyP10 << ",\n";
-            js << "        \"lowStabilityPopShare\": " << s.lowStabilityPopShare << ",\n";
-            js << "        \"lowLegitimacyPopShare\": " << s.lowLegitimacyPopShare << "\n";
-            js << "      }\n";
+            js << "      \"world_pop_total\": " << s.world_pop_total << ",\n";
+            js << "      \"world_food_adequacy_index\": " << s.world_food_adequacy_index << ",\n";
+            js << "      \"world_trade_intensity\": " << s.world_trade_intensity << ",\n";
+            js << "      \"world_urban_share_proxy\": " << s.world_urban_share_proxy << ",\n";
+            js << "      \"world_tech_capability_index_median\": " << s.world_tech_capability_index_median << ",\n";
+            js << "      \"world_state_capacity_index_median\": " << s.world_state_capacity_index_median << ",\n";
+            js << "      \"major_war_count\": " << s.major_war_count << ",\n";
+            js << "      \"famine_wave_count\": " << s.famine_wave_count << ",\n";
+            js << "      \"epidemic_wave_count\": " << s.epidemic_wave_count << ",\n";
+            js << "      \"migration_rate_t\": " << s.migration_rate_t << "\n";
             js << "    }" << (i + 1 < checkpoints.size() ? "," : "") << "\n";
         }
         js << "  ]\n";
         js << "}\n";
     }
 
-    std::cout << "Wrote " << jsonPath.string() << " and " << csvPath.string() << "\n";
+    {
+        std::ofstream meta(metaPath);
+        meta << std::fixed << std::setprecision(6);
+        meta << "{\n";
+        meta << "  \"seed\": " << opt.seed << ",\n";
+        meta << "  \"config_path\": \"" << jsonEscape(ctx.configPath) << "\",\n";
+        meta << "  \"config_hash\": \"" << jsonEscape(ctx.configHash) << "\",\n";
+        meta << "  \"git_commit\": \"unknown\",\n";
+        meta << "  \"backend\": \"" << (ctx.config.economy.useGPU ? "gpu" : "cpu") << "\",\n";
+        meta << "  \"start_year\": " << startYear << ",\n";
+        meta << "  \"end_year\": " << endYear << ",\n";
+        meta << "  \"map_hash\": \"" << jsonEscape(SimulationContext::hashFileFNV1a("assets/images/map.png")) << "\",\n";
+        meta << "  \"goals_version\": \"realism-envelope-v7\",\n";
+        meta << "  \"evaluator_version\": \"v7\",\n";
+        meta << "  \"definitions_version\": \"v7\",\n";
+        meta << "  \"scoring_version\": \"v7\"\n";
+        meta << "}\n";
+    }
+
+    {
+        std::ofstream vio(violationsPath);
+        vio << "[]\n";
+    }
+
+    std::cout << "Wrote " << jsonPath.string() << ", " << csvPath.string()
+              << ", " << metaPath.string() << ", " << violationsPath.string() << "\n";
     if (!invariantsOk) {
         std::cerr << "Invariant failure: " << invariantError << "\n";
         return 3;

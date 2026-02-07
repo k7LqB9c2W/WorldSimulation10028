@@ -1,0 +1,38 @@
+{
+  "iteration": 8,
+  "subsystem_group": "food",
+  "parameter_edits": [
+    {
+      "path": "food.baseFarming",
+      "old": 44,
+      "new": 46.0,
+      "recommended_step": 2.0
+    }
+  ],
+  "top_violations_before": [
+    "STORAGE_SMOOTHING_CHEAT"
+  ],
+  "top_violations_after": [
+    "STORAGE_SMOOTHING_CHEAT"
+  ],
+  "objective_tuning": 40.04757580927078,
+  "score_delta": -0.6767687617939515,
+  "gates": {
+    "metric_availability": true,
+    "canary_pass": false,
+    "backend_parity_pass": false,
+    "holdout_pass": false,
+    "tuning_hardfails": [],
+    "holdout_hardfails": []
+  },
+  "holdout_objective": null,
+  "accepted": false,
+  "best_so_far": {
+    "objective": 40.724344571064734,
+    "holdout_objective": 38.731423353681365,
+    "config_path": "/mnt/c/WS/WorldSimulation10028/out/fine_tuning_parallel2/best_sim_config.toml",
+    "config_hash16": "f26dbf166d674f45"
+  },
+  "canary_detail": [],
+  "parity_detail": []
+}

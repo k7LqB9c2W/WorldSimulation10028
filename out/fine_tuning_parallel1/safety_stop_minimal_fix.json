@@ -1,0 +1,8 @@
+{
+  "stop_condition": "SAFETY",
+  "reason": "Hard-gate failures persisted for 5 consecutive iterations.",
+  "minimal_fix_required": [
+    "Stabilize determinism/reproducibility for canary and parity, or fix missing metric emissions if present.",
+    "Re-run baseline gate checks before resuming tuning."
+  ]
+}

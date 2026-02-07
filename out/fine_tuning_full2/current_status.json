@@ -1,0 +1,55 @@
+{
+  "state": "partial_progress",
+  "baseline": {
+    "tuning": {
+      "score_median": 39.06339067436872,
+      "stddev": 0.8995350907800912,
+      "hardfail_rate": 0.0,
+      "variance_penalty": 0.0,
+      "hardfail_penalty": 0.0,
+      "objective": 39.06339067436872
+    },
+    "holdout": {
+      "score_median": 39.63870554752166,
+      "stddev": 0.666850469894051,
+      "hardfail_rate": 0.0,
+      "variance_penalty": 0.0,
+      "hardfail_penalty": 0.0,
+      "objective": 39.63870554752166
+    },
+    "top3": [
+      "STORAGE_SMOOTHING_CHEAT"
+    ]
+  },
+  "iteration_1": {
+    "iteration": 1,
+    "subsystem_group": "food",
+    "parameter_edits": [
+      {
+        "path": "food.baseForaging",
+        "old": 21.0,
+        "new": 19.5,
+        "recommended_step": 1.5
+      }
+    ],
+    "top_violations_before": [
+      "STORAGE_SMOOTHING_CHEAT"
+    ],
+    "top_violations_after": [
+      "STORAGE_SMOOTHING_CHEAT"
+    ],
+    "objective_tuning": 40.10594745379787,
+    "score_delta_vs_baseline": 1.9420918702092393,
+    "gates": {
+      "metric_availability": true,
+      "canary_pass": null,
+      "backend_parity_pass": null,
+      "holdout_pass": null,
+      "status": "INCOMPLETE_GATE_EVAL_INTERRUPTED"
+    },
+    "accepted": false,
+    "notes": "Tuning-seed evaluation completed; canary/parity/holdout for this candidate interrupted before completion."
+  },
+  "stop_condition_triggered": null,
+  "reason": "Full-horizon gating runs are long; no stop condition reached yet."
+}

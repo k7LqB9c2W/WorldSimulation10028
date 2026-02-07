@@ -1,0 +1,38 @@
+{
+  "iteration": 3,
+  "subsystem_group": "disease",
+  "parameter_edits": [
+    {
+      "path": "disease.endemicBase",
+      "old": 0.002,
+      "new": 0.0018,
+      "recommended_step": 0.0002
+    }
+  ],
+  "top_violations_before": [
+    "STORAGE_SMOOTHING_CHEAT"
+  ],
+  "top_violations_after": [
+    "STORAGE_SMOOTHING_CHEAT"
+  ],
+  "objective_tuning": 39.56311875632963,
+  "score_delta": -0.5428286974682379,
+  "gates": {
+    "metric_availability": true,
+    "canary_pass": false,
+    "backend_parity_pass": false,
+    "holdout_pass": false,
+    "tuning_hardfails": [],
+    "holdout_hardfails": []
+  },
+  "holdout_objective": null,
+  "accepted": false,
+  "best_so_far": {
+    "objective": 40.10594745379787,
+    "holdout_objective": 38.81183010890724,
+    "config_path": "/mnt/c/WS/WorldSimulation10028/out/fine_tuning_strict1/best_sim_config.toml",
+    "config_hash16": "7fc85ba76c8db42e"
+  },
+  "canary_detail": [],
+  "parity_detail": []
+}

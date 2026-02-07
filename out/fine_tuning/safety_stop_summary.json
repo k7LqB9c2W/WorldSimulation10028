@@ -1,0 +1,7 @@
+{
+  "stop_condition_triggered": "SAFETY",
+  "reason": "MISSING_METRIC persisted for 5 consecutive iterations",
+  "iterations_recorded": 5,
+  "best_so_far_config": "data/sim_config.toml",
+  "best_so_far_hash16": "23952a4a97827e31"
+}

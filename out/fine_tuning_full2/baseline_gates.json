@@ -1,0 +1,92 @@
+{
+  "canary_pass": false,
+  "canary": [
+    {
+      "metric": "world_pop_total",
+      "mode": "relative",
+      "eps": 0.0005,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_food_adequacy_index",
+      "mode": "absolute",
+      "eps": 0.002,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "habitable_cell_share_pop_gt_small",
+      "mode": "absolute",
+      "eps": 0.002,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_trade_intensity",
+      "mode": "relative",
+      "eps": 0.0025,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_urban_share_proxy",
+      "mode": "absolute",
+      "eps": 0.002,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "event_rates_per_century_per_billion",
+      "mode": "absolute",
+      "eps": 0.05,
+      "max_error": Infinity,
+      "pass": false
+    }
+  ],
+  "parity_pass": false,
+  "parity": [
+    {
+      "metric": "world_pop_total",
+      "mode": "relative",
+      "eps": 0.002,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_food_adequacy_index",
+      "mode": "absolute",
+      "eps": 0.01,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "habitable_cell_share_pop_gt_small",
+      "mode": "absolute",
+      "eps": 0.01,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_trade_intensity",
+      "mode": "relative",
+      "eps": 0.01,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_urban_share_proxy",
+      "mode": "absolute",
+      "eps": 0.01,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "event_rates_per_century_per_billion",
+      "mode": "absolute",
+      "eps": 0.2,
+      "max_error": Infinity,
+      "pass": false
+    }
+  ]
+}
