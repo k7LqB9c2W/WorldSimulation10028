@@ -37,7 +37,17 @@ class Map {
 public:
     static constexpr int kFieldCellSize = 6; // Must match EconomyGPU econCellSize for new field systems.
 
-    Map(const sf::Image& baseImage, const sf::Image& resourceImage, int gridCellSize, const sf::Color& landColor, const sf::Color& waterColor, int regionSize, SimulationContext& ctx);
+    Map(const sf::Image& baseImage,
+        const sf::Image& resourceImage,
+        const sf::Image& coalImage,
+        const sf::Image& copperImage,
+        const sf::Image& tinImage,
+        const sf::Image& riverlandImage,
+        int gridCellSize,
+        const sf::Color& landColor,
+        const sf::Color& waterColor,
+        int regionSize,
+        SimulationContext& ctx);
     void initializeCountries(std::vector<Country>& countries, int numCountries);
     void updateCountries(std::vector<Country>& countries, int currentYear, News& news, class TechnologyManager& technologyManager);
     // Phase 4 integration: run demography/migration + city updates as a separate step so
@@ -176,6 +186,10 @@ public:
     std::mutex m_gridMutex;
     sf::Image m_baseImage;
     sf::Image m_resourceImage;
+    sf::Image m_coalImage;
+    sf::Image m_copperImage;
+    sf::Image m_tinImage;
+    sf::Image m_riverlandImage;
     std::unordered_set<int> m_dirtyRegions;
     std::vector<std::vector<std::unordered_map<Resource::Type, double>>> m_resourceGrid;
     std::unordered_map<sf::Color, Resource::Type> m_resourceColors;

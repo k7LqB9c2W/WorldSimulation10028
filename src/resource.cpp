@@ -21,12 +21,9 @@ void Resource::addAmount(double amount) {
 
 ResourceManager::ResourceManager() {
     // Initialize all resource types with 0 amount
-    m_resources[Resource::Type::FOOD] = Resource(Resource::Type::FOOD);
-    m_resources[Resource::Type::HORSES] = Resource(Resource::Type::HORSES);
-    m_resources[Resource::Type::SALT] = Resource(Resource::Type::SALT);
-    m_resources[Resource::Type::IRON] = Resource(Resource::Type::IRON);
-    m_resources[Resource::Type::COAL] = Resource(Resource::Type::COAL);
-    m_resources[Resource::Type::GOLD] = Resource(Resource::Type::GOLD);
+    for (Resource::Type type : Resource::kAllTypes) {
+        m_resources[type] = Resource(type);
+    }
 }
 
 void ResourceManager::addResource(Resource::Type type, double amount) {

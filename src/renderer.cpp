@@ -2222,6 +2222,12 @@ sf::Color Renderer::getExtractorColor(Resource::Type type) const {
             return sf::Color(190, 190, 190, 220);
         case Resource::Type::COAL:
             return sf::Color(60, 60, 60, 220);
+        case Resource::Type::COPPER:
+            return sf::Color(194, 116, 73, 220);
+        case Resource::Type::TIN:
+            return sf::Color(56, 166, 160, 220);
+        case Resource::Type::CLAY:
+            return sf::Color(214, 186, 146, 220);
         case Resource::Type::HORSES:
             return sf::Color(176, 121, 66, 220);
         case Resource::Type::SALT:
@@ -2236,7 +2242,13 @@ int Renderer::getExtractorUnlockTech(Resource::Type type) const {
         case Resource::Type::IRON:
             return 13; // Iron Working
         case Resource::Type::COAL:
-            return 55; // Railroad
+            return 4; // Mining
+        case Resource::Type::COPPER:
+            return 4; // Mining
+        case Resource::Type::TIN:
+            return 4; // Mining
+        case Resource::Type::CLAY:
+            return 0; // Available from start
         case Resource::Type::GOLD:
             return 34; // Banking
         case Resource::Type::HORSES:

@@ -221,15 +221,65 @@ int main(int argc, char** argv) {
 	        ~ImGuiGuard() { ImGui::SFML::Shutdown(); }
 	    } imguiGuard;
 
+    auto loadImageWithFallback = [](sf::Image& image, const std::string& relativeAssetPath, const std::string& legacyPath) -> bool {
+        if (image.loadFromFile(relativeAssetPath)) {
+            return true;
+        }
+        return image.loadFromFile(legacyPath);
+    };
+
     sf::Image baseImage;
-    if (!baseImage.loadFromFile("assets/images/map.png")) {
-        std::cerr << "Error: Could not load map image." << std::endl;
+    if (!loadImageWithFallback(baseImage, "assets/images/map.png", "map.png")) {
+        std::cerr << "Error: Could not load map image (assets/images/map.png or map.png)." << std::endl;
         return -1;
     }
 
     sf::Image resourceImage;
-    if (!resourceImage.loadFromFile("assets/images/resource.png")) {
-        std::cerr << "Error: Could not load resource image." << std::endl;
+    if (!loadImageWithFallback(resourceImage, "assets/images/resource.png", "resource.png")) {
+        std::cerr << "Error: Could not load resource image (assets/images/resource.png or resource.png)." << std::endl;
+        return -1;
+    }
+
+    sf::Image coalImage;
+    if (!loadImageWithFallback(coalImage, "assets/images/coal.png", "coal.png")) {
+        std::cerr << "Error: Could not load coal layer (assets/images/coal.png or coal.png)." << std::endl;
+        return -1;
+    }
+
+    sf::Image copperImage;
+    if (!loadImageWithFallback(copperImage, "assets/images/copper.png", "copper.png")) {
+        std::cerr << "Error: Could not load copper layer (assets/images/copper.png or copper.png)." << std::endl;
+        return -1;
+    }
+
+    sf::Image tinImage;
+    if (!loadImageWithFallback(tinImage, "assets/images/tin.png", "tin.png")) {
+        std::cerr << "Error: Could not load tin layer (assets/images/tin.png or tin.png)." << std::endl;
+        return -1;
+    }
+
+    sf::Image riverlandImage;
+    if (!loadImageWithFallback(riverlandImage, "assets/images/riverland.png", "riverland.png")) {
+        std::cerr << "Error: Could not load riverland layer (assets/images/riverland.png or riverland.png)." << std::endl;
+        return -1;
+    }
+
+    const sf::Vector2u baseSize = baseImage.getSize();
+    auto validateLayerSize = [&](const sf::Image& layer, const char* label) -> bool {
+        if (layer.getSize() != baseSize) {
+            std::cerr << "Error: " << label << " size mismatch. Expected "
+                      << baseSize.x << "x" << baseSize.y << ", got "
+                      << layer.getSize().x << "x" << layer.getSize().y << "." << std::endl;
+            return false;
+        }
+        return true;
+    };
+
+    if (!validateLayerSize(resourceImage, "resource layer") ||
+        !validateLayerSize(coalImage, "coal layer") ||
+        !validateLayerSize(copperImage, "copper layer") ||
+        !validateLayerSize(tinImage, "tin layer") ||
+        !validateLayerSize(riverlandImage, "riverland layer")) {
         return -1;
     }
 
@@ -254,7 +304,8 @@ int main(int argc, char** argv) {
 	    
 	    std::cout << "🚀 INITIALIZING MAP..." << std::endl;
 	    auto mapStart = std::chrono::high_resolution_clock::now();
-	    Map map(baseImage, resourceImage, gridCellSize, landColor, waterColor, regionSize, ctx);
+	    Map map(baseImage, resourceImage, coalImage, copperImage, tinImage, riverlandImage,
+               gridCellSize, landColor, waterColor, regionSize, ctx);
 	    auto mapEnd = std::chrono::high_resolution_clock::now();
     auto mapDuration = std::chrono::duration_cast<std::chrono::milliseconds>(mapEnd - mapStart);
     std::cout << "✅ MAP INITIALIZED in " << mapDuration.count() << " ms" << std::endl;

@@ -15,7 +15,25 @@
 #include <algorithm>
 #include <array>
 
-Map::Map(const sf::Image& baseImage, const sf::Image& resourceImage, int gridCellSize, const sf::Color& landColor, const sf::Color& waterColor, int regionSize, SimulationContext& ctx) :
+namespace {
+bool isColorNear(const sf::Color& pixel, const sf::Color& target, int tolerance = 0) {
+    return std::abs(static_cast<int>(pixel.r) - static_cast<int>(target.r)) <= tolerance &&
+           std::abs(static_cast<int>(pixel.g) - static_cast<int>(target.g)) <= tolerance &&
+           std::abs(static_cast<int>(pixel.b) - static_cast<int>(target.b)) <= tolerance;
+}
+} // namespace
+
+Map::Map(const sf::Image& baseImage,
+         const sf::Image& resourceImage,
+         const sf::Image& coalImage,
+         const sf::Image& copperImage,
+         const sf::Image& tinImage,
+         const sf::Image& riverlandImage,
+         int gridCellSize,
+         const sf::Color& landColor,
+         const sf::Color& waterColor,
+         int regionSize,
+         SimulationContext& ctx) :
     m_ctx(&ctx),
     m_gridCellSize(gridCellSize),
     m_regionSize(regionSize),
@@ -23,6 +41,10 @@ Map::Map(const sf::Image& baseImage, const sf::Image& resourceImage, int gridCel
     m_waterColor(waterColor),
     m_baseImage(baseImage),
     m_resourceImage(resourceImage),
+    m_coalImage(coalImage),
+    m_copperImage(copperImage),
+    m_tinImage(tinImage),
+    m_riverlandImage(riverlandImage),
     m_plagueActive(false),
     m_plagueStartYear(0),
     m_plagueDeathToll(0),
@@ -46,6 +68,7 @@ Map::Map(const sf::Image& baseImage, const sf::Image& resourceImage, int gridCel
         {sf::Color(242, 227, 21), Resource::Type::GOLD},
         {sf::Color(0, 0, 0), Resource::Type::IRON},
         {sf::Color(178, 0, 255), Resource::Type::SALT},
+        {sf::Color(255, 199, 205), Resource::Type::SALT},
         {sf::Color(127, 0, 55), Resource::Type::HORSES}
     };
 
@@ -66,8 +89,14 @@ void Map::initializeResourceGrid() {
     std::cout << "🚀 INITIALIZING RESOURCES (Optimized)..." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
 
+    long long coalCells = 0;
+    long long copperCells = 0;
+    long long tinCells = 0;
+    long long clayCells = 0;
+    long long riverlandCells = 0;
+
     // OPTIMIZATION 1: Use OpenMP parallel processing
-    #pragma omp parallel for
+    #pragma omp parallel for reduction(+:coalCells,copperCells,tinCells,clayCells,riverlandCells)
     for (int y = 0; y < static_cast<int>(m_isLandGrid.size()); ++y) {
         for (size_t x = 0; x < m_isLandGrid[y].size(); ++x) {
             if (m_isLandGrid[y][x]) {
@@ -91,27 +120,87 @@ void Map::initializeResourceGrid() {
                     }
                 }
                 
-                m_resourceGrid[y][x][Resource::Type::FOOD] = foodAmount;
-
-                // OPTIMIZATION 3: Batch process special resources
                 sf::Vector2u pixelPos(static_cast<unsigned int>(x * m_gridCellSize), static_cast<unsigned int>(y * m_gridCellSize));
-                sf::Color resourcePixelColor = m_resourceImage.getPixel(pixelPos.x, pixelPos.y);
+                const sf::Color resourcePixelColor = m_resourceImage.getPixel(pixelPos.x, pixelPos.y);
+                const sf::Color coalPixelColor = m_coalImage.getPixel(pixelPos.x, pixelPos.y);
+                const sf::Color copperPixelColor = m_copperImage.getPixel(pixelPos.x, pixelPos.y);
+                const sf::Color tinPixelColor = m_tinImage.getPixel(pixelPos.x, pixelPos.y);
+                const sf::Color riverlandPixelColor = m_riverlandImage.getPixel(pixelPos.x, pixelPos.y);
+
+                const std::uint64_t coord = (static_cast<std::uint64_t>(x) << 32) ^ static_cast<std::uint64_t>(y);
+                auto unitHash = [&](std::uint64_t salt) -> double {
+                    return SimulationContext::u01FromU64(SimulationContext::mix64(m_ctx->worldSeed ^ coord ^ salt));
+                };
+
+                const bool hasRiverland = riverlandPixelColor.a > 0 &&
+                                          isColorNear(riverlandPixelColor, sf::Color(24, 255, 239), 6);
+                if (hasRiverland) {
+                    riverlandCells++;
+                    const double uFood = unitHash(0x5249564552464F4Full);
+                    foodAmount = std::max(foodAmount, 153.6);
+                    foodAmount *= (1.0 + 0.10 * uFood);
+
+                    const double uClay = unitHash(0x434C415942415345ull);
+                    const double uClayHot = unitHash(0x434C4159484F5421ull);
+                    double clayAmount = 0.8 + 2.2 * uClay;
+                    if (uClayHot < 0.08) {
+                        clayAmount *= 2.0;
+                    }
+                    m_resourceGrid[y][x][Resource::Type::CLAY] += clayAmount;
+                    if (clayAmount > 0.0) {
+                        clayCells++;
+                    }
+                }
+
+                m_resourceGrid[y][x][Resource::Type::FOOD] = foodAmount;
 
                 // Only process if the pixel is not fully transparent
                 if (resourcePixelColor.a > 0) {
                     for (const auto& [color, type] : m_resourceColors) {
                         if (resourcePixelColor == color) {
-                            const std::uint64_t coord = (static_cast<std::uint64_t>(x) << 32) ^ static_cast<std::uint64_t>(y);
                             const std::uint64_t saltA = 0xA8F1B4D5E6C70123ull ^ static_cast<std::uint64_t>(type);
                             const std::uint64_t saltB = 0x3D2C1B0A99887766ull ^ (static_cast<std::uint64_t>(type) << 32);
-                            const double u1 = SimulationContext::u01FromU64(SimulationContext::mix64(m_ctx->worldSeed ^ coord ^ saltA));
-                            const double u2 = SimulationContext::u01FromU64(SimulationContext::mix64(m_ctx->worldSeed ^ coord ^ saltB));
+                            const double u1 = unitHash(saltA);
+                            const double u2 = unitHash(saltB);
                             const double baseAmount = 0.2 + u1 * (2.0 - 0.2);
                             const double hotspot = 2.0 + u2 * (6.0 - 2.0);
                             m_resourceGrid[y][x][type] = baseAmount * hotspot;
                             break;
                         }
                     }
+                }
+
+                auto addLayerDeposit = [&](const sf::Color& layerColor,
+                                           const sf::Color& expectedColor,
+                                           int colorTolerance,
+                                           Resource::Type type,
+                                           double baseMin,
+                                           double baseMax,
+                                           double hotspotMin,
+                                           double hotspotMax,
+                                           std::uint64_t saltBase) -> bool {
+                    if (layerColor.a == 0 || !isColorNear(layerColor, expectedColor, colorTolerance)) {
+                        return false;
+                    }
+                    const double uBase = unitHash(saltBase ^ 0xA3D27E4B11C9ull);
+                    const double uHot = unitHash(saltBase ^ 0x1F5C6A9872D3ull);
+                    const double baseAmount = baseMin + uBase * (baseMax - baseMin);
+                    const double hotspot = hotspotMin + uHot * (hotspotMax - hotspotMin);
+                    m_resourceGrid[y][x][type] += baseAmount * hotspot;
+                    return true;
+                };
+
+                if (addLayerDeposit(copperPixelColor, sf::Color(136, 78, 68), 4, Resource::Type::COPPER,
+                                    0.2, 2.0, 2.0, 6.0, 0x4355505045524C59ull)) {
+                    copperCells++;
+                }
+                if (addLayerDeposit(tinPixelColor, sf::Color(39, 135, 132), 4, Resource::Type::TIN,
+                                    0.12, 1.2, 2.0, 7.0, 0x54494E4C41594552ull)) {
+                    tinCells++;
+                }
+                if (addLayerDeposit(coalPixelColor, sf::Color(53, 0, 62), 4, Resource::Type::COAL,
+                                    0.2, 2.2, 2.0, 7.0, 0x434F414C4C415952ull)) {
+                    coalCells++;
                 }
             }
         }
@@ -120,6 +209,13 @@ void Map::initializeResourceGrid() {
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     std::cout << "✅ RESOURCES INITIALIZED in " << duration.count() << " ms" << std::endl;
+    std::cout << "   Resource ingestion: "
+              << "coal=" << coalCells
+              << ", copper=" << copperCells
+              << ", tin=" << tinCells
+              << ", clay=" << clayCells
+              << ", riverland-cells=" << riverlandCells
+              << std::endl;
 }
 
 void Map::rebuildCellFoodCache() {
@@ -156,6 +252,9 @@ void Map::rebuildCellNonFoodCache() {
     constexpr double wSalt = 30.0;
     constexpr double wHorses = 20.0;
     constexpr double wGold = 65.0;
+    constexpr double wCopper = 55.0;
+    constexpr double wTin = 90.0;
+    constexpr double wClay = 35.0;
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
@@ -168,7 +267,11 @@ void Map::rebuildCellNonFoodCache() {
             const double salt = getAmount(cell, Resource::Type::SALT);
             const double horses = getAmount(cell, Resource::Type::HORSES);
             const double gold = getAmount(cell, Resource::Type::GOLD);
-            const double pot = iron * wIron + coal * wCoal + salt * wSalt + horses * wHorses + gold * wGold;
+            const double copper = getAmount(cell, Resource::Type::COPPER);
+            const double tin = getAmount(cell, Resource::Type::TIN);
+            const double clay = getAmount(cell, Resource::Type::CLAY);
+            const double pot = iron * wIron + coal * wCoal + salt * wSalt + horses * wHorses +
+                               gold * wGold + copper * wCopper + tin * wTin + clay * wClay;
             m_cellNonFood[static_cast<size_t>(y * width + x)] = std::max(0.0, pot);
         }
     }
@@ -760,6 +863,13 @@ void Map::rebuildFieldMoveCost(const std::vector<Country>& countries) {
             case 7u: base = 1.65f; break; // Tropical forest
             case 8u: base = 1.05f; break; // Mediterranean
             default: base = 1.20f; break;
+        }
+        if (idx < m_fieldFoodPotential.size()) {
+            const float avgFood = m_fieldFoodPotential[idx] / static_cast<float>(kFieldCellSize * kFieldCellSize);
+            if (avgFood >= 140.0f) {
+                // Riverland/floodplain-like cells are generally easier corridors for movement and settlement.
+                base *= 0.92f;
+            }
         }
         if (coastalMask[idx] != 0u) {
             base *= 0.92f;
@@ -3329,8 +3439,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
 
         // Split resources proportionally.
         const double ratio = ratioB;
-        for (int r = 0; r < 6; ++r) {
-            const Resource::Type type = static_cast<Resource::Type>(r);
+        for (Resource::Type type : Resource::kAllTypes) {
             const double amount = countries[static_cast<size_t>(countryIndex)].getResourceManager().getResourceAmount(type);
             if (amount <= 0.0) continue;
             const double moved = amount * ratio;
@@ -4356,8 +4465,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
                 leader.setStability(std::max(leader.getStability(), 0.7));
                 leader.setFragmentationCooldown(fragmentationCooldown);
 
-                for (int r = 0; r < 6; ++r) {
-                    Resource::Type type = static_cast<Resource::Type>(r);
+                for (Resource::Type type : Resource::kAllTypes) {
                     double amount = absorbed.getResourceManager().getResourceAmount(type);
                     if (amount > 0.0) {
                         const_cast<ResourceManager&>(leader.getResourceManager()).addResource(type, amount);

@@ -95,6 +95,9 @@ struct Market {
         prices[Resource::Type::IRON] = 4.0;
         prices[Resource::Type::COAL] = 2.0;
         prices[Resource::Type::GOLD] = 10.0;
+        prices[Resource::Type::COPPER] = 4.5;
+        prices[Resource::Type::TIN] = 8.0;
+        prices[Resource::Type::CLAY] = 2.0;
     }
 };
 

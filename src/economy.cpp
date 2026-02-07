@@ -741,6 +741,18 @@ void EconomyGPU::rebuildResourcePotential(const Map& map) {
                     if (itGold != cell.end()) {
                         sumMat += itGold->second;
                     }
+                    auto itCopper = cell.find(Resource::Type::COPPER);
+                    if (itCopper != cell.end()) {
+                        sumMat += itCopper->second;
+                    }
+                    auto itTin = cell.find(Resource::Type::TIN);
+                    if (itTin != cell.end()) {
+                        sumMat += itTin->second;
+                    }
+                    auto itClay = cell.find(Resource::Type::CLAY);
+                    if (itClay != cell.end()) {
+                        sumMat += itClay->second;
+                    }
                     samples++;
                 }
             }
@@ -750,8 +762,8 @@ void EconomyGPU::rebuildResourcePotential(const Map& map) {
             if (samples > 0) {
                 const double avgFood = sumFood / static_cast<double>(samples);
                 const double avgMat = sumMat / static_cast<double>(samples);
-                foodPot = clamp01(static_cast<float>(avgFood / 102.4)); // inland ~0.5, coastal ~1.0
-                matPot = clamp01(static_cast<float>(avgMat / 3.0));     // tuned to typical hotspot magnitudes
+                foodPot = clamp01(static_cast<float>(avgFood / 153.6)); // riverland/floodplains normalize near 1.0
+                matPot = clamp01(static_cast<float>(avgMat / 5.0));     // includes copper/tin/clay material spectrum
                 matPot = std::max(matPot, 0.08f + 0.12f * foodPot);     // baseline material throughput for non-hotspot cells
             }
 

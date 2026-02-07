@@ -22,6 +22,36 @@ constexpr int kMaxAStarNodeExpansions = 220000;   // Hard cap to prevent patholo
 inline int clampi(int v, int lo, int hi) {
     return (v < lo) ? lo : (v > hi ? hi : v);
 }
+
+const char* resourceTypeName(Resource::Type resource) {
+    switch (resource) {
+        case Resource::Type::FOOD: return "food";
+        case Resource::Type::HORSES: return "horses";
+        case Resource::Type::SALT: return "salt";
+        case Resource::Type::IRON: return "iron";
+        case Resource::Type::COAL: return "coal";
+        case Resource::Type::GOLD: return "gold";
+        case Resource::Type::COPPER: return "copper";
+        case Resource::Type::TIN: return "tin";
+        case Resource::Type::CLAY: return "clay";
+        default: return "goods";
+    }
+}
+
+double resourceBasePrice(Resource::Type resource) {
+    switch (resource) {
+        case Resource::Type::FOOD: return 1.0;
+        case Resource::Type::HORSES: return 5.0;
+        case Resource::Type::SALT: return 3.0;
+        case Resource::Type::IRON: return 4.0;
+        case Resource::Type::COAL: return 2.0;
+        case Resource::Type::GOLD: return 10.0;
+        case Resource::Type::COPPER: return 4.5;
+        case Resource::Type::TIN: return 8.0;
+        case Resource::Type::CLAY: return 2.0;
+        default: return 1.0;
+    }
+}
 } // namespace
 
 TradeManager::TradeManager(SimulationContext& ctx) : m_rng(ctx.makeRng(0x5452414445ull)) {
@@ -587,7 +617,7 @@ void TradeManager::generateTradeOffers(std::vector<Country>& countries, int curr
     m_lastBarterYear = currentYear;
     
     std::uniform_real_distribution<> chanceDist(0.0, 1.0);
-    std::uniform_int_distribution<> resourceDist(0, 5); // 6 resource types
+    std::uniform_int_distribution<> resourceDist(0, Resource::kTypeCount - 1);
     std::uniform_real_distribution<> amountDist(5.0, 25.0);
     std::uniform_int_distribution<> validityDist(5, 15); // Valid for 5-15 years
     
@@ -611,8 +641,8 @@ void TradeManager::generateTradeOffers(std::vector<Country>& countries, int curr
                     country1.getEnemies().end(), &country2) != country1.getEnemies().end()) continue;
                 
                 // Generate realistic trade offer
-                Resource::Type offeredResource = static_cast<Resource::Type>(resourceDist(m_rng));
-                Resource::Type requestedResource = static_cast<Resource::Type>(resourceDist(m_rng));
+                Resource::Type offeredResource = Resource::kAllTypes[static_cast<size_t>(resourceDist(m_rng))];
+                Resource::Type requestedResource = Resource::kAllTypes[static_cast<size_t>(resourceDist(m_rng))];
                 
                 // Don't trade the same resource
                 if (offeredResource == requestedResource) continue;
@@ -705,8 +735,7 @@ void TradeManager::processCurrencyTrades(std::vector<Country>& countries, int cu
                 if (!canTradeDirectly(seller, buyer, map, techManager)) continue;
                 
                 // Trade surplus resources for gold
-                for (int r = 0; r < 6; ++r) {
-                    Resource::Type resource = static_cast<Resource::Type>(r);
+                for (Resource::Type resource : Resource::kAllTypes) {
                     double supply = calculateResourceSupply(resource, seller);
                     
                     if (supply > 1.2) { // Has surplus
@@ -735,17 +764,7 @@ void TradeManager::processCurrencyTrades(std::vector<Country>& countries, int cu
                                 recordTrade(static_cast<int>(i), static_cast<int>(j), currentYear);
                                 
                                 // Add news event
-                                std::string resourceName = [resource]() {
-                                    switch(resource) {
-                                        case Resource::Type::FOOD: return "food";
-                                        case Resource::Type::HORSES: return "horses";
-                                        case Resource::Type::SALT: return "salt";
-                                        case Resource::Type::IRON: return "iron";
-                                        case Resource::Type::COAL: return "coal";
-                                        case Resource::Type::GOLD: return "gold";
-                                        default: return "goods";
-                                    }
-                                }();
+                                const std::string resourceName = resourceTypeName(resource);
                                 
                                 news.addEvent("💰 CURRENCY TRADE: " + buyer.getName() + " purchases " + 
                                             std::to_string(static_cast<int>(tradeAmount)) + " " + resourceName + 
@@ -1052,8 +1071,7 @@ void TradeManager::processTradeRoutes(std::vector<Country>& countries, int curre
         if (tradeDist(m_rng) < 0.4) { // 40% chance per route per cycle
             
             // Find what each country can export
-            for (int r = 0; r < 6; ++r) {
-                Resource::Type resource = static_cast<Resource::Type>(r);
+            for (Resource::Type resource : Resource::kAllTypes) {
                 
                 double supply1 = calculateResourceSupply(resource, country1);
                 double demand2 = calculateResourceDemand(resource, country2);
@@ -1193,15 +1211,7 @@ double TradeManager::calculateTradeDistance(const Country& from, const Country& 
 double TradeManager::getResourcePrice(Resource::Type resource, const Country& country) const {
     
     // Base prices with supply/demand modifiers
-    double basePrice = 1.0;
-    switch(resource) {
-        case Resource::Type::FOOD: basePrice = 1.0; break;
-        case Resource::Type::HORSES: basePrice = 5.0; break;
-        case Resource::Type::SALT: basePrice = 3.0; break;
-        case Resource::Type::IRON: basePrice = 4.0; break;
-        case Resource::Type::COAL: basePrice = 2.0; break;
-        case Resource::Type::GOLD: basePrice = 10.0; break;
-    }
+    double basePrice = resourceBasePrice(resource);
     
     // Adjust based on country's supply/demand
     double supply = calculateResourceSupply(resource, country);
@@ -1267,7 +1277,10 @@ double TradeManager::calculateBarterhRatio(Resource::Type from, Resource::Type t
         {Resource::Type::COAL, 2.0},
         {Resource::Type::IRON, 4.0},
         {Resource::Type::HORSES, 5.0},
-        {Resource::Type::GOLD, 10.0}
+        {Resource::Type::GOLD, 10.0},
+        {Resource::Type::COPPER, 4.5},
+        {Resource::Type::TIN, 8.0},
+        {Resource::Type::CLAY, 2.0}
     };
     
     return resourceValues[to] / resourceValues[from];
@@ -1329,29 +1342,8 @@ void TradeManager::executeTradeOffer(const TradeOffer& offer, std::vector<Countr
     m_totalTradeValue += offer.offeredAmount + offer.requestedAmount;
     
     // Add news event
-    std::string offeredName = [&offer]() {
-        switch(offer.offeredResource) {
-            case Resource::Type::FOOD: return "food";
-            case Resource::Type::HORSES: return "horses";
-            case Resource::Type::SALT: return "salt";
-            case Resource::Type::IRON: return "iron";
-            case Resource::Type::COAL: return "coal";
-            case Resource::Type::GOLD: return "gold";
-            default: return "goods";
-        }
-    }();
-    
-    std::string requestedName = [&offer]() {
-        switch(offer.requestedResource) {
-            case Resource::Type::FOOD: return "food";
-            case Resource::Type::HORSES: return "horses";
-            case Resource::Type::SALT: return "salt";
-            case Resource::Type::IRON: return "iron";
-            case Resource::Type::COAL: return "coal";
-            case Resource::Type::GOLD: return "gold";
-            default: return "goods";
-        }
-    }();
+    const std::string offeredName = resourceTypeName(offer.offeredResource);
+    const std::string requestedName = resourceTypeName(offer.requestedResource);
     
     news.addEvent("📦 TRADE: " + fromCountry.getName() + " trades " + 
                  std::to_string(static_cast<int>(offer.offeredAmount)) + " " + offeredName + 
@@ -1363,6 +1355,11 @@ double TradeManager::calculateResourceDemand(Resource::Type resource, const Coun
     
     // Base demand based on population and country type
     double baseDemand = static_cast<double>(country.getPopulation()) / 100000.0; // Scale to reasonable numbers
+    const double pop = std::max(1.0, static_cast<double>(country.getPopulation()));
+    const double urbanizationProxy = std::clamp((std::log10(pop + 1.0) - 4.2) / 2.0, 0.0, 1.2);
+    const double goodsProxy = std::clamp(country.getGDP() / (pop * 450.0), 0.0, 2.5);
+    const double militaryProxy = std::clamp(country.getMilitaryStrength() / (pop * 0.0025), 0.0, 2.5);
+    const double infraProxy = std::clamp(country.getInfraSpendingShare() + country.getConnectivityIndex(), 0.0, 2.0);
     
     // Adjust based on resource type and country needs
     switch(resource) {
@@ -1373,7 +1370,20 @@ double TradeManager::calculateResourceDemand(Resource::Type resource, const Coun
             if (country.getType() == Country::Type::Warmonger) baseDemand *= 1.5;
             break;
         case Resource::Type::IRON:
-            if (country.getType() == Country::Type::Warmonger) baseDemand *= 2.0;
+            baseDemand *= 0.9 + 0.7 * goodsProxy;
+            if (country.getType() == Country::Type::Warmonger) baseDemand *= 1.8;
+            break;
+        case Resource::Type::COAL:
+            baseDemand *= 0.9 + 0.5 * urbanizationProxy + 0.6 * goodsProxy;
+            break;
+        case Resource::Type::COPPER:
+            baseDemand *= 0.9 + 0.8 * goodsProxy + 0.45 * militaryProxy;
+            break;
+        case Resource::Type::TIN:
+            baseDemand *= 0.65 + 0.95 * goodsProxy + 0.35 * militaryProxy;
+            break;
+        case Resource::Type::CLAY:
+            baseDemand *= 0.8 + 0.75 * urbanizationProxy + 0.5 * infraProxy;
             break;
         case Resource::Type::GOLD:
             if (country.getType() == Country::Type::Trader) baseDemand *= 1.5;
@@ -1434,8 +1444,7 @@ void TradeManager::updateMarketSupplyDemand(Market& market, const std::vector<Co
         const Country& country = countries[countryIndex];
         if (country.getPopulation() <= 0) continue;
         
-        for (int r = 0; r < 6; ++r) {
-            Resource::Type resource = static_cast<Resource::Type>(r);
+        for (Resource::Type resource : Resource::kAllTypes) {
             market.supply[resource] += calculateResourceSupply(resource, country);
             market.demand[resource] += calculateResourceDemand(resource, country);
         }
@@ -1470,8 +1479,7 @@ void TradeManager::processMarketTrades(Market& market, std::vector<Country>& cou
     
     if (tradeDist(m_rng) < 0.3) { // 30% chance per market per cycle
         
-        for (int r = 0; r < 6; ++r) {
-            Resource::Type resource = static_cast<Resource::Type>(r);
+        for (Resource::Type resource : Resource::kAllTypes) {
             
             if (market.supply[resource] > market.demand[resource] * 1.2) {
                 // Market has surplus - distribute to countries with high demand
