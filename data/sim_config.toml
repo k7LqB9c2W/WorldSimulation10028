@@ -6,98 +6,98 @@ rngSeedMode = "provided"
 deterministicMode = true
 
 [food]
-baseForaging = 28.0
-baseFarming = 52.0
-climateSensitivity = 0.70
-riverlandFoodFloor = 150.0
-coastalBonus = 1.35
-spoilageBase = 0.12
-storageBase = 0.55
+baseForaging = 21.0
+baseFarming = 44.0
+climateSensitivity = 0.95
+riverlandFoodFloor = 120.0
+coastalBonus = 1.20
+spoilageBase = 0.19
+storageBase = 0.40
 clayMin = 0.8
 clayMax = 3.0
 clayHotspotChance = 0.08
-foragingNoAgriShare = 0.90
-foragingWithAgriShare = 0.35
-farmingWithAgriShare = 0.85
+foragingNoAgriShare = 0.82
+foragingWithAgriShare = 0.30
+farmingWithAgriShare = 0.78
 
 [resources]
 oreWeightIron = 1.00
 oreWeightCopper = 0.85
 oreWeightTin = 1.20
-energyBiomassBase = 0.60
-energyCoalWeight = 1.65
+energyBiomassBase = 0.35
+energyCoalWeight = 1.85
 constructionClayWeight = 1.00
 constructionStoneBase = 0.55
-oreNormalization = 140.0
-energyNormalization = 120.0
-constructionNormalization = 110.0
-oreDepletionRate = 0.035
-coalDepletionRate = 0.030
+oreNormalization = 185.0
+energyNormalization = 170.0
+constructionNormalization = 130.0
+oreDepletionRate = 0.050
+coalDepletionRate = 0.045
 
 [migration]
-famineShockThreshold = 0.22
-epidemicShockThreshold = 0.16
-warShockThreshold = 0.24
-famineShockMultiplier = 1.40
-epidemicShockMultiplier = 1.10
-warShockMultiplier = 1.25
+famineShockThreshold = 0.16
+epidemicShockThreshold = 0.10
+warShockThreshold = 0.18
+famineShockMultiplier = 1.60
+epidemicShockMultiplier = 1.25
+warShockMultiplier = 1.50
 corridorCoastBonus = 0.25
 corridorRiverlandBonus = 0.35
 corridorSteppeBonus = 0.15
 corridorMountainPenalty = 0.45
 corridorDesertPenalty = 0.25
-refugeeHalfLifeYears = 10.0
+refugeeHalfLifeYears = 12.0
 culturalPreference = 0.20
 
 [war]
-supplyBase = 0.25
+supplyBase = 0.20
 supplyLogisticsWeight = 0.35
 supplyMarketWeight = 0.20
 supplyControlWeight = 0.20
 supplyEnergyWeight = 0.10
 supplyFoodStockWeight = 0.15
-overSupplyAttrition = 0.06
+overSupplyAttrition = 0.10
 terrainDefenseWeight = 0.35
-exhaustionRise = 0.08
-exhaustionPeaceThreshold = 0.75
-objectiveRaidWeight = 0.30
+exhaustionRise = 0.10
+exhaustionPeaceThreshold = 0.78
+objectiveRaidWeight = 0.34
 objectiveBorderWeight = 0.20
-objectiveTributeWeight = 0.15
+objectiveTributeWeight = 0.13
 objectiveVassalWeight = 0.12
 objectiveRegimeWeight = 0.10
-objectiveAnnihilationWeight = 0.13
-cooldownMinYears = 6
-cooldownMaxYears = 40
+objectiveAnnihilationWeight = 0.17
+cooldownMinYears = 3
+cooldownMaxYears = 24
 peaceReparationsWeight = 0.20
 peaceTributeWeight = 0.25
-peaceReconstructionDrag = 0.15
-earlyAnnihilationBias = 0.30
-highInstitutionAnnihilationDamp = 0.65
+peaceReconstructionDrag = 0.22
+earlyAnnihilationBias = 0.45
+highInstitutionAnnihilationDamp = 0.85
 
 [polity]
-regionCountMin = 3
-regionCountMax = 8
-successionIntervalMin = 18
-successionIntervalMax = 45
-eliteDefectionSensitivity = 0.65
-farRegionPenalty = 0.40
+regionCountMin = 4
+regionCountMax = 9
+successionIntervalMin = 15
+successionIntervalMax = 36
+eliteDefectionSensitivity = 0.78
+farRegionPenalty = 0.52
 
 [tech]
-capabilityThresholdScale = 1.0
-diffusionBase = 0.010
-culturalFrictionStrength = 1.10
-resourceReqEnergy = 0.40
-resourceReqOre = 0.35
-resourceReqConstruction = 0.25
+capabilityThresholdScale = 0.90
+diffusionBase = 0.016
+culturalFrictionStrength = 1.25
+resourceReqEnergy = 0.55
+resourceReqOre = 0.50
+resourceReqConstruction = 0.32
 
 [economy]
 foodLaborElasticity = 0.95
-goodsLaborElasticity = 0.70
-servicesLaborElasticity = 0.78
-energyIntensity = 0.80
-oreIntensity = 0.90
-goodsToMilitary = 0.55
-servicesScaling = 1.00
+goodsLaborElasticity = 0.62
+servicesLaborElasticity = 0.72
+energyIntensity = 1.25
+oreIntensity = 1.30
+goodsToMilitary = 0.75
+servicesScaling = 0.92
 useGPU = true
 
 [scoring]

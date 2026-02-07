@@ -1,0 +1,3281 @@
+{
+  "seed": 202,
+  "configPath": "data/sim_config.toml",
+  "configHash": "a1fa096e68ea81e2",
+  "startYear": -5000,
+  "endYear": 2025,
+  "worldStartYear": -5000,
+  "useGPU": false,
+  "invariants": {
+    "ok": true,
+    "message": ""
+  },
+  "checkpoints": [
+    {
+      "year": -5000,
+      "worldPopulation": 13195916.000000,
+      "urbanShare": 0.025638,
+      "medianCountryPop": 112939.000000,
+      "medianCountryArea": 274.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 5,
+      "foodSecurity": {
+        "mean": 0.993755,
+        "p10": 1.000000
+      },
+      "diseaseBurden": {
+        "mean": 0.003032,
+        "p90": 0.003079
+      }
+    },
+    {
+      "year": -4950,
+      "worldPopulation": 17196645.000000,
+      "urbanShare": 0.028713,
+      "medianCountryPop": 128907.500000,
+      "medianCountryArea": 270.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.000001,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 48,
+      "foodSecurity": {
+        "mean": 0.973913,
+        "p10": 0.896847
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4900,
+      "worldPopulation": 19695139.000000,
+      "urbanShare": 0.028607,
+      "medianCountryPop": 83593.000000,
+      "medianCountryArea": 235.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 64,
+      "foodSecurity": {
+        "mean": 0.970999,
+        "p10": 0.850475
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4850,
+      "worldPopulation": 21899751.000000,
+      "urbanShare": 0.029730,
+      "medianCountryPop": 62797.500000,
+      "medianCountryArea": 234.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 87,
+      "foodSecurity": {
+        "mean": 0.966969,
+        "p10": 0.879621
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4800,
+      "worldPopulation": 23796905.000000,
+      "urbanShare": 0.029988,
+      "medianCountryPop": 43146.000000,
+      "medianCountryArea": 216.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 111,
+      "foodSecurity": {
+        "mean": 0.970057,
+        "p10": 0.891161
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4750,
+      "worldPopulation": 25949938.000000,
+      "urbanShare": 0.031235,
+      "medianCountryPop": 35525.000000,
+      "medianCountryArea": 216.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 124,
+      "foodSecurity": {
+        "mean": 0.970193,
+        "p10": 0.895909
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4700,
+      "worldPopulation": 28312007.000000,
+      "urbanShare": 0.032465,
+      "medianCountryPop": 31376.000000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 131,
+      "foodSecurity": {
+        "mean": 0.974074,
+        "p10": 0.918788
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4650,
+      "worldPopulation": 30911624.000000,
+      "urbanShare": 0.033069,
+      "medianCountryPop": 29513.000000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 131,
+      "foodSecurity": {
+        "mean": 0.972067,
+        "p10": 0.918428
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4600,
+      "worldPopulation": 33284027.000000,
+      "urbanShare": 0.034584,
+      "medianCountryPop": 25463.000000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 146,
+      "foodSecurity": {
+        "mean": 0.975172,
+        "p10": 0.918293
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4550,
+      "worldPopulation": 36145256.000000,
+      "urbanShare": 0.035028,
+      "medianCountryPop": 28604.000000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 152,
+      "foodSecurity": {
+        "mean": 0.971108,
+        "p10": 0.915237
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4500,
+      "worldPopulation": 39620386.000000,
+      "urbanShare": 0.037035,
+      "medianCountryPop": 26846.500000,
+      "medianCountryArea": 214.500000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 152,
+      "foodSecurity": {
+        "mean": 0.973541,
+        "p10": 0.921798
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4450,
+      "worldPopulation": 42966691.000000,
+      "urbanShare": 0.037955,
+      "medianCountryPop": 28266.000000,
+      "medianCountryArea": 216.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 159,
+      "foodSecurity": {
+        "mean": 0.973358,
+        "p10": 0.906029
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4400,
+      "worldPopulation": 46419628.000000,
+      "urbanShare": 0.039195,
+      "medianCountryPop": 23684.000000,
+      "medianCountryArea": 216.000000,
+      "warFrequencyPerCentury": 0.166389,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 170,
+      "foodSecurity": {
+        "mean": 0.972418,
+        "p10": 0.916762
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4350,
+      "worldPopulation": 50978932.000000,
+      "urbanShare": 0.041853,
+      "medianCountryPop": 25159.000000,
+      "medianCountryArea": 216.000000,
+      "warFrequencyPerCentury": 0.153610,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 170,
+      "foodSecurity": {
+        "mean": 0.974181,
+        "p10": 0.921651
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4300,
+      "worldPopulation": 55781590.000000,
+      "urbanShare": 0.043524,
+      "medianCountryPop": 25308.000000,
+      "medianCountryArea": 217.000000,
+      "warFrequencyPerCentury": 0.142653,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 173,
+      "foodSecurity": {
+        "mean": 0.968602,
+        "p10": 0.907487
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4250,
+      "worldPopulation": 60149942.000000,
+      "urbanShare": 0.044513,
+      "medianCountryPop": 28355.500000,
+      "medianCountryArea": 214.500000,
+      "warFrequencyPerCentury": 0.133156,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 179,
+      "foodSecurity": {
+        "mean": 0.967883,
+        "p10": 0.910917
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4200,
+      "worldPopulation": 65999504.000000,
+      "urbanShare": 0.047752,
+      "medianCountryPop": 28494.500000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.124844,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 185,
+      "foodSecurity": {
+        "mean": 0.969632,
+        "p10": 0.902917
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4150,
+      "worldPopulation": 72220073.000000,
+      "urbanShare": 0.050421,
+      "medianCountryPop": 27632.500000,
+      "medianCountryArea": 216.000000,
+      "warFrequencyPerCentury": 0.117509,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 188,
+      "foodSecurity": {
+        "mean": 0.969381,
+        "p10": 0.909895
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4100,
+      "worldPopulation": 78850746.000000,
+      "urbanShare": 0.051194,
+      "medianCountryPop": 26545.000000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.110988,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 192,
+      "foodSecurity": {
+        "mean": 0.972005,
+        "p10": 0.917726
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4050,
+      "worldPopulation": 87123697.000000,
+      "urbanShare": 0.053204,
+      "medianCountryPop": 28960.000000,
+      "medianCountryArea": 216.000000,
+      "warFrequencyPerCentury": 0.105152,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 192,
+      "foodSecurity": {
+        "mean": 0.970526,
+        "p10": 0.916537
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -4000,
+      "worldPopulation": 95968770.000000,
+      "urbanShare": 0.056083,
+      "medianCountryPop": 27233.500000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.099900,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 202,
+      "foodSecurity": {
+        "mean": 0.969909,
+        "p10": 0.910347
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3950,
+      "worldPopulation": 104968333.000000,
+      "urbanShare": 0.058753,
+      "medianCountryPop": 32304.000000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.095147,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 209,
+      "foodSecurity": {
+        "mean": 0.970828,
+        "p10": 0.916323
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3900,
+      "worldPopulation": 114298449.000000,
+      "urbanShare": 0.061185,
+      "medianCountryPop": 31134.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.090827,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 213,
+      "foodSecurity": {
+        "mean": 0.968896,
+        "p10": 0.909230
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3850,
+      "worldPopulation": 124979257.000000,
+      "urbanShare": 0.061233,
+      "medianCountryPop": 45896.000000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.086881,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 217,
+      "foodSecurity": {
+        "mean": 0.967361,
+        "p10": 0.910397
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3800,
+      "worldPopulation": 134723114.000000,
+      "urbanShare": 0.061961,
+      "medianCountryPop": 36976.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.083264,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 221,
+      "foodSecurity": {
+        "mean": 0.974961,
+        "p10": 0.929046
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3750,
+      "worldPopulation": 144396148.000000,
+      "urbanShare": 0.062921,
+      "medianCountryPop": 41803.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.079936,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 221,
+      "foodSecurity": {
+        "mean": 0.974436,
+        "p10": 0.914854
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3700,
+      "worldPopulation": 152834471.000000,
+      "urbanShare": 0.064231,
+      "medianCountryPop": 37488.500000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.076864,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 221,
+      "foodSecurity": {
+        "mean": 0.971965,
+        "p10": 0.911836
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3650,
+      "worldPopulation": 158994949.000000,
+      "urbanShare": 0.063371,
+      "medianCountryPop": 36136.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.074019,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 221,
+      "foodSecurity": {
+        "mean": 0.971149,
+        "p10": 0.910220
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3600,
+      "worldPopulation": 163777774.000000,
+      "urbanShare": 0.062308,
+      "medianCountryPop": 34311.000000,
+      "medianCountryArea": 212.000000,
+      "warFrequencyPerCentury": 0.071378,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 221,
+      "foodSecurity": {
+        "mean": 0.972257,
+        "p10": 0.908638
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3550,
+      "worldPopulation": 169328155.000000,
+      "urbanShare": 0.063495,
+      "medianCountryPop": 36719.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.068918,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 225,
+      "foodSecurity": {
+        "mean": 0.976368,
+        "p10": 0.922598
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3500,
+      "worldPopulation": 174150817.000000,
+      "urbanShare": 0.062022,
+      "medianCountryPop": 30783.500000,
+      "medianCountryArea": 212.000000,
+      "warFrequencyPerCentury": 0.066622,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 226,
+      "foodSecurity": {
+        "mean": 0.974003,
+        "p10": 0.912434
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3450,
+      "worldPopulation": 183082795.000000,
+      "urbanShare": 0.063250,
+      "medianCountryPop": 32666.000000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.064475,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 231,
+      "foodSecurity": {
+        "mean": 0.974068,
+        "p10": 0.918038
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3400,
+      "worldPopulation": 189801906.000000,
+      "urbanShare": 0.064060,
+      "medianCountryPop": 40392.000000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.062461,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 231,
+      "foodSecurity": {
+        "mean": 0.972549,
+        "p10": 0.910740
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3350,
+      "worldPopulation": 198265430.000000,
+      "urbanShare": 0.064608,
+      "medianCountryPop": 36481.000000,
+      "medianCountryArea": 216.000000,
+      "warFrequencyPerCentury": 0.060569,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 231,
+      "foodSecurity": {
+        "mean": 0.975842,
+        "p10": 0.912741
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3300,
+      "worldPopulation": 202531677.000000,
+      "urbanShare": 0.064277,
+      "medianCountryPop": 41320.000000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.058789,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 235,
+      "foodSecurity": {
+        "mean": 0.972570,
+        "p10": 0.918944
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3250,
+      "worldPopulation": 214206844.000000,
+      "urbanShare": 0.067483,
+      "medianCountryPop": 31888.000000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.057110,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 238,
+      "foodSecurity": {
+        "mean": 0.978302,
+        "p10": 0.925456
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3200,
+      "worldPopulation": 222871867.000000,
+      "urbanShare": 0.068503,
+      "medianCountryPop": 33328.500000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.055525,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 242,
+      "foodSecurity": {
+        "mean": 0.975080,
+        "p10": 0.917164
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3150,
+      "worldPopulation": 231804726.000000,
+      "urbanShare": 0.070246,
+      "medianCountryPop": 29792.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.054025,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 255,
+      "foodSecurity": {
+        "mean": 0.976196,
+        "p10": 0.921010
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3100,
+      "worldPopulation": 241303834.000000,
+      "urbanShare": 0.071058,
+      "medianCountryPop": 29506.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.052604,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 255,
+      "foodSecurity": {
+        "mean": 0.976540,
+        "p10": 0.921040
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3050,
+      "worldPopulation": 248413226.000000,
+      "urbanShare": 0.070733,
+      "medianCountryPop": 29646.000000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.051256,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 255,
+      "foodSecurity": {
+        "mean": 0.968107,
+        "p10": 0.912173
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -3000,
+      "worldPopulation": 257290941.000000,
+      "urbanShare": 0.071554,
+      "medianCountryPop": 28887.000000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.049975,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 255,
+      "foodSecurity": {
+        "mean": 0.978294,
+        "p10": 0.920233
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2950,
+      "worldPopulation": 259077305.000000,
+      "urbanShare": 0.068984,
+      "medianCountryPop": 28456.500000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.048757,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.006579,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 269,
+      "foodSecurity": {
+        "mean": 0.969980,
+        "p10": 0.899928
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2900,
+      "worldPopulation": 271254076.000000,
+      "urbanShare": 0.072598,
+      "medianCountryPop": 28754.000000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.047596,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.013158,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 269,
+      "foodSecurity": {
+        "mean": 0.976345,
+        "p10": 0.918639
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2850,
+      "worldPopulation": 272937102.000000,
+      "urbanShare": 0.070837,
+      "medianCountryPop": 28721.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.046490,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.019608,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 272,
+      "foodSecurity": {
+        "mean": 0.977864,
+        "p10": 0.924603
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2800,
+      "worldPopulation": 283213916.000000,
+      "urbanShare": 0.074036,
+      "medianCountryPop": 26956.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.045434,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.019608,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 272,
+      "foodSecurity": {
+        "mean": 0.973307,
+        "p10": 0.913207
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2750,
+      "worldPopulation": 290499388.000000,
+      "urbanShare": 0.073966,
+      "medianCountryPop": 27940.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.044425,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.026144,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 272,
+      "foodSecurity": {
+        "mean": 0.977177,
+        "p10": 0.923898
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2700,
+      "worldPopulation": 295817248.000000,
+      "urbanShare": 0.074887,
+      "medianCountryPop": 27819.500000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.043459,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.025974,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 275,
+      "foodSecurity": {
+        "mean": 0.976533,
+        "p10": 0.928047
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2650,
+      "worldPopulation": 307979091.000000,
+      "urbanShare": 0.076359,
+      "medianCountryPop": 25949.000000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.042535,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.038961,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 275,
+      "foodSecurity": {
+        "mean": 0.977609,
+        "p10": 0.921789
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2600,
+      "worldPopulation": 311537359.000000,
+      "urbanShare": 0.075466,
+      "medianCountryPop": 26731.500000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.041649,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.038961,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 275,
+      "foodSecurity": {
+        "mean": 0.977522,
+        "p10": 0.919173
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2550,
+      "worldPopulation": 324715015.000000,
+      "urbanShare": 0.076909,
+      "medianCountryPop": 25079.000000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.040800,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.038961,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 275,
+      "foodSecurity": {
+        "mean": 0.977739,
+        "p10": 0.926104
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2500,
+      "worldPopulation": 327568091.000000,
+      "urbanShare": 0.078745,
+      "medianCountryPop": 26978.500000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.039984,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.038961,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 275,
+      "foodSecurity": {
+        "mean": 0.975483,
+        "p10": 0.919766
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2450,
+      "worldPopulation": 328910083.000000,
+      "urbanShare": 0.077607,
+      "medianCountryPop": 26622.500000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.039200,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.058442,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 275,
+      "foodSecurity": {
+        "mean": 0.976411,
+        "p10": 0.917433
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2400,
+      "worldPopulation": 339570416.000000,
+      "urbanShare": 0.075986,
+      "medianCountryPop": 24225.500000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.038447,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.070513,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 281,
+      "foodSecurity": {
+        "mean": 0.975651,
+        "p10": 0.913594
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2350,
+      "worldPopulation": 339813960.000000,
+      "urbanShare": 0.074971,
+      "medianCountryPop": 24292.500000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.037722,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.070513,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 281,
+      "foodSecurity": {
+        "mean": 0.970929,
+        "p10": 0.908573
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2300,
+      "worldPopulation": 336535657.000000,
+      "urbanShare": 0.075691,
+      "medianCountryPop": 26444.500000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.037023,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.070513,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 281,
+      "foodSecurity": {
+        "mean": 0.975241,
+        "p10": 0.910527
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2250,
+      "worldPopulation": 341692171.000000,
+      "urbanShare": 0.077284,
+      "medianCountryPop": 26912.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.036350,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.070064,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 284,
+      "foodSecurity": {
+        "mean": 0.977095,
+        "p10": 0.919996
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2200,
+      "worldPopulation": 345616525.000000,
+      "urbanShare": 0.075901,
+      "medianCountryPop": 24287.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.035702,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.076433,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 284,
+      "foodSecurity": {
+        "mean": 0.975995,
+        "p10": 0.925242
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2150,
+      "worldPopulation": 355140997.000000,
+      "urbanShare": 0.077595,
+      "medianCountryPop": 24302.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.035075,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.076433,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 284,
+      "foodSecurity": {
+        "mean": 0.976812,
+        "p10": 0.925674
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2100,
+      "worldPopulation": 361010330.000000,
+      "urbanShare": 0.078359,
+      "medianCountryPop": 24319.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.034471,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.089172,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 284,
+      "foodSecurity": {
+        "mean": 0.972691,
+        "p10": 0.905848
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2050,
+      "worldPopulation": 361467241.000000,
+      "urbanShare": 0.079189,
+      "medianCountryPop": 24335.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.033887,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.095541,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 284,
+      "foodSecurity": {
+        "mean": 0.976987,
+        "p10": 0.925690
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -2000,
+      "worldPopulation": 366738368.000000,
+      "urbanShare": 0.079335,
+      "medianCountryPop": 25383.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.033322,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.108280,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 284,
+      "foodSecurity": {
+        "mean": 0.973710,
+        "p10": 0.914838
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1950,
+      "worldPopulation": 374010538.000000,
+      "urbanShare": 0.081415,
+      "medianCountryPop": 24608.000000,
+      "medianCountryArea": 205.500000,
+      "warFrequencyPerCentury": 0.032776,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.107595,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 288,
+      "foodSecurity": {
+        "mean": 0.976057,
+        "p10": 0.920045
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1900,
+      "worldPopulation": 376230072.000000,
+      "urbanShare": 0.079316,
+      "medianCountryPop": 23930.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.032248,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.125786,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 292,
+      "foodSecurity": {
+        "mean": 0.976332,
+        "p10": 0.916159
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1850,
+      "worldPopulation": 382968283.000000,
+      "urbanShare": 0.079939,
+      "medianCountryPop": 25408.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.031736,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.125786,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 292,
+      "foodSecurity": {
+        "mean": 0.975483,
+        "p10": 0.916438
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1800,
+      "worldPopulation": 387111861.000000,
+      "urbanShare": 0.079801,
+      "medianCountryPop": 24491.500000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.031240,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.137500,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 296,
+      "foodSecurity": {
+        "mean": 0.977190,
+        "p10": 0.921506
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1750,
+      "worldPopulation": 386307746.000000,
+      "urbanShare": 0.079650,
+      "medianCountryPop": 25132.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.030760,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.150000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 296,
+      "foodSecurity": {
+        "mean": 0.975245,
+        "p10": 0.924211
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1700,
+      "worldPopulation": 390347762.000000,
+      "urbanShare": 0.083992,
+      "medianCountryPop": 22121.500000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.030294,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.150000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 296,
+      "foodSecurity": {
+        "mean": 0.977065,
+        "p10": 0.924726
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1650,
+      "worldPopulation": 394254426.000000,
+      "urbanShare": 0.078845,
+      "medianCountryPop": 23749.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.029842,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.150000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 296,
+      "foodSecurity": {
+        "mean": 0.978424,
+        "p10": 0.925025
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1600,
+      "worldPopulation": 401229539.000000,
+      "urbanShare": 0.081001,
+      "medianCountryPop": 25920.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.029403,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.156250,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 296,
+      "foodSecurity": {
+        "mean": 0.974934,
+        "p10": 0.919673
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1550,
+      "worldPopulation": 405814118.000000,
+      "urbanShare": 0.079521,
+      "medianCountryPop": 24834.000000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.028977,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.156250,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 296,
+      "foodSecurity": {
+        "mean": 0.976758,
+        "p10": 0.926893
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1500,
+      "worldPopulation": 410672763.000000,
+      "urbanShare": 0.083997,
+      "medianCountryPop": 31707.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.028563,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.161491,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 306,
+      "foodSecurity": {
+        "mean": 0.976320,
+        "p10": 0.929091
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1450,
+      "worldPopulation": 428554164.000000,
+      "urbanShare": 0.081383,
+      "medianCountryPop": 30174.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.028161,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.161491,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 306,
+      "foodSecurity": {
+        "mean": 0.974959,
+        "p10": 0.917628
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1400,
+      "worldPopulation": 431222591.000000,
+      "urbanShare": 0.078154,
+      "medianCountryPop": 29090.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.027770,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.161491,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 306,
+      "foodSecurity": {
+        "mean": 0.971253,
+        "p10": 0.898420
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1350,
+      "worldPopulation": 438273979.000000,
+      "urbanShare": 0.082600,
+      "medianCountryPop": 28909.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.027390,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.161491,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 306,
+      "foodSecurity": {
+        "mean": 0.975298,
+        "p10": 0.919969
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1300,
+      "worldPopulation": 443021531.000000,
+      "urbanShare": 0.081535,
+      "medianCountryPop": 30583.500000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.027020,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.164634,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 316,
+      "foodSecurity": {
+        "mean": 0.975229,
+        "p10": 0.922637
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1250,
+      "worldPopulation": 439901694.000000,
+      "urbanShare": 0.083456,
+      "medianCountryPop": 34724.500000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.026660,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.170732,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 316,
+      "foodSecurity": {
+        "mean": 0.975364,
+        "p10": 0.922466
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1200,
+      "worldPopulation": 428793040.000000,
+      "urbanShare": 0.079432,
+      "medianCountryPop": 35198.500000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.026309,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.170732,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 316,
+      "foodSecurity": {
+        "mean": 0.972520,
+        "p10": 0.907007
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1150,
+      "worldPopulation": 429421248.000000,
+      "urbanShare": 0.083843,
+      "medianCountryPop": 30595.500000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.025967,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.170732,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 316,
+      "foodSecurity": {
+        "mean": 0.975109,
+        "p10": 0.923638
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1100,
+      "worldPopulation": 440950227.000000,
+      "urbanShare": 0.085592,
+      "medianCountryPop": 33756.500000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.025634,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.180723,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 323,
+      "foodSecurity": {
+        "mean": 0.974449,
+        "p10": 0.915791
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1050,
+      "worldPopulation": 446296940.000000,
+      "urbanShare": 0.085596,
+      "medianCountryPop": 32086.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.025310,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.179641,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 325,
+      "foodSecurity": {
+        "mean": 0.973583,
+        "p10": 0.918489
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -1000,
+      "worldPopulation": 448732332.000000,
+      "urbanShare": 0.087459,
+      "medianCountryPop": 31713.500000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.024994,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.190476,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 328,
+      "foodSecurity": {
+        "mean": 0.971066,
+        "p10": 0.920975
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -950,
+      "worldPopulation": 456940849.000000,
+      "urbanShare": 0.090401,
+      "medianCountryPop": 30594.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.024685,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.190476,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 328,
+      "foodSecurity": {
+        "mean": 0.974697,
+        "p10": 0.919388
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -900,
+      "worldPopulation": 456161789.000000,
+      "urbanShare": 0.090550,
+      "medianCountryPop": 30583.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.024384,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.196429,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 328,
+      "foodSecurity": {
+        "mean": 0.970859,
+        "p10": 0.912219
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -850,
+      "worldPopulation": 456189388.000000,
+      "urbanShare": 0.090840,
+      "medianCountryPop": 28508.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.024091,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.200000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 336,
+      "foodSecurity": {
+        "mean": 0.973290,
+        "p10": 0.914997
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -800,
+      "worldPopulation": 456584567.000000,
+      "urbanShare": 0.091470,
+      "medianCountryPop": 29108.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.023804,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.210526,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 339,
+      "foodSecurity": {
+        "mean": 0.976138,
+        "p10": 0.923909
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -750,
+      "worldPopulation": 460576892.000000,
+      "urbanShare": 0.092763,
+      "medianCountryPop": 29131.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.023524,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.210526,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 339,
+      "foodSecurity": {
+        "mean": 0.978091,
+        "p10": 0.930205
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -700,
+      "worldPopulation": 471496109.000000,
+      "urbanShare": 0.092567,
+      "medianCountryPop": 29756.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.023250,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.210526,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 339,
+      "foodSecurity": {
+        "mean": 0.974534,
+        "p10": 0.917688
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -650,
+      "worldPopulation": 477428453.000000,
+      "urbanShare": 0.092345,
+      "medianCountryPop": 29199.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.022983,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.210526,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 339,
+      "foodSecurity": {
+        "mean": 0.975972,
+        "p10": 0.919706
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -600,
+      "worldPopulation": 475908665.000000,
+      "urbanShare": 0.089547,
+      "medianCountryPop": 29065.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.022722,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.215116,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 343,
+      "foodSecurity": {
+        "mean": 0.974629,
+        "p10": 0.910787
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -550,
+      "worldPopulation": 477548806.000000,
+      "urbanShare": 0.092361,
+      "medianCountryPop": 29077.500000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.022467,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.220930,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 343,
+      "foodSecurity": {
+        "mean": 0.974647,
+        "p10": 0.913030
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -500,
+      "worldPopulation": 478691309.000000,
+      "urbanShare": 0.092570,
+      "medianCountryPop": 30657.500000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.022217,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.232558,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 343,
+      "foodSecurity": {
+        "mean": 0.978557,
+        "p10": 0.922263
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -450,
+      "worldPopulation": 492687524.000000,
+      "urbanShare": 0.092510,
+      "medianCountryPop": 30681.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.021973,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.232558,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 343,
+      "foodSecurity": {
+        "mean": 0.971754,
+        "p10": 0.913439
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -400,
+      "worldPopulation": 491701165.000000,
+      "urbanShare": 0.093597,
+      "medianCountryPop": 28924.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.021734,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.231214,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 344,
+      "foodSecurity": {
+        "mean": 0.972567,
+        "p10": 0.909055
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -350,
+      "worldPopulation": 498546473.000000,
+      "urbanShare": 0.093840,
+      "medianCountryPop": 30679.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.021501,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.236994,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 347,
+      "foodSecurity": {
+        "mean": 0.975214,
+        "p10": 0.921255
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -300,
+      "worldPopulation": 507253672.000000,
+      "urbanShare": 0.094679,
+      "medianCountryPop": 29314.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.021272,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.236994,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 347,
+      "foodSecurity": {
+        "mean": 0.974243,
+        "p10": 0.919978
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -250,
+      "worldPopulation": 519595154.000000,
+      "urbanShare": 0.097431,
+      "medianCountryPop": 29537.500000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.021048,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.235632,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 350,
+      "foodSecurity": {
+        "mean": 0.975271,
+        "p10": 0.919341
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -200,
+      "worldPopulation": 524145434.000000,
+      "urbanShare": 0.098440,
+      "medianCountryPop": 29923.500000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.020829,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.235632,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 350,
+      "foodSecurity": {
+        "mean": 0.971318,
+        "p10": 0.907294
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -150,
+      "worldPopulation": 526845769.000000,
+      "urbanShare": 0.098573,
+      "medianCountryPop": 32226.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.020614,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.240000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 352,
+      "foodSecurity": {
+        "mean": 0.971973,
+        "p10": 0.906933
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -100,
+      "worldPopulation": 518487675.000000,
+      "urbanShare": 0.097905,
+      "medianCountryPop": 35072.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.020404,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.240000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 352,
+      "foodSecurity": {
+        "mean": 0.975069,
+        "p10": 0.923918
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": -50,
+      "worldPopulation": 525016157.000000,
+      "urbanShare": 0.098599,
+      "medianCountryPop": 33968.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.020198,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.245714,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 352,
+      "foodSecurity": {
+        "mean": 0.972548,
+        "p10": 0.909486
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 0,
+      "worldPopulation": 525618177.000000,
+      "urbanShare": 0.099276,
+      "medianCountryPop": 31109.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.019996,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.245714,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 352,
+      "foodSecurity": {
+        "mean": 0.975672,
+        "p10": 0.920438
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 50,
+      "worldPopulation": 523983657.000000,
+      "urbanShare": 0.094873,
+      "medianCountryPop": 29007.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.019798,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.244318,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 357,
+      "foodSecurity": {
+        "mean": 0.973773,
+        "p10": 0.918950
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 100,
+      "worldPopulation": 531956974.000000,
+      "urbanShare": 0.093980,
+      "medianCountryPop": 30289.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.019604,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.248588,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 359,
+      "foodSecurity": {
+        "mean": 0.969466,
+        "p10": 0.890316
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 150,
+      "worldPopulation": 535734831.000000,
+      "urbanShare": 0.098857,
+      "medianCountryPop": 29529.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.019414,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.254237,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 359,
+      "foodSecurity": {
+        "mean": 0.975108,
+        "p10": 0.915074
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 200,
+      "worldPopulation": 537635146.000000,
+      "urbanShare": 0.097119,
+      "medianCountryPop": 28668.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.019227,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.258427,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 360,
+      "foodSecurity": {
+        "mean": 0.967329,
+        "p10": 0.896492
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 250,
+      "worldPopulation": 544232620.000000,
+      "urbanShare": 0.096673,
+      "medianCountryPop": 29802.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.019044,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.268156,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 366,
+      "foodSecurity": {
+        "mean": 0.975963,
+        "p10": 0.920744
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 300,
+      "worldPopulation": 545042027.000000,
+      "urbanShare": 0.095242,
+      "medianCountryPop": 32515.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.018864,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.268156,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 366,
+      "foodSecurity": {
+        "mean": 0.972241,
+        "p10": 0.911165
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 350,
+      "worldPopulation": 535406115.000000,
+      "urbanShare": 0.095182,
+      "medianCountryPop": 31990.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.018688,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.268156,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 366,
+      "foodSecurity": {
+        "mean": 0.969613,
+        "p10": 0.908724
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 400,
+      "worldPopulation": 557101261.000000,
+      "urbanShare": 0.102693,
+      "medianCountryPop": 28575.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.018515,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.273743,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 366,
+      "foodSecurity": {
+        "mean": 0.973143,
+        "p10": 0.909688
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 450,
+      "worldPopulation": 563328311.000000,
+      "urbanShare": 0.102346,
+      "medianCountryPop": 28070.500000,
+      "medianCountryArea": 205.500000,
+      "warFrequencyPerCentury": 0.018345,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.277778,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 370,
+      "foodSecurity": {
+        "mean": 0.973070,
+        "p10": 0.906990
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 500,
+      "worldPopulation": 565359823.000000,
+      "urbanShare": 0.101369,
+      "medianCountryPop": 28693.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.018179,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.276243,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 371,
+      "foodSecurity": {
+        "mean": 0.975898,
+        "p10": 0.924073
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 550,
+      "worldPopulation": 568773098.000000,
+      "urbanShare": 0.104194,
+      "medianCountryPop": 29279.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.018015,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.287293,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 373,
+      "foodSecurity": {
+        "mean": 0.973097,
+        "p10": 0.915941
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 600,
+      "worldPopulation": 563151948.000000,
+      "urbanShare": 0.100278,
+      "medianCountryPop": 28939.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.017854,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.287293,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 373,
+      "foodSecurity": {
+        "mean": 0.973338,
+        "p10": 0.921277
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 650,
+      "worldPopulation": 554937363.000000,
+      "urbanShare": 0.102398,
+      "medianCountryPop": 29674.000000,
+      "medianCountryArea": 206.000000,
+      "warFrequencyPerCentury": 0.017696,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.292818,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 373,
+      "foodSecurity": {
+        "mean": 0.975331,
+        "p10": 0.924661
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 700,
+      "worldPopulation": 564184904.000000,
+      "urbanShare": 0.102785,
+      "medianCountryPop": 28331.500000,
+      "medianCountryArea": 203.000000,
+      "warFrequencyPerCentury": 0.017541,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.296703,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 376,
+      "foodSecurity": {
+        "mean": 0.976742,
+        "p10": 0.921315
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 750,
+      "worldPopulation": 563631577.000000,
+      "urbanShare": 0.104056,
+      "medianCountryPop": 28970.500000,
+      "medianCountryArea": 198.500000,
+      "warFrequencyPerCentury": 0.017388,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.304348,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 383,
+      "foodSecurity": {
+        "mean": 0.976156,
+        "p10": 0.928525
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 800,
+      "worldPopulation": 572056498.000000,
+      "urbanShare": 0.105342,
+      "medianCountryPop": 29195.500000,
+      "medianCountryArea": 198.500000,
+      "warFrequencyPerCentury": 0.017238,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.304348,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 383,
+      "foodSecurity": {
+        "mean": 0.975538,
+        "p10": 0.926726
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 850,
+      "worldPopulation": 574305753.000000,
+      "urbanShare": 0.101199,
+      "medianCountryPop": 27385.500000,
+      "medianCountryArea": 198.500000,
+      "warFrequencyPerCentury": 0.017091,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.309783,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 384,
+      "foodSecurity": {
+        "mean": 0.973938,
+        "p10": 0.911808
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 900,
+      "worldPopulation": 581397217.000000,
+      "urbanShare": 0.104189,
+      "medianCountryPop": 27706.000000,
+      "medianCountryArea": 198.500000,
+      "warFrequencyPerCentury": 0.016946,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.309783,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 389,
+      "foodSecurity": {
+        "mean": 0.974378,
+        "p10": 0.926455
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 950,
+      "worldPopulation": 584206026.000000,
+      "urbanShare": 0.107026,
+      "medianCountryPop": 28264.500000,
+      "medianCountryArea": 198.500000,
+      "warFrequencyPerCentury": 0.016804,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.315217,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 389,
+      "foodSecurity": {
+        "mean": 0.970070,
+        "p10": 0.897794
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1000,
+      "worldPopulation": 595082686.000000,
+      "urbanShare": 0.105177,
+      "medianCountryPop": 26807.500000,
+      "medianCountryArea": 198.500000,
+      "warFrequencyPerCentury": 0.016664,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.315217,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 389,
+      "foodSecurity": {
+        "mean": 0.975201,
+        "p10": 0.923505
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1050,
+      "worldPopulation": 584277359.000000,
+      "urbanShare": 0.103212,
+      "medianCountryPop": 27745.000000,
+      "medianCountryArea": 198.500000,
+      "warFrequencyPerCentury": 0.016526,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.315217,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 389,
+      "foodSecurity": {
+        "mean": 0.971588,
+        "p10": 0.905347
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1100,
+      "worldPopulation": 592589358.000000,
+      "urbanShare": 0.109276,
+      "medianCountryPop": 27815.000000,
+      "medianCountryArea": 196.000000,
+      "warFrequencyPerCentury": 0.016391,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.329730,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 400,
+      "foodSecurity": {
+        "mean": 0.972690,
+        "p10": 0.913323
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1150,
+      "worldPopulation": 592401142.000000,
+      "urbanShare": 0.104255,
+      "medianCountryPop": 28954.000000,
+      "medianCountryArea": 196.000000,
+      "warFrequencyPerCentury": 0.016258,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.329730,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 400,
+      "foodSecurity": {
+        "mean": 0.973532,
+        "p10": 0.911276
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1200,
+      "worldPopulation": 597891226.000000,
+      "urbanShare": 0.110827,
+      "medianCountryPop": 28954.000000,
+      "medianCountryArea": 196.000000,
+      "warFrequencyPerCentury": 0.016126,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.329730,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 400,
+      "foodSecurity": {
+        "mean": 0.971056,
+        "p10": 0.914684
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1250,
+      "worldPopulation": 603651291.000000,
+      "urbanShare": 0.110220,
+      "medianCountryPop": 29245.000000,
+      "medianCountryArea": 196.000000,
+      "warFrequencyPerCentury": 0.015997,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.329730,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 400,
+      "foodSecurity": {
+        "mean": 0.977177,
+        "p10": 0.916360
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1300,
+      "worldPopulation": 603081557.000000,
+      "urbanShare": 0.111885,
+      "medianCountryPop": 32652.000000,
+      "medianCountryArea": 196.000000,
+      "warFrequencyPerCentury": 0.015870,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.340541,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 400,
+      "foodSecurity": {
+        "mean": 0.976671,
+        "p10": 0.926847
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1350,
+      "worldPopulation": 614473170.000000,
+      "urbanShare": 0.112770,
+      "medianCountryPop": 29818.000000,
+      "medianCountryArea": 196.000000,
+      "warFrequencyPerCentury": 0.015746,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.340541,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 400,
+      "foodSecurity": {
+        "mean": 0.973882,
+        "p10": 0.915337
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1400,
+      "worldPopulation": 610192112.000000,
+      "urbanShare": 0.107024,
+      "medianCountryPop": 30441.000000,
+      "medianCountryArea": 190.500000,
+      "warFrequencyPerCentury": 0.015623,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.349462,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 404,
+      "foodSecurity": {
+        "mean": 0.973541,
+        "p10": 0.914094
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1450,
+      "worldPopulation": 609059513.000000,
+      "urbanShare": 0.107150,
+      "medianCountryPop": 29573.000000,
+      "medianCountryArea": 190.500000,
+      "warFrequencyPerCentury": 0.015501,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.349462,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 404,
+      "foodSecurity": {
+        "mean": 0.972605,
+        "p10": 0.912725
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1500,
+      "worldPopulation": 630374160.000000,
+      "urbanShare": 0.114627,
+      "medianCountryPop": 29923.000000,
+      "medianCountryArea": 195.000000,
+      "warFrequencyPerCentury": 0.015382,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.358289,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 407,
+      "foodSecurity": {
+        "mean": 0.974895,
+        "p10": 0.921822
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1550,
+      "worldPopulation": 614393158.000000,
+      "urbanShare": 0.112349,
+      "medianCountryPop": 32427.500000,
+      "medianCountryArea": 190.000000,
+      "warFrequencyPerCentury": 0.015265,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.367021,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 410,
+      "foodSecurity": {
+        "mean": 0.972445,
+        "p10": 0.914035
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1600,
+      "worldPopulation": 621265841.000000,
+      "urbanShare": 0.113312,
+      "medianCountryPop": 31309.500000,
+      "medianCountryArea": 190.000000,
+      "warFrequencyPerCentury": 0.015149,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.367021,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 410,
+      "foodSecurity": {
+        "mean": 0.970902,
+        "p10": 0.901741
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1650,
+      "worldPopulation": 614830833.000000,
+      "urbanShare": 0.106946,
+      "medianCountryPop": 30569.000000,
+      "medianCountryArea": 190.000000,
+      "warFrequencyPerCentury": 0.015035,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.372340,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 410,
+      "foodSecurity": {
+        "mean": 0.977052,
+        "p10": 0.918206
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1700,
+      "worldPopulation": 622900519.000000,
+      "urbanShare": 0.112300,
+      "medianCountryPop": 28954.000000,
+      "medianCountryArea": 194.000000,
+      "warFrequencyPerCentury": 0.014923,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.386243,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 414,
+      "foodSecurity": {
+        "mean": 0.975438,
+        "p10": 0.922258
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1750,
+      "worldPopulation": 625127891.000000,
+      "urbanShare": 0.111770,
+      "medianCountryPop": 28954.000000,
+      "medianCountryArea": 194.000000,
+      "warFrequencyPerCentury": 0.014813,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.386243,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 414,
+      "foodSecurity": {
+        "mean": 0.976819,
+        "p10": 0.921263
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1800,
+      "worldPopulation": 635987444.000000,
+      "urbanShare": 0.116855,
+      "medianCountryPop": 28882.500000,
+      "medianCountryArea": 190.000000,
+      "warFrequencyPerCentury": 0.014704,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.400000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 416,
+      "foodSecurity": {
+        "mean": 0.977239,
+        "p10": 0.916952
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1850,
+      "worldPopulation": 632804557.000000,
+      "urbanShare": 0.112489,
+      "medianCountryPop": 29046.000000,
+      "medianCountryArea": 190.000000,
+      "warFrequencyPerCentury": 0.014596,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.400000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 416,
+      "foodSecurity": {
+        "mean": 0.975619,
+        "p10": 0.915327
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1900,
+      "worldPopulation": 625120711.000000,
+      "urbanShare": 0.112086,
+      "medianCountryPop": 34777.000000,
+      "medianCountryArea": 186.000000,
+      "warFrequencyPerCentury": 0.014491,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.395833,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 420,
+      "foodSecurity": {
+        "mean": 0.976532,
+        "p10": 0.914307
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 1950,
+      "worldPopulation": 624786617.000000,
+      "urbanShare": 0.115642,
+      "medianCountryPop": 31570.500000,
+      "medianCountryArea": 186.000000,
+      "warFrequencyPerCentury": 0.014386,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.395833,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 422,
+      "foodSecurity": {
+        "mean": 0.973116,
+        "p10": 0.903254
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 2000,
+      "worldPopulation": 639966623.000000,
+      "urbanShare": 0.113295,
+      "medianCountryPop": 28954.000000,
+      "medianCountryArea": 186.000000,
+      "warFrequencyPerCentury": 0.014284,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.404145,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 425,
+      "foodSecurity": {
+        "mean": 0.976061,
+        "p10": 0.912865
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    },
+    {
+      "year": 2025,
+      "worldPopulation": 639816586.000000,
+      "urbanShare": 0.116313,
+      "medianCountryPop": 28954.000000,
+      "medianCountryArea": 186.000000,
+      "warFrequencyPerCentury": 0.014233,
+      "tradeIntensity": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.409326,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 425,
+      "foodSecurity": {
+        "mean": 0.978328,
+        "p10": 0.931288
+      },
+      "diseaseBurden": {
+        "mean": 0.000000,
+        "p90": 0.000000
+      }
+    }
+  ]
+}

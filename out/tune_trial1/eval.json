@@ -1,0 +1,28 @@
+{
+  "run_count": 1,
+  "weights": {
+    "food_stability": 1.0,
+    "innovation_urban": 1.0,
+    "empire_logistics": 1.0,
+    "disease_transition": 1.0,
+    "trade_inequality": 1.0,
+    "variance_penalty": 1.0,
+    "brittleness_penalty": 1.0
+  },
+  "median_run_score": 0.5718161330633487,
+  "stdev_run_score": 0.0,
+  "variance_penalty": 0.0,
+  "brittleness_penalty": 1.0,
+  "aggregate_score": 0.37181613306334865,
+  "runs": [
+    {
+      "run": "out/tune_trial1/seed_101",
+      "food_stability": 0.49873280667633035,
+      "innovation_urban": 0.5378737670732645,
+      "empire_logistics": 0.8850319929660264,
+      "disease_transition": 0.4507333692550384,
+      "trade_inequality": 0.48670872934608433,
+      "run_score": 0.5718161330633487
+    }
+  ]
+}
