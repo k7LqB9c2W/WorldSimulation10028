@@ -2,16 +2,147 @@
 
 #include <cstdint>
 #include <random>
+#include <string>
+#include <vector>
+
+struct SimulationConfig {
+    struct World {
+        int yearsPerTick = 1;
+        int startYear = -5000;
+        int endYear = 2025;
+        std::string rngSeedMode = "provided";
+        bool deterministicMode = true;
+    } world{};
+
+    struct Food {
+        double baseForaging = 28.0;
+        double baseFarming = 52.0;
+        double climateSensitivity = 0.70;
+        double riverlandFoodFloor = 150.0;
+        double coastalBonus = 1.35;
+        double spoilageBase = 0.12;
+        double storageBase = 0.55;
+        double clayMin = 0.8;
+        double clayMax = 3.0;
+        double clayHotspotChance = 0.08;
+        double foragingNoAgriShare = 0.90;
+        double foragingWithAgriShare = 0.35;
+        double farmingWithAgriShare = 0.85;
+    } food{};
+
+    struct Resources {
+        double oreWeightIron = 1.00;
+        double oreWeightCopper = 0.85;
+        double oreWeightTin = 1.20;
+        double energyBiomassBase = 0.60;
+        double energyCoalWeight = 1.65;
+        double constructionClayWeight = 1.00;
+        double constructionStoneBase = 0.55;
+        double oreNormalization = 140.0;
+        double energyNormalization = 120.0;
+        double constructionNormalization = 110.0;
+        double oreDepletionRate = 0.035;
+        double coalDepletionRate = 0.030;
+    } resources{};
+
+    struct Migration {
+        double famineShockThreshold = 0.22;
+        double epidemicShockThreshold = 0.16;
+        double warShockThreshold = 0.24;
+        double famineShockMultiplier = 1.40;
+        double epidemicShockMultiplier = 1.10;
+        double warShockMultiplier = 1.25;
+        double corridorCoastBonus = 0.25;
+        double corridorRiverlandBonus = 0.35;
+        double corridorSteppeBonus = 0.15;
+        double corridorMountainPenalty = 0.45;
+        double corridorDesertPenalty = 0.25;
+        double refugeeHalfLifeYears = 10.0;
+        double culturalPreference = 0.20;
+    } migration{};
+
+    struct War {
+        double supplyBase = 0.25;
+        double supplyLogisticsWeight = 0.35;
+        double supplyMarketWeight = 0.20;
+        double supplyControlWeight = 0.20;
+        double supplyEnergyWeight = 0.10;
+        double supplyFoodStockWeight = 0.15;
+        double overSupplyAttrition = 0.06;
+        double terrainDefenseWeight = 0.35;
+        double exhaustionRise = 0.08;
+        double exhaustionPeaceThreshold = 0.75;
+        double objectiveRaidWeight = 0.30;
+        double objectiveBorderWeight = 0.20;
+        double objectiveTributeWeight = 0.15;
+        double objectiveVassalWeight = 0.12;
+        double objectiveRegimeWeight = 0.10;
+        double objectiveAnnihilationWeight = 0.13;
+        int cooldownMinYears = 6;
+        int cooldownMaxYears = 40;
+        double peaceReparationsWeight = 0.20;
+        double peaceTributeWeight = 0.25;
+        double peaceReconstructionDrag = 0.15;
+        double earlyAnnihilationBias = 0.30;
+        double highInstitutionAnnihilationDamp = 0.65;
+    } war{};
+
+    struct Polity {
+        int regionCountMin = 3;
+        int regionCountMax = 8;
+        int successionIntervalMin = 18;
+        int successionIntervalMax = 45;
+        double eliteDefectionSensitivity = 0.65;
+        double farRegionPenalty = 0.40;
+    } polity{};
+
+    struct Tech {
+        double capabilityThresholdScale = 1.0;
+        double diffusionBase = 0.010;
+        double culturalFrictionStrength = 1.10;
+        double resourceReqEnergy = 0.40;
+        double resourceReqOre = 0.35;
+        double resourceReqConstruction = 0.25;
+    } tech{};
+
+    struct Economy {
+        double foodLaborElasticity = 0.95;
+        double goodsLaborElasticity = 0.70;
+        double servicesLaborElasticity = 0.78;
+        double energyIntensity = 0.80;
+        double oreIntensity = 0.90;
+        double goodsToMilitary = 0.55;
+        double servicesScaling = 1.00;
+        bool useGPU = true;
+    } economy{};
+
+    struct Scoring {
+        std::vector<int> checkpointsYears = {-5000, -3000, -1000, 0, 1000, 1500, 2025};
+        double weightFoodSecurityStability = 1.0;
+        double weightInnovationUrbanization = 1.0;
+        double weightEmpireLogisticsConstraint = 1.0;
+        double weightDiseaseTransition = 1.0;
+        double weightTradeResourceInequality = 1.0;
+        double weightVariancePenalty = 1.0;
+        double weightBrittlenessPenalty = 1.0;
+    } scoring{};
+};
 
 struct SimulationContext {
     std::uint64_t worldSeed = 0;
     std::mt19937_64 worldRng;
+    SimulationConfig config;
+    std::string configPath;
+    std::string configHash;
 
-    explicit SimulationContext(std::uint64_t seed);
+    explicit SimulationContext(std::uint64_t seed, const std::string& runtimeConfigPath = "data/sim_config.toml");
 
     double rand01();
     int randInt(int a, int b); // inclusive
     double randNormal(double mean = 0.0, double stddev = 1.0);
+
+    bool loadConfig(const std::string& path, std::string* errorMessage = nullptr);
+    static std::string hashFileFNV1a(const std::string& path);
 
     std::uint64_t seedForCountry(int countryIndex) const;
     std::mt19937_64 makeRng(std::uint64_t salt) const;
@@ -19,4 +150,3 @@ struct SimulationContext {
     static std::uint64_t mix64(std::uint64_t x);
     static double u01FromU64(std::uint64_t x);
 };
-

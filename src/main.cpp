@@ -137,6 +137,20 @@ std::optional<std::uint64_t> tryParseSeedArg(int argc, char** argv) {
     return std::nullopt;
 }
 
+std::optional<std::string> tryParseConfigArg(int argc, char** argv) {
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i] ? std::string(argv[i]) : std::string();
+        if (arg == "--config" && i + 1 < argc) {
+            return std::string(argv[i + 1] ? argv[i + 1] : "");
+        }
+        const std::string prefix = "--config=";
+        if (arg.rfind(prefix, 0) == 0) {
+            return arg.substr(prefix.size());
+        }
+    }
+    return std::nullopt;
+}
+
 ImVec4 toImVec4(const sf::Color& c, float alphaScale = 1.0f) {
     return ImVec4(c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, (c.a / 255.0f) * alphaScale);
 }
@@ -289,6 +303,11 @@ int main(int argc, char** argv) {
 	    const int gridCellSize = 1;
 	    const int regionSize = 32;
 
+        std::string runtimeConfigPath = "data/sim_config.toml";
+        if (auto cfg = tryParseConfigArg(argc, argv)) {
+            runtimeConfigPath = *cfg;
+        }
+
 	    std::uint64_t worldSeed = 0;
 	    if (auto s = tryParseSeedArg(argc, argv)) {
 	        worldSeed = *s;
@@ -299,8 +318,9 @@ int main(int argc, char** argv) {
 	        worldSeed = (static_cast<std::uint64_t>(rd()) << 32) ^ static_cast<std::uint64_t>(rd());
 	        worldSeed ^= static_cast<std::uint64_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
 	    }
-	    std::cout << "World seed: " << worldSeed << std::endl;
-	    SimulationContext ctx(worldSeed);
+        std::cout << "World seed: " << worldSeed << std::endl;
+        SimulationContext ctx(worldSeed, runtimeConfigPath);
+        std::cout << "Config: " << ctx.configPath << " (hash=" << ctx.configHash << ")" << std::endl;
 	    
 	    std::cout << "🚀 INITIALIZING MAP..." << std::endl;
 	    auto mapStart = std::chrono::high_resolution_clock::now();
@@ -352,9 +372,13 @@ int main(int argc, char** argv) {
 			    econCfg.econCellSize = Map::kFieldCellSize;
 			    econCfg.tradeIters = 12;
 			    econCfg.updateReadbackEveryNYears = 1;
-		    economy.init(map, maxCountries, econCfg);
-		    if (!economy.isInitialized()) {
-		        std::cout << "⚠️ EconomyGPU disabled (shaders unavailable/init failed). Using CPU fallback for wealth/GDP/exports." << std::endl;
+		    if (ctx.config.economy.useGPU) {
+		        economy.init(map, maxCountries, econCfg);
+		        if (!economy.isInitialized()) {
+		            std::cout << "⚠️ EconomyGPU disabled (shaders unavailable/init failed). Using CPU fallback for wealth/GDP/exports." << std::endl;
+		        }
+		    } else {
+		        std::cout << "ℹ️ EconomyGPU disabled by config (economy.useGPU=false). Using CPU macro economy only." << std::endl;
 		    }
 		    economy.onTerritoryChanged(map);
 		    economy.onStaticResourcesChanged(map);
@@ -385,7 +409,7 @@ int main(int argc, char** argv) {
 		        return nullptr;
 		    };
 
-    int currentYear = -5000;
+    int currentYear = ctx.config.world.startYear;
     sf::Clock yearClock;
     sf::Time yearDuration = sf::seconds(1.0f);
     
@@ -540,8 +564,10 @@ int main(int argc, char** argv) {
                 return false;
             }
 
-            if (targetYear < -5000 || targetYear > 2025) {
-                megaTimeJumpInputError = "Target year must be between -5000 and 2025.";
+            if (targetYear < ctx.config.world.startYear || targetYear > ctx.config.world.endYear) {
+                megaTimeJumpInputError = "Target year must be between " +
+                    std::to_string(ctx.config.world.startYear) + " and " +
+                    std::to_string(ctx.config.world.endYear) + ".";
                 return false;
             }
             if (targetYear <= currentYear) {
@@ -1007,7 +1033,8 @@ int main(int argc, char** argv) {
 		                else if (event.key.code == sf::Keyboard::Z) { // 🚀 MEGA TIME JUMP MODE
 		                    megaTimeJumpMode = true;
                         ++megaTimeJumpInputSessionId;
-                        megaTimeJumpInput = std::to_string(std::clamp(currentYear + 1, -5000, 2025));
+                        megaTimeJumpInput = std::to_string(
+                            std::clamp(currentYear + 1, ctx.config.world.startYear, ctx.config.world.endYear));
                         megaTimeJumpInputError.clear();
                         megaTimeJumpFocusInputNextFrame = true;
                         megaTimeJumpSuppressOpenKeyText = true;

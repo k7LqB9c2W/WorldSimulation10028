@@ -13,11 +13,9 @@ endif()
 
 find_package(SFML 2.6 COMPONENTS graphics window system audio REQUIRED)
 
-set(PROJECT_SOURCES
-  src/main.cpp
+set(CORE_SOURCES
   src/country.cpp
   src/map.cpp
-  src/renderer.cpp
   src/news.cpp
   src/technology.cpp
   src/culture.cpp
@@ -26,6 +24,11 @@ set(PROJECT_SOURCES
   src/trade.cpp
   src/economy.cpp
   src/simulation_context.cpp
+)
+
+set(GUI_SOURCES
+  src/main.cpp
+  src/renderer.cpp
   third_party/imgui/imgui.cpp
   third_party/imgui/imgui_draw.cpp
   third_party/imgui/imgui_tables.cpp
@@ -34,7 +37,12 @@ set(PROJECT_SOURCES
   third_party/imgui-sfml/imgui-SFML.cpp
 )
 
-add_executable(WorldSimulation ${PROJECT_SOURCES})
+add_executable(WorldSimulation ${CORE_SOURCES} ${GUI_SOURCES})
+
+add_executable(worldsim_cli
+  src/cli_main.cpp
+  ${CORE_SOURCES}
+)
 
 target_include_directories(WorldSimulation PRIVATE
   include
@@ -43,12 +51,25 @@ target_include_directories(WorldSimulation PRIVATE
   third_party/tomlplusplus/include
 )
 
+target_include_directories(worldsim_cli PRIVATE
+  include
+  third_party/tomlplusplus/include
+)
+
 if(MSVC)
   target_compile_options(WorldSimulation PRIVATE /W3 /EHsc)
+  target_compile_options(worldsim_cli PRIVATE /W3 /EHsc)
 endif()
 
 if(WIN32)
   target_link_libraries(WorldSimulation PRIVATE
+    sfml-graphics
+    sfml-window
+    sfml-system
+    sfml-audio
+    opengl32
+  )
+  target_link_libraries(worldsim_cli PRIVATE
     sfml-graphics
     sfml-window
     sfml-system
@@ -64,9 +85,19 @@ else()
     sfml-audio
     OpenGL::GL
   )
+  target_link_libraries(worldsim_cli PRIVATE
+    sfml-graphics
+    sfml-window
+    sfml-system
+    sfml-audio
+    OpenGL::GL
+  )
 endif()
 
 set_target_properties(WorldSimulation PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+set_target_properties(worldsim_cli PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
@@ -74,6 +105,16 @@ add_custom_command(TARGET WorldSimulation POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_directory
     "${CMAKE_SOURCE_DIR}/assets"
     "$<TARGET_FILE_DIR:WorldSimulation>/assets"
+)
+add_custom_command(TARGET worldsim_cli POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_SOURCE_DIR}/assets"
+    "$<TARGET_FILE_DIR:worldsim_cli>/assets"
+  COMMAND ${CMAKE_COMMAND} -E make_directory
+    "$<TARGET_FILE_DIR:worldsim_cli>/data"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/data/sim_config.toml"
+    "$<TARGET_FILE_DIR:worldsim_cli>/data/sim_config.toml"
 )
 
 if(WIN32 AND SFML_ROOT)

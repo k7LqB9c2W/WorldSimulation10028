@@ -1,0 +1,111 @@
+[world]
+yearsPerTick = 1
+startYear = -5000
+endYear = 2025
+rngSeedMode = "provided"
+deterministicMode = true
+
+[food]
+baseForaging = 28.0
+baseFarming = 52.0
+climateSensitivity = 0.70
+riverlandFoodFloor = 150.0
+coastalBonus = 1.35
+spoilageBase = 0.12
+storageBase = 0.55
+clayMin = 0.8
+clayMax = 3.0
+clayHotspotChance = 0.08
+foragingNoAgriShare = 0.90
+foragingWithAgriShare = 0.35
+farmingWithAgriShare = 0.85
+
+[resources]
+oreWeightIron = 1.00
+oreWeightCopper = 0.85
+oreWeightTin = 1.20
+energyBiomassBase = 0.60
+energyCoalWeight = 1.65
+constructionClayWeight = 1.00
+constructionStoneBase = 0.55
+oreNormalization = 140.0
+energyNormalization = 120.0
+constructionNormalization = 110.0
+oreDepletionRate = 0.035
+coalDepletionRate = 0.030
+
+[migration]
+famineShockThreshold = 0.22
+epidemicShockThreshold = 0.16
+warShockThreshold = 0.24
+famineShockMultiplier = 1.40
+epidemicShockMultiplier = 1.10
+warShockMultiplier = 1.25
+corridorCoastBonus = 0.25
+corridorRiverlandBonus = 0.35
+corridorSteppeBonus = 0.15
+corridorMountainPenalty = 0.45
+corridorDesertPenalty = 0.25
+refugeeHalfLifeYears = 10.0
+culturalPreference = 0.20
+
+[war]
+supplyBase = 0.25
+supplyLogisticsWeight = 0.35
+supplyMarketWeight = 0.20
+supplyControlWeight = 0.20
+supplyEnergyWeight = 0.10
+supplyFoodStockWeight = 0.15
+overSupplyAttrition = 0.06
+terrainDefenseWeight = 0.35
+exhaustionRise = 0.08
+exhaustionPeaceThreshold = 0.75
+objectiveRaidWeight = 0.30
+objectiveBorderWeight = 0.20
+objectiveTributeWeight = 0.15
+objectiveVassalWeight = 0.12
+objectiveRegimeWeight = 0.10
+objectiveAnnihilationWeight = 0.13
+cooldownMinYears = 6
+cooldownMaxYears = 40
+peaceReparationsWeight = 0.20
+peaceTributeWeight = 0.25
+peaceReconstructionDrag = 0.15
+earlyAnnihilationBias = 0.30
+highInstitutionAnnihilationDamp = 0.65
+
+[polity]
+regionCountMin = 3
+regionCountMax = 8
+successionIntervalMin = 18
+successionIntervalMax = 45
+eliteDefectionSensitivity = 0.65
+farRegionPenalty = 0.40
+
+[tech]
+capabilityThresholdScale = 1.0
+diffusionBase = 0.010
+culturalFrictionStrength = 1.10
+resourceReqEnergy = 0.40
+resourceReqOre = 0.35
+resourceReqConstruction = 0.25
+
+[economy]
+foodLaborElasticity = 0.95
+goodsLaborElasticity = 0.70
+servicesLaborElasticity = 0.78
+energyIntensity = 0.80
+oreIntensity = 0.90
+goodsToMilitary = 0.55
+servicesScaling = 1.00
+useGPU = true
+
+[scoring]
+checkpointsYears = [-5000, -3000, -1000, 0, 1000, 1500, 2025]
+weightFoodSecurityStability = 1.0
+weightInnovationUrbanization = 1.0
+weightEmpireLogisticsConstraint = 1.0
+weightDiseaseTransition = 1.0
+weightTradeResourceInequality = 1.0
+weightVariancePenalty = 1.0
+weightBrittlenessPenalty = 1.0
