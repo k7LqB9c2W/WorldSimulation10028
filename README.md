@@ -1,69 +1,101 @@
-# 🌍 C++ Civilization Simulation
+# WorldSimulation
 
-Welcome to **Civilization Simulation**, a C++ project using **SFML** for graphics and game simulation!
+This project simulates open-ended societal development starting in 5000 BCE.
+The model is free-form: outcomes should emerge from mechanisms (food, logistics, disease, institutions, trade, war), not scripted historical timelines.
 
-## 🚀 Features
+## Quick Start
 
-- 🗺️ Interactive map simulation
-- ⚡ Optimized rendering with SFML
-- 🛠️ Built using CMake and Visual Studio
-- 🔍 Real-time data visualization
+### GUI build/run
+- Build your normal GUI target (`WorldSimulation`) with your existing CMake/Visual Studio workflow.
+- Optional runtime config override:
+  - `WorldSimulation --config data/sim_config.toml`
 
-## 📷 Screenshots
+### CLI build/run
+- Build target: `worldsim_cli`
+- Example run:
+  - `worldsim_cli --seed 42 --config data/sim_config.toml --outDir out/cli_runs/seed_42`
 
-## Important Notes and Controls
+## Runtime Config (`data/sim_config.toml`)
 
-**F1. Hide/Show the GUI (ImGui overlay).**
-3. Zoom feature! Scroll to zoom in and click and drag to move around the map, press 3 again to go to default zoom.
-4. Toggle warmonger highlights (also available in the ImGui Tools window).
-5. Toggle the news feed (ImGui window).
-6. Toggle war highlights (also available in the ImGui Tools window).
-8. Trigger a plague manually (also available in the ImGui Tools window).
-9. Toggle add-country mode. Click on a land pixel to add a country.
-**L. Wealth leaderboard (ImGui table).**
-**E. Technology editor for selected country (ImGui window).**
-**M. Country template editor (ImGui window used by add-country mode).**
-**G. Toggle 2D/Globe view.**
-**D. DEBUG MODE TOGGLE - Shows/hides technology and civic unlock messages.**
-**T. TURBO MODE - 10 YEARS PER SECOND with nuclear performance optimization!**
-**F. FAST FORWARD MODE - Simulates 100 years in 2 seconds with optimized simulation!**
-**Z. MEGA TIME JUMP - Simulate THOUSANDS of years! (Legacy full-screen UI is unchanged.)**
+The simulation now loads tuning values at runtime (no recompile needed).
 
-## 🚀 Nuclear Performance Optimization Features
+### Main sections
+- `world`: timeline bounds, tick size, deterministic mode knobs.
+- `food`: foraging/farming productivity, coastal/riverland effects, spoilage/storage.
+- `resources`: typed potential weights, normalizations, depletion rates.
+- `migration`: shock thresholds/multipliers, corridor weights, refugee half-life.
+- `war`: supply model, exhaustion, objectives, cooldown and peace aftermath weights.
+- `polity`: region count and succession/elite-fragmentation sensitivities.
+- `tech`: capability thresholds, diffusion base, cultural friction, resource requirements.
+- `economy`: elasticities/intensities and `useGPU` toggle.
+- `scoring`: checkpoint years and stylized-fact weights for evaluation harness.
 
-### TURBO MODE (T key) - 10 YEARS/SECOND
-- **Event-driven simulation** - no wasted CPU cycles
-- **Smart rendering** - only draws when state changes
-- **Parallel processing** - multi-threaded country updates
-- **Intelligent frame limiting** - 30 FPS during turbo mode
-- **Real-time performance monitoring** - tracks simulation timing
-- **All normal game mechanics preserved**
+### How config is applied
+- GUI and CLI both load config at startup.
+- Default path: `data/sim_config.toml`
+- Override path with: `--config <path>`
 
-### Fast Forward Mode (F key) - 100 YEARS/2 SECONDS  
-- **Accelerated population growth** (5x normal rate)
-- **Rapid territorial expansion** (countries expand every 5 years instead of every year)
-- **Simplified but realistic wars** (reduced frequency but still strategic)
-- **Quick city founding** (every 20 years with large populations)
-- **Plague events** (can still occur during fast forward)
-- **Technology & culture advancement** (100 years worth of research in seconds)
-- **All changes are persistent** - the world continues from the fast-forwarded state
+### Deterministic calibration recommendations
+- Use a fixed `--seed`.
+- Use the same config file contents (hash is written to output).
+- For calibration/regression runs, disable GPU path:
+  - `--useGPU 0` (CLI)
+  - or set `economy.useGPU = false` in config.
 
-### MEGA TIME JUMP (Z key) - THOUSANDS OF YEARS!
-- **🌍 EPIC HISTORICAL SIMULATION** - Jump from 4900 BCE to 2025 CE (7,000+ years!)
-- **⚡ LIGHTNING FAST** - Simulates ~1000 years per second
-- **📊 LIVE ETA TRACKING** - Real-time progress and time estimates
-- **🏛️ CIVILIZATION EVOLUTION** - Countries rise, fall, and transform
-- **⚔️ MEGA WARS** - Epic conflicts reshape the world every 25 years
-- **🦠 DEVASTATING PLAGUES** - More frequent and deadly pandemics
-- **🧠 TECH ACCELERATION** - 3x faster research and advancement
-- **💀 EXTINCTION EVENTS** - Witness civilizations disappear forever
-- **🌟 HISTORICAL TRACKING** - See major events, wars, and superpowers
-- **🗺️ DRAMATIC MAP CHANGES** - The world transforms completely!
+## CLI Reference (`worldsim_cli`)
 
-## Documentaiton 
+Supported flags:
+- `--seed N`
+- `--config path`
+- `--startYear Y`
+- `--endYear Y`
+- `--checkpointEveryYears N`
+- `--outDir path`
+- `--useGPU 0|1`
 
-Warmongers can expand to 10x the country size limit
-    else if (m_type == Type::Warmonger) {
-        return static_cast<int>(baseLimit * 10);
-Trader countries are at the limit
-Pacifists are at 10% the limit but have a chance to be at 50% of the limit
+Example:
+- `worldsim_cli --seed 7 --config data/sim_config.toml --startYear -5000 --endYear 2025 --checkpointEveryYears 50 --outDir out/cli_runs/seed_7 --useGPU 0`
+
+### CLI outputs
+Each run writes:
+- `run_summary.json`
+- `timeseries.csv`
+
+These include core metrics (population, urban proxy, war frequency, trade intensity, capability tiers, food security, disease burden, collapse count) plus invariant checks (NaN/inf, negative population/stocks, etc.).
+
+## Python Evaluation Harness
+
+### File: `tools/evaluate_run.py`
+
+This script scores multiple seed runs against stylized facts and can enforce regression tolerance against a stored baseline.
+Current automation script set includes this evaluator and the baseline JSON file.
+
+### Inputs
+- Directory containing per-seed run outputs (`run_summary.json` + `timeseries.csv`), e.g. `out/cli_runs/`
+
+### Basic usage
+- `python3 tools/evaluate_run.py --runsDir out/cli_runs --config data/sim_config.toml`
+
+### Useful flags
+- `--baseline tools/baseline_score.json`
+- `--tolerance 0.03`
+- `--out out/cli_runs/evaluation_summary.json`
+- `--write-baseline` (writes current aggregate score as baseline)
+
+### Typical workflow
+1. Generate multiple seeds:
+   - `worldsim_cli --seed 1 ... --outDir out/cli_runs/seed_1`
+   - `worldsim_cli --seed 2 ... --outDir out/cli_runs/seed_2`
+   - repeat for N seeds.
+2. Evaluate:
+   - `python3 tools/evaluate_run.py --runsDir out/cli_runs --config data/sim_config.toml`
+3. If results are accepted, set/update baseline:
+   - `python3 tools/evaluate_run.py --runsDir out/cli_runs --config data/sim_config.toml --write-baseline`
+
+## Baseline File
+- `tools/baseline_score.json`
+- Stores baseline aggregate score used by evaluation regression checks.
+
+## Notes
+- Existing keyboard controls/features in GUI still apply.
+- If you need fast parameter iteration, prefer CLI + config + evaluation harness over manual GUI tuning.
