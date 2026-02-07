@@ -7,6 +7,7 @@
 #include <string>
 #include <random>
 #include <cstdint>
+#include <limits>
 #include <SFML/System/Vector2.hpp>
 #include "resource.h"
 #include "simulation_context.h"
@@ -215,6 +216,7 @@ private:
     std::unordered_map<long long, TradeRelation> m_tradeRelations;
     
     // Optimization for fast forward
+    int m_lastTradeYear = std::numeric_limits<int>::min() / 2;
     int m_lastBarterYear = -5000;
     int m_lastMarketUpdateYear = -5000;
 

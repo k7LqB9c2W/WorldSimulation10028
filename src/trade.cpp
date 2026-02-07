@@ -154,9 +154,8 @@ void TradeManager::updateTrade(std::vector<Country>& countries, int currentYear,
                               const TechnologyManager& techManager, News& news) {
     
     // 🚀 OPTIMIZATION: Only process trades every few years for performance
-    static int lastTradeYear = std::numeric_limits<int>::min() / 2;
-    if (currentYear - lastTradeYear < 2) return; // Process every 2 years
-    lastTradeYear = currentYear;
+    if (currentYear - m_lastTradeYear < 2) return; // Process every 2 years
+    m_lastTradeYear = currentYear;
     
     beginExportsYear(currentYear, countries.size());
 

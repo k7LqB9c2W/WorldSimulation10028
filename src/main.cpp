@@ -34,6 +34,7 @@
 #include "trade.h" // Include the new trade system
 #include "economy.h"
 #include "simulation_context.h"
+#include "simulation_runner.h"
 
 // 🚨 CRASH DETECTION SYSTEM
 void crashHandler(int signal) {
@@ -1618,48 +1619,25 @@ int main(int argc, char** argv) {
             auto simStart = std::chrono::high_resolution_clock::now();
             
             // DIAGNOSTIC: Time each major component
-            auto mapStart = std::chrono::high_resolution_clock::now();
-	            try {
-	                map.updateCountries(countries, currentYear, news, technologyManager);
-	            } catch (const std::exception& e) {
-	                std::cout << "🚨 MAP UPDATE CRASHED at year " << currentYear << ": " << e.what() << std::endl;
-	                throw;
-	            }
-            auto mapEnd = std::chrono::high_resolution_clock::now();
-            auto mapTime = std::chrono::duration_cast<std::chrono::milliseconds>(mapEnd - mapStart);
-            
-	            // Phase 6: weather anomalies (field-grid, cheap) before economy so yields affect output.
-	            map.tickWeather(currentYear, 1);
-
-	            // Phase 4: macro economy + directed, capacity-limited trade (CPU authoritative).
-	            auto econStart = std::chrono::high_resolution_clock::now();
-	            macroEconomy.tickYear(currentYear, 1, map, countries, technologyManager, tradeManager, news);
-            // Demography/cities step runs after macro economy so food security shortages affect births/deaths.
-            map.tickDemographyAndCities(countries, currentYear, 1, news, &macroEconomy.getLastTradeIntensity());
-            auto econEnd = std::chrono::high_resolution_clock::now();
-            auto econTime = std::chrono::duration_cast<std::chrono::milliseconds>(econEnd - econStart);
-
-            auto techStart = std::chrono::high_resolution_clock::now();
+            auto simStepStart = std::chrono::high_resolution_clock::now();
             try {
-                technologyManager.tickYear(countries, map, &macroEconomy.getLastTradeIntensity(), currentYear, 1);
-                cultureManager.tickYear(countries, map, technologyManager, &macroEconomy.getLastTradeIntensity(), currentYear, 1, news);
+                SimulationStepContext stepCtx{
+                    map,
+                    countries,
+                    technologyManager,
+                    cultureManager,
+                    macroEconomy,
+                    tradeManager,
+                    greatPeopleManager,
+                    news
+                };
+                runGuiHeadlessAuthoritativeYearStep(currentYear, stepCtx);
             } catch (const std::exception& e) {
-                std::cout << "🚨 TECH/CULTURE UPDATE CRASHED at year " << currentYear << ": " << e.what() << std::endl;
+                std::cout << "🚨 SIMULATION STEP CRASHED at year " << currentYear << ": " << e.what() << std::endl;
                 throw;
             }
-            auto techEnd = std::chrono::high_resolution_clock::now();
-            auto techTime = std::chrono::duration_cast<std::chrono::milliseconds>(techEnd - techStart);
-
-            auto greatStart = std::chrono::high_resolution_clock::now();
-            greatPeopleManager.updateEffects(currentYear, countries, news);
-            auto greatEnd = std::chrono::high_resolution_clock::now();
-            auto greatTime = std::chrono::duration_cast<std::chrono::milliseconds>(greatEnd - greatStart);
-
-            // GPU economy remains optional for visualization; macro economy sets country metrics.
-            // economy.onTerritoryChanged(map);
-            // economy.tickYear(currentYear, map, countries, technologyManager);
-
-	            map.processPoliticalEvents(countries, tradeManager, currentYear, news, technologyManager, cultureManager);
+            auto simStepEnd = std::chrono::high_resolution_clock::now();
+            auto simStepTime = std::chrono::duration_cast<std::chrono::milliseconds>(simStepEnd - simStepStart);
             
             auto simEnd = std::chrono::high_resolution_clock::now();
             auto simDuration = std::chrono::duration_cast<std::chrono::microseconds>(simEnd - simStart);
@@ -1668,10 +1646,7 @@ int main(int argc, char** argv) {
             auto totalMs = std::chrono::duration_cast<std::chrono::milliseconds>(simEnd - simStart);
             if (totalMs.count() > 100) {
                 std::cout << " SLOW YEAR " << currentYear << " (" << totalMs.count() << "ms total):" << std::endl;
-                std::cout << "  Map Update: " << mapTime.count() << "ms" << std::endl;
-                std::cout << "  Economy: " << econTime.count() << "ms" << std::endl;
-                std::cout << "  Tech/Culture: " << techTime.count() << "ms" << std::endl;
-                std::cout << "  Great People: " << greatTime.count() << "ms" << std::endl;
+                std::cout << "  Authoritative Step: " << simStepTime.count() << "ms" << std::endl;
             }
             
             // Update UI elements
