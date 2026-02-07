@@ -4,6 +4,8 @@ startYear = -5000
 endYear = 2025
 rngSeedMode = "provided"
 deterministicMode = true
+# Expert override: auto|on|off (auto couples this fallback to deterministicMode).
+deterministicOverseasFallback = "auto"
 
 [food]
 baseForaging = 21.0
@@ -49,6 +51,23 @@ corridorDesertPenalty = 0.25
 refugeeHalfLifeYears = 12.0
 culturalPreference = 0.20
 
+[disease]
+initialInfectedShare = 0.0002
+initialRecoveredShare = 0.0
+tradeImportWeight = 0.18
+endemicBase = 0.0020
+endemicUrbanWeight = 0.85
+endemicHumidityWeight = 0.65
+endemicInstitutionMitigation = 0.50
+zoonoticBase = 0.0015
+zoonoticForagingWeight = 0.95
+zoonoticFarmingWeight = 0.35
+spilloverShockChance = 0.025
+spilloverShockMin = 0.003
+spilloverShockMax = 0.016
+warAmplifier = 0.25
+famineAmplifier = 0.35
+
 [war]
 supplyBase = 0.20
 supplyLogisticsWeight = 0.35
@@ -81,6 +100,17 @@ successionIntervalMin = 15
 successionIntervalMax = 36
 eliteDefectionSensitivity = 0.78
 farRegionPenalty = 0.52
+yearlyWarStabilityHit = 0.024
+yearlyPlagueStabilityHit = 0.034
+yearlyStagnationStabilityHit = 0.006
+peaceRecoveryLowGrowth = 0.008
+peaceRecoveryHighGrowth = 0.018
+resilienceRecoveryStrength = 0.020
+demogShortageStabilityHit = 0.010
+demogDiseaseStabilityHit = 0.007
+demogShortageLegitimacyHit = 0.009
+demogDiseaseLegitimacyHit = 0.006
+legitimacyRecoveryStrength = 0.018
 
 [tech]
 capabilityThresholdScale = 0.90
@@ -98,6 +128,12 @@ energyIntensity = 1.25
 oreIntensity = 1.30
 goodsToMilitary = 0.75
 servicesScaling = 0.92
+tradeResourceMismatchDemandBoost = 0.85
+tradeScarcityCapacityBoost = 1.10
+tradeMaxPricePremium = 1.65
+tradeIntensityScale = 18.0
+tradeIntensityValueNormBase = 1200.0
+tradeIntensityMemory = 0.72
 useGPU = true
 
 [scoring]

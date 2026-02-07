@@ -1,6 +1,7 @@
 #include "simulation_context.h"
 
 #include <algorithm>
+#include <cctype>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -35,6 +36,24 @@ void readTomlValue(const toml::table& root,
             target = *v;
         }
     }
+}
+
+std::string toLowerAscii(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return value;
+}
+
+std::string canonicalDetOverseasFallback(std::string value) {
+    value = toLowerAscii(std::move(value));
+    if (value == "on" || value == "enabled" || value == "true" || value == "1") {
+        return "on";
+    }
+    if (value == "off" || value == "disabled" || value == "false" || value == "0") {
+        return "off";
+    }
+    return "auto";
 }
 
 } // namespace
@@ -84,6 +103,9 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "world", "endYear", config.world.endYear);
         readTomlValue(root, "world", "rngSeedMode", config.world.rngSeedMode);
         readTomlValue(root, "world", "deterministicMode", config.world.deterministicMode);
+        readTomlValue(root, "world", "deterministicOverseasFallback", config.world.deterministicOverseasFallback);
+        config.world.deterministicOverseasFallback =
+            canonicalDetOverseasFallback(config.world.deterministicOverseasFallback);
 
         readTomlValue(root, "food", "baseForaging", config.food.baseForaging);
         readTomlValue(root, "food", "baseFarming", config.food.baseFarming);
@@ -126,6 +148,22 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "migration", "refugeeHalfLifeYears", config.migration.refugeeHalfLifeYears);
         readTomlValue(root, "migration", "culturalPreference", config.migration.culturalPreference);
 
+        readTomlValue(root, "disease", "initialInfectedShare", config.disease.initialInfectedShare);
+        readTomlValue(root, "disease", "initialRecoveredShare", config.disease.initialRecoveredShare);
+        readTomlValue(root, "disease", "tradeImportWeight", config.disease.tradeImportWeight);
+        readTomlValue(root, "disease", "endemicBase", config.disease.endemicBase);
+        readTomlValue(root, "disease", "endemicUrbanWeight", config.disease.endemicUrbanWeight);
+        readTomlValue(root, "disease", "endemicHumidityWeight", config.disease.endemicHumidityWeight);
+        readTomlValue(root, "disease", "endemicInstitutionMitigation", config.disease.endemicInstitutionMitigation);
+        readTomlValue(root, "disease", "zoonoticBase", config.disease.zoonoticBase);
+        readTomlValue(root, "disease", "zoonoticForagingWeight", config.disease.zoonoticForagingWeight);
+        readTomlValue(root, "disease", "zoonoticFarmingWeight", config.disease.zoonoticFarmingWeight);
+        readTomlValue(root, "disease", "spilloverShockChance", config.disease.spilloverShockChance);
+        readTomlValue(root, "disease", "spilloverShockMin", config.disease.spilloverShockMin);
+        readTomlValue(root, "disease", "spilloverShockMax", config.disease.spilloverShockMax);
+        readTomlValue(root, "disease", "warAmplifier", config.disease.warAmplifier);
+        readTomlValue(root, "disease", "famineAmplifier", config.disease.famineAmplifier);
+
         readTomlValue(root, "war", "supplyBase", config.war.supplyBase);
         readTomlValue(root, "war", "supplyLogisticsWeight", config.war.supplyLogisticsWeight);
         readTomlValue(root, "war", "supplyMarketWeight", config.war.supplyMarketWeight);
@@ -156,6 +194,17 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "polity", "successionIntervalMax", config.polity.successionIntervalMax);
         readTomlValue(root, "polity", "eliteDefectionSensitivity", config.polity.eliteDefectionSensitivity);
         readTomlValue(root, "polity", "farRegionPenalty", config.polity.farRegionPenalty);
+        readTomlValue(root, "polity", "yearlyWarStabilityHit", config.polity.yearlyWarStabilityHit);
+        readTomlValue(root, "polity", "yearlyPlagueStabilityHit", config.polity.yearlyPlagueStabilityHit);
+        readTomlValue(root, "polity", "yearlyStagnationStabilityHit", config.polity.yearlyStagnationStabilityHit);
+        readTomlValue(root, "polity", "peaceRecoveryLowGrowth", config.polity.peaceRecoveryLowGrowth);
+        readTomlValue(root, "polity", "peaceRecoveryHighGrowth", config.polity.peaceRecoveryHighGrowth);
+        readTomlValue(root, "polity", "resilienceRecoveryStrength", config.polity.resilienceRecoveryStrength);
+        readTomlValue(root, "polity", "demogShortageStabilityHit", config.polity.demogShortageStabilityHit);
+        readTomlValue(root, "polity", "demogDiseaseStabilityHit", config.polity.demogDiseaseStabilityHit);
+        readTomlValue(root, "polity", "demogShortageLegitimacyHit", config.polity.demogShortageLegitimacyHit);
+        readTomlValue(root, "polity", "demogDiseaseLegitimacyHit", config.polity.demogDiseaseLegitimacyHit);
+        readTomlValue(root, "polity", "legitimacyRecoveryStrength", config.polity.legitimacyRecoveryStrength);
 
         readTomlValue(root, "tech", "capabilityThresholdScale", config.tech.capabilityThresholdScale);
         readTomlValue(root, "tech", "diffusionBase", config.tech.diffusionBase);
@@ -171,6 +220,12 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "economy", "oreIntensity", config.economy.oreIntensity);
         readTomlValue(root, "economy", "goodsToMilitary", config.economy.goodsToMilitary);
         readTomlValue(root, "economy", "servicesScaling", config.economy.servicesScaling);
+        readTomlValue(root, "economy", "tradeResourceMismatchDemandBoost", config.economy.tradeResourceMismatchDemandBoost);
+        readTomlValue(root, "economy", "tradeScarcityCapacityBoost", config.economy.tradeScarcityCapacityBoost);
+        readTomlValue(root, "economy", "tradeMaxPricePremium", config.economy.tradeMaxPricePremium);
+        readTomlValue(root, "economy", "tradeIntensityScale", config.economy.tradeIntensityScale);
+        readTomlValue(root, "economy", "tradeIntensityValueNormBase", config.economy.tradeIntensityValueNormBase);
+        readTomlValue(root, "economy", "tradeIntensityMemory", config.economy.tradeIntensityMemory);
         readTomlValue(root, "economy", "useGPU", config.economy.useGPU);
 
         if (const toml::array* checkpoints = root["scoring"]["checkpointsYears"].as_array()) {

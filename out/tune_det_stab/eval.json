@@ -1,0 +1,55 @@
+{
+  "run_count": 4,
+  "weights": {
+    "food_stability": 1.0,
+    "innovation_urban": 1.0,
+    "empire_logistics": 1.0,
+    "disease_transition": 1.0,
+    "trade_inequality": 1.0,
+    "variance_penalty": 1.0,
+    "brittleness_penalty": 1.0
+  },
+  "median_run_score": 0.4713666644762089,
+  "stdev_run_score": 0.07453244088181776,
+  "variance_penalty": 0.49688293921211846,
+  "brittleness_penalty": 0.8709630209881501,
+  "aggregate_score": 0.19779747243615514,
+  "runs": [
+    {
+      "run": "out/tune_det_stab/seed_101",
+      "food_stability": 0.29379033347552563,
+      "innovation_urban": 0.6448824201360007,
+      "empire_logistics": 0.15005527682091685,
+      "disease_transition": 0.4889748615777581,
+      "trade_inequality": 0.5063372577754774,
+      "run_score": 0.4168080299571358
+    },
+    {
+      "run": "out/tune_det_stab/seed_202",
+      "food_stability": 0.5179642023581807,
+      "innovation_urban": 0.6513356491752721,
+      "empire_logistics": 0.8536336532420956,
+      "disease_transition": 0.3949372051936297,
+      "trade_inequality": 0.5455947211549214,
+      "run_score": 0.59269308622482
+    },
+    {
+      "run": "out/tune_det_stab/seed_303",
+      "food_stability": 0.46981336376178673,
+      "innovation_urban": 0.6510390879530528,
+      "empire_logistics": 0.14220541396445593,
+      "disease_transition": 0.3056038755963686,
+      "trade_inequality": 0.522698463041112,
+      "run_score": 0.4182720408633552
+    },
+    {
+      "run": "out/tune_det_stab/seed_404",
+      "food_stability": 0.408491491872513,
+      "innovation_urban": 0.58022449765216,
+      "empire_logistics": 0.8371545074623634,
+      "disease_transition": 0.34268768683611806,
+      "trade_inequality": 0.4537482566221585,
+      "run_score": 0.5244612880890627
+    }
+  ]
+}

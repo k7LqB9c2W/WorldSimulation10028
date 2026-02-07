@@ -1,0 +1,359 @@
+
+=== Building Release x64 ===
+**********************************************************************
+** Visual Studio 2022 Developer Command Prompt v17.12.4
+** Copyright (c) 2022 Microsoft Corporation
+**********************************************************************
+
+=== Configuring Release x64 (Ninja) ===
+-- Found SFML 2.6.1 in C:/SFML-2.6.1/lib/cmake/SFML
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: C:/WS/WorldSimulation10028/out/cmake/release
+
+=== Building in out\cmake\release ===
+[1/21] Building CXX object CMakeFiles\WorldSimulation.dir\src\simulation_runner.cpp.obj
+C:\WS\WorldSimulation10028\src\simulation_runner.cpp(62): warning C4996: 'getenv': This function or variable may be unsafe. Consider using _dupenv_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+[2/21] Building CXX object CMakeFiles\WorldSimulation.dir\src\great_people.cpp.obj
+[3/21] Building CXX object CMakeFiles\worldsim_cli.dir\src\culture.cpp.obj
+[4/21] Building CXX object CMakeFiles\WorldSimulation.dir\src\renderer.cpp.obj
+C:\WS\WorldSimulation10028\src\renderer.cpp(650): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(650): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(691): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\WS\WorldSimulation10028\src\renderer.cpp(1263): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+        with
+        [
+            T=float
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1263): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+        with
+        [
+            T=float
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1264): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+        with
+        [
+            T=float
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1264): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+        with
+        [
+            T=float
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1443): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+        with
+        [
+            T=float
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1443): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+        with
+        [
+            T=float
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1444): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+        with
+        [
+            T=float
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1444): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+        with
+        [
+            T=float
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1831): warning C4244: 'argument': conversion from 'T' to 'T', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+        and
+        [
+            T=float
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1831): warning C4244: 'argument': conversion from 'T' to 'T', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+        and
+        [
+            T=float
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1837): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1837): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1849): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1849): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1858): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1858): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1867): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1867): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1876): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1876): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1927): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1927): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1939): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1939): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1984): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1984): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1993): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1993): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1998): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(1998): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2010): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2010): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2019): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2019): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2028): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2033): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2048): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2048): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2059): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2059): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2067): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2067): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2076): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2076): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2084): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2084): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2088): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2088): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2099): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2099): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2127): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\renderer.cpp(2127): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+[5/21] Building CXX object CMakeFiles\WorldSimulation.dir\src\culture.cpp.obj
+[6/21] Building CXX object CMakeFiles\WorldSimulation.dir\src\trade.cpp.obj
+[7/21] Building CXX object CMakeFiles\WorldSimulation.dir\src\technology.cpp.obj
+[8/21] Building CXX object CMakeFiles\worldsim_cli.dir\src\great_people.cpp.obj
+[9/21] Building CXX object CMakeFiles\worldsim_cli.dir\src\simulation_runner.cpp.obj
+C:\WS\WorldSimulation10028\src\simulation_runner.cpp(62): warning C4996: 'getenv': This function or variable may be unsafe. Consider using _dupenv_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+[10/21] Building CXX object CMakeFiles\worldsim_cli.dir\src\trade.cpp.obj
+[11/21] Building CXX object CMakeFiles\worldsim_cli.dir\src\economy.cpp.obj
+[12/21] Building CXX object CMakeFiles\worldsim_cli.dir\src\technology.cpp.obj
+[13/21] Building CXX object CMakeFiles\WorldSimulation.dir\src\economy.cpp.obj
+[14/21] Building CXX object CMakeFiles\WorldSimulation.dir\src\country.cpp.obj
+C:\WS\WorldSimulation10028\src\country.cpp(2281): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\WS\WorldSimulation10028\src\country.cpp(2941): warning C4267: 'argument': conversion from 'size_t' to '_Ty', possible loss of data
+        with
+        [
+            _Ty=int
+        ]
+[15/21] Building CXX object CMakeFiles\worldsim_cli.dir\src\cli_main.cpp.obj
+[16/21] Building CXX object CMakeFiles\worldsim_cli.dir\src\country.cpp.obj
+C:\WS\WorldSimulation10028\src\country.cpp(2281): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\WS\WorldSimulation10028\src\country.cpp(2941): warning C4267: 'argument': conversion from 'size_t' to '_Ty', possible loss of data
+        with
+        [
+            _Ty=int
+        ]
+[17/21] Building CXX object CMakeFiles\WorldSimulation.dir\src\map.cpp.obj
+C:\WS\WorldSimulation10028\src\map.cpp(48): warning C4996: 'getenv': This function or variable may be unsafe. Consider using _dupenv_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+[18/21] Building CXX object CMakeFiles\worldsim_cli.dir\src\map.cpp.obj
+C:\WS\WorldSimulation10028\src\map.cpp(48): warning C4996: 'getenv': This function or variable may be unsafe. Consider using _dupenv_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+[19/21] Linking CXX executable bin\worldsim_cli.exe
+[20/21] Building CXX object CMakeFiles\WorldSimulation.dir\src\main.cpp.obj
+C:\WS\WorldSimulation10028\src\main.cpp(884): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\main.cpp(884): warning C4244: 'argument': conversion from 'T' to 'float', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+C:\WS\WorldSimulation10028\src\main.cpp(1240): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\WS\WorldSimulation10028\src\main.cpp(1533): warning C4244: 'argument': conversion from 'T' to 'T', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+        and
+        [
+            T=float
+        ]
+C:\WS\WorldSimulation10028\src\main.cpp(1533): warning C4244: 'argument': conversion from 'T' to 'T', possible loss of data
+        with
+        [
+            T=unsigned int
+        ]
+        and
+        [
+            T=float
+        ]
+[21/21] Linking CXX executable bin\WorldSimulation.exe

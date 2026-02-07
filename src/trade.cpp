@@ -788,11 +788,12 @@ void TradeManager::updateMarkets(std::vector<Country>& countries, int currentYea
     if (currentYear % 50 == 0) { // Check every 50 years
         for (const Country& country : countries) {
             if (country.getPopulation() > 50000 && hasMarkets(country, techManager)) {
+                const sf::Vector2i anchor = country.deterministicTerritoryAnchor();
                 // Check if there's already a market nearby
                 bool hasNearbyMarket = false;
                 for (const Market& market : m_markets) {
-                    double distance = std::sqrt(std::pow(market.location.x - country.getBoundaryPixels().begin()->x, 2) +
-                                              std::pow(market.location.y - country.getBoundaryPixels().begin()->y, 2));
+                    double distance = std::sqrt(std::pow(market.location.x - anchor.x, 2) +
+                                              std::pow(market.location.y - anchor.y, 2));
                     if (distance < 100) { // Within 100 pixels
                         hasNearbyMarket = true;
                         break;
@@ -800,8 +801,7 @@ void TradeManager::updateMarkets(std::vector<Country>& countries, int currentYea
                 }
                 
                 if (!hasNearbyMarket) {
-                    sf::Vector2i boundaryPixel = *country.getBoundaryPixels().begin();
-                    Vector2i marketLocation(boundaryPixel.x, boundaryPixel.y);
+                    Vector2i marketLocation(anchor.x, anchor.y);
                     createMarket(marketLocation, countries);
                     news.addEvent("🏪 MARKET ESTABLISHED: " + country.getName() + " establishes a major trading market!");
                 }
@@ -1199,8 +1199,8 @@ double TradeManager::calculateTradeDistance(const Country& from, const Country& 
     
     if (from.getBoundaryPixels().empty() || to.getBoundaryPixels().empty()) return 1000.0;
     
-    sf::Vector2i fromBoundary = *from.getBoundaryPixels().begin();
-    sf::Vector2i toBoundary = *to.getBoundaryPixels().begin();
+    sf::Vector2i fromBoundary = from.deterministicTerritoryAnchor();
+    sf::Vector2i toBoundary = to.deterministicTerritoryAnchor();
     Vector2i fromCenter(fromBoundary.x, fromBoundary.y);
     Vector2i toCenter(toBoundary.x, toBoundary.y);
     

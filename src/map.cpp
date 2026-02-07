@@ -7,6 +7,8 @@
 #include <iostream>
 #include <fstream>
 #include <chrono>
+#include <cstdint>
+#include <cstdlib>
 #include <iomanip>
 #include <limits>
 #include <queue>
@@ -20,6 +22,79 @@ bool isColorNear(const sf::Color& pixel, const sf::Color& target, int tolerance 
     return std::abs(static_cast<int>(pixel.r) - static_cast<int>(target.r)) <= tolerance &&
            std::abs(static_cast<int>(pixel.g) - static_cast<int>(target.g)) <= tolerance &&
            std::abs(static_cast<int>(pixel.b) - static_cast<int>(target.b)) <= tolerance;
+}
+
+bool greaterFinite(double a, double b) {
+    const bool af = std::isfinite(a);
+    const bool bf = std::isfinite(b);
+    if (af != bf) return af;
+    if (!af) return false;
+    return a > b;
+}
+
+std::uint64_t mixHash(std::uint64_t h, std::uint64_t v) {
+    h ^= v + 0x9E3779B97F4A7C15ull + (h << 6) + (h >> 2);
+    return h;
+}
+
+std::uint64_t hashDouble(double v, double scale = 1.0e6) {
+    if (!std::isfinite(v)) return 0xFFFFFFFFFFFFFFFFull;
+    const double q = std::round(v * scale) / scale;
+    return static_cast<std::uint64_t>(static_cast<std::int64_t>(q * scale));
+}
+
+int traceYear() {
+    static int y = []() {
+        const char* v = std::getenv("WORLDSIM_TRACE_YEAR");
+        if (!v || !*v) return std::numeric_limits<int>::max();
+        return std::atoi(v);
+    }();
+    return y;
+}
+
+std::uint64_t politicalTraceHash(const std::vector<Country>& countries) {
+    std::uint64_t h = 0xBADC0FFEE0DDF00Dull;
+    h = mixHash(h, static_cast<std::uint64_t>(countries.size()));
+    for (const Country& c : countries) {
+        h = mixHash(h, static_cast<std::uint64_t>(std::max(0, c.getCountryIndex()) + 1));
+        h = mixHash(h, static_cast<std::uint64_t>(std::max<long long>(0, c.getPopulation())));
+        h = mixHash(h, static_cast<std::uint64_t>(c.isAtWar() ? 1u : 0u));
+        h = mixHash(h, static_cast<std::uint64_t>(std::max(0, c.getYearsSinceWar())));
+        h = mixHash(h, static_cast<std::uint64_t>(std::max(0, c.getFragmentationCooldown())));
+        h = mixHash(h, hashDouble(c.getStability(), 1.0e6));
+        h = mixHash(h, hashDouble(c.getLegitimacy(), 1.0e6));
+        h = mixHash(h, hashDouble(c.getAvgControl(), 1.0e6));
+        h = mixHash(h, hashDouble(c.getAutonomyPressure(), 1.0e6));
+        const sf::Vector2i cap = c.getCapitalLocation();
+        h = mixHash(h, static_cast<std::uint64_t>(static_cast<std::uint32_t>(cap.x + 32768)));
+        h = mixHash(h, static_cast<std::uint64_t>(static_cast<std::uint32_t>(cap.y + 32768)));
+        const auto& ex = c.getExploration();
+        h = mixHash(h, hashDouble(static_cast<double>(ex.explorationDrive), 1.0e6));
+        h = mixHash(h, hashDouble(static_cast<double>(ex.colonialOverstretch), 1.0e6));
+        h = mixHash(h, static_cast<std::uint64_t>(std::max(0, ex.overseasLowControlYears)));
+        h = mixHash(h, static_cast<std::uint64_t>(c.getPorts().size()));
+        h = mixHash(h, static_cast<std::uint64_t>(c.getCities().size()));
+    }
+    return h;
+}
+
+void maybeTracePolitical(const char* stage, int currentYear, const std::vector<Country>& countries) {
+    if (currentYear != traceYear()) return;
+    std::cout << "[det-trace-political] year=" << currentYear
+              << " stage=" << stage
+              << " hash=" << politicalTraceHash(countries)
+              << std::endl;
+}
+
+bool useDeterministicOverseasFallback(const SimulationContext* ctx) {
+    if (!ctx) {
+        return false;
+    }
+    const std::string& mode = ctx->config.world.deterministicOverseasFallback;
+    if (mode == "on") return true;
+    if (mode == "off") return false;
+    // Default "auto": keep behavior coupled to deterministic mode.
+    return ctx->config.world.deterministicMode;
 }
 } // namespace
 
@@ -81,9 +156,9 @@ Map::Map(const sf::Image& baseImage,
 	        initializeClimateBaseline();
 	        tickWeather(-5000, 1);
 	        buildCoastalLandCandidates();
-		    std::uniform_int_distribution<> plagueIntervalDist(600, 700);
-		    m_plagueInterval = plagueIntervalDist(m_ctx->worldRng);
-		    m_nextPlagueYear = -5000 + m_plagueInterval; // First plague year
+        const std::uint64_t plagueRoll = SimulationContext::mix64(m_ctx->worldSeed ^ 0x504C41475545494EULL);
+        m_plagueInterval = 600 + static_cast<int>(plagueRoll % 101ULL);
+        m_nextPlagueYear = -5000 + m_plagueInterval; // First plague year
 		}
 
 // 🔥 NUCLEAR OPTIMIZATION: Lightning-fast resource grid initialization
@@ -1072,7 +1147,6 @@ void Map::updateControlGrid(std::vector<Country>& countries, int currentYear, in
         if (x < -20.0) return 0.0;
         return 1.0 / (1.0 + std::exp(-x));
     };
-
     std::vector<int> fieldToLocal(nField, -1);
 
     for (int i = 0; i < countryCount; ++i) {
@@ -1135,7 +1209,8 @@ void Map::updateControlGrid(std::vector<Country>& countries, int currentYear, in
                 seeds.push_back(CitySeed{city.getPopulation(), idx, fy, fx});
             }
             std::sort(seeds.begin(), seeds.end(), [](const CitySeed& a, const CitySeed& b) {
-                if (a.pop != b.pop) return a.pop > b.pop;
+                if (greaterFinite(a.pop, b.pop)) return true;
+                if (greaterFinite(b.pop, a.pop)) return false;
                 if (a.y != b.y) return a.y < b.y;
                 return a.x < b.x;
             });
@@ -1584,7 +1659,8 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries,
 
         if (dest.empty()) continue;
         std::sort(dest.begin(), dest.end(), [](const Dest& a, const Dest& b) {
-            if (a.score != b.score) return a.score > b.score;
+            if (greaterFinite(a.score, b.score)) return true;
+            if (greaterFinite(b.score, a.score)) return false;
             return a.j < b.j;
         });
         if (dest.size() > 6) dest.resize(6);
@@ -2389,6 +2465,22 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
                                countryName,
                                countryType,
                                m_ctx->seedForCountry(i));
+        {
+            auto& epi = countries.back().getEpidemicStateMutable();
+            const double i0 = std::clamp(m_ctx->config.disease.initialInfectedShare, 0.0, 0.25);
+            const double r0 = std::clamp(m_ctx->config.disease.initialRecoveredShare, 0.0, 0.95);
+            const double s0 = std::max(0.0, 1.0 - i0 - r0);
+            const double norm = s0 + i0 + r0;
+            if (norm > 1e-12) {
+                epi.s = s0 / norm;
+                epi.i = i0 / norm;
+                epi.r = r0 / norm;
+            } else {
+                epi.s = 1.0;
+                epi.i = 0.0;
+                epi.r = 0.0;
+            }
+        }
 
         // Scale initial claimed area by population and local carrying potential.
         double localFoodPotential = 0.0;
@@ -2448,7 +2540,8 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
             }
         }
         std::sort(seedCandidates.begin(), seedCandidates.end(), [](const SeedCandidate& a, const SeedCandidate& b) {
-            if (a.score != b.score) return a.score > b.score;
+            if (greaterFinite(a.score, b.score)) return true;
+            if (greaterFinite(b.score, a.score)) return false;
             return a.packed < b.packed;
         });
 
@@ -2700,6 +2793,16 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
         if (x < -20.0) return 0.0;
         return 1.0 / (1.0 + std::exp(-x));
     };
+    auto deterministicUnit = [&](int countryIndex, int yearKey, std::uint64_t salt) {
+        const std::uint64_t c = static_cast<std::uint64_t>(std::max(0, countryIndex) + 1);
+        const std::uint64_t y = static_cast<std::uint64_t>(yearKey + 12000);
+        const std::uint64_t mixed = SimulationContext::mix64(
+            m_ctx->worldSeed ^
+            (c * 0x9E3779B97F4A7C15ull) ^
+            (y * 0xBF58476D1CE4E5B9ull) ^
+            salt);
+        return SimulationContext::u01FromU64(mixed);
+    };
 
     tickPopulationGrid(countries, currentYear, years, tradeIntensityMatrix);
 
@@ -2788,6 +2891,12 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
             importW += 0.15;
         }
         const double importSeed = (importW > 1e-9) ? (importedI / importW) : 0.0;
+        const double foragingPot = std::max(0.0, getCountryForagingPotential(i));
+        const double farmingPot = std::max(0.0, getCountryFarmingPotential(i));
+        const double foodPotTotal = std::max(1e-9, foragingPot + farmingPot);
+        const double foragingMix = std::clamp(foragingPot / foodPotTotal, 0.0, 1.0);
+        const double farmingMix = std::clamp(farmingPot / foodPotTotal, 0.0, 1.0);
+        const SimulationConfig::Disease& diseaseCfg = m_ctx->config.disease;
 
         const double climateMult = std::max(0.05, static_cast<double>(getCountryClimateFoodMultiplier(i)));
         const double humidityProxy = clamp01(0.55 + 0.35 * (1.0 - climateMult) + 0.25 * ((i < static_cast<int>(m_countryPrecipAnomMean.size())) ? static_cast<double>(m_countryPrecipAnomMean[static_cast<size_t>(i)]) : 0.0));
@@ -2855,7 +2964,46 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
             nutritionPopWeight += popNow;
 
             // SIR dynamics.
-            const double externalI = 0.12 * importSeed;
+            const double developmentShield = clamp01(
+                0.45 * institution +
+                0.30 * clamp01(m.humanCapital) +
+                0.25 * clamp01(m.knowledgeStock));
+            const double endemicPressure =
+                std::max(0.0, diseaseCfg.endemicBase) *
+                (0.35 + std::max(0.0, diseaseCfg.endemicUrbanWeight) * urban) *
+                (0.40 + std::max(0.0, diseaseCfg.endemicHumidityWeight) * humidityProxy) *
+                (1.0 - std::clamp(std::max(0.0, diseaseCfg.endemicInstitutionMitigation) * institution, 0.0, 0.95)) *
+                (0.75 + 0.25 * (1.0 - healthSpend)) *
+                (1.0 - 0.80 * developmentShield);
+            const double zoonoticPressure =
+                std::max(0.0, diseaseCfg.zoonoticBase) *
+                (0.30 +
+                 std::max(0.0, diseaseCfg.zoonoticForagingWeight) * foragingMix +
+                 std::max(0.0, diseaseCfg.zoonoticFarmingWeight) * farmingMix) *
+                (0.45 + 0.55 * humidityProxy) *
+                (0.55 + 0.45 * (1.0 - institution)) *
+                (1.0 - 0.55 * developmentShield);
+            const int subYear = currentYear + step;
+            const double spillChance = std::clamp(
+                std::max(0.0, diseaseCfg.spilloverShockChance) *
+                    (0.55 + 0.45 * foragingMix) *
+                    (0.65 + 0.35 * humidityProxy),
+                0.0, 0.50);
+            double spilloverShock = 0.0;
+            if (deterministicUnit(i, subYear, 0x4453495345415345ull) < spillChance * subDt) {
+                const double u = deterministicUnit(i, subYear, 0x53484F434B4D414Cull);
+                const double shockMin = std::max(0.0, diseaseCfg.spilloverShockMin);
+                const double shockMax = std::max(shockMin, diseaseCfg.spilloverShockMax);
+                spilloverShock = shockMin + (shockMax - shockMin) * u;
+            }
+            const double stressAmplifier =
+                1.0 +
+                std::max(0.0, diseaseCfg.warAmplifier) * (war ? 1.0 : 0.0) +
+                std::max(0.0, diseaseCfg.famineAmplifier) * famine;
+            const double externalI = std::clamp(
+                std::max(0.0, diseaseCfg.tradeImportWeight) * importSeed +
+                    stressAmplifier * (endemicPressure + zoonoticPressure + spilloverShock),
+                0.0, 0.25);
             const double forceI = clamp01(epi.i + externalI);
             const double newInf = std::min(epi.s, beta * epi.s * forceI * subDt);
             const double rec = std::min(epi.i, gamma * epi.i * subDt);
@@ -3014,14 +3162,36 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
         newTotals[static_cast<size_t>(i)] = static_cast<double>(std::max<long long>(0, c.getPopulation()));
 
         // Additional stability/legitimacy feedback from severe stress.
-        const double demogStressDelta = -yearsD * (0.03 * shortageRatio + 0.02 * m.diseaseBurden);
+        const double institutionRes = clamp01(c.getInstitutionCapacity());
+        const double demogStressDelta = -yearsD * (
+            std::max(0.0, m_ctx->config.polity.demogShortageStabilityHit) * shortageRatio +
+            std::max(0.0, m_ctx->config.polity.demogDiseaseStabilityHit) * m.diseaseBurden) *
+            (1.0 - 0.45 * institutionRes);
         c.setStability(c.getStability() + demogStressDelta);
-        const double legitDemogDelta = -yearsD * (0.025 * shortageRatio + 0.015 * m.diseaseBurden);
+        const double legitDemogDelta = -yearsD * (
+            std::max(0.0, m_ctx->config.polity.demogShortageLegitimacyHit) * shortageRatio +
+            std::max(0.0, m_ctx->config.polity.demogDiseaseLegitimacyHit) * m.diseaseBurden) *
+            (1.0 - 0.40 * institutionRes);
         const double legitBeforeDemog = clamp01(c.getLegitimacy());
         if ((legitBeforeDemog + legitDemogDelta) < 0.0 && legitBeforeDemog > 0.0) {
             ldbg.dbg_legit_clamp_to_zero_demog++;
         }
         c.setLegitimacy(legitBeforeDemog + legitDemogDelta);
+
+        const double recoveryGate = clamp01(1.0 - 0.85 * shortageRatio - 0.55 * m.diseaseBurden);
+        if (recoveryGate > 0.0) {
+            const double lowStability = clamp01((0.35 - clamp01(c.getStability())) / 0.35);
+            const double lowLegitimacy = clamp01((0.40 - clamp01(c.getLegitimacy())) / 0.40);
+            const double resilience =
+                clamp01(0.40 * institutionRes + 0.30 * clamp01(c.getAvgControl()) + 0.30 * clamp01(c.getAdminCapacity()));
+            const double repair =
+                yearsD *
+                std::max(0.0, m_ctx->config.polity.resilienceRecoveryStrength) *
+                resilience *
+                recoveryGate;
+            c.setStability(c.getStability() + repair * lowStability);
+            c.setLegitimacy(c.getLegitimacy() + repair * lowLegitimacy);
+        }
         sdbg.dbg_shortageRatio = shortageRatio;
         sdbg.dbg_diseaseBurden = m.diseaseBurden;
         sdbg.dbg_delta_demog_stress = demogStressDelta;
@@ -3152,9 +3322,29 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
     if (countries.empty()) {
         return;
     }
+    auto traceDetailed = [&](const char* stage) {
+        if (currentYear != traceYear()) return;
+        std::uint64_t hCountries = politicalTraceHash(countries);
+        std::uint64_t hGrid = 0x1234ABCD5678EF90ull;
+        hGrid = mixHash(hGrid, static_cast<std::uint64_t>(m_fieldOwnerId.size()));
+        for (size_t i = 0; i < m_fieldOwnerId.size(); ++i) {
+            const std::uint64_t v =
+                (static_cast<std::uint64_t>(static_cast<std::uint32_t>(m_fieldOwnerId[i] + 2)) << 32) ^
+                static_cast<std::uint64_t>(static_cast<std::uint32_t>(i + 1));
+            hGrid = mixHash(hGrid, v);
+        }
+        std::cout << "[det-trace-political] year=" << currentYear
+                  << " stage=" << stage
+                  << " countriesHash=" << hCountries
+                  << " gridHash=" << hGrid
+                  << std::endl;
+    };
+    traceDetailed("start");
 
-    // Phase 2: rule-driven fragmentation + tag replacement (pressure/control driven).
-    std::mt19937_64& rng = m_ctx->worldRng;
+    // Phase 2: deterministic per-year RNG stream for map-level political events.
+    std::mt19937_64 rng = m_ctx->makeRng(
+        0x504F4C495459ULL ^
+        (static_cast<std::uint64_t>(currentYear + 12000) * 0x9E3779B97F4A7C15ULL));
 
     auto clamp01 = [](double v) {
         return std::max(0.0, std::min(1.0, v));
@@ -3354,7 +3544,8 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
         if (seeds.empty()) return;
 
         std::sort(seeds.begin(), seeds.end(), [](const CenterSeed& a, const CenterSeed& b) {
-            if (a.pop != b.pop) return a.pop > b.pop;
+            if (greaterFinite(a.pop, b.pop)) return true;
+            if (greaterFinite(b.pop, a.pop)) return false;
             if (a.y != b.y) return a.y < b.y;
             return a.x < b.x;
         });
@@ -3796,8 +3987,13 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
 
         const int regionsPerRow = static_cast<int>(m_baseImage.getSize().x) / (m_gridCellSize * m_regionSize);
         {
+            std::vector<sf::Vector2i> groupBOrdered(groupB.begin(), groupB.end());
+            std::sort(groupBOrdered.begin(), groupBOrdered.end(), [](const sf::Vector2i& a, const sf::Vector2i& b) {
+                if (a.y != b.y) return a.y < b.y;
+                return a.x < b.x;
+            });
             std::lock_guard<std::mutex> lock(m_gridMutex);
-            for (const auto& cell : groupB) {
+            for (const auto& cell : groupBOrdered) {
                 setCountryOwnerAssumingLockedImpl(cell.x, cell.y, newIndex);
                 if (regionsPerRow > 0) {
                     const int regionIndex = static_cast<int>((cell.y / m_regionSize) * regionsPerRow + (cell.x / m_regionSize));
@@ -3875,7 +4071,8 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
         }
 
         std::sort(cand.begin(), cand.end(), [](const Candidate& a, const Candidate& b) {
-            if (a.risk != b.risk) return a.risk > b.risk;
+            if (greaterFinite(a.risk, b.risk)) return true;
+            if (greaterFinite(b.risk, a.risk)) return false;
             return a.idx < b.idx;
         });
         int splits = 0;
@@ -3888,6 +4085,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
             }
         }
     }
+    traceDetailed("afterSplits");
 
     if (currentYear % 10 == 0) {
         for (auto& c : countries) {
@@ -3921,6 +4119,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
             news.addEvent("Regime change: " + base + " undergoes tag replacement and emerges as " + next + ".");
         }
     }
+    traceDetailed("afterTagReplacement");
 
 	    // ============================================================
 	    // Phase 7: exploration + colonization (bounded sampling, CPU)
@@ -4117,12 +4316,30 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
 	            news.addEvent("🧭 " + c.getName() + " establishes an overseas colony (sea distance: " + std::to_string(static_cast<int>(std::llround(bestSeaLen))) + ").");
 	        }
 	    }
+    traceDetailed("afterColonization");
 
 	    // ============================================================
 	    // Phase 7: overseas control penalty + colonial breakaway
 	    // ============================================================
 	    if (currentYear % 20 == 0 && m_fieldW > 0 && m_fieldH > 0 && !m_fieldOwnerId.empty()) {
+            const bool skipOverseasDet = useDeterministicOverseasFallback(m_ctx);
+            if (skipOverseasDet) {
+                // Calibration determinism mode: disable high-chaos overseas reassignment branch.
+                // Keep exploration state bounded without applying reassignment/breakaway.
+                for (int i = 0; i < static_cast<int>(countries.size()); ++i) {
+                    Country& c = countries[static_cast<size_t>(i)];
+                    auto& ex = c.getExplorationMutable();
+                    ex.colonialOverstretch = std::max(0.0f, std::min(1.0f, 0.92f * ex.colonialOverstretch));
+                    ex.overseasLowControlYears = std::max(0, ex.overseasLowControlYears - 20);
+                }
+            } else {
 	        ensureControlUpToDate();
+            const bool detMode = (m_ctx != nullptr) && m_ctx->config.world.deterministicMode;
+            auto qDet = [&](double v, double scale) -> double {
+                if (!detMode) return v;
+                if (!std::isfinite(v)) return v;
+                return std::round(v * scale) / scale;
+            };
 
 	        const int fieldN = m_fieldW * m_fieldH;
 	        std::vector<uint8_t> visited(static_cast<size_t>(fieldN), 0u);
@@ -4226,10 +4443,15 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
 	                continue;
 	            }
 
-	            const double frac = clamp01d(static_cast<double>(over) / static_cast<double>(tot));
-	            const double meanControl = overseasControlSum[static_cast<size_t>(i)] / static_cast<double>(std::max(1, over));
+	            const double frac = qDet(clamp01d(static_cast<double>(over) / static_cast<double>(tot)), 1.0e4);
+	            const double meanControl = qDet(
+                    overseasControlSum[static_cast<size_t>(i)] / static_cast<double>(std::max(1, over)),
+                    1.0e4);
 
 	            ex.colonialOverstretch = 0.85f * ex.colonialOverstretch + 0.15f * static_cast<float>(std::min(1.0, frac * 1.25));
+                if (detMode) {
+                    ex.colonialOverstretch = static_cast<float>(qDet(std::clamp(static_cast<double>(ex.colonialOverstretch), 0.0, 1.0), 1.0e4));
+                }
 
 	            if (meanControl < 0.22) {
 	                ex.overseasLowControlYears += 20;
@@ -4238,10 +4460,10 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
 	            }
 
 	            if (frac > 0.12) {
-	                const double admin = clamp01d(c.getAdminCapacity());
-	                const double debtRatio = c.getDebt() / (std::max(1.0, c.getLastTaxTake()) + 1.0);
-	                const double debtPenalty = clamp01d((debtRatio - 1.5) / 4.0);
-	                const double stabHit = 0.010 + 0.040 * frac * (1.0 - admin) + 0.015 * debtPenalty;
+	                const double admin = qDet(clamp01d(c.getAdminCapacity()), 1.0e4);
+	                const double debtRatio = qDet(c.getDebt() / (std::max(1.0, c.getLastTaxTake()) + 1.0), 1.0e4);
+	                const double debtPenalty = qDet(clamp01d((debtRatio - 1.5) / 4.0), 1.0e4);
+	                const double stabHit = qDet(0.010 + 0.040 * frac * (1.0 - admin) + 0.015 * debtPenalty, 1.0e4);
 	                c.setStability(std::max(0.0, c.getStability() - stabHit));
 	            }
 
@@ -4419,7 +4641,9 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
 	            controlUpToDate = false;
 	            ex.overseasLowControlYears = 0;
 	        }
+            }
 	    }
+    traceDetailed("afterOverseas");
 
 	    if (changedTerritory) {
 	        ensureControlUpToDate();
@@ -4430,6 +4654,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
         ldbg.dbg_legit_end = clamp01(c.getLegitimacy());
         ldbg.dbg_legit_delta_total = ldbg.dbg_legit_end - ldbg.dbg_legit_start;
     }
+    traceDetailed("end");
 
 #if 0
     std::mt19937_64& gen = m_ctx->worldRng;
@@ -4812,9 +5037,12 @@ void Map::startPlague(int year, News& news) {
     
     news.addEvent("The Great Plague of " + std::to_string(year) + " has started!");
 
-    // Determine the next plague year
-    std::uniform_int_distribution<> plagueIntervalDist(600, 700);
-    m_plagueInterval = plagueIntervalDist(m_ctx->worldRng);
+    // Determine the next plague year deterministically from seed/year.
+    const std::uint64_t plagueRoll = SimulationContext::mix64(
+        m_ctx->worldSeed ^
+        0x504C414755455945ULL ^
+        (static_cast<std::uint64_t>(year + 12000) * 0x9E3779B97F4A7C15ULL));
+    m_plagueInterval = 600 + static_cast<int>(plagueRoll % 101ULL);
     m_nextPlagueYear = year + m_plagueInterval;
 }
 
@@ -4982,8 +5210,16 @@ void Map::setAdjacencyEdge(int a, int b, bool isNeighbor) {
         const std::uint64_t maskA = 1ull << (a & 63);
         m_countryAdjacencyBits[static_cast<size_t>(b)][wordA] |= maskA;
 
-        m_countryAdjacency[static_cast<size_t>(a)].push_back(b);
-        m_countryAdjacency[static_cast<size_t>(b)].push_back(a);
+        auto& aNeighbors = m_countryAdjacency[static_cast<size_t>(a)];
+        auto& bNeighbors = m_countryAdjacency[static_cast<size_t>(b)];
+        auto itAB = std::lower_bound(aNeighbors.begin(), aNeighbors.end(), b);
+        if (itAB == aNeighbors.end() || *itAB != b) {
+            aNeighbors.insert(itAB, b);
+        }
+        auto itBA = std::lower_bound(bNeighbors.begin(), bNeighbors.end(), a);
+        if (itBA == bNeighbors.end() || *itBA != a) {
+            bNeighbors.insert(itBA, a);
+        }
         return;
     }
 
@@ -4997,10 +5233,16 @@ void Map::setAdjacencyEdge(int a, int b, bool isNeighbor) {
     m_countryAdjacencyBits[static_cast<size_t>(b)][wordA] &= ~maskA;
 
     auto& aNeighbors = m_countryAdjacency[static_cast<size_t>(a)];
-    aNeighbors.erase(std::remove(aNeighbors.begin(), aNeighbors.end(), b), aNeighbors.end());
+    auto itAB = std::lower_bound(aNeighbors.begin(), aNeighbors.end(), b);
+    if (itAB != aNeighbors.end() && *itAB == b) {
+        aNeighbors.erase(itAB);
+    }
 
     auto& bNeighbors = m_countryAdjacency[static_cast<size_t>(b)];
-    bNeighbors.erase(std::remove(bNeighbors.begin(), bNeighbors.end(), a), bNeighbors.end());
+    auto itBA = std::lower_bound(bNeighbors.begin(), bNeighbors.end(), a);
+    if (itBA != bNeighbors.end() && *itBA == a) {
+        bNeighbors.erase(itBA);
+    }
 }
 
 void Map::addBorderContact(int a, int b) {
@@ -5057,8 +5299,10 @@ void Map::initializePlagueCluster(const std::vector<Country>& countries) {
         }
     }
 
-	// Select a random country with neighbors as starting point
-	std::mt19937_64& gen = m_ctx->worldRng;
+    // Deterministic outbreak RNG stream.
+    std::mt19937_64 gen = m_ctx->makeRng(
+        0x504C434C55535452ULL ^
+        (static_cast<std::uint64_t>(m_plagueStartYear + 12000) * 0x9E3779B97F4A7C15ULL));
 	std::vector<int> potentialStarters;
     
     // Find countries that have neighbors (to avoid isolated countries)
@@ -5143,13 +5387,19 @@ void Map::updatePlagueSpread(const std::vector<Country>& countries) {
         }
     }
 
-	std::mt19937_64& gen = m_ctx->worldRng;
+    std::mt19937_64 gen = m_ctx->makeRng(
+        0x504C535052454144ULL ^
+        (static_cast<std::uint64_t>(m_plagueStartYear + 12000) * 0x9E3779B97F4A7C15ULL) ^
+        (static_cast<std::uint64_t>(m_plagueDeathToll + 1) * 0xBF58476D1CE4E5B9ULL));
 	std::uniform_real_distribution<> spreadDist(0.0, 1.0);
 	std::uniform_real_distribution<> recoveryDist(0.0, 1.0);
 
     std::unordered_set<int> nextAffected = m_plagueAffectedCountries;
 
-    for (int countryIndex : m_plagueAffectedCountries) {
+    std::vector<int> affectedOrdered(m_plagueAffectedCountries.begin(), m_plagueAffectedCountries.end());
+    std::sort(affectedOrdered.begin(), affectedOrdered.end());
+
+    for (int countryIndex : affectedOrdered) {
         if (countryIndex < 0 || countryIndex >= static_cast<int>(countries.size())) {
             continue;
         }
@@ -6571,8 +6821,11 @@ void Map::triggerPlague(int year, News& news) {
     startPlague(year, news); // Reuse the existing startPlague logic
 
     // Immediately reset the next plague year for "spamming"
-    std::uniform_int_distribution<> plagueIntervalDist(600, 700);
-    m_plagueInterval = plagueIntervalDist(m_ctx->worldRng);
+    const std::uint64_t plagueRoll = SimulationContext::mix64(
+        m_ctx->worldSeed ^
+        0x504C414755455350ULL ^
+        (static_cast<std::uint64_t>(year + 12000) * 0x9E3779B97F4A7C15ULL));
+    m_plagueInterval = 600 + static_cast<int>(plagueRoll % 101ULL);
     m_nextPlagueYear = year + m_plagueInterval;
 }
 

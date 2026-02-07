@@ -507,7 +507,8 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
                                     double taxTakeAnnual,
                                     int dtYears,
                                     int techCount,
-                                    bool plagueAffected) {
+                                    bool plagueAffected,
+                                    const SimulationConfig& simCfg) {
     auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
     auto& sdbg = m_macro.stabilityDebug;
     auto& ldbg = m_macro.legitimacyDebug;
@@ -730,6 +731,32 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
             ldbg.dbg_legit_budget_drift_plague +
             ldbg.dbg_legit_budget_drift_war;
         applyBudgetLegitimacyDelta(ldbg.dbg_legit_budget_drift_total);
+
+        // Recovery from deep legitimacy collapse when state capacity and basic welfare remain viable.
+        const double lowLegit = clamp01((0.42 - clamp01(m_polity.legitimacy)) / 0.42);
+        const double crisis = clamp01(
+            0.45 * warPressure +
+            0.35 * faminePressure +
+            0.20 * shortfallStress +
+            0.20 * serviceStress);
+        const double legitimacyRecovery =
+            yearsD *
+            std::max(0.0, simCfg.polity.legitimacyRecoveryStrength) *
+            lowLegit *
+            (0.35 + 0.65 * institutionCapacity) *
+            (0.40 + 0.60 * clamp01(m_polity.adminCapacity)) *
+            (0.45 + 0.55 * control) *
+            (0.25 + 0.75 * clamp01(m_macro.foodSecurity)) *
+            (1.0 - 0.80 * crisis);
+        applyBudgetLegitimacyDelta(legitimacyRecovery);
+
+        const double institutionalFloor =
+            0.04 *
+            clamp01(0.55 * institutionCapacity + 0.45 * clamp01(m_polity.adminCapacity)) *
+            (1.0 - 0.80 * crisis);
+        if (m_polity.legitimacy < institutionalFloor) {
+            m_polity.legitimacy = institutionalFloor;
+        }
     }
 
     // Low territorial control creates local failure that feeds back into stability.
@@ -764,7 +791,26 @@ void Country::resetStagnation() {
 
 sf::Vector2i Country::getCapitalLocation() const {
     if (!m_cities.empty()) {
-        return m_cities.front().getLocation();
+        for (const auto& city : m_cities) {
+            if (city.getLocation() == m_startingPixel) {
+                return m_startingPixel;
+            }
+        }
+        const City* best = &m_cities.front();
+        for (const auto& city : m_cities) {
+            if (city.getPopulation() > best->getPopulation()) {
+                best = &city;
+                continue;
+            }
+            if (city.getPopulation() == best->getPopulation()) {
+                const sf::Vector2i a = city.getLocation();
+                const sf::Vector2i b = best->getLocation();
+                if (a.y < b.y || (a.y == b.y && a.x < b.x)) {
+                    best = &city;
+                }
+            }
+        }
+        return best->getLocation();
     }
     return m_startingPixel;
 }
@@ -812,6 +858,11 @@ void Country::setFactories(const std::vector<sf::Vector2i>& factories) {
 
 void Country::setPorts(const std::vector<sf::Vector2i>& ports) {
     m_ports = ports;
+    std::sort(m_ports.begin(), m_ports.end(), [](const sf::Vector2i& a, const sf::Vector2i& b) {
+        if (a.y != b.y) return a.y < b.y;
+        return a.x < b.x;
+    });
+    m_ports.erase(std::unique(m_ports.begin(), m_ports.end()), m_ports.end());
 }
 
 void Country::clearPorts() {
@@ -1669,17 +1720,19 @@ bool Country::isNeighbor(const Country& other) const {
     double foodConsumption = m_population * 0.001;
     double foodAvailable = 0.0;
 
-    for (const auto& cell : m_boundaryPixels) {
+    for (const auto& cell : m_territoryVec) {
         if (cell.x >= 0 && cell.x < static_cast<int>(resourceGrid[0].size()) && 
             cell.y >= 0 && cell.y < static_cast<int>(resourceGrid.size())) {
-                // Use .at() to access elements of the const unordered_map
             auto it = resourceGrid[cell.y][cell.x].find(Resource::Type::FOOD);
             if (it != resourceGrid[cell.y][cell.x].end()) {
                 foodAvailable += it->second;
             }
-            for (const auto& [type, amount] : resourceGrid[cell.y][cell.x]) {
-                    if (type != Resource::Type::FOOD) {
-                        m_resourceManager.addResource(type, amount);
+            const auto& cellResources = resourceGrid[cell.y][cell.x];
+            for (Resource::Type type : Resource::kAllTypes) {
+                if (type == Resource::Type::FOOD) continue;
+                auto rit = cellResources.find(type);
+                if (rit != cellResources.end() && rit->second > 0.0) {
+                    m_resourceManager.addResource(type, rit->second);
                 }
             }
         }
@@ -1734,30 +1787,75 @@ bool Country::isNeighbor(const Country& other) const {
         m_stagnationYears = 0;
     }
 
+    const double yearsD = 1.0;
     bool plagueAffected = plagueActive && map.isCountryAffectedByPlague(m_countryIndex);
     double stabilityDelta = 0.0;
     double deltaWar = 0.0;
     double deltaPlague = 0.0;
     double deltaStagnation = 0.0;
     double deltaPeaceRecover = 0.0;
+    const double institution = clamp01(m_macro.institutionCapacity);
+    const double adminCap = clamp01(m_polity.adminCapacity);
+    const double controlNow = clamp01(m_avgControl);
+    const double legitNow = clamp01(m_polity.legitimacy);
+    const double healthSpend = clamp01(m_polity.healthSpendingShare);
+    const double resilience = clamp01(
+        0.42 * institution +
+        0.30 * adminCap +
+        0.16 * controlNow +
+        0.12 * legitNow);
     if (isAtWar()) {
-        deltaWar = -0.05;
+        const double warExhaust = clamp01(m_warExhaustion);
+        deltaWar =
+            -yearsD *
+            std::max(0.0, simCfg.polity.yearlyWarStabilityHit) *
+            (0.70 + 0.90 * warExhaust) *
+            (1.0 - 0.45 * resilience);
         stabilityDelta += deltaWar;
     }
     if (plagueAffected) {
-        deltaPlague = -0.08;
+        deltaPlague =
+            -yearsD *
+            std::max(0.0, simCfg.polity.yearlyPlagueStabilityHit) *
+            (1.0 - 0.40 * healthSpend - 0.35 * institution);
         stabilityDelta += deltaPlague;
     }
     if (m_stagnationYears > 20) {
-        deltaStagnation = -0.02;
+        deltaStagnation =
+            -yearsD *
+            std::max(0.0, simCfg.polity.yearlyStagnationStabilityHit) *
+            (0.70 + 0.30 * (1.0 - resilience));
         stabilityDelta += deltaStagnation;
     }
     if (!isAtWar() && !plagueAffected) {
-        deltaPeaceRecover = (growthRatio > 0.003) ? 0.02 : 0.005;
+        const double baseRecovery =
+            (growthRatio > 0.003)
+            ? std::max(0.0, simCfg.polity.peaceRecoveryHighGrowth)
+            : std::max(0.0, simCfg.polity.peaceRecoveryLowGrowth);
+        deltaPeaceRecover = yearsD * baseRecovery * (0.45 + 0.55 * resilience);
         stabilityDelta += deltaPeaceRecover;
     }
+    const double crisis = clamp01(
+        0.50 * (isAtWar() ? 1.0 : 0.0) +
+        0.35 * (plagueAffected ? 1.0 : 0.0) +
+        0.25 * clamp01(m_macro.famineSeverity));
+    const double lowStability = clamp01((0.40 - clamp01(m_stability)) / 0.40);
+    const double tailRecovery =
+        yearsD *
+        std::max(0.0, simCfg.polity.resilienceRecoveryStrength) *
+        lowStability *
+        resilience *
+        (1.0 - 0.75 * crisis);
+    stabilityDelta += tailRecovery;
 
     m_stability = std::max(0.0, std::min(1.0, m_stability + stabilityDelta));
+    {
+        // Avoid permanent hard-zero traps for capable polities outside active acute crises.
+        const double structuralFloor = 0.04 * resilience * (1.0 - 0.85 * crisis);
+        if (m_stability < structuralFloor) {
+            m_stability = structuralFloor;
+        }
+    }
     sdbg.dbg_growthRatio_used = growthRatio;
     sdbg.dbg_stagnationYears = m_stagnationYears;
     sdbg.dbg_isAtWar = isAtWar();
@@ -2000,6 +2098,116 @@ sf::Vector2i Country::randomTerritoryCell(std::mt19937_64& rng) const {
     }
     std::uniform_int_distribution<size_t> pick(0u, m_territoryVec.size() - 1u);
     return m_territoryVec[pick(rng)];
+}
+
+sf::Vector2i Country::deterministicTerritoryAnchor() const {
+    if (m_territoryVec.empty()) {
+        return getCapitalLocation();
+    }
+    sf::Vector2i best = m_territoryVec.front();
+    for (const sf::Vector2i& cell : m_territoryVec) {
+        if (cell.y < best.y || (cell.y == best.y && cell.x < best.x)) {
+            best = cell;
+        }
+    }
+    return best;
+}
+
+void Country::canonicalizeDeterministicContainers() {
+    auto coordLess = [](const sf::Vector2i& a, const sf::Vector2i& b) {
+        if (a.y != b.y) return a.y < b.y;
+        return a.x < b.x;
+    };
+
+    // Canonicalize territory order used by random sampling to avoid insertion-history drift.
+    if (!m_territoryVec.empty()) {
+        std::sort(m_territoryVec.begin(), m_territoryVec.end(), coordLess);
+        m_territoryVec.erase(std::unique(m_territoryVec.begin(), m_territoryVec.end()), m_territoryVec.end());
+    }
+    m_boundaryPixels.clear();
+    m_boundaryPixels.reserve(m_territoryVec.size());
+    m_territoryIndex.clear();
+    m_territoryIndex.reserve(m_territoryVec.size());
+    for (size_t i = 0; i < m_territoryVec.size(); ++i) {
+        const sf::Vector2i& c = m_territoryVec[i];
+        m_boundaryPixels.insert(c);
+        m_territoryIndex[c] = i;
+    }
+
+    auto sortUniqueCoords = [&](std::vector<sf::Vector2i>& v) {
+        if (v.empty()) return;
+        std::sort(v.begin(), v.end(), coordLess);
+        v.erase(std::unique(v.begin(), v.end()), v.end());
+    };
+    sortUniqueCoords(m_ports);
+    sortUniqueCoords(m_roads);
+    sortUniqueCoords(m_factories);
+
+    if (!m_cities.empty()) {
+        std::sort(m_cities.begin(), m_cities.end(), [&](const City& a, const City& b) {
+            return coordLess(a.getLocation(), b.getLocation());
+        });
+        const auto itCap = std::find_if(m_cities.begin(), m_cities.end(), [&](const City& c) {
+            return c.getLocation() == m_startingPixel;
+        });
+        if (itCap != m_cities.end() && itCap != m_cities.begin()) {
+            std::iter_swap(m_cities.begin(), itCap);
+        }
+    }
+
+    std::sort(m_enemies.begin(), m_enemies.end(), [](const Country* a, const Country* b) {
+        if (a == b) return false;
+        if (!a) return false;
+        if (!b) return true;
+        return a->getCountryIndex() < b->getCountryIndex();
+    });
+    m_enemies.erase(std::unique(m_enemies.begin(), m_enemies.end()), m_enemies.end());
+}
+
+void Country::canonicalizeDeterministicScalars(double fineScale, double govScale) {
+    auto q = [](double v, double scale) -> double {
+        if (!std::isfinite(v)) return v;
+        return std::round(v * scale) / scale;
+    };
+    auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+
+    m_gold = std::max(0.0, q(m_gold, fineScale));
+    m_wealth = std::max(0.0, q(m_wealth, fineScale));
+    m_gdp = std::max(0.0, q(m_gdp, fineScale));
+    m_exports = std::max(0.0, q(m_exports, fineScale));
+    m_totalCityPopulation = std::max(0.0, q(m_totalCityPopulation, fineScale));
+    m_lastTaxBase = std::max(0.0, q(m_lastTaxBase, fineScale));
+    m_lastTaxTake = std::max(0.0, q(m_lastTaxTake, fineScale));
+    m_eliteDefectionPressure = clamp01(q(m_eliteDefectionPressure, govScale));
+
+    m_polity.legitimacy = clamp01(q(m_polity.legitimacy, govScale));
+    m_polity.adminCapacity = clamp01(q(m_polity.adminCapacity, govScale));
+    m_polity.fiscalCapacity = clamp01(q(m_polity.fiscalCapacity, govScale));
+    m_polity.logisticsReach = clamp01(q(m_polity.logisticsReach, govScale));
+    m_polity.taxRate = std::clamp(q(m_polity.taxRate, govScale), 0.0, 0.8);
+    m_polity.treasurySpendRate = std::clamp(q(m_polity.treasurySpendRate, govScale), 0.3, 2.2);
+    m_polity.debt = std::max(0.0, q(m_polity.debt, fineScale));
+
+    m_polity.militarySpendingShare = std::max(0.0, q(m_polity.militarySpendingShare, govScale));
+    m_polity.adminSpendingShare = std::max(0.0, q(m_polity.adminSpendingShare, govScale));
+    m_polity.infraSpendingShare = std::max(0.0, q(m_polity.infraSpendingShare, govScale));
+    m_polity.healthSpendingShare = std::max(0.0, q(m_polity.healthSpendingShare, govScale));
+    m_polity.educationSpendingShare = std::max(0.0, q(m_polity.educationSpendingShare, govScale));
+    m_polity.rndSpendingShare = std::max(0.0, q(m_polity.rndSpendingShare, govScale));
+    const double shareSum = m_polity.militarySpendingShare +
+                            m_polity.adminSpendingShare +
+                            m_polity.infraSpendingShare +
+                            m_polity.healthSpendingShare +
+                            m_polity.educationSpendingShare +
+                            m_polity.rndSpendingShare;
+    if (shareSum > 1.0e-12) {
+        m_polity.militarySpendingShare /= shareSum;
+        m_polity.adminSpendingShare /= shareSum;
+        m_polity.infraSpendingShare /= shareSum;
+        m_polity.healthSpendingShare /= shareSum;
+        m_polity.educationSpendingShare /= shareSum;
+        m_polity.rndSpendingShare /= shareSum;
+    }
 }
 
 // Get the resource manager
@@ -2926,7 +3134,7 @@ void Country::applyScienceMultiplier(double bonus) {
 double Country::computeYearlyFood(
     const std::vector<std::vector<std::unordered_map<Resource::Type,double>>>& resourceGrid) const {
     double f = 0.0;
-    for (const auto& p : m_boundaryPixels) {
+    for (const auto& p : m_territoryVec) {
         if (p.y >= 0 && p.y < static_cast<int>(resourceGrid.size()) && 
             p.x >= 0 && p.x < static_cast<int>(resourceGrid[p.y].size())) {
             auto it = resourceGrid[p.y][p.x].find(Resource::Type::FOOD);
@@ -3465,6 +3673,11 @@ void Country::buildPorts(const std::vector<std::vector<bool>>& isLandGrid,
                 continue;
             }
             m_ports.push_back(candidate);
+            std::sort(m_ports.begin(), m_ports.end(), [](const sf::Vector2i& a, const sf::Vector2i& b) {
+                if (a.y != b.y) return a.y < b.y;
+                return a.x < b.x;
+            });
+            m_ports.erase(std::unique(m_ports.begin(), m_ports.end()), m_ports.end());
             news.addEvent("⚓ PORT BUILT: " + m_name + " constructs a coastal port.");
             return true;
         }
@@ -3505,6 +3718,11 @@ void Country::buildPorts(const std::vector<std::vector<bool>>& isLandGrid,
         const sf::Vector2i candidate = randomTerritoryCell(gen);
         if (canPlace(candidate)) {
             m_ports.push_back(candidate);
+            std::sort(m_ports.begin(), m_ports.end(), [](const sf::Vector2i& a, const sf::Vector2i& b) {
+                if (a.y != b.y) return a.y < b.y;
+                return a.x < b.x;
+            });
+            m_ports.erase(std::unique(m_ports.begin(), m_ports.end()), m_ports.end());
             news.addEvent("⚓ PORT BUILT: " + m_name + " establishes a coastal port.");
             return;
         }
@@ -3633,6 +3851,11 @@ bool Country::forceAddPort(const Map& map, const sf::Vector2i& pos) {
     }
 
     m_ports.push_back(pos);
+    std::sort(m_ports.begin(), m_ports.end(), [](const sf::Vector2i& a, const sf::Vector2i& b) {
+        if (a.y != b.y) return a.y < b.y;
+        return a.x < b.x;
+    });
+    m_ports.erase(std::unique(m_ports.begin(), m_ports.end()), m_ports.end());
     return true;
 }
 

@@ -18,6 +18,7 @@
 // Forward declaration of Map
 class Map;
 class CultureManager;
+struct SimulationConfig;
 
 namespace std {
     template <>
@@ -344,7 +345,8 @@ public:
                                 double taxTakeAnnual,
                                 int dtYears,
                                 int techCount,
-                                bool plagueAffected);
+                                bool plagueAffected,
+                                const SimulationConfig& simCfg);
 
     // Phase 5A: knowledge domains (innovation + diffusion, no point hoarding).
     static constexpr int kDomains = 8;
@@ -432,6 +434,9 @@ public:
     void addTerritoryCell(const sf::Vector2i& c);
     void removeTerritoryCell(const sf::Vector2i& c);
     sf::Vector2i randomTerritoryCell(std::mt19937_64& rng) const;
+    sf::Vector2i deterministicTerritoryAnchor() const;
+    void canonicalizeDeterministicContainers();
+    void canonicalizeDeterministicScalars(double fineScale, double govScale);
     const std::vector<sf::Vector2i>& getTerritoryVec() const { return m_territoryVec; }
     const ResourceManager& getResourceManager() const;
     const std::string& getName() const;
@@ -582,8 +587,8 @@ public:
     const std::array<double, 5>& getPopulationCohorts() const { return m_popCohorts; } // 0-4,5-14,15-49,50-64,65+
     std::array<double, 5>& getPopulationCohortsMutable() { return m_popCohorts; }
     struct EpidemicState {
-        double s = 0.995;
-        double i = 0.005;
+        double s = 0.999;
+        double i = 0.001;
         double r = 0.0;
     };
     const EpidemicState& getEpidemicState() const { return m_epi; }

@@ -1,0 +1,30 @@
+
+=== Building Release x64 ===
+**********************************************************************
+** Visual Studio 2022 Developer Command Prompt v17.12.4
+** Copyright (c) 2022 Microsoft Corporation
+**********************************************************************
+
+=== Configuring Release x64 (Ninja) ===
+-- Found SFML 2.6.1 in C:/SFML-2.6.1/lib/cmake/SFML
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: C:/WS/WorldSimulation10028/out/cmake/release
+
+=== Building in out\cmake\release ===
+[1/4] Building CXX object CMakeFiles\worldsim_cli.dir\src\country.cpp.obj
+C:\WS\WorldSimulation10028\src\country.cpp(2235): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\WS\WorldSimulation10028\src\country.cpp(2895): warning C4267: 'argument': conversion from 'size_t' to '_Ty', possible loss of data
+        with
+        [
+            _Ty=int
+        ]
+[2/4] Building CXX object CMakeFiles\WorldSimulation.dir\src\country.cpp.obj
+C:\WS\WorldSimulation10028\src\country.cpp(2235): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\WS\WorldSimulation10028\src\country.cpp(2895): warning C4267: 'argument': conversion from 'size_t' to '_Ty', possible loss of data
+        with
+        [
+            _Ty=int
+        ]
+[3/4] Linking CXX executable bin\worldsim_cli.exe
+[4/4] Linking CXX executable bin\WorldSimulation.exe

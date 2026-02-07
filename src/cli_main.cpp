@@ -58,6 +58,7 @@ struct MetricsSnapshot {
     double medianCountryArea = 0.0;
     double warFrequencyPerCentury = 0.0;
     double tradeIntensity = 0.0;
+    double tradeActivePairShare = 0.0;
     double capabilityTier1Share = 0.0;
     double capabilityTier2Share = 0.0;
     double capabilityTier3Share = 0.0;
@@ -66,6 +67,12 @@ struct MetricsSnapshot {
     double foodSecurityP10 = 0.0;
     double diseaseBurdenMean = 0.0;
     double diseaseBurdenP90 = 0.0;
+    double stabilityMean = 0.0;
+    double stabilityP10 = 0.0;
+    double legitimacyMean = 0.0;
+    double legitimacyP10 = 0.0;
+    double lowStabilityPopShare = 0.0;
+    double lowLegitimacyPopShare = 0.0;
 };
 
 bool parseUInt64(const std::string& s, std::uint64_t& out) {
@@ -280,13 +287,19 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
     std::vector<double> areas;
     std::vector<double> foodSec;
     std::vector<double> disease;
+    std::vector<double> stability;
+    std::vector<double> legitimacy;
     pops.reserve(countries.size());
     areas.reserve(countries.size());
     foodSec.reserve(countries.size());
     disease.reserve(countries.size());
+    stability.reserve(countries.size());
+    legitimacy.reserve(countries.size());
 
     double totalPop = 0.0;
     double totalUrban = 0.0;
+    double lowStabilityPop = 0.0;
+    double lowLegitimacyPop = 0.0;
     int live = 0;
     int tier1 = 0;
     int tier2 = 0;
@@ -308,6 +321,16 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
         areas.push_back(area);
         foodSec.push_back(std::clamp(c.getMacroEconomy().foodSecurity, 0.0, 1.0));
         disease.push_back(std::clamp(c.getMacroEconomy().diseaseBurden, 0.0, 1.0));
+        const double st = std::clamp(c.getStability(), 0.0, 1.0);
+        const double lg = std::clamp(c.getLegitimacy(), 0.0, 1.0);
+        stability.push_back(st);
+        legitimacy.push_back(lg);
+        if (st < 0.10) {
+            lowStabilityPop += pop;
+        }
+        if (lg < 0.10) {
+            lowLegitimacyPop += pop;
+        }
         live++;
 
         const auto& k = c.getKnowledge();
@@ -331,6 +354,12 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
     s.foodSecurityP10 = percentile(foodSec, 0.10);
     s.diseaseBurdenMean = disease.empty() ? 0.0 : (std::accumulate(disease.begin(), disease.end(), 0.0) / static_cast<double>(disease.size()));
     s.diseaseBurdenP90 = percentile(disease, 0.90);
+    s.stabilityMean = stability.empty() ? 0.0 : (std::accumulate(stability.begin(), stability.end(), 0.0) / static_cast<double>(stability.size()));
+    s.stabilityP10 = percentile(stability, 0.10);
+    s.legitimacyMean = legitimacy.empty() ? 0.0 : (std::accumulate(legitimacy.begin(), legitimacy.end(), 0.0) / static_cast<double>(legitimacy.size()));
+    s.legitimacyP10 = percentile(legitimacy, 0.10);
+    s.lowStabilityPopShare = (totalPop > 1e-9) ? std::clamp(lowStabilityPop / totalPop, 0.0, 1.0) : 0.0;
+    s.lowLegitimacyPopShare = (totalPop > 1e-9) ? std::clamp(lowLegitimacyPop / totalPop, 0.0, 1.0) : 0.0;
 
     s.capabilityTier1Share = (live > 0) ? static_cast<double>(tier1) / static_cast<double>(live) : 0.0;
     s.capabilityTier2Share = (live > 0) ? static_cast<double>(tier2) / static_cast<double>(live) : 0.0;
@@ -344,15 +373,25 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
     if (n > 1 && tradeIntensity.size() >= static_cast<size_t>(n) * static_cast<size_t>(n)) {
         double sum = 0.0;
         int cnt = 0;
+        int activeCnt = 0;
         for (int i = 0; i < n; ++i) {
             for (int j = 0; j < n; ++j) {
                 if (i == j) continue;
-                sum += std::max(0.0f, tradeIntensity[static_cast<size_t>(i) * static_cast<size_t>(n) + static_cast<size_t>(j)]);
+                const double v = std::max(0.0f, tradeIntensity[static_cast<size_t>(i) * static_cast<size_t>(n) + static_cast<size_t>(j)]);
+                if (v > 1e-6) {
+                    sum += v;
+                    activeCnt++;
+                }
                 cnt++;
             }
         }
+        if (activeCnt > 0) {
+            s.tradeIntensity = sum / static_cast<double>(activeCnt);
+        } else {
+            s.tradeIntensity = 0.0;
+        }
         if (cnt > 0) {
-            s.tradeIntensity = sum / static_cast<double>(cnt);
+            s.tradeActivePairShare = static_cast<double>(activeCnt) / static_cast<double>(cnt);
         }
     }
 
@@ -1035,9 +1074,9 @@ int main(int argc, char** argv) {
 
     {
         std::ofstream csv(csvPath);
-        csv << "year,worldPopulation,urbanShare,medianCountryPop,medianCountryArea,warFrequencyPerCentury,tradeIntensity,"
+        csv << "year,worldPopulation,urbanShare,medianCountryPop,medianCountryArea,warFrequencyPerCentury,tradeIntensity,tradeActivePairShare,"
                "capabilityTier1Share,capabilityTier2Share,capabilityTier3Share,collapseCount,foodSecurityMean,foodSecurityP10,"
-               "diseaseBurdenMean,diseaseBurdenP90\n";
+               "diseaseBurdenMean,diseaseBurdenP90,stabilityMean,stabilityP10,legitimacyMean,legitimacyP10,lowStabilityPopShare,lowLegitimacyPopShare\n";
         csv << std::fixed << std::setprecision(6);
         for (const MetricsSnapshot& s : checkpoints) {
             csv << s.year << ","
@@ -1047,6 +1086,7 @@ int main(int argc, char** argv) {
                 << s.medianCountryArea << ","
                 << s.warFrequencyPerCentury << ","
                 << s.tradeIntensity << ","
+                << s.tradeActivePairShare << ","
                 << s.capabilityTier1Share << ","
                 << s.capabilityTier2Share << ","
                 << s.capabilityTier3Share << ","
@@ -1054,7 +1094,13 @@ int main(int argc, char** argv) {
                 << s.foodSecurityMean << ","
                 << s.foodSecurityP10 << ","
                 << s.diseaseBurdenMean << ","
-                << s.diseaseBurdenP90 << "\n";
+                << s.diseaseBurdenP90 << ","
+                << s.stabilityMean << ","
+                << s.stabilityP10 << ","
+                << s.legitimacyMean << ","
+                << s.legitimacyP10 << ","
+                << s.lowStabilityPopShare << ","
+                << s.lowLegitimacyPopShare << "\n";
         }
     }
 
@@ -1084,6 +1130,7 @@ int main(int argc, char** argv) {
             js << "      \"medianCountryArea\": " << s.medianCountryArea << ",\n";
             js << "      \"warFrequencyPerCentury\": " << s.warFrequencyPerCentury << ",\n";
             js << "      \"tradeIntensity\": " << s.tradeIntensity << ",\n";
+            js << "      \"tradeActivePairShare\": " << s.tradeActivePairShare << ",\n";
             js << "      \"techCapabilityLevels\": {\n";
             js << "        \"tier1Share\": " << s.capabilityTier1Share << ",\n";
             js << "        \"tier2Share\": " << s.capabilityTier2Share << ",\n";
@@ -1097,6 +1144,14 @@ int main(int argc, char** argv) {
             js << "      \"diseaseBurden\": {\n";
             js << "        \"mean\": " << s.diseaseBurdenMean << ",\n";
             js << "        \"p90\": " << s.diseaseBurdenP90 << "\n";
+            js << "      },\n";
+            js << "      \"stateQuality\": {\n";
+            js << "        \"stabilityMean\": " << s.stabilityMean << ",\n";
+            js << "        \"stabilityP10\": " << s.stabilityP10 << ",\n";
+            js << "        \"legitimacyMean\": " << s.legitimacyMean << ",\n";
+            js << "        \"legitimacyP10\": " << s.legitimacyP10 << ",\n";
+            js << "        \"lowStabilityPopShare\": " << s.lowStabilityPopShare << ",\n";
+            js << "        \"lowLegitimacyPopShare\": " << s.lowLegitimacyPopShare << "\n";
             js << "      }\n";
             js << "    }" << (i + 1 < checkpoints.size() ? "," : "") << "\n";
         }

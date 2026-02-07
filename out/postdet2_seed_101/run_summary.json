@@ -1,0 +1,3887 @@
+{
+  "seed": 101,
+  "configPath": "data\\sim_config.toml",
+  "configHash": "f5bb79407e0501e6",
+  "startYear": -5000,
+  "endYear": -2000,
+  "worldStartYear": -5000,
+  "useGPU": false,
+  "invariants": {
+    "ok": true,
+    "message": ""
+  },
+  "checkpoints": [
+    {
+      "year": -5000,
+      "worldPopulation": 8051014.000000,
+      "urbanShare": 0.025758,
+      "medianCountryPop": 56902.000000,
+      "medianCountryArea": 162.500000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.001881,
+      "tradeActivePairShare": 0.000707,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 2,
+      "foodSecurity": {
+        "mean": 0.999055,
+        "p10": 1.000000
+      },
+      "diseaseBurden": {
+        "mean": 0.000149,
+        "p90": 0.000153
+      },
+      "stateQuality": {
+        "stabilityMean": 0.998679,
+        "stabilityP10": 0.998170,
+        "legitimacyMean": 0.704541,
+        "legitimacyP10": 0.702270,
+        "lowStabilityPopShare": 0.000000,
+        "lowLegitimacyPopShare": 0.000000
+      }
+    },
+    {
+      "year": -4975,
+      "worldPopulation": 9379345.000000,
+      "urbanShare": 0.029040,
+      "medianCountryPop": 55542.000000,
+      "medianCountryArea": 163.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.000000,
+      "tradeActivePairShare": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 12,
+      "foodSecurity": {
+        "mean": 0.945962,
+        "p10": 0.811217
+      },
+      "diseaseBurden": {
+        "mean": 0.000076,
+        "p90": 0.000124
+      },
+      "stateQuality": {
+        "stabilityMean": 0.959855,
+        "stabilityP10": 0.973340,
+        "legitimacyMean": 0.710945,
+        "legitimacyP10": 0.493780,
+        "lowStabilityPopShare": 0.003556,
+        "lowLegitimacyPopShare": 0.005519
+      }
+    },
+    {
+      "year": -4950,
+      "worldPopulation": 10330751.000000,
+      "urbanShare": 0.029024,
+      "medianCountryPop": 63859.000000,
+      "medianCountryArea": 165.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.008956,
+      "tradeActivePairShare": 0.001287,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 16,
+      "foodSecurity": {
+        "mean": 0.962635,
+        "p10": 0.839931
+      },
+      "diseaseBurden": {
+        "mean": 0.000077,
+        "p90": 0.000137
+      },
+      "stateQuality": {
+        "stabilityMean": 0.870201,
+        "stabilityP10": 0.521080,
+        "legitimacyMean": 0.674714,
+        "legitimacyP10": 0.213020,
+        "lowStabilityPopShare": 0.018925,
+        "lowLegitimacyPopShare": 0.040839
+      }
+    },
+    {
+      "year": -4925,
+      "worldPopulation": 11061456.000000,
+      "urbanShare": 0.028785,
+      "medianCountryPop": 70537.000000,
+      "medianCountryArea": 167.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.007566,
+      "tradeActivePairShare": 0.001188,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 16,
+      "foodSecurity": {
+        "mean": 0.964124,
+        "p10": 0.832764
+      },
+      "diseaseBurden": {
+        "mean": 0.000093,
+        "p90": 0.000186
+      },
+      "stateQuality": {
+        "stabilityMean": 0.706472,
+        "stabilityP10": 0.007500,
+        "legitimacyMean": 0.576860,
+        "legitimacyP10": 0.012400,
+        "lowStabilityPopShare": 0.064907,
+        "lowLegitimacyPopShare": 0.096399
+      }
+    },
+    {
+      "year": -4900,
+      "worldPopulation": 11761738.000000,
+      "urbanShare": 0.028894,
+      "medianCountryPop": 69977.000000,
+      "medianCountryArea": 172.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.008732,
+      "tradeActivePairShare": 0.001068,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 21,
+      "foodSecurity": {
+        "mean": 0.965638,
+        "p10": 0.851733
+      },
+      "diseaseBurden": {
+        "mean": 0.000101,
+        "p90": 0.000190
+      },
+      "stateQuality": {
+        "stabilityMean": 0.595413,
+        "stabilityP10": 0.006570,
+        "legitimacyMean": 0.507311,
+        "legitimacyP10": 0.010580,
+        "lowStabilityPopShare": 0.111495,
+        "lowLegitimacyPopShare": 0.132334
+      }
+    },
+    {
+      "year": -4875,
+      "worldPopulation": 12481973.000000,
+      "urbanShare": 0.029444,
+      "medianCountryPop": 63629.000000,
+      "medianCountryArea": 172.500000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.004297,
+      "tradeActivePairShare": 0.001456,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 21,
+      "foodSecurity": {
+        "mean": 0.968867,
+        "p10": 0.868422
+      },
+      "diseaseBurden": {
+        "mean": 0.000121,
+        "p90": 0.000212
+      },
+      "stateQuality": {
+        "stabilityMean": 0.543503,
+        "stabilityP10": 0.006870,
+        "legitimacyMean": 0.476123,
+        "legitimacyP10": 0.011000,
+        "lowStabilityPopShare": 0.121726,
+        "lowLegitimacyPopShare": 0.174216
+      }
+    },
+    {
+      "year": -4850,
+      "worldPopulation": 13245782.000000,
+      "urbanShare": 0.029958,
+      "medianCountryPop": 59332.500000,
+      "medianCountryArea": 177.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.001757,
+      "tradeActivePairShare": 0.002136,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 21,
+      "foodSecurity": {
+        "mean": 0.974657,
+        "p10": 0.893936
+      },
+      "diseaseBurden": {
+        "mean": 0.000126,
+        "p90": 0.000227
+      },
+      "stateQuality": {
+        "stabilityMean": 0.502583,
+        "stabilityP10": 0.005990,
+        "legitimacyMean": 0.463051,
+        "legitimacyP10": 0.010680,
+        "lowStabilityPopShare": 0.125071,
+        "lowLegitimacyPopShare": 0.128875
+      }
+    },
+    {
+      "year": -4825,
+      "worldPopulation": 13951882.000000,
+      "urbanShare": 0.030355,
+      "medianCountryPop": 44797.000000,
+      "medianCountryArea": 173.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.002421,
+      "tradeActivePairShare": 0.001740,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 37,
+      "foodSecurity": {
+        "mean": 0.975035,
+        "p10": 0.908632
+      },
+      "diseaseBurden": {
+        "mean": 0.000127,
+        "p90": 0.000223
+      },
+      "stateQuality": {
+        "stabilityMean": 0.497384,
+        "stabilityP10": 0.006820,
+        "legitimacyMean": 0.456428,
+        "legitimacyP10": 0.011660,
+        "lowStabilityPopShare": 0.101924,
+        "lowLegitimacyPopShare": 0.104012
+      }
+    },
+    {
+      "year": -4800,
+      "worldPopulation": 14721883.000000,
+      "urbanShare": 0.030900,
+      "medianCountryPop": 41780.000000,
+      "medianCountryArea": 170.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.000000,
+      "tradeActivePairShare": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 45,
+      "foodSecurity": {
+        "mean": 0.977256,
+        "p10": 0.919991
+      },
+      "diseaseBurden": {
+        "mean": 0.000123,
+        "p90": 0.000212
+      },
+      "stateQuality": {
+        "stabilityMean": 0.501350,
+        "stabilityP10": 0.006900,
+        "legitimacyMean": 0.452766,
+        "legitimacyP10": 0.012120,
+        "lowStabilityPopShare": 0.082700,
+        "lowLegitimacyPopShare": 0.086905
+      }
+    },
+    {
+      "year": -4775,
+      "worldPopulation": 15510131.000000,
+      "urbanShare": 0.031373,
+      "medianCountryPop": 41282.500000,
+      "medianCountryArea": 170.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.003025,
+      "tradeActivePairShare": 0.001904,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 55,
+      "foodSecurity": {
+        "mean": 0.972525,
+        "p10": 0.909151
+      },
+      "diseaseBurden": {
+        "mean": 0.000112,
+        "p90": 0.000189
+      },
+      "stateQuality": {
+        "stabilityMean": 0.507657,
+        "stabilityP10": 0.007050,
+        "legitimacyMean": 0.455708,
+        "legitimacyP10": 0.012200,
+        "lowStabilityPopShare": 0.076884,
+        "lowLegitimacyPopShare": 0.082055
+      }
+    },
+    {
+      "year": -4750,
+      "worldPopulation": 16264685.000000,
+      "urbanShare": 0.031511,
+      "medianCountryPop": 37832.000000,
+      "medianCountryArea": 171.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.003749,
+      "tradeActivePairShare": 0.002336,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 55,
+      "foodSecurity": {
+        "mean": 0.971082,
+        "p10": 0.901350
+      },
+      "diseaseBurden": {
+        "mean": 0.000112,
+        "p90": 0.000189
+      },
+      "stateQuality": {
+        "stabilityMean": 0.509381,
+        "stabilityP10": 0.006850,
+        "legitimacyMean": 0.445392,
+        "legitimacyP10": 0.011900,
+        "lowStabilityPopShare": 0.073695,
+        "lowLegitimacyPopShare": 0.077689
+      }
+    },
+    {
+      "year": -4725,
+      "worldPopulation": 17066061.000000,
+      "urbanShare": 0.031401,
+      "medianCountryPop": 37137.000000,
+      "medianCountryArea": 170.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.003563,
+      "tradeActivePairShare": 0.002209,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 60,
+      "foodSecurity": {
+        "mean": 0.966627,
+        "p10": 0.902095
+      },
+      "diseaseBurden": {
+        "mean": 0.000117,
+        "p90": 0.000193
+      },
+      "stateQuality": {
+        "stabilityMean": 0.497835,
+        "stabilityP10": 0.006760,
+        "legitimacyMean": 0.432681,
+        "legitimacyP10": 0.012100,
+        "lowStabilityPopShare": 0.071514,
+        "lowLegitimacyPopShare": 0.109432
+      }
+    },
+    {
+      "year": -4700,
+      "worldPopulation": 17879219.000000,
+      "urbanShare": 0.032345,
+      "medianCountryPop": 37981.000000,
+      "medianCountryArea": 172.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.002934,
+      "tradeActivePairShare": 0.002973,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 60,
+      "foodSecurity": {
+        "mean": 0.970173,
+        "p10": 0.894293
+      },
+      "diseaseBurden": {
+        "mean": 0.000117,
+        "p90": 0.000208
+      },
+      "stateQuality": {
+        "stabilityMean": 0.494640,
+        "stabilityP10": 0.006820,
+        "legitimacyMean": 0.429899,
+        "legitimacyP10": 0.011960,
+        "lowStabilityPopShare": 0.072536,
+        "lowLegitimacyPopShare": 0.076527
+      }
+    },
+    {
+      "year": -4675,
+      "worldPopulation": 18780167.000000,
+      "urbanShare": 0.032993,
+      "medianCountryPop": 36726.000000,
+      "medianCountryArea": 172.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.002903,
+      "tradeActivePairShare": 0.002888,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 60,
+      "foodSecurity": {
+        "mean": 0.974853,
+        "p10": 0.924112
+      },
+      "diseaseBurden": {
+        "mean": 0.000127,
+        "p90": 0.000267
+      },
+      "stateQuality": {
+        "stabilityMean": 0.487417,
+        "stabilityP10": 0.006800,
+        "legitimacyMean": 0.425256,
+        "legitimacyP10": 0.011920,
+        "lowStabilityPopShare": 0.069438,
+        "lowLegitimacyPopShare": 0.072528
+      }
+    },
+    {
+      "year": -4650,
+      "worldPopulation": 19736920.000000,
+      "urbanShare": 0.032751,
+      "medianCountryPop": 35202.000000,
+      "medianCountryArea": 172.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.003638,
+      "tradeActivePairShare": 0.003058,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 60,
+      "foodSecurity": {
+        "mean": 0.969732,
+        "p10": 0.911422
+      },
+      "diseaseBurden": {
+        "mean": 0.000123,
+        "p90": 0.000207
+      },
+      "stateQuality": {
+        "stabilityMean": 0.465351,
+        "stabilityP10": 0.006860,
+        "legitimacyMean": 0.413361,
+        "legitimacyP10": 0.012120,
+        "lowStabilityPopShare": 0.069284,
+        "lowLegitimacyPopShare": 0.118884
+      }
+    },
+    {
+      "year": -4625,
+      "worldPopulation": 20491129.000000,
+      "urbanShare": 0.033023,
+      "medianCountryPop": 32571.000000,
+      "medianCountryArea": 172.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.003585,
+      "tradeActivePairShare": 0.002888,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 60,
+      "foodSecurity": {
+        "mean": 0.972497,
+        "p10": 0.917204
+      },
+      "diseaseBurden": {
+        "mean": 0.000127,
+        "p90": 0.000219
+      },
+      "stateQuality": {
+        "stabilityMean": 0.455432,
+        "stabilityP10": 0.006960,
+        "legitimacyMean": 0.413824,
+        "legitimacyP10": 0.012200,
+        "lowStabilityPopShare": 0.076545,
+        "lowLegitimacyPopShare": 0.117727
+      }
+    },
+    {
+      "year": -4600,
+      "worldPopulation": 21522013.000000,
+      "urbanShare": 0.033522,
+      "medianCountryPop": 37800.000000,
+      "medianCountryArea": 172.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.003593,
+      "tradeActivePairShare": 0.002803,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 60,
+      "foodSecurity": {
+        "mean": 0.971858,
+        "p10": 0.904031
+      },
+      "diseaseBurden": {
+        "mean": 0.000109,
+        "p90": 0.000190
+      },
+      "stateQuality": {
+        "stabilityMean": 0.446839,
+        "stabilityP10": 0.006720,
+        "legitimacyMean": 0.412732,
+        "legitimacyP10": 0.011960,
+        "lowStabilityPopShare": 0.086235,
+        "lowLegitimacyPopShare": 0.113630
+      }
+    },
+    {
+      "year": -4575,
+      "worldPopulation": 22554500.000000,
+      "urbanShare": 0.033758,
+      "medianCountryPop": 39520.000000,
+      "medianCountryArea": 173.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.003257,
+      "tradeActivePairShare": 0.002973,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 60,
+      "foodSecurity": {
+        "mean": 0.971100,
+        "p10": 0.910403
+      },
+      "diseaseBurden": {
+        "mean": 0.000124,
+        "p90": 0.000212
+      },
+      "stateQuality": {
+        "stabilityMean": 0.440667,
+        "stabilityP10": 0.006920,
+        "legitimacyMean": 0.406777,
+        "legitimacyP10": 0.012220,
+        "lowStabilityPopShare": 0.086502,
+        "lowLegitimacyPopShare": 0.120089
+      }
+    },
+    {
+      "year": -4550,
+      "worldPopulation": 23470230.000000,
+      "urbanShare": 0.034351,
+      "medianCountryPop": 41130.000000,
+      "medianCountryArea": 174.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.003257,
+      "tradeActivePairShare": 0.002718,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 60,
+      "foodSecurity": {
+        "mean": 0.971799,
+        "p10": 0.908584
+      },
+      "diseaseBurden": {
+        "mean": 0.000119,
+        "p90": 0.000195
+      },
+      "stateQuality": {
+        "stabilityMean": 0.440005,
+        "stabilityP10": 0.006920,
+        "legitimacyMean": 0.411563,
+        "legitimacyP10": 0.011940,
+        "lowStabilityPopShare": 0.082236,
+        "lowLegitimacyPopShare": 0.115265
+      }
+    },
+    {
+      "year": -4525,
+      "worldPopulation": 24631205.000000,
+      "urbanShare": 0.034915,
+      "medianCountryPop": 40630.000000,
+      "medianCountryArea": 180.000000,
+      "warFrequencyPerCentury": 0.210084,
+      "tradeIntensity": 0.003331,
+      "tradeActivePairShare": 0.003143,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 60,
+      "foodSecurity": {
+        "mean": 0.971113,
+        "p10": 0.908457
+      },
+      "diseaseBurden": {
+        "mean": 0.000132,
+        "p90": 0.000212
+      },
+      "stateQuality": {
+        "stabilityMean": 0.439790,
+        "stabilityP10": 0.006980,
+        "legitimacyMean": 0.410426,
+        "legitimacyP10": 0.012340,
+        "lowStabilityPopShare": 0.081840,
+        "lowLegitimacyPopShare": 0.093195
+      }
+    },
+    {
+      "year": -4500,
+      "worldPopulation": 25586513.000000,
+      "urbanShare": 0.034777,
+      "medianCountryPop": 41749.000000,
+      "medianCountryArea": 181.000000,
+      "warFrequencyPerCentury": 0.199601,
+      "tradeIntensity": 0.003712,
+      "tradeActivePairShare": 0.003058,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 60,
+      "foodSecurity": {
+        "mean": 0.965159,
+        "p10": 0.888729
+      },
+      "diseaseBurden": {
+        "mean": 0.000123,
+        "p90": 0.000211
+      },
+      "stateQuality": {
+        "stabilityMean": 0.435390,
+        "stabilityP10": 0.006720,
+        "legitimacyMean": 0.409223,
+        "legitimacyP10": 0.012000,
+        "lowStabilityPopShare": 0.080302,
+        "lowLegitimacyPopShare": 0.080302
+      }
+    },
+    {
+      "year": -4475,
+      "worldPopulation": 26631215.000000,
+      "urbanShare": 0.035661,
+      "medianCountryPop": 43599.000000,
+      "medianCountryArea": 189.000000,
+      "warFrequencyPerCentury": 0.190114,
+      "tradeIntensity": 0.003802,
+      "tradeActivePairShare": 0.002888,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 60,
+      "foodSecurity": {
+        "mean": 0.965993,
+        "p10": 0.904231
+      },
+      "diseaseBurden": {
+        "mean": 0.000111,
+        "p90": 0.000189
+      },
+      "stateQuality": {
+        "stabilityMean": 0.418061,
+        "stabilityP10": 0.006640,
+        "legitimacyMean": 0.388561,
+        "legitimacyP10": 0.012000,
+        "lowStabilityPopShare": 0.086417,
+        "lowLegitimacyPopShare": 0.088071
+      }
+    },
+    {
+      "year": -4450,
+      "worldPopulation": 27589902.000000,
+      "urbanShare": 0.035947,
+      "medianCountryPop": 42371.000000,
+      "medianCountryArea": 194.500000,
+      "warFrequencyPerCentury": 0.544465,
+      "tradeIntensity": 0.003371,
+      "tradeActivePairShare": 0.003143,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 69,
+      "foodSecurity": {
+        "mean": 0.968673,
+        "p10": 0.915543
+      },
+      "diseaseBurden": {
+        "mean": 0.000144,
+        "p90": 0.000225
+      },
+      "stateQuality": {
+        "stabilityMean": 0.415425,
+        "stabilityP10": 0.006600,
+        "legitimacyMean": 0.384848,
+        "legitimacyP10": 0.012000,
+        "lowStabilityPopShare": 0.081948,
+        "lowLegitimacyPopShare": 0.101339
+      }
+    },
+    {
+      "year": -4425,
+      "worldPopulation": 28746271.000000,
+      "urbanShare": 0.036898,
+      "medianCountryPop": 40081.000000,
+      "medianCountryArea": 203.000000,
+      "warFrequencyPerCentury": 0.520833,
+      "tradeIntensity": 0.003748,
+      "tradeActivePairShare": 0.002888,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 69,
+      "foodSecurity": {
+        "mean": 0.970209,
+        "p10": 0.918508
+      },
+      "diseaseBurden": {
+        "mean": 0.000121,
+        "p90": 0.000188
+      },
+      "stateQuality": {
+        "stabilityMean": 0.415137,
+        "stabilityP10": 0.006900,
+        "legitimacyMean": 0.385705,
+        "legitimacyP10": 0.012050,
+        "lowStabilityPopShare": 0.078498,
+        "lowLegitimacyPopShare": 0.106665
+      }
+    },
+    {
+      "year": -4400,
+      "worldPopulation": 29809461.000000,
+      "urbanShare": 0.036855,
+      "medianCountryPop": 39679.000000,
+      "medianCountryArea": 205.000000,
+      "warFrequencyPerCentury": 0.499168,
+      "tradeIntensity": 0.004023,
+      "tradeActivePairShare": 0.002973,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 69,
+      "foodSecurity": {
+        "mean": 0.966335,
+        "p10": 0.895995
+      },
+      "diseaseBurden": {
+        "mean": 0.000117,
+        "p90": 0.000191
+      },
+      "stateQuality": {
+        "stabilityMean": 0.409980,
+        "stabilityP10": 0.006650,
+        "legitimacyMean": 0.391099,
+        "legitimacyP10": 0.011500,
+        "lowStabilityPopShare": 0.083485,
+        "lowLegitimacyPopShare": 0.099674
+      }
+    },
+    {
+      "year": -4375,
+      "worldPopulation": 30818743.000000,
+      "urbanShare": 0.037111,
+      "medianCountryPop": 38426.500000,
+      "medianCountryArea": 205.000000,
+      "warFrequencyPerCentury": 0.638978,
+      "tradeIntensity": 0.003637,
+      "tradeActivePairShare": 0.003058,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 69,
+      "foodSecurity": {
+        "mean": 0.962688,
+        "p10": 0.896610
+      },
+      "diseaseBurden": {
+        "mean": 0.000127,
+        "p90": 0.000222
+      },
+      "stateQuality": {
+        "stabilityMean": 0.408000,
+        "stabilityP10": 0.006750,
+        "legitimacyMean": 0.388842,
+        "legitimacyP10": 0.011550,
+        "lowStabilityPopShare": 0.082130,
+        "lowLegitimacyPopShare": 0.082130
+      }
+    },
+    {
+      "year": -4350,
+      "worldPopulation": 31999702.000000,
+      "urbanShare": 0.038072,
+      "medianCountryPop": 39744.000000,
+      "medianCountryArea": 202.000000,
+      "warFrequencyPerCentury": 0.768049,
+      "tradeIntensity": 0.003413,
+      "tradeActivePairShare": 0.003169,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 74,
+      "foodSecurity": {
+        "mean": 0.967261,
+        "p10": 0.905902
+      },
+      "diseaseBurden": {
+        "mean": 0.000125,
+        "p90": 0.000227
+      },
+      "stateQuality": {
+        "stabilityMean": 0.410913,
+        "stabilityP10": 0.006660,
+        "legitimacyMean": 0.389566,
+        "legitimacyP10": 0.011920,
+        "lowStabilityPopShare": 0.080615,
+        "lowLegitimacyPopShare": 0.096902
+      }
+    },
+    {
+      "year": -4325,
+      "worldPopulation": 33217059.000000,
+      "urbanShare": 0.038354,
+      "medianCountryPop": 37388.000000,
+      "medianCountryArea": 208.000000,
+      "warFrequencyPerCentury": 0.739645,
+      "tradeIntensity": 0.004150,
+      "tradeActivePairShare": 0.003003,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 74,
+      "foodSecurity": {
+        "mean": 0.968469,
+        "p10": 0.919569
+      },
+      "diseaseBurden": {
+        "mean": 0.000139,
+        "p90": 0.000245
+      },
+      "stateQuality": {
+        "stabilityMean": 0.409550,
+        "stabilityP10": 0.006700,
+        "legitimacyMean": 0.387047,
+        "legitimacyP10": 0.011860,
+        "lowStabilityPopShare": 0.081892,
+        "lowLegitimacyPopShare": 0.097845
+      }
+    },
+    {
+      "year": -4300,
+      "worldPopulation": 34514742.000000,
+      "urbanShare": 0.038828,
+      "medianCountryPop": 36405.000000,
+      "medianCountryArea": 209.000000,
+      "warFrequencyPerCentury": 0.713267,
+      "tradeIntensity": 0.003956,
+      "tradeActivePairShare": 0.003003,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 74,
+      "foodSecurity": {
+        "mean": 0.972973,
+        "p10": 0.928940
+      },
+      "diseaseBurden": {
+        "mean": 0.000119,
+        "p90": 0.000201
+      },
+      "stateQuality": {
+        "stabilityMean": 0.401287,
+        "stabilityP10": 0.006780,
+        "legitimacyMean": 0.376267,
+        "legitimacyP10": 0.011960,
+        "lowStabilityPopShare": 0.095953,
+        "lowLegitimacyPopShare": 0.097234
+      }
+    },
+    {
+      "year": -4275,
+      "worldPopulation": 36185745.000000,
+      "urbanShare": 0.039082,
+      "medianCountryPop": 37461.000000,
+      "medianCountryArea": 217.000000,
+      "warFrequencyPerCentury": 0.688705,
+      "tradeIntensity": 0.003894,
+      "tradeActivePairShare": 0.002919,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 74,
+      "foodSecurity": {
+        "mean": 0.969333,
+        "p10": 0.917095
+      },
+      "diseaseBurden": {
+        "mean": 0.000130,
+        "p90": 0.000218
+      },
+      "stateQuality": {
+        "stabilityMean": 0.390679,
+        "stabilityP10": 0.007020,
+        "legitimacyMean": 0.363302,
+        "legitimacyP10": 0.012200,
+        "lowStabilityPopShare": 0.107597,
+        "lowLegitimacyPopShare": 0.125424
+      }
+    },
+    {
+      "year": -4250,
+      "worldPopulation": 37893027.000000,
+      "urbanShare": 0.040254,
+      "medianCountryPop": 39613.000000,
+      "medianCountryArea": 217.000000,
+      "warFrequencyPerCentury": 0.665779,
+      "tradeIntensity": 0.003564,
+      "tradeActivePairShare": 0.003169,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 74,
+      "foodSecurity": {
+        "mean": 0.967977,
+        "p10": 0.905418
+      },
+      "diseaseBurden": {
+        "mean": 0.000120,
+        "p90": 0.000204
+      },
+      "stateQuality": {
+        "stabilityMean": 0.384382,
+        "stabilityP10": 0.006860,
+        "legitimacyMean": 0.364454,
+        "legitimacyP10": 0.011820,
+        "lowStabilityPopShare": 0.114348,
+        "lowLegitimacyPopShare": 0.131062
+      }
+    },
+    {
+      "year": -4225,
+      "worldPopulation": 39610692.000000,
+      "urbanShare": 0.040526,
+      "medianCountryPop": 39956.000000,
+      "medianCountryArea": 217.000000,
+      "warFrequencyPerCentury": 0.644330,
+      "tradeIntensity": 0.003396,
+      "tradeActivePairShare": 0.003169,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 74,
+      "foodSecurity": {
+        "mean": 0.970627,
+        "p10": 0.925106
+      },
+      "diseaseBurden": {
+        "mean": 0.000122,
+        "p90": 0.000207
+      },
+      "stateQuality": {
+        "stabilityMean": 0.379373,
+        "stabilityP10": 0.006960,
+        "legitimacyMean": 0.361207,
+        "legitimacyP10": 0.012020,
+        "lowStabilityPopShare": 0.112130,
+        "lowLegitimacyPopShare": 0.127002
+      }
+    },
+    {
+      "year": -4200,
+      "worldPopulation": 41314475.000000,
+      "urbanShare": 0.040768,
+      "medianCountryPop": 41625.000000,
+      "medianCountryArea": 220.000000,
+      "warFrequencyPerCentury": 0.749064,
+      "tradeIntensity": 0.003003,
+      "tradeActivePairShare": 0.003420,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 77,
+      "foodSecurity": {
+        "mean": 0.969417,
+        "p10": 0.921334
+      },
+      "diseaseBurden": {
+        "mean": 0.000130,
+        "p90": 0.000211
+      },
+      "stateQuality": {
+        "stabilityMean": 0.371337,
+        "stabilityP10": 0.006650,
+        "legitimacyMean": 0.358218,
+        "legitimacyP10": 0.011700,
+        "lowStabilityPopShare": 0.119743,
+        "lowLegitimacyPopShare": 0.129995
+      }
+    },
+    {
+      "year": -4175,
+      "worldPopulation": 43229558.000000,
+      "urbanShare": 0.041408,
+      "medianCountryPop": 40087.000000,
+      "medianCountryArea": 220.000000,
+      "warFrequencyPerCentury": 0.726392,
+      "tradeIntensity": 0.003329,
+      "tradeActivePairShare": 0.003169,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 77,
+      "foodSecurity": {
+        "mean": 0.969098,
+        "p10": 0.912678
+      },
+      "diseaseBurden": {
+        "mean": 0.000122,
+        "p90": 0.000193
+      },
+      "stateQuality": {
+        "stabilityMean": 0.361479,
+        "stabilityP10": 0.006850,
+        "legitimacyMean": 0.356645,
+        "legitimacyP10": 0.011750,
+        "lowStabilityPopShare": 0.127883,
+        "lowLegitimacyPopShare": 0.128819
+      }
+    },
+    {
+      "year": -4150,
+      "worldPopulation": 45398123.000000,
+      "urbanShare": 0.042078,
+      "medianCountryPop": 38591.000000,
+      "medianCountryArea": 217.000000,
+      "warFrequencyPerCentury": 0.705053,
+      "tradeIntensity": 0.000000,
+      "tradeActivePairShare": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 78,
+      "foodSecurity": {
+        "mean": 0.967425,
+        "p10": 0.913784
+      },
+      "diseaseBurden": {
+        "mean": 0.000126,
+        "p90": 0.000201
+      },
+      "stateQuality": {
+        "stabilityMean": 0.359079,
+        "stabilityP10": 0.006820,
+        "legitimacyMean": 0.357217,
+        "legitimacyP10": 0.011460,
+        "lowStabilityPopShare": 0.116797,
+        "lowLegitimacyPopShare": 0.117647
+      }
+    },
+    {
+      "year": -4125,
+      "worldPopulation": 47710493.000000,
+      "urbanShare": 0.043438,
+      "medianCountryPop": 36989.000000,
+      "medianCountryArea": 217.000000,
+      "warFrequencyPerCentury": 0.799087,
+      "tradeIntensity": 0.003285,
+      "tradeActivePairShare": 0.003057,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 85,
+      "foodSecurity": {
+        "mean": 0.969906,
+        "p10": 0.925814
+      },
+      "diseaseBurden": {
+        "mean": 0.000118,
+        "p90": 0.000194
+      },
+      "stateQuality": {
+        "stabilityMean": 0.357614,
+        "stabilityP10": 0.006810,
+        "legitimacyMean": 0.352240,
+        "legitimacyP10": 0.011810,
+        "lowStabilityPopShare": 0.125682,
+        "lowLegitimacyPopShare": 0.125682
+      }
+    },
+    {
+      "year": -4100,
+      "worldPopulation": 50447261.000000,
+      "urbanShare": 0.044954,
+      "medianCountryPop": 40028.500000,
+      "medianCountryArea": 217.000000,
+      "warFrequencyPerCentury": 0.887902,
+      "tradeIntensity": 0.004199,
+      "tradeActivePairShare": 0.003137,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 85,
+      "foodSecurity": {
+        "mean": 0.968991,
+        "p10": 0.922753
+      },
+      "diseaseBurden": {
+        "mean": 0.000119,
+        "p90": 0.000200
+      },
+      "stateQuality": {
+        "stabilityMean": 0.362274,
+        "stabilityP10": 0.007070,
+        "legitimacyMean": 0.350327,
+        "legitimacyP10": 0.012210,
+        "lowStabilityPopShare": 0.123660,
+        "lowLegitimacyPopShare": 0.123660
+      }
+    },
+    {
+      "year": -4075,
+      "worldPopulation": 53104610.000000,
+      "urbanShare": 0.045424,
+      "medianCountryPop": 39967.000000,
+      "medianCountryArea": 216.000000,
+      "warFrequencyPerCentury": 0.863931,
+      "tradeIntensity": 0.003026,
+      "tradeActivePairShare": 0.003398,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 92,
+      "foodSecurity": {
+        "mean": 0.970493,
+        "p10": 0.919236
+      },
+      "diseaseBurden": {
+        "mean": 0.000138,
+        "p90": 0.000204
+      },
+      "stateQuality": {
+        "stabilityMean": 0.362384,
+        "stabilityP10": 0.006920,
+        "legitimacyMean": 0.348274,
+        "legitimacyP10": 0.011880,
+        "lowStabilityPopShare": 0.127141,
+        "lowLegitimacyPopShare": 0.127141
+      }
+    },
+    {
+      "year": -4050,
+      "worldPopulation": 55808740.000000,
+      "urbanShare": 0.046351,
+      "medianCountryPop": 38602.000000,
+      "medianCountryArea": 209.000000,
+      "warFrequencyPerCentury": 0.946372,
+      "tradeIntensity": 0.002691,
+      "tradeActivePairShare": 0.003951,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 92,
+      "foodSecurity": {
+        "mean": 0.969513,
+        "p10": 0.917396
+      },
+      "diseaseBurden": {
+        "mean": 0.000117,
+        "p90": 0.000192
+      },
+      "stateQuality": {
+        "stabilityMean": 0.350673,
+        "stabilityP10": 0.006920,
+        "legitimacyMean": 0.338683,
+        "legitimacyP10": 0.011900,
+        "lowStabilityPopShare": 0.120419,
+        "lowLegitimacyPopShare": 0.123431
+      }
+    },
+    {
+      "year": -4025,
+      "worldPopulation": 58455397.000000,
+      "urbanShare": 0.047023,
+      "medianCountryPop": 40043.000000,
+      "medianCountryArea": 209.000000,
+      "warFrequencyPerCentury": 0.922131,
+      "tradeIntensity": 0.002684,
+      "tradeActivePairShare": 0.003793,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 92,
+      "foodSecurity": {
+        "mean": 0.973386,
+        "p10": 0.927196
+      },
+      "diseaseBurden": {
+        "mean": 0.000120,
+        "p90": 0.000186
+      },
+      "stateQuality": {
+        "stabilityMean": 0.350353,
+        "stabilityP10": 0.006740,
+        "legitimacyMean": 0.342833,
+        "legitimacyP10": 0.011560,
+        "lowStabilityPopShare": 0.128509,
+        "lowLegitimacyPopShare": 0.128509
+      }
+    },
+    {
+      "year": -4000,
+      "worldPopulation": 61656576.000000,
+      "urbanShare": 0.045624,
+      "medianCountryPop": 37652.000000,
+      "medianCountryArea": 209.000000,
+      "warFrequencyPerCentury": 0.899101,
+      "tradeIntensity": 0.003400,
+      "tradeActivePairShare": 0.003161,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 92,
+      "foodSecurity": {
+        "mean": 0.963471,
+        "p10": 0.902474
+      },
+      "diseaseBurden": {
+        "mean": 0.000126,
+        "p90": 0.000202
+      },
+      "stateQuality": {
+        "stabilityMean": 0.351346,
+        "stabilityP10": 0.006740,
+        "legitimacyMean": 0.341328,
+        "legitimacyP10": 0.011560,
+        "lowStabilityPopShare": 0.113412,
+        "lowLegitimacyPopShare": 0.113412
+      }
+    },
+    {
+      "year": -3975,
+      "worldPopulation": 65023737.000000,
+      "urbanShare": 0.046419,
+      "medianCountryPop": 34388.000000,
+      "medianCountryArea": 209.000000,
+      "warFrequencyPerCentury": 0.877193,
+      "tradeIntensity": 0.003004,
+      "tradeActivePairShare": 0.003398,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 92,
+      "foodSecurity": {
+        "mean": 0.965452,
+        "p10": 0.903405
+      },
+      "diseaseBurden": {
+        "mean": 0.000134,
+        "p90": 0.000194
+      },
+      "stateQuality": {
+        "stabilityMean": 0.347634,
+        "stabilityP10": 0.006680,
+        "legitimacyMean": 0.336338,
+        "legitimacyP10": 0.011800,
+        "lowStabilityPopShare": 0.101520,
+        "lowLegitimacyPopShare": 0.101645
+      }
+    },
+    {
+      "year": -3950,
+      "worldPopulation": 68496453.000000,
+      "urbanShare": 0.046652,
+      "medianCountryPop": 36005.000000,
+      "medianCountryArea": 209.000000,
+      "warFrequencyPerCentury": 0.856327,
+      "tradeIntensity": 0.002813,
+      "tradeActivePairShare": 0.003714,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 92,
+      "foodSecurity": {
+        "mean": 0.969075,
+        "p10": 0.905809
+      },
+      "diseaseBurden": {
+        "mean": 0.000140,
+        "p90": 0.000214
+      },
+      "stateQuality": {
+        "stabilityMean": 0.335313,
+        "stabilityP10": 0.006800,
+        "legitimacyMean": 0.329342,
+        "legitimacyP10": 0.011760,
+        "lowStabilityPopShare": 0.106972,
+        "lowLegitimacyPopShare": 0.106972
+      }
+    },
+    {
+      "year": -3925,
+      "worldPopulation": 72107075.000000,
+      "urbanShare": 0.046809,
+      "medianCountryPop": 37650.000000,
+      "medianCountryArea": 209.000000,
+      "warFrequencyPerCentury": 0.836431,
+      "tradeIntensity": 0.003018,
+      "tradeActivePairShare": 0.003398,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 92,
+      "foodSecurity": {
+        "mean": 0.966140,
+        "p10": 0.908907
+      },
+      "diseaseBurden": {
+        "mean": 0.000126,
+        "p90": 0.000185
+      },
+      "stateQuality": {
+        "stabilityMean": 0.335994,
+        "stabilityP10": 0.006760,
+        "legitimacyMean": 0.330899,
+        "legitimacyP10": 0.011820,
+        "lowStabilityPopShare": 0.108662,
+        "lowLegitimacyPopShare": 0.108662
+      }
+    },
+    {
+      "year": -3900,
+      "worldPopulation": 75938044.000000,
+      "urbanShare": 0.046263,
+      "medianCountryPop": 37667.000000,
+      "medianCountryArea": 209.000000,
+      "warFrequencyPerCentury": 0.817439,
+      "tradeIntensity": 0.002112,
+      "tradeActivePairShare": 0.003398,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 92,
+      "foodSecurity": {
+        "mean": 0.972295,
+        "p10": 0.926507
+      },
+      "diseaseBurden": {
+        "mean": 0.000143,
+        "p90": 0.000226
+      },
+      "stateQuality": {
+        "stabilityMean": 0.334137,
+        "stabilityP10": 0.006960,
+        "legitimacyMean": 0.326883,
+        "legitimacyP10": 0.012100,
+        "lowStabilityPopShare": 0.110345,
+        "lowLegitimacyPopShare": 0.110345
+      }
+    },
+    {
+      "year": -3875,
+      "worldPopulation": 80279042.000000,
+      "urbanShare": 0.045967,
+      "medianCountryPop": 34098.000000,
+      "medianCountryArea": 209.000000,
+      "warFrequencyPerCentury": 0.799290,
+      "tradeIntensity": 0.003000,
+      "tradeActivePairShare": 0.003398,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 92,
+      "foodSecurity": {
+        "mean": 0.972016,
+        "p10": 0.922943
+      },
+      "diseaseBurden": {
+        "mean": 0.000130,
+        "p90": 0.000204
+      },
+      "stateQuality": {
+        "stabilityMean": 0.327316,
+        "stabilityP10": 0.006880,
+        "legitimacyMean": 0.308307,
+        "legitimacyP10": 0.012020,
+        "lowStabilityPopShare": 0.118775,
+        "lowLegitimacyPopShare": 0.124514
+      }
+    },
+    {
+      "year": -3850,
+      "worldPopulation": 84754389.000000,
+      "urbanShare": 0.044949,
+      "medianCountryPop": 35106.000000,
+      "medianCountryArea": 209.000000,
+      "warFrequencyPerCentury": 0.781929,
+      "tradeIntensity": 0.003007,
+      "tradeActivePairShare": 0.003556,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 92,
+      "foodSecurity": {
+        "mean": 0.967042,
+        "p10": 0.909474
+      },
+      "diseaseBurden": {
+        "mean": 0.000133,
+        "p90": 0.000201
+      },
+      "stateQuality": {
+        "stabilityMean": 0.316307,
+        "stabilityP10": 0.006720,
+        "legitimacyMean": 0.303407,
+        "legitimacyP10": 0.011980,
+        "lowStabilityPopShare": 0.127796,
+        "lowLegitimacyPopShare": 0.196092
+      }
+    },
+    {
+      "year": -3825,
+      "worldPopulation": 89283633.000000,
+      "urbanShare": 0.046154,
+      "medianCountryPop": 32852.000000,
+      "medianCountryArea": 209.000000,
+      "warFrequencyPerCentury": 0.765306,
+      "tradeIntensity": 0.002717,
+      "tradeActivePairShare": 0.003477,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 92,
+      "foodSecurity": {
+        "mean": 0.965541,
+        "p10": 0.919459
+      },
+      "diseaseBurden": {
+        "mean": 0.000131,
+        "p90": 0.000205
+      },
+      "stateQuality": {
+        "stabilityMean": 0.309449,
+        "stabilityP10": 0.006500,
+        "legitimacyMean": 0.302810,
+        "legitimacyP10": 0.011540,
+        "lowStabilityPopShare": 0.199094,
+        "lowLegitimacyPopShare": 0.199094
+      }
+    },
+    {
+      "year": -3800,
+      "worldPopulation": 93764257.000000,
+      "urbanShare": 0.048509,
+      "medianCountryPop": 33512.000000,
+      "medianCountryArea": 209.000000,
+      "warFrequencyPerCentury": 0.749376,
+      "tradeIntensity": 0.002648,
+      "tradeActivePairShare": 0.003556,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 92,
+      "foodSecurity": {
+        "mean": 0.967115,
+        "p10": 0.910620
+      },
+      "diseaseBurden": {
+        "mean": 0.000143,
+        "p90": 0.000227
+      },
+      "stateQuality": {
+        "stabilityMean": 0.309372,
+        "stabilityP10": 0.006740,
+        "legitimacyMean": 0.302660,
+        "legitimacyP10": 0.011460,
+        "lowStabilityPopShare": 0.188959,
+        "lowLegitimacyPopShare": 0.189051
+      }
+    },
+    {
+      "year": -3775,
+      "worldPopulation": 98803095.000000,
+      "urbanShare": 0.051920,
+      "medianCountryPop": 33239.000000,
+      "medianCountryArea": 209.000000,
+      "warFrequencyPerCentury": 0.734095,
+      "tradeIntensity": 0.002582,
+      "tradeActivePairShare": 0.003319,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 92,
+      "foodSecurity": {
+        "mean": 0.970366,
+        "p10": 0.922656
+      },
+      "diseaseBurden": {
+        "mean": 0.000129,
+        "p90": 0.000195
+      },
+      "stateQuality": {
+        "stabilityMean": 0.309661,
+        "stabilityP10": 0.006760,
+        "legitimacyMean": 0.305261,
+        "legitimacyP10": 0.012000,
+        "lowStabilityPopShare": 0.179246,
+        "lowLegitimacyPopShare": 0.179335
+      }
+    },
+    {
+      "year": -3750,
+      "worldPopulation": 104520710.000000,
+      "urbanShare": 0.054913,
+      "medianCountryPop": 30819.000000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.719424,
+      "tradeIntensity": 0.002196,
+      "tradeActivePairShare": 0.003416,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 95,
+      "foodSecurity": {
+        "mean": 0.972398,
+        "p10": 0.920789
+      },
+      "diseaseBurden": {
+        "mean": 0.000124,
+        "p90": 0.000193
+      },
+      "stateQuality": {
+        "stabilityMean": 0.313286,
+        "stabilityP10": 0.007070,
+        "legitimacyMean": 0.305915,
+        "legitimacyP10": 0.012190,
+        "lowStabilityPopShare": 0.169635,
+        "lowLegitimacyPopShare": 0.169635
+      }
+    },
+    {
+      "year": -3725,
+      "worldPopulation": 110126546.000000,
+      "urbanShare": 0.054620,
+      "medianCountryPop": 29495.000000,
+      "medianCountryArea": 208.000000,
+      "warFrequencyPerCentury": 0.705329,
+      "tradeIntensity": 0.001951,
+      "tradeActivePairShare": 0.003509,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 99,
+      "foodSecurity": {
+        "mean": 0.972773,
+        "p10": 0.921103
+      },
+      "diseaseBurden": {
+        "mean": 0.000137,
+        "p90": 0.000238
+      },
+      "stateQuality": {
+        "stabilityMean": 0.318708,
+        "stabilityP10": 0.006900,
+        "legitimacyMean": 0.305234,
+        "legitimacyP10": 0.012100,
+        "lowStabilityPopShare": 0.143484,
+        "lowLegitimacyPopShare": 0.143484
+      }
+    },
+    {
+      "year": -3700,
+      "worldPopulation": 116458233.000000,
+      "urbanShare": 0.056778,
+      "medianCountryPop": 29545.000000,
+      "medianCountryArea": 208.000000,
+      "warFrequencyPerCentury": 0.691776,
+      "tradeIntensity": 0.002147,
+      "tradeActivePairShare": 0.003432,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 99,
+      "foodSecurity": {
+        "mean": 0.972131,
+        "p10": 0.927260
+      },
+      "diseaseBurden": {
+        "mean": 0.000137,
+        "p90": 0.000216
+      },
+      "stateQuality": {
+        "stabilityMean": 0.321273,
+        "stabilityP10": 0.006900,
+        "legitimacyMean": 0.302999,
+        "legitimacyP10": 0.012100,
+        "lowStabilityPopShare": 0.142041,
+        "lowLegitimacyPopShare": 0.142793
+      }
+    },
+    {
+      "year": -3675,
+      "worldPopulation": 121832432.000000,
+      "urbanShare": 0.057615,
+      "medianCountryPop": 29260.500000,
+      "medianCountryArea": 202.000000,
+      "warFrequencyPerCentury": 0.678733,
+      "tradeIntensity": 0.002465,
+      "tradeActivePairShare": 0.003673,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 102,
+      "foodSecurity": {
+        "mean": 0.965838,
+        "p10": 0.911869
+      },
+      "diseaseBurden": {
+        "mean": 0.000138,
+        "p90": 0.000215
+      },
+      "stateQuality": {
+        "stabilityMean": 0.324227,
+        "stabilityP10": 0.007120,
+        "legitimacyMean": 0.302746,
+        "legitimacyP10": 0.011830,
+        "lowStabilityPopShare": 0.145311,
+        "lowLegitimacyPopShare": 0.146044
+      }
+    },
+    {
+      "year": -3650,
+      "worldPopulation": 127308726.000000,
+      "urbanShare": 0.057484,
+      "medianCountryPop": 28472.000000,
+      "medianCountryArea": 202.000000,
+      "warFrequencyPerCentury": 0.666173,
+      "tradeIntensity": 0.002151,
+      "tradeActivePairShare": 0.003598,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 102,
+      "foodSecurity": {
+        "mean": 0.973051,
+        "p10": 0.929056
+      },
+      "diseaseBurden": {
+        "mean": 0.000125,
+        "p90": 0.000195
+      },
+      "stateQuality": {
+        "stabilityMean": 0.326400,
+        "stabilityP10": 0.007210,
+        "legitimacyMean": 0.299422,
+        "legitimacyP10": 0.012350,
+        "lowStabilityPopShare": 0.151275,
+        "lowLegitimacyPopShare": 0.189794
+      }
+    },
+    {
+      "year": -3625,
+      "worldPopulation": 131772199.000000,
+      "urbanShare": 0.056066,
+      "medianCountryPop": 28751.000000,
+      "medianCountryArea": 202.000000,
+      "warFrequencyPerCentury": 0.654070,
+      "tradeIntensity": 0.002615,
+      "tradeActivePairShare": 0.003523,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 102,
+      "foodSecurity": {
+        "mean": 0.967334,
+        "p10": 0.912422
+      },
+      "diseaseBurden": {
+        "mean": 0.000127,
+        "p90": 0.000202
+      },
+      "stateQuality": {
+        "stabilityMean": 0.320536,
+        "stabilityP10": 0.007120,
+        "legitimacyMean": 0.297465,
+        "legitimacyP10": 0.012230,
+        "lowStabilityPopShare": 0.152609,
+        "lowLegitimacyPopShare": 0.187131
+      }
+    },
+    {
+      "year": -3600,
+      "worldPopulation": 136311302.000000,
+      "urbanShare": 0.055387,
+      "medianCountryPop": 29069.000000,
+      "medianCountryArea": 202.000000,
+      "warFrequencyPerCentury": 0.642398,
+      "tradeIntensity": 0.002086,
+      "tradeActivePairShare": 0.003673,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 102,
+      "foodSecurity": {
+        "mean": 0.967828,
+        "p10": 0.915978
+      },
+      "diseaseBurden": {
+        "mean": 0.000139,
+        "p90": 0.000219
+      },
+      "stateQuality": {
+        "stabilityMean": 0.313787,
+        "stabilityP10": 0.007120,
+        "legitimacyMean": 0.296979,
+        "legitimacyP10": 0.012330,
+        "lowStabilityPopShare": 0.176119,
+        "lowLegitimacyPopShare": 0.179392
+      }
+    },
+    {
+      "year": -3575,
+      "worldPopulation": 139894177.000000,
+      "urbanShare": 0.055273,
+      "medianCountryPop": 32115.000000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.631136,
+      "tradeIntensity": 0.002455,
+      "tradeActivePairShare": 0.003598,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 102,
+      "foodSecurity": {
+        "mean": 0.966667,
+        "p10": 0.911255
+      },
+      "diseaseBurden": {
+        "mean": 0.000140,
+        "p90": 0.000230
+      },
+      "stateQuality": {
+        "stabilityMean": 0.310091,
+        "stabilityP10": 0.007120,
+        "legitimacyMean": 0.303683,
+        "legitimacyP10": 0.012230,
+        "lowStabilityPopShare": 0.179037,
+        "lowLegitimacyPopShare": 0.179037
+      }
+    },
+    {
+      "year": -3550,
+      "worldPopulation": 142626862.000000,
+      "urbanShare": 0.057276,
+      "medianCountryPop": 32177.000000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.620262,
+      "tradeIntensity": 0.002639,
+      "tradeActivePairShare": 0.003298,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 102,
+      "foodSecurity": {
+        "mean": 0.967557,
+        "p10": 0.917532
+      },
+      "diseaseBurden": {
+        "mean": 0.000133,
+        "p90": 0.000205
+      },
+      "stateQuality": {
+        "stabilityMean": 0.310805,
+        "stabilityP10": 0.007110,
+        "legitimacyMean": 0.303509,
+        "legitimacyP10": 0.012220,
+        "lowStabilityPopShare": 0.170315,
+        "lowLegitimacyPopShare": 0.170315
+      }
+    },
+    {
+      "year": -3525,
+      "worldPopulation": 147049052.000000,
+      "urbanShare": 0.058868,
+      "medianCountryPop": 30972.500000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.609756,
+      "tradeIntensity": 0.002550,
+      "tradeActivePairShare": 0.003523,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 102,
+      "foodSecurity": {
+        "mean": 0.970603,
+        "p10": 0.923534
+      },
+      "diseaseBurden": {
+        "mean": 0.000133,
+        "p90": 0.000203
+      },
+      "stateQuality": {
+        "stabilityMean": 0.310710,
+        "stabilityP10": 0.007130,
+        "legitimacyMean": 0.305211,
+        "legitimacyP10": 0.012270,
+        "lowStabilityPopShare": 0.161143,
+        "lowLegitimacyPopShare": 0.161143
+      }
+    },
+    {
+      "year": -3500,
+      "worldPopulation": 149363989.000000,
+      "urbanShare": 0.058536,
+      "medianCountryPop": 31319.500000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.599600,
+      "tradeIntensity": 0.002813,
+      "tradeActivePairShare": 0.003148,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 102,
+      "foodSecurity": {
+        "mean": 0.961947,
+        "p10": 0.916499
+      },
+      "diseaseBurden": {
+        "mean": 0.000131,
+        "p90": 0.000184
+      },
+      "stateQuality": {
+        "stabilityMean": 0.310998,
+        "stabilityP10": 0.007120,
+        "legitimacyMean": 0.307902,
+        "legitimacyP10": 0.012330,
+        "lowStabilityPopShare": 0.159617,
+        "lowLegitimacyPopShare": 0.159617
+      }
+    },
+    {
+      "year": -3475,
+      "worldPopulation": 153362967.000000,
+      "urbanShare": 0.060197,
+      "medianCountryPop": 35912.500000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.589777,
+      "tradeIntensity": 0.002615,
+      "tradeActivePairShare": 0.003298,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 102,
+      "foodSecurity": {
+        "mean": 0.971659,
+        "p10": 0.925905
+      },
+      "diseaseBurden": {
+        "mean": 0.000128,
+        "p90": 0.000194
+      },
+      "stateQuality": {
+        "stabilityMean": 0.311689,
+        "stabilityP10": 0.007400,
+        "legitimacyMean": 0.308771,
+        "legitimacyP10": 0.012810,
+        "lowStabilityPopShare": 0.161079,
+        "lowLegitimacyPopShare": 0.161079
+      }
+    },
+    {
+      "year": -3450,
+      "worldPopulation": 159418651.000000,
+      "urbanShare": 0.059939,
+      "medianCountryPop": 36090.000000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.580271,
+      "tradeIntensity": 0.002873,
+      "tradeActivePairShare": 0.003448,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 102,
+      "foodSecurity": {
+        "mean": 0.965149,
+        "p10": 0.914322
+      },
+      "diseaseBurden": {
+        "mean": 0.000139,
+        "p90": 0.000214
+      },
+      "stateQuality": {
+        "stabilityMean": 0.310961,
+        "stabilityP10": 0.007110,
+        "legitimacyMean": 0.305520,
+        "legitimacyP10": 0.012210,
+        "lowStabilityPopShare": 0.168204,
+        "lowLegitimacyPopShare": 0.168204
+      }
+    },
+    {
+      "year": -3425,
+      "worldPopulation": 165212808.000000,
+      "urbanShare": 0.057873,
+      "medianCountryPop": 40932.000000,
+      "medianCountryArea": 208.000000,
+      "warFrequencyPerCentury": 0.571066,
+      "tradeIntensity": 0.001907,
+      "tradeActivePairShare": 0.003463,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 108,
+      "foodSecurity": {
+        "mean": 0.962601,
+        "p10": 0.914326
+      },
+      "diseaseBurden": {
+        "mean": 0.000129,
+        "p90": 0.000205
+      },
+      "stateQuality": {
+        "stabilityMean": 0.306411,
+        "stabilityP10": 0.007140,
+        "legitimacyMean": 0.302445,
+        "legitimacyP10": 0.012060,
+        "lowStabilityPopShare": 0.182968,
+        "lowLegitimacyPopShare": 0.244945
+      }
+    },
+    {
+      "year": -3400,
+      "worldPopulation": 170878409.000000,
+      "urbanShare": 0.058946,
+      "medianCountryPop": 40819.000000,
+      "medianCountryArea": 208.000000,
+      "warFrequencyPerCentury": 0.562149,
+      "tradeIntensity": 0.002652,
+      "tradeActivePairShare": 0.003684,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 108,
+      "foodSecurity": {
+        "mean": 0.967893,
+        "p10": 0.913701
+      },
+      "diseaseBurden": {
+        "mean": 0.000134,
+        "p90": 0.000202
+      },
+      "stateQuality": {
+        "stabilityMean": 0.306302,
+        "stabilityP10": 0.007200,
+        "legitimacyMean": 0.300400,
+        "legitimacyP10": 0.012420,
+        "lowStabilityPopShare": 0.239721,
+        "lowLegitimacyPopShare": 0.239721
+      }
+    },
+    {
+      "year": -3375,
+      "worldPopulation": 177090389.000000,
+      "urbanShare": 0.059488,
+      "medianCountryPop": 40974.000000,
+      "medianCountryArea": 208.000000,
+      "warFrequencyPerCentury": 0.553506,
+      "tradeIntensity": 0.002518,
+      "tradeActivePairShare": 0.003610,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 108,
+      "foodSecurity": {
+        "mean": 0.969403,
+        "p10": 0.916192
+      },
+      "diseaseBurden": {
+        "mean": 0.000130,
+        "p90": 0.000209
+      },
+      "stateQuality": {
+        "stabilityMean": 0.309142,
+        "stabilityP10": 0.007400,
+        "legitimacyMean": 0.303663,
+        "legitimacyP10": 0.012740,
+        "lowStabilityPopShare": 0.228981,
+        "lowLegitimacyPopShare": 0.228981
+      }
+    },
+    {
+      "year": -3350,
+      "worldPopulation": 182305968.000000,
+      "urbanShare": 0.060244,
+      "medianCountryPop": 40910.000000,
+      "medianCountryArea": 208.000000,
+      "warFrequencyPerCentury": 0.545124,
+      "tradeIntensity": 0.002699,
+      "tradeActivePairShare": 0.003537,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 108,
+      "foodSecurity": {
+        "mean": 0.963227,
+        "p10": 0.902266
+      },
+      "diseaseBurden": {
+        "mean": 0.000126,
+        "p90": 0.000196
+      },
+      "stateQuality": {
+        "stabilityMean": 0.308587,
+        "stabilityP10": 0.007240,
+        "legitimacyMean": 0.303035,
+        "legitimacyP10": 0.012400,
+        "lowStabilityPopShare": 0.218072,
+        "lowLegitimacyPopShare": 0.218072
+      }
+    },
+    {
+      "year": -3325,
+      "worldPopulation": 188351362.000000,
+      "urbanShare": 0.062205,
+      "medianCountryPop": 40962.000000,
+      "medianCountryArea": 208.000000,
+      "warFrequencyPerCentury": 0.536993,
+      "tradeIntensity": 0.003464,
+      "tradeActivePairShare": 0.003463,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 108,
+      "foodSecurity": {
+        "mean": 0.968859,
+        "p10": 0.920027
+      },
+      "diseaseBurden": {
+        "mean": 0.000132,
+        "p90": 0.000212
+      },
+      "stateQuality": {
+        "stabilityMean": 0.309033,
+        "stabilityP10": 0.007240,
+        "legitimacyMean": 0.306163,
+        "legitimacyP10": 0.012300,
+        "lowStabilityPopShare": 0.210043,
+        "lowLegitimacyPopShare": 0.210043
+      }
+    },
+    {
+      "year": -3300,
+      "worldPopulation": 193828179.000000,
+      "urbanShare": 0.062035,
+      "medianCountryPop": 40584.500000,
+      "medianCountryArea": 204.500000,
+      "warFrequencyPerCentury": 0.529101,
+      "tradeIntensity": 0.002772,
+      "tradeActivePairShare": 0.003259,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.967856,
+        "p10": 0.919191
+      },
+      "diseaseBurden": {
+        "mean": 0.000133,
+        "p90": 0.000207
+      },
+      "stateQuality": {
+        "stabilityMean": 0.309404,
+        "stabilityP10": 0.007230,
+        "legitimacyMean": 0.303320,
+        "legitimacyP10": 0.011980,
+        "lowStabilityPopShare": 0.201405,
+        "lowLegitimacyPopShare": 0.201405
+      }
+    },
+    {
+      "year": -3275,
+      "worldPopulation": 199946501.000000,
+      "urbanShare": 0.062352,
+      "medianCountryPop": 39353.000000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.521437,
+      "tradeIntensity": 0.002555,
+      "tradeActivePairShare": 0.003839,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.966583,
+        "p10": 0.918534
+      },
+      "diseaseBurden": {
+        "mean": 0.000141,
+        "p90": 0.000219
+      },
+      "stateQuality": {
+        "stabilityMean": 0.312020,
+        "stabilityP10": 0.007300,
+        "legitimacyMean": 0.302050,
+        "legitimacyP10": 0.012560,
+        "lowStabilityPopShare": 0.185350,
+        "lowLegitimacyPopShare": 0.185350
+      }
+    },
+    {
+      "year": -3250,
+      "worldPopulation": 205366622.000000,
+      "urbanShare": 0.064482,
+      "medianCountryPop": 39435.500000,
+      "medianCountryArea": 208.500000,
+      "warFrequencyPerCentury": 0.513992,
+      "tradeIntensity": 0.002522,
+      "tradeActivePairShare": 0.003839,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.969683,
+        "p10": 0.923043
+      },
+      "diseaseBurden": {
+        "mean": 0.000144,
+        "p90": 0.000226
+      },
+      "stateQuality": {
+        "stabilityMean": 0.314629,
+        "stabilityP10": 0.007300,
+        "legitimacyMean": 0.302684,
+        "legitimacyP10": 0.012500,
+        "lowStabilityPopShare": 0.177511,
+        "lowLegitimacyPopShare": 0.177511
+      }
+    },
+    {
+      "year": -3225,
+      "worldPopulation": 212632054.000000,
+      "urbanShare": 0.066536,
+      "medianCountryPop": 39365.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.506757,
+      "tradeIntensity": 0.002427,
+      "tradeActivePairShare": 0.003839,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.969370,
+        "p10": 0.922962
+      },
+      "diseaseBurden": {
+        "mean": 0.000130,
+        "p90": 0.000203
+      },
+      "stateQuality": {
+        "stabilityMean": 0.313530,
+        "stabilityP10": 0.007360,
+        "legitimacyMean": 0.298806,
+        "legitimacyP10": 0.012460,
+        "lowStabilityPopShare": 0.170949,
+        "lowLegitimacyPopShare": 0.176544
+      }
+    },
+    {
+      "year": -3200,
+      "worldPopulation": 220375789.000000,
+      "urbanShare": 0.068383,
+      "medianCountryPop": 35791.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.499722,
+      "tradeIntensity": 0.002672,
+      "tradeActivePairShare": 0.003404,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.971746,
+        "p10": 0.920718
+      },
+      "diseaseBurden": {
+        "mean": 0.000135,
+        "p90": 0.000205
+      },
+      "stateQuality": {
+        "stabilityMean": 0.303734,
+        "stabilityP10": 0.007460,
+        "legitimacyMean": 0.300511,
+        "legitimacyP10": 0.012590,
+        "lowStabilityPopShare": 0.164234,
+        "lowLegitimacyPopShare": 0.168055
+      }
+    },
+    {
+      "year": -3175,
+      "worldPopulation": 226352931.000000,
+      "urbanShare": 0.069086,
+      "medianCountryPop": 35356.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.492881,
+      "tradeIntensity": 0.002563,
+      "tradeActivePairShare": 0.003622,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.964744,
+        "p10": 0.912015
+      },
+      "diseaseBurden": {
+        "mean": 0.000129,
+        "p90": 0.000193
+      },
+      "stateQuality": {
+        "stabilityMean": 0.298638,
+        "stabilityP10": 0.007260,
+        "legitimacyMean": 0.300518,
+        "legitimacyP10": 0.012330,
+        "lowStabilityPopShare": 0.161531,
+        "lowLegitimacyPopShare": 0.163601
+      }
+    },
+    {
+      "year": -3150,
+      "worldPopulation": 231748006.000000,
+      "urbanShare": 0.069367,
+      "medianCountryPop": 35278.500000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.486224,
+      "tradeIntensity": 0.002862,
+      "tradeActivePairShare": 0.003187,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.969190,
+        "p10": 0.921704
+      },
+      "diseaseBurden": {
+        "mean": 0.000132,
+        "p90": 0.000193
+      },
+      "stateQuality": {
+        "stabilityMean": 0.299512,
+        "stabilityP10": 0.007360,
+        "legitimacyMean": 0.299933,
+        "legitimacyP10": 0.012260,
+        "lowStabilityPopShare": 0.154368,
+        "lowLegitimacyPopShare": 0.156400
+      }
+    },
+    {
+      "year": -3125,
+      "worldPopulation": 238940372.000000,
+      "urbanShare": 0.071108,
+      "medianCountryPop": 34939.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.479744,
+      "tradeIntensity": 0.002957,
+      "tradeActivePairShare": 0.003332,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.969917,
+        "p10": 0.916940
+      },
+      "diseaseBurden": {
+        "mean": 0.000143,
+        "p90": 0.000252
+      },
+      "stateQuality": {
+        "stabilityMean": 0.299885,
+        "stabilityP10": 0.007530,
+        "legitimacyMean": 0.298634,
+        "legitimacyP10": 0.012710,
+        "lowStabilityPopShare": 0.150003,
+        "lowLegitimacyPopShare": 0.151990
+      }
+    },
+    {
+      "year": -3100,
+      "worldPopulation": 245929100.000000,
+      "urbanShare": 0.070461,
+      "medianCountryPop": 34495.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.473435,
+      "tradeIntensity": 0.002812,
+      "tradeActivePairShare": 0.003549,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.966167,
+        "p10": 0.912276
+      },
+      "diseaseBurden": {
+        "mean": 0.000132,
+        "p90": 0.000198
+      },
+      "stateQuality": {
+        "stabilityMean": 0.301639,
+        "stabilityP10": 0.007390,
+        "legitimacyMean": 0.301448,
+        "legitimacyP10": 0.012530,
+        "lowStabilityPopShare": 0.144027,
+        "lowLegitimacyPopShare": 0.145948
+      }
+    },
+    {
+      "year": -3075,
+      "worldPopulation": 250790571.000000,
+      "urbanShare": 0.071945,
+      "medianCountryPop": 33955.500000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.467290,
+      "tradeIntensity": 0.002699,
+      "tradeActivePairShare": 0.003404,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.967016,
+        "p10": 0.912857
+      },
+      "diseaseBurden": {
+        "mean": 0.000137,
+        "p90": 0.000201
+      },
+      "stateQuality": {
+        "stabilityMean": 0.303163,
+        "stabilityP10": 0.007500,
+        "legitimacyMean": 0.301439,
+        "legitimacyP10": 0.012860,
+        "lowStabilityPopShare": 0.137820,
+        "lowLegitimacyPopShare": 0.137820
+      }
+    },
+    {
+      "year": -3050,
+      "worldPopulation": 256746992.000000,
+      "urbanShare": 0.073179,
+      "medianCountryPop": 33970.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.461302,
+      "tradeIntensity": 0.002668,
+      "tradeActivePairShare": 0.003622,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.972810,
+        "p10": 0.924492
+      },
+      "diseaseBurden": {
+        "mean": 0.000131,
+        "p90": 0.000191
+      },
+      "stateQuality": {
+        "stabilityMean": 0.305082,
+        "stabilityP10": 0.007630,
+        "legitimacyMean": 0.299121,
+        "legitimacyP10": 0.013090,
+        "lowStabilityPopShare": 0.137610,
+        "lowLegitimacyPopShare": 0.137610
+      }
+    },
+    {
+      "year": -3025,
+      "worldPopulation": 263594612.000000,
+      "urbanShare": 0.072968,
+      "medianCountryPop": 30943.500000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.455466,
+      "tradeIntensity": 0.002878,
+      "tradeActivePairShare": 0.003477,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.969914,
+        "p10": 0.920247
+      },
+      "diseaseBurden": {
+        "mean": 0.000140,
+        "p90": 0.000201
+      },
+      "stateQuality": {
+        "stabilityMean": 0.306669,
+        "stabilityP10": 0.007530,
+        "legitimacyMean": 0.304385,
+        "legitimacyP10": 0.012650,
+        "lowStabilityPopShare": 0.131831,
+        "lowLegitimacyPopShare": 0.131918
+      }
+    },
+    {
+      "year": -3000,
+      "worldPopulation": 269794589.000000,
+      "urbanShare": 0.072748,
+      "medianCountryPop": 28967.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.449775,
+      "tradeIntensity": 0.002857,
+      "tradeActivePairShare": 0.003694,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.960197,
+        "p10": 0.894729
+      },
+      "diseaseBurden": {
+        "mean": 0.000144,
+        "p90": 0.000217
+      },
+      "stateQuality": {
+        "stabilityMean": 0.304961,
+        "stabilityP10": 0.007500,
+        "legitimacyMean": 0.301603,
+        "legitimacyP10": 0.012530,
+        "lowStabilityPopShare": 0.134335,
+        "lowLegitimacyPopShare": 0.134335
+      }
+    },
+    {
+      "year": -2975,
+      "worldPopulation": 274798157.000000,
+      "urbanShare": 0.075093,
+      "medianCountryPop": 28966.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.444225,
+      "tradeIntensity": 0.003343,
+      "tradeActivePairShare": 0.003332,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.970605,
+        "p10": 0.924926
+      },
+      "diseaseBurden": {
+        "mean": 0.000151,
+        "p90": 0.000235
+      },
+      "stateQuality": {
+        "stabilityMean": 0.304901,
+        "stabilityP10": 0.007500,
+        "legitimacyMean": 0.297387,
+        "legitimacyP10": 0.012830,
+        "lowStabilityPopShare": 0.132320,
+        "lowLegitimacyPopShare": 0.134105
+      }
+    },
+    {
+      "year": -2950,
+      "worldPopulation": 278236314.000000,
+      "urbanShare": 0.075264,
+      "medianCountryPop": 33822.500000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.438810,
+      "tradeIntensity": 0.002936,
+      "tradeActivePairShare": 0.003694,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.968128,
+        "p10": 0.918640
+      },
+      "diseaseBurden": {
+        "mean": 0.000143,
+        "p90": 0.000209
+      },
+      "stateQuality": {
+        "stabilityMean": 0.304333,
+        "stabilityP10": 0.007500,
+        "legitimacyMean": 0.299884,
+        "legitimacyP10": 0.012650,
+        "lowStabilityPopShare": 0.136037,
+        "lowLegitimacyPopShare": 0.137877
+      }
+    },
+    {
+      "year": -2925,
+      "worldPopulation": 284125309.000000,
+      "urbanShare": 0.076033,
+      "medianCountryPop": 29075.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.433526,
+      "tradeIntensity": 0.003302,
+      "tradeActivePairShare": 0.003042,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.970298,
+        "p10": 0.923941
+      },
+      "diseaseBurden": {
+        "mean": 0.000127,
+        "p90": 0.000201
+      },
+      "stateQuality": {
+        "stabilityMean": 0.301994,
+        "stabilityP10": 0.007530,
+        "legitimacyMean": 0.298060,
+        "legitimacyP10": 0.012790,
+        "lowStabilityPopShare": 0.136085,
+        "lowLegitimacyPopShare": 0.137796
+      }
+    },
+    {
+      "year": -2900,
+      "worldPopulation": 289900908.000000,
+      "urbanShare": 0.076647,
+      "medianCountryPop": 29060.500000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.428367,
+      "tradeIntensity": 0.003164,
+      "tradeActivePairShare": 0.003622,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.971613,
+        "p10": 0.926880
+      },
+      "diseaseBurden": {
+        "mean": 0.000128,
+        "p90": 0.000210
+      },
+      "stateQuality": {
+        "stabilityMean": 0.299989,
+        "stabilityP10": 0.007490,
+        "legitimacyMean": 0.302215,
+        "legitimacyP10": 0.012650,
+        "lowStabilityPopShare": 0.135192,
+        "lowLegitimacyPopShare": 0.136836
+      }
+    },
+    {
+      "year": -2875,
+      "worldPopulation": 298365549.000000,
+      "urbanShare": 0.076997,
+      "medianCountryPop": 33811.500000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.423330,
+      "tradeIntensity": 0.002710,
+      "tradeActivePairShare": 0.003404,
+      "techCapabilityLevels": {
+        "tier1Share": 0.008772,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.971453,
+        "p10": 0.924068
+      },
+      "diseaseBurden": {
+        "mean": 0.000134,
+        "p90": 0.000212
+      },
+      "stateQuality": {
+        "stabilityMean": 0.297768,
+        "stabilityP10": 0.007500,
+        "legitimacyMean": 0.298799,
+        "legitimacyP10": 0.012830,
+        "lowStabilityPopShare": 0.135025,
+        "lowLegitimacyPopShare": 0.135025
+      }
+    },
+    {
+      "year": -2850,
+      "worldPopulation": 305374899.000000,
+      "urbanShare": 0.077212,
+      "medianCountryPop": 33791.500000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.418410,
+      "tradeIntensity": 0.002576,
+      "tradeActivePairShare": 0.003549,
+      "techCapabilityLevels": {
+        "tier1Share": 0.008772,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.968550,
+        "p10": 0.922126
+      },
+      "diseaseBurden": {
+        "mean": 0.000144,
+        "p90": 0.000208
+      },
+      "stateQuality": {
+        "stabilityMean": 0.298787,
+        "stabilityP10": 0.007490,
+        "legitimacyMean": 0.297052,
+        "legitimacyP10": 0.012690,
+        "lowStabilityPopShare": 0.132763,
+        "lowLegitimacyPopShare": 0.134556
+      }
+    },
+    {
+      "year": -2825,
+      "worldPopulation": 311828277.000000,
+      "urbanShare": 0.077621,
+      "medianCountryPop": 33645.500000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.413603,
+      "tradeIntensity": 0.002260,
+      "tradeActivePairShare": 0.003694,
+      "techCapabilityLevels": {
+        "tier1Share": 0.008772,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.964216,
+        "p10": 0.912542
+      },
+      "diseaseBurden": {
+        "mean": 0.000133,
+        "p90": 0.000210
+      },
+      "stateQuality": {
+        "stabilityMean": 0.298133,
+        "stabilityP10": 0.007330,
+        "legitimacyMean": 0.295824,
+        "legitimacyP10": 0.012320,
+        "lowStabilityPopShare": 0.136894,
+        "lowLegitimacyPopShare": 0.136999
+      }
+    },
+    {
+      "year": -2800,
+      "worldPopulation": 318903906.000000,
+      "urbanShare": 0.078553,
+      "medianCountryPop": 29092.000000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.408905,
+      "tradeIntensity": 0.002553,
+      "tradeActivePairShare": 0.003622,
+      "techCapabilityLevels": {
+        "tier1Share": 0.008772,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.963936,
+        "p10": 0.892583
+      },
+      "diseaseBurden": {
+        "mean": 0.000153,
+        "p90": 0.000211
+      },
+      "stateQuality": {
+        "stabilityMean": 0.299185,
+        "stabilityP10": 0.007330,
+        "legitimacyMean": 0.296846,
+        "legitimacyP10": 0.012630,
+        "lowStabilityPopShare": 0.133721,
+        "lowLegitimacyPopShare": 0.133825
+      }
+    },
+    {
+      "year": -2775,
+      "worldPopulation": 323287110.000000,
+      "urbanShare": 0.079356,
+      "medianCountryPop": 31623.500000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.404313,
+      "tradeIntensity": 0.002644,
+      "tradeActivePairShare": 0.003766,
+      "techCapabilityLevels": {
+        "tier1Share": 0.008772,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.962242,
+        "p10": 0.901300
+      },
+      "diseaseBurden": {
+        "mean": 0.000134,
+        "p90": 0.000208
+      },
+      "stateQuality": {
+        "stabilityMean": 0.299164,
+        "stabilityP10": 0.007390,
+        "legitimacyMean": 0.297739,
+        "legitimacyP10": 0.012700,
+        "lowStabilityPopShare": 0.136680,
+        "lowLegitimacyPopShare": 0.136780
+      }
+    },
+    {
+      "year": -2750,
+      "worldPopulation": 332987974.000000,
+      "urbanShare": 0.081688,
+      "medianCountryPop": 32560.500000,
+      "medianCountryArea": 211.000000,
+      "warFrequencyPerCentury": 0.399822,
+      "tradeIntensity": 0.002247,
+      "tradeActivePairShare": 0.003911,
+      "techCapabilityLevels": {
+        "tier1Share": 0.008772,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 115,
+      "foodSecurity": {
+        "mean": 0.965417,
+        "p10": 0.912433
+      },
+      "diseaseBurden": {
+        "mean": 0.000140,
+        "p90": 0.000198
+      },
+      "stateQuality": {
+        "stabilityMean": 0.300728,
+        "stabilityP10": 0.007560,
+        "legitimacyMean": 0.300187,
+        "legitimacyP10": 0.012930,
+        "lowStabilityPopShare": 0.133688,
+        "lowLegitimacyPopShare": 0.133761
+      }
+    },
+    {
+      "year": -2725,
+      "worldPopulation": 341195734.000000,
+      "urbanShare": 0.082700,
+      "medianCountryPop": 29797.000000,
+      "medianCountryArea": 213.000000,
+      "warFrequencyPerCentury": 0.395431,
+      "tradeIntensity": 0.002887,
+      "tradeActivePairShare": 0.003561,
+      "techCapabilityLevels": {
+        "tier1Share": 0.017391,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 120,
+      "foodSecurity": {
+        "mean": 0.966989,
+        "p10": 0.913457
+      },
+      "diseaseBurden": {
+        "mean": 0.000132,
+        "p90": 0.000193
+      },
+      "stateQuality": {
+        "stabilityMean": 0.304045,
+        "stabilityP10": 0.007440,
+        "legitimacyMean": 0.300794,
+        "legitimacyP10": 0.012720,
+        "lowStabilityPopShare": 0.131770,
+        "lowLegitimacyPopShare": 0.131842
+      }
+    },
+    {
+      "year": -2700,
+      "worldPopulation": 349753929.000000,
+      "urbanShare": 0.083763,
+      "medianCountryPop": 29299.500000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.391134,
+      "tradeIntensity": 0.002680,
+      "tradeActivePairShare": 0.003490,
+      "techCapabilityLevels": {
+        "tier1Share": 0.035088,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 127,
+      "foodSecurity": {
+        "mean": 0.967679,
+        "p10": 0.912215
+      },
+      "diseaseBurden": {
+        "mean": 0.000125,
+        "p90": 0.000191
+      },
+      "stateQuality": {
+        "stabilityMean": 0.309252,
+        "stabilityP10": 0.007630,
+        "legitimacyMean": 0.306282,
+        "legitimacyP10": 0.012990,
+        "lowStabilityPopShare": 0.130107,
+        "lowLegitimacyPopShare": 0.130107
+      }
+    },
+    {
+      "year": -2675,
+      "worldPopulation": 355209001.000000,
+      "urbanShare": 0.084246,
+      "medianCountryPop": 28679.500000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.386930,
+      "tradeIntensity": 0.002987,
+      "tradeActivePairShare": 0.003490,
+      "techCapabilityLevels": {
+        "tier1Share": 0.035088,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 127,
+      "foodSecurity": {
+        "mean": 0.965077,
+        "p10": 0.915734
+      },
+      "diseaseBurden": {
+        "mean": 0.000153,
+        "p90": 0.000216
+      },
+      "stateQuality": {
+        "stabilityMean": 0.312289,
+        "stabilityP10": 0.007430,
+        "legitimacyMean": 0.307333,
+        "legitimacyP10": 0.012860,
+        "lowStabilityPopShare": 0.130812,
+        "lowLegitimacyPopShare": 0.130812
+      }
+    },
+    {
+      "year": -2650,
+      "worldPopulation": 362476977.000000,
+      "urbanShare": 0.084673,
+      "medianCountryPop": 30896.000000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.382816,
+      "tradeIntensity": 0.003160,
+      "tradeActivePairShare": 0.003774,
+      "techCapabilityLevels": {
+        "tier1Share": 0.043860,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 127,
+      "foodSecurity": {
+        "mean": 0.968754,
+        "p10": 0.911169
+      },
+      "diseaseBurden": {
+        "mean": 0.000136,
+        "p90": 0.000231
+      },
+      "stateQuality": {
+        "stabilityMean": 0.316017,
+        "stabilityP10": 0.007760,
+        "legitimacyMean": 0.311894,
+        "legitimacyP10": 0.013390,
+        "lowStabilityPopShare": 0.133512,
+        "lowLegitimacyPopShare": 0.133512
+      }
+    },
+    {
+      "year": -2625,
+      "worldPopulation": 367161779.000000,
+      "urbanShare": 0.085181,
+      "medianCountryPop": 30813.500000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.378788,
+      "tradeIntensity": 0.003113,
+      "tradeActivePairShare": 0.003774,
+      "techCapabilityLevels": {
+        "tier1Share": 0.043860,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 127,
+      "foodSecurity": {
+        "mean": 0.963446,
+        "p10": 0.904144
+      },
+      "diseaseBurden": {
+        "mean": 0.000130,
+        "p90": 0.000182
+      },
+      "stateQuality": {
+        "stabilityMean": 0.315624,
+        "stabilityP10": 0.007460,
+        "legitimacyMean": 0.312358,
+        "legitimacyP10": 0.012850,
+        "lowStabilityPopShare": 0.134318,
+        "lowLegitimacyPopShare": 0.134318
+      }
+    },
+    {
+      "year": -2600,
+      "worldPopulation": 373967895.000000,
+      "urbanShare": 0.086210,
+      "medianCountryPop": 30662.000000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.374844,
+      "tradeIntensity": 0.003301,
+      "tradeActivePairShare": 0.003561,
+      "techCapabilityLevels": {
+        "tier1Share": 0.043860,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 127,
+      "foodSecurity": {
+        "mean": 0.969774,
+        "p10": 0.924923
+      },
+      "diseaseBurden": {
+        "mean": 0.000138,
+        "p90": 0.000205
+      },
+      "stateQuality": {
+        "stabilityMean": 0.315225,
+        "stabilityP10": 0.007630,
+        "legitimacyMean": 0.312442,
+        "legitimacyP10": 0.013200,
+        "lowStabilityPopShare": 0.131998,
+        "lowLegitimacyPopShare": 0.131998
+      }
+    },
+    {
+      "year": -2575,
+      "worldPopulation": 379603967.000000,
+      "urbanShare": 0.087509,
+      "medianCountryPop": 31626.000000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.370981,
+      "tradeIntensity": 0.003047,
+      "tradeActivePairShare": 0.003774,
+      "techCapabilityLevels": {
+        "tier1Share": 0.061404,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 127,
+      "foodSecurity": {
+        "mean": 0.974371,
+        "p10": 0.927982
+      },
+      "diseaseBurden": {
+        "mean": 0.000154,
+        "p90": 0.000268
+      },
+      "stateQuality": {
+        "stabilityMean": 0.315775,
+        "stabilityP10": 0.007730,
+        "legitimacyMean": 0.309567,
+        "legitimacyP10": 0.013420,
+        "lowStabilityPopShare": 0.134132,
+        "lowLegitimacyPopShare": 0.134132
+      }
+    },
+    {
+      "year": -2550,
+      "worldPopulation": 384802281.000000,
+      "urbanShare": 0.087180,
+      "medianCountryPop": 30189.000000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.367197,
+      "tradeIntensity": 0.003130,
+      "tradeActivePairShare": 0.003490,
+      "techCapabilityLevels": {
+        "tier1Share": 0.061404,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 127,
+      "foodSecurity": {
+        "mean": 0.972571,
+        "p10": 0.924500
+      },
+      "diseaseBurden": {
+        "mean": 0.000153,
+        "p90": 0.000258
+      },
+      "stateQuality": {
+        "stabilityMean": 0.315906,
+        "stabilityP10": 0.007730,
+        "legitimacyMean": 0.311205,
+        "legitimacyP10": 0.013560,
+        "lowStabilityPopShare": 0.132004,
+        "lowLegitimacyPopShare": 0.132004
+      }
+    },
+    {
+      "year": -2525,
+      "worldPopulation": 393142914.000000,
+      "urbanShare": 0.088230,
+      "medianCountryPop": 29825.500000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.363489,
+      "tradeIntensity": 0.003000,
+      "tradeActivePairShare": 0.003561,
+      "techCapabilityLevels": {
+        "tier1Share": 0.070175,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 127,
+      "foodSecurity": {
+        "mean": 0.969162,
+        "p10": 0.915631
+      },
+      "diseaseBurden": {
+        "mean": 0.000160,
+        "p90": 0.000267
+      },
+      "stateQuality": {
+        "stabilityMean": 0.315944,
+        "stabilityP10": 0.007530,
+        "legitimacyMean": 0.309699,
+        "legitimacyP10": 0.013200,
+        "lowStabilityPopShare": 0.130889,
+        "lowLegitimacyPopShare": 0.130889
+      }
+    },
+    {
+      "year": -2500,
+      "worldPopulation": 398085203.000000,
+      "urbanShare": 0.088119,
+      "medianCountryPop": 29801.000000,
+      "medianCountryArea": 217.000000,
+      "warFrequencyPerCentury": 0.359856,
+      "tradeIntensity": 0.003259,
+      "tradeActivePairShare": 0.003988,
+      "techCapabilityLevels": {
+        "tier1Share": 0.079646,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 128,
+      "foodSecurity": {
+        "mean": 0.964289,
+        "p10": 0.906553
+      },
+      "diseaseBurden": {
+        "mean": 0.000136,
+        "p90": 0.000204
+      },
+      "stateQuality": {
+        "stabilityMean": 0.318865,
+        "stabilityP10": 0.007800,
+        "legitimacyMean": 0.314741,
+        "legitimacyP10": 0.013620,
+        "lowStabilityPopShare": 0.131493,
+        "lowLegitimacyPopShare": 0.131493
+      }
+    },
+    {
+      "year": -2475,
+      "worldPopulation": 400466319.000000,
+      "urbanShare": 0.089421,
+      "medianCountryPop": 28941.000000,
+      "medianCountryArea": 217.000000,
+      "warFrequencyPerCentury": 0.356295,
+      "tradeIntensity": 0.003380,
+      "tradeActivePairShare": 0.003703,
+      "techCapabilityLevels": {
+        "tier1Share": 0.079646,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 133,
+      "foodSecurity": {
+        "mean": 0.967155,
+        "p10": 0.922911
+      },
+      "diseaseBurden": {
+        "mean": 0.000137,
+        "p90": 0.000211
+      },
+      "stateQuality": {
+        "stabilityMean": 0.318716,
+        "stabilityP10": 0.007640,
+        "legitimacyMean": 0.314325,
+        "legitimacyP10": 0.013380,
+        "lowStabilityPopShare": 0.132433,
+        "lowLegitimacyPopShare": 0.132433
+      }
+    },
+    {
+      "year": -2450,
+      "worldPopulation": 406019408.000000,
+      "urbanShare": 0.088204,
+      "medianCountryPop": 28964.000000,
+      "medianCountryArea": 217.000000,
+      "warFrequencyPerCentury": 0.352803,
+      "tradeIntensity": 0.003053,
+      "tradeActivePairShare": 0.003703,
+      "techCapabilityLevels": {
+        "tier1Share": 0.079646,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 133,
+      "foodSecurity": {
+        "mean": 0.962828,
+        "p10": 0.907507
+      },
+      "diseaseBurden": {
+        "mean": 0.000128,
+        "p90": 0.000186
+      },
+      "stateQuality": {
+        "stabilityMean": 0.312596,
+        "stabilityP10": 0.007560,
+        "legitimacyMean": 0.308116,
+        "legitimacyP10": 0.013380,
+        "lowStabilityPopShare": 0.132739,
+        "lowLegitimacyPopShare": 0.133960
+      }
+    },
+    {
+      "year": -2425,
+      "worldPopulation": 411252248.000000,
+      "urbanShare": 0.088998,
+      "medianCountryPop": 28977.000000,
+      "medianCountryArea": 217.000000,
+      "warFrequencyPerCentury": 0.349379,
+      "tradeIntensity": 0.002545,
+      "tradeActivePairShare": 0.003490,
+      "techCapabilityLevels": {
+        "tier1Share": 0.079646,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 133,
+      "foodSecurity": {
+        "mean": 0.970538,
+        "p10": 0.917779
+      },
+      "diseaseBurden": {
+        "mean": 0.000147,
+        "p90": 0.000223
+      },
+      "stateQuality": {
+        "stabilityMean": 0.309686,
+        "stabilityP10": 0.007520,
+        "legitimacyMean": 0.307205,
+        "legitimacyP10": 0.012980,
+        "lowStabilityPopShare": 0.132922,
+        "lowLegitimacyPopShare": 0.132922
+      }
+    },
+    {
+      "year": -2400,
+      "worldPopulation": 416296712.000000,
+      "urbanShare": 0.089029,
+      "medianCountryPop": 29290.500000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.346021,
+      "tradeIntensity": 0.002780,
+      "tradeActivePairShare": 0.003711,
+      "techCapabilityLevels": {
+        "tier1Share": 0.087719,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 137,
+      "foodSecurity": {
+        "mean": 0.962564,
+        "p10": 0.892962
+      },
+      "diseaseBurden": {
+        "mean": 0.000137,
+        "p90": 0.000206
+      },
+      "stateQuality": {
+        "stabilityMean": 0.310314,
+        "stabilityP10": 0.007500,
+        "legitimacyMean": 0.305591,
+        "legitimacyP10": 0.012800,
+        "lowStabilityPopShare": 0.131391,
+        "lowLegitimacyPopShare": 0.131391
+      }
+    },
+    {
+      "year": -2375,
+      "worldPopulation": 419941165.000000,
+      "urbanShare": 0.088999,
+      "medianCountryPop": 29322.000000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.342727,
+      "tradeIntensity": 0.002712,
+      "tradeActivePairShare": 0.003782,
+      "techCapabilityLevels": {
+        "tier1Share": 0.096491,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 137,
+      "foodSecurity": {
+        "mean": 0.967288,
+        "p10": 0.913152
+      },
+      "diseaseBurden": {
+        "mean": 0.000143,
+        "p90": 0.000194
+      },
+      "stateQuality": {
+        "stabilityMean": 0.314083,
+        "stabilityP10": 0.007700,
+        "legitimacyMean": 0.308256,
+        "legitimacyP10": 0.013330,
+        "lowStabilityPopShare": 0.130502,
+        "lowLegitimacyPopShare": 0.130502
+      }
+    },
+    {
+      "year": -2350,
+      "worldPopulation": 422079580.000000,
+      "urbanShare": 0.088209,
+      "medianCountryPop": 28779.500000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.339495,
+      "tradeIntensity": 0.002894,
+      "tradeActivePairShare": 0.003501,
+      "techCapabilityLevels": {
+        "tier1Share": 0.096491,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 137,
+      "foodSecurity": {
+        "mean": 0.960373,
+        "p10": 0.893504
+      },
+      "diseaseBurden": {
+        "mean": 0.000141,
+        "p90": 0.000205
+      },
+      "stateQuality": {
+        "stabilityMean": 0.316842,
+        "stabilityP10": 0.007660,
+        "legitimacyMean": 0.310730,
+        "legitimacyP10": 0.013430,
+        "lowStabilityPopShare": 0.131070,
+        "lowLegitimacyPopShare": 0.131233
+      }
+    },
+    {
+      "year": -2325,
+      "worldPopulation": 419390389.000000,
+      "urbanShare": 0.089444,
+      "medianCountryPop": 29552.500000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.336323,
+      "tradeIntensity": 0.003063,
+      "tradeActivePairShare": 0.003501,
+      "techCapabilityLevels": {
+        "tier1Share": 0.105263,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 137,
+      "foodSecurity": {
+        "mean": 0.962144,
+        "p10": 0.910406
+      },
+      "diseaseBurden": {
+        "mean": 0.000130,
+        "p90": 0.000183
+      },
+      "stateQuality": {
+        "stabilityMean": 0.316313,
+        "stabilityP10": 0.007630,
+        "legitimacyMean": 0.307713,
+        "legitimacyP10": 0.013200,
+        "lowStabilityPopShare": 0.134175,
+        "lowLegitimacyPopShare": 0.134347
+      }
+    },
+    {
+      "year": -2300,
+      "worldPopulation": 423569912.000000,
+      "urbanShare": 0.090550,
+      "medianCountryPop": 29539.000000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.333210,
+      "tradeIntensity": 0.003005,
+      "tradeActivePairShare": 0.003641,
+      "techCapabilityLevels": {
+        "tier1Share": 0.105263,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 137,
+      "foodSecurity": {
+        "mean": 0.963247,
+        "p10": 0.891715
+      },
+      "diseaseBurden": {
+        "mean": 0.000136,
+        "p90": 0.000195
+      },
+      "stateQuality": {
+        "stabilityMean": 0.318280,
+        "stabilityP10": 0.007590,
+        "legitimacyMean": 0.307186,
+        "legitimacyP10": 0.013520,
+        "lowStabilityPopShare": 0.132086,
+        "lowLegitimacyPopShare": 0.132266
+      }
+    },
+    {
+      "year": -2275,
+      "worldPopulation": 425426585.000000,
+      "urbanShare": 0.089065,
+      "medianCountryPop": 29349.000000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.330154,
+      "tradeIntensity": 0.002625,
+      "tradeActivePairShare": 0.003922,
+      "techCapabilityLevels": {
+        "tier1Share": 0.114035,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 137,
+      "foodSecurity": {
+        "mean": 0.966544,
+        "p10": 0.906247
+      },
+      "diseaseBurden": {
+        "mean": 0.000140,
+        "p90": 0.000192
+      },
+      "stateQuality": {
+        "stabilityMean": 0.314595,
+        "stabilityP10": 0.007630,
+        "legitimacyMean": 0.304058,
+        "legitimacyP10": 0.012980,
+        "lowStabilityPopShare": 0.130127,
+        "lowLegitimacyPopShare": 0.131325
+      }
+    },
+    {
+      "year": -2250,
+      "worldPopulation": 427971805.000000,
+      "urbanShare": 0.088692,
+      "medianCountryPop": 30132.000000,
+      "medianCountryArea": 217.000000,
+      "warFrequencyPerCentury": 0.327154,
+      "tradeIntensity": 0.002797,
+      "tradeActivePairShare": 0.003788,
+      "techCapabilityLevels": {
+        "tier1Share": 0.121739,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 142,
+      "foodSecurity": {
+        "mean": 0.965236,
+        "p10": 0.910815
+      },
+      "diseaseBurden": {
+        "mean": 0.000140,
+        "p90": 0.000187
+      },
+      "stateQuality": {
+        "stabilityMean": 0.315905,
+        "stabilityP10": 0.007640,
+        "legitimacyMean": 0.304146,
+        "legitimacyP10": 0.013440,
+        "lowStabilityPopShare": 0.125822,
+        "lowLegitimacyPopShare": 0.126967
+      }
+    },
+    {
+      "year": -2225,
+      "worldPopulation": 429355465.000000,
+      "urbanShare": 0.089163,
+      "medianCountryPop": 30056.000000,
+      "medianCountryArea": 217.000000,
+      "warFrequencyPerCentury": 0.324207,
+      "tradeIntensity": 0.002673,
+      "tradeActivePairShare": 0.003719,
+      "techCapabilityLevels": {
+        "tier1Share": 0.130435,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 142,
+      "foodSecurity": {
+        "mean": 0.966824,
+        "p10": 0.927169
+      },
+      "diseaseBurden": {
+        "mean": 0.000144,
+        "p90": 0.000201
+      },
+      "stateQuality": {
+        "stabilityMean": 0.316863,
+        "stabilityP10": 0.007540,
+        "legitimacyMean": 0.304241,
+        "legitimacyP10": 0.013240,
+        "lowStabilityPopShare": 0.125051,
+        "lowLegitimacyPopShare": 0.126163
+      }
+    },
+    {
+      "year": -2200,
+      "worldPopulation": 432586469.000000,
+      "urbanShare": 0.090814,
+      "medianCountryPop": 29666.000000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.321314,
+      "tradeIntensity": 0.000000,
+      "tradeActivePairShare": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.146552,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 143,
+      "foodSecurity": {
+        "mean": 0.962025,
+        "p10": 0.901412
+      },
+      "diseaseBurden": {
+        "mean": 0.000138,
+        "p90": 0.000200
+      },
+      "stateQuality": {
+        "stabilityMean": 0.317731,
+        "stabilityP10": 0.007700,
+        "legitimacyMean": 0.309715,
+        "legitimacyP10": 0.013400,
+        "lowStabilityPopShare": 0.122724,
+        "lowLegitimacyPopShare": 0.123759
+      }
+    },
+    {
+      "year": -2175,
+      "worldPopulation": 437456743.000000,
+      "urbanShare": 0.090937,
+      "medianCountryPop": 29686.500000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.318471,
+      "tradeIntensity": 0.003549,
+      "tradeActivePairShare": 0.003658,
+      "techCapabilityLevels": {
+        "tier1Share": 0.146552,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 148,
+      "foodSecurity": {
+        "mean": 0.963949,
+        "p10": 0.905574
+      },
+      "diseaseBurden": {
+        "mean": 0.000128,
+        "p90": 0.000193
+      },
+      "stateQuality": {
+        "stabilityMean": 0.320580,
+        "stabilityP10": 0.007700,
+        "legitimacyMean": 0.311535,
+        "legitimacyP10": 0.013350,
+        "lowStabilityPopShare": 0.122144,
+        "lowLegitimacyPopShare": 0.123144
+      }
+    },
+    {
+      "year": -2150,
+      "worldPopulation": 440940911.000000,
+      "urbanShare": 0.091449,
+      "medianCountryPop": 31295.000000,
+      "medianCountryArea": 216.500000,
+      "warFrequencyPerCentury": 0.315679,
+      "tradeIntensity": 0.003007,
+      "tradeActivePairShare": 0.003861,
+      "techCapabilityLevels": {
+        "tier1Share": 0.155172,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 148,
+      "foodSecurity": {
+        "mean": 0.965427,
+        "p10": 0.913283
+      },
+      "diseaseBurden": {
+        "mean": 0.000139,
+        "p90": 0.000211
+      },
+      "stateQuality": {
+        "stabilityMean": 0.320337,
+        "stabilityP10": 0.007600,
+        "legitimacyMean": 0.312307,
+        "legitimacyP10": 0.013200,
+        "lowStabilityPopShare": 0.121967,
+        "lowLegitimacyPopShare": 0.123197
+      }
+    },
+    {
+      "year": -2125,
+      "worldPopulation": 441597592.000000,
+      "urbanShare": 0.090416,
+      "medianCountryPop": 31820.500000,
+      "medianCountryArea": 217.500000,
+      "warFrequencyPerCentury": 0.312935,
+      "tradeIntensity": 0.002840,
+      "tradeActivePairShare": 0.003590,
+      "techCapabilityLevels": {
+        "tier1Share": 0.155172,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 148,
+      "foodSecurity": {
+        "mean": 0.964336,
+        "p10": 0.910152
+      },
+      "diseaseBurden": {
+        "mean": 0.000140,
+        "p90": 0.000225
+      },
+      "stateQuality": {
+        "stabilityMean": 0.323950,
+        "stabilityP10": 0.007700,
+        "legitimacyMean": 0.316822,
+        "legitimacyP10": 0.013500,
+        "lowStabilityPopShare": 0.122097,
+        "lowLegitimacyPopShare": 0.122343
+      }
+    },
+    {
+      "year": -2100,
+      "worldPopulation": 445341600.000000,
+      "urbanShare": 0.091390,
+      "medianCountryPop": 32025.000000,
+      "medianCountryArea": 220.500000,
+      "warFrequencyPerCentury": 0.310238,
+      "tradeIntensity": 0.002834,
+      "tradeActivePairShare": 0.003929,
+      "techCapabilityLevels": {
+        "tier1Share": 0.172414,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 148,
+      "foodSecurity": {
+        "mean": 0.968586,
+        "p10": 0.916965
+      },
+      "diseaseBurden": {
+        "mean": 0.000133,
+        "p90": 0.000202
+      },
+      "stateQuality": {
+        "stabilityMean": 0.325427,
+        "stabilityP10": 0.007700,
+        "legitimacyMean": 0.318209,
+        "legitimacyP10": 0.013550,
+        "lowStabilityPopShare": 0.119407,
+        "lowLegitimacyPopShare": 0.120427
+      }
+    },
+    {
+      "year": -2075,
+      "worldPopulation": 445599958.000000,
+      "urbanShare": 0.092086,
+      "medianCountryPop": 29722.500000,
+      "medianCountryArea": 223.000000,
+      "warFrequencyPerCentury": 0.307587,
+      "tradeIntensity": 0.003025,
+      "tradeActivePairShare": 0.003794,
+      "techCapabilityLevels": {
+        "tier1Share": 0.172414,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 148,
+      "foodSecurity": {
+        "mean": 0.966712,
+        "p10": 0.923135
+      },
+      "diseaseBurden": {
+        "mean": 0.000146,
+        "p90": 0.000209
+      },
+      "stateQuality": {
+        "stabilityMean": 0.327521,
+        "stabilityP10": 0.007600,
+        "legitimacyMean": 0.322018,
+        "legitimacyP10": 0.013100,
+        "lowStabilityPopShare": 0.118991,
+        "lowLegitimacyPopShare": 0.120041
+      }
+    },
+    {
+      "year": -2050,
+      "worldPopulation": 453196263.000000,
+      "urbanShare": 0.093696,
+      "medianCountryPop": 29735.500000,
+      "medianCountryArea": 223.000000,
+      "warFrequencyPerCentury": 0.304981,
+      "tradeIntensity": 0.003063,
+      "tradeActivePairShare": 0.003590,
+      "techCapabilityLevels": {
+        "tier1Share": 0.172414,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 148,
+      "foodSecurity": {
+        "mean": 0.970108,
+        "p10": 0.927528
+      },
+      "diseaseBurden": {
+        "mean": 0.000127,
+        "p90": 0.000189
+      },
+      "stateQuality": {
+        "stabilityMean": 0.330633,
+        "stabilityP10": 0.007700,
+        "legitimacyMean": 0.322509,
+        "legitimacyP10": 0.013500,
+        "lowStabilityPopShare": 0.117917,
+        "lowLegitimacyPopShare": 0.117917
+      }
+    },
+    {
+      "year": -2025,
+      "worldPopulation": 457752887.000000,
+      "urbanShare": 0.094051,
+      "medianCountryPop": 29679.500000,
+      "medianCountryArea": 223.000000,
+      "warFrequencyPerCentury": 0.302419,
+      "tradeIntensity": 0.002973,
+      "tradeActivePairShare": 0.003590,
+      "techCapabilityLevels": {
+        "tier1Share": 0.172414,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 148,
+      "foodSecurity": {
+        "mean": 0.966313,
+        "p10": 0.918395
+      },
+      "diseaseBurden": {
+        "mean": 0.000139,
+        "p90": 0.000200
+      },
+      "stateQuality": {
+        "stabilityMean": 0.331706,
+        "stabilityP10": 0.007500,
+        "legitimacyMean": 0.316739,
+        "legitimacyP10": 0.013050,
+        "lowStabilityPopShare": 0.115295,
+        "lowLegitimacyPopShare": 0.116326
+      }
+    },
+    {
+      "year": -2000,
+      "worldPopulation": 462902254.000000,
+      "urbanShare": 0.094107,
+      "medianCountryPop": 29730.000000,
+      "medianCountryArea": 223.000000,
+      "warFrequencyPerCentury": 0.299900,
+      "tradeIntensity": 0.003498,
+      "tradeActivePairShare": 0.003116,
+      "techCapabilityLevels": {
+        "tier1Share": 0.172414,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 148,
+      "foodSecurity": {
+        "mean": 0.968182,
+        "p10": 0.917436
+      },
+      "diseaseBurden": {
+        "mean": 0.000136,
+        "p90": 0.000197
+      },
+      "stateQuality": {
+        "stabilityMean": 0.323629,
+        "stabilityP10": 0.007650,
+        "legitimacyMean": 0.311523,
+        "legitimacyP10": 0.013150,
+        "lowStabilityPopShare": 0.115213,
+        "lowLegitimacyPopShare": 0.115213
+      }
+    }
+  ]
+}

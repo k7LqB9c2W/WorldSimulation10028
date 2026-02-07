@@ -1061,7 +1061,15 @@ void EconomyModelCPU::tickYear(int year,
 
     m_lastTradeYear = year;
     m_lastTradeN = n;
-    m_tradeIntensity.assign(static_cast<size_t>(n) * static_cast<size_t>(n), 0.0f);
+    const size_t tradeNeed = static_cast<size_t>(n) * static_cast<size_t>(n);
+    if (m_tradeIntensity.size() != tradeNeed) {
+        m_tradeIntensity.assign(tradeNeed, 0.0f);
+    } else {
+        const float memory = static_cast<float>(std::clamp(cfg.economy.tradeIntensityMemory, 0.0, 0.98));
+        for (float& v : m_tradeIntensity) {
+            v *= memory;
+        }
+    }
 
     auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
     auto smoothScarcityPrice = [](double basePrice, double demand, double supply, double alpha, double minMul, double maxMul) {
@@ -1153,6 +1161,7 @@ void EconomyModelCPU::tickYear(int year,
     std::vector<double> taxableBaseAnnual(static_cast<size_t>(n), 0.0);
     std::vector<double> netRevenueAnnual(static_cast<size_t>(n), 0.0);
     std::vector<double> oldRealWage(static_cast<size_t>(n), 0.0);
+    std::vector<double> resourceTightness(static_cast<size_t>(n), 0.0);
 
     for (int i = 0; i < n; ++i) {
         Country& c = countries[static_cast<size_t>(i)];
@@ -1177,6 +1186,10 @@ void EconomyModelCPU::tickYear(int year,
         const double energyPot = energyPotRaw * coalDecline;
         const double nonFoodPot = std::max(0.0, 0.55 * orePot + 0.30 * energyPot + 0.25 * constructionPot);
         const double climateMult = std::max(0.05, static_cast<double>(map.getCountryClimateFoodMultiplier(i)));
+        const double resourcePerCap =
+            (0.65 * orePot + 0.35 * energyPot) /
+            std::max(1.0, pop * 0.00035);
+        resourceTightness[static_cast<size_t>(i)] = std::clamp(1.0 / (1.0 + resourcePerCap), 0.0, 1.0);
 
         const double control = clamp01(c.getAvgControl());
         const double legitimacy = clamp01(c.getLegitimacy());
@@ -1422,7 +1435,12 @@ void EconomyModelCPU::tickYear(int year,
         const double govServicesNeedAnnual = pop * (0.00004 + 0.00020 * c.getHealthSpendingShare() + 0.00018 * c.getEducationSpendingShare() + 0.00018 * c.getRndSpendingShare());
 
         foodNeed[static_cast<size_t>(i)] = subsistenceFoodNeedAnnual * yearsD;
-        goodsNeed[static_cast<size_t>(i)] = (goodsNeedAnnualHousehold + govGoodsNeedAnnual) * yearsD;
+        const double mismatchNeedBoost =
+            1.0 +
+            std::max(0.0, cfg.economy.tradeResourceMismatchDemandBoost) *
+                resourceTightness[static_cast<size_t>(i)] *
+                (0.35 + 0.65 * m.marketAccess);
+        goodsNeed[static_cast<size_t>(i)] = (goodsNeedAnnualHousehold + govGoodsNeedAnnual) * yearsD * mismatchNeedBoost;
         servicesNeed[static_cast<size_t>(i)] = (servicesNeedAnnualHousehold + govServicesNeedAnnual) * yearsD;
         militaryNeed[static_cast<size_t>(i)] = militaryNeedAnnual * yearsD;
 
@@ -1526,8 +1544,13 @@ void EconomyModelCPU::tickYear(int year,
             const double logi = std::min(clamp01(ca.getLogisticsReach()), clamp01(cb.getLogisticsReach()));
             const double control = std::min(clamp01(ca.getAvgControl()), clamp01(cb.getAvgControl()));
             const double connectivity = std::min(clamp01(ca.getConnectivityIndex()), clamp01(cb.getConnectivityIndex()));
+            const double scarcityMismatch = std::abs(
+                resourceTightness[static_cast<size_t>(a)] - resourceTightness[static_cast<size_t>(b)]);
+            const double scarcityBoost =
+                1.0 + std::max(0.0, cfg.economy.tradeScarcityCapacityBoost) * scarcityMismatch;
 
             double cap = m_cfg.baseLandCapacity * (0.30 + 0.70 * logi) * (0.30 + 0.70 * control) * (0.45 + 0.55 * connectivity) * std::min(4.0, 0.35 + contactScale * 0.08);
+            cap *= scarcityBoost;
             double cost = m_cfg.baseLandCost * (1.0 / std::max(1.0, contactScale)) * (1.25 - 0.65 * logi) * (1.15 - 0.55 * control);
             if (ca.isAtWar() || cb.isAtWar()) {
                 cap *= 0.62;
@@ -1551,9 +1574,14 @@ void EconomyModelCPU::tickYear(int year,
         const Country& cb = countries[static_cast<size_t>(b)];
         const double logi = std::min(clamp01(ca.getLogisticsReach()), clamp01(cb.getLogisticsReach()));
         const double connectivity = std::min(clamp01(ca.getConnectivityIndex()), clamp01(cb.getConnectivityIndex()));
+        const double scarcityMismatch = std::abs(
+            resourceTightness[static_cast<size_t>(a)] - resourceTightness[static_cast<size_t>(b)]);
+        const double scarcityBoost =
+            1.0 + std::max(0.0, cfg.economy.tradeScarcityCapacityBoost) * scarcityMismatch;
 
         double cap = m_cfg.baseSeaCapacity * (0.35 + 0.65 * logi) * (0.50 + 0.50 * connectivity);
         cap *= (0.75 + 0.25 * std::min(1.0, static_cast<double>(ca.getPorts().size() + cb.getPorts().size()) / 6.0));
+        cap *= scarcityBoost;
 
         double blockadeMult = 1.0;
         if (!seaOwner.empty() && !r.navPath.empty()) {
@@ -1596,6 +1624,7 @@ void EconomyModelCPU::tickYear(int year,
     auto tradeGood = [&](std::vector<double>& supply,
                          std::vector<double>& demand,
                          const std::vector<double>& localPrice,
+                         const std::vector<double>& scarcityIndex,
                          bool foodCategory) {
         struct Cand {
             int supplier = -1;
@@ -1613,13 +1642,28 @@ void EconomyModelCPU::tickYear(int year,
         std::sort(buyers.begin(), buyers.end(), [&](int a, int b) {
             const double pa = localPrice[static_cast<size_t>(a)];
             const double pb = localPrice[static_cast<size_t>(b)];
-            if (pa != pb) return pa > pb;
+            const bool aFinite = std::isfinite(pa);
+            const bool bFinite = std::isfinite(pb);
+            if (aFinite != bFinite) return aFinite;
+            if (aFinite && pa != pb) return pa > pb;
             return a < b;
         });
 
         for (int buyer : buyers) {
             double need = demand[static_cast<size_t>(buyer)];
             if (need <= 1e-9) continue;
+            const double needInitial = need;
+            const double localSupply = std::max(0.0, supply[static_cast<size_t>(buyer)]);
+            const double basePrice = foodCategory ? 1.0 : 2.0;
+            const double local = std::max(1e-9, localPrice[static_cast<size_t>(buyer)]);
+            const double shortagePressure = clamp01(needInitial / std::max(1e-9, needInitial + localSupply));
+            const double priceStress = clamp01((local / std::max(1e-9, basePrice) - 1.0) / 3.0);
+            const double scarcityStress = (buyer >= 0 && buyer < n)
+                                              ? clamp01(scarcityIndex[static_cast<size_t>(buyer)])
+                                              : 0.0;
+            const double urgency = clamp01(0.55 * shortagePressure + 0.25 * priceStress + 0.20 * scarcityStress);
+            const double maxPremium = std::max(1.0, cfg.economy.tradeMaxPricePremium);
+            const double acceptableDelivered = local * (1.0 + (maxPremium - 1.0) * urgency);
 
             std::vector<Cand> cands;
             cands.reserve(edgesByCountry[static_cast<size_t>(buyer)].size());
@@ -1641,10 +1685,9 @@ void EconomyModelCPU::tickYear(int year,
                 cands.resize(6);
             }
 
-            const double local = localPrice[static_cast<size_t>(buyer)];
             for (const Cand& cand : cands) {
                 if (need <= 1e-9) break;
-                if (cand.deliveredPrice >= local * 0.998) break;
+                if (cand.deliveredPrice > acceptableDelivered) break;
 
                 Edge& e = edges[static_cast<size_t>(cand.edgeIdx)];
                 double& capRem = foodCategory ? e.capFood : e.capGoods;
@@ -1663,8 +1706,18 @@ void EconomyModelCPU::tickYear(int year,
                 ms.exportsValue += value;
                 const size_t ti = static_cast<size_t>(cand.supplier) * static_cast<size_t>(n) + static_cast<size_t>(buyer);
                 if (ti < m_tradeIntensity.size()) {
+                    const double normBase = std::max(1.0, cfg.economy.tradeIntensityValueNormBase);
                     const double popBuyer = static_cast<double>(std::max<long long>(1, countries[static_cast<size_t>(buyer)].getPopulation()));
-                    const float inc = static_cast<float>(std::min(1.0, value / (8000.0 + popBuyer * 0.35)));
+                    const Country& cb = countries[static_cast<size_t>(buyer)];
+                    const Country& cs = countries[static_cast<size_t>(cand.supplier)];
+                    const double connectivity =
+                        0.5 * (clamp01(cb.getConnectivityIndex()) + clamp01(cs.getConnectivityIndex()));
+                    const double access =
+                        0.5 * (clamp01(cb.getMacroEconomy().marketAccess) + clamp01(cs.getMacroEconomy().marketAccess));
+                    const double scale = std::max(0.01, cfg.economy.tradeIntensityScale);
+                    const double denom = normBase + popBuyer * 0.10;
+                    const double devMul = (0.20 + 0.80 * connectivity) * (0.30 + 0.70 * access);
+                    const float inc = static_cast<float>(std::min(1.0, (value / denom) * scale * (0.70 + 0.30 * urgency) * devMul));
                     m_tradeIntensity[ti] = std::min(1.0f, m_tradeIntensity[ti] + inc);
                 }
             }
@@ -1680,8 +1733,15 @@ void EconomyModelCPU::tickYear(int year,
         }
     };
 
-    tradeGood(foodSupply, foodDemand, foodPrice, true);
-    tradeGood(goodsSupply, goodsDemand, goodsPrice, false);
+    std::vector<double> foodScarcity(static_cast<size_t>(n), 0.0);
+    for (int i = 0; i < n; ++i) {
+        const double need = std::max(0.0, foodDemand[static_cast<size_t>(i)]);
+        const double avail = std::max(0.0, foodSupply[static_cast<size_t>(i)]);
+        foodScarcity[static_cast<size_t>(i)] = clamp01(need / std::max(1e-9, need + avail));
+    }
+
+    tradeGood(foodSupply, foodDemand, foodPrice, foodScarcity, true);
+    tradeGood(goodsSupply, goodsDemand, goodsPrice, resourceTightness, false);
 
     // Finalize country states after trade.
     double maxTradeRow = 1e-9;
@@ -1875,7 +1935,12 @@ void EconomyModelCPU::tickYear(int year,
         // Apply fiscal state update with compliance/leakage-adjusted net revenue.
         const int techCount = static_cast<int>(tech.getUnlockedTechnologies(c).size());
         const bool plagueAffected = map.isPlagueActive() && map.isCountryAffectedByPlague(i);
-        c.applyBudgetFromEconomy(taxableBaseAnnual[static_cast<size_t>(i)], netRevenueAnnual[static_cast<size_t>(i)], years, techCount, plagueAffected);
+        c.applyBudgetFromEconomy(taxableBaseAnnual[static_cast<size_t>(i)],
+                                 netRevenueAnnual[static_cast<size_t>(i)],
+                                 years,
+                                 techCount,
+                                 plagueAffected,
+                                 cfg);
 
         // Annualize trade values.
         m.importsValue /= yearsD;

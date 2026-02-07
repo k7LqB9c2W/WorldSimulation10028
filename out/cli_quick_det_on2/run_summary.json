@@ -1,0 +1,79 @@
+{
+  "seed": 779,
+  "configPath": "data/sim_config_det_on.toml",
+  "configHash": "1ace22dbd5a8a38d",
+  "startYear": -5000,
+  "endYear": -4980,
+  "worldStartYear": -5000,
+  "useGPU": false,
+  "invariants": {
+    "ok": true,
+    "message": ""
+  },
+  "checkpoints": [
+    {
+      "year": -5000,
+      "worldPopulation": 16904129.000000,
+      "urbanShare": 0.024569,
+      "medianCountryPop": 156000.500000,
+      "medianCountryArea": 425.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.001775,
+      "tradeActivePairShare": 0.000808,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 7,
+      "foodSecurity": {
+        "mean": 0.992882,
+        "p10": 1.000000
+      },
+      "diseaseBurden": {
+        "mean": 0.000155,
+        "p90": 0.000157
+      },
+      "stateQuality": {
+        "stabilityMean": 0.998274,
+        "stabilityP10": 0.997210,
+        "legitimacyMean": 0.704096,
+        "legitimacyP10": 0.700720,
+        "lowStabilityPopShare": 0.000000,
+        "lowLegitimacyPopShare": 0.000000
+      }
+    },
+    {
+      "year": -4980,
+      "worldPopulation": 18726030.000000,
+      "urbanShare": 0.027467,
+      "medianCountryPop": 167622.000000,
+      "medianCountryArea": 386.000000,
+      "warFrequencyPerCentury": 0.000000,
+      "tradeIntensity": 0.000000,
+      "tradeActivePairShare": 0.000000,
+      "techCapabilityLevels": {
+        "tier1Share": 0.000000,
+        "tier2Share": 0.000000,
+        "tier3Share": 0.000000
+      },
+      "collapseCount": 25,
+      "foodSecurity": {
+        "mean": 0.926791,
+        "p10": 0.717144
+      },
+      "diseaseBurden": {
+        "mean": 0.000085,
+        "p90": 0.000141
+      },
+      "stateQuality": {
+        "stabilityMean": 0.946910,
+        "stabilityP10": 0.928220,
+        "legitimacyMean": 0.695834,
+        "legitimacyP10": 0.433160,
+        "lowStabilityPopShare": 0.000000,
+        "lowLegitimacyPopShare": 0.039094
+      }
+    }
+  ]
+}

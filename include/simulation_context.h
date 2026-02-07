@@ -12,6 +12,8 @@ struct SimulationConfig {
         int endYear = 2025;
         std::string rngSeedMode = "provided";
         bool deterministicMode = true;
+        // Expert override for Phase-7 overseas deterministic fallback: auto|on|off.
+        std::string deterministicOverseasFallback = "auto";
     } world{};
 
     struct Food {
@@ -61,6 +63,24 @@ struct SimulationConfig {
         double culturalPreference = 0.20;
     } migration{};
 
+    struct Disease {
+        double initialInfectedShare = 0.0010;
+        double initialRecoveredShare = 0.0;
+        double tradeImportWeight = 0.12;
+        double endemicBase = 0.0012;
+        double endemicUrbanWeight = 0.70;
+        double endemicHumidityWeight = 0.55;
+        double endemicInstitutionMitigation = 0.55;
+        double zoonoticBase = 0.0010;
+        double zoonoticForagingWeight = 0.80;
+        double zoonoticFarmingWeight = 0.25;
+        double spilloverShockChance = 0.015;
+        double spilloverShockMin = 0.002;
+        double spilloverShockMax = 0.012;
+        double warAmplifier = 0.20;
+        double famineAmplifier = 0.30;
+    } disease{};
+
     struct War {
         double supplyBase = 0.25;
         double supplyLogisticsWeight = 0.35;
@@ -94,6 +114,17 @@ struct SimulationConfig {
         int successionIntervalMax = 45;
         double eliteDefectionSensitivity = 0.65;
         double farRegionPenalty = 0.40;
+        double yearlyWarStabilityHit = 0.030;
+        double yearlyPlagueStabilityHit = 0.048;
+        double yearlyStagnationStabilityHit = 0.010;
+        double peaceRecoveryLowGrowth = 0.006;
+        double peaceRecoveryHighGrowth = 0.015;
+        double resilienceRecoveryStrength = 0.012;
+        double demogShortageStabilityHit = 0.018;
+        double demogDiseaseStabilityHit = 0.012;
+        double demogShortageLegitimacyHit = 0.014;
+        double demogDiseaseLegitimacyHit = 0.009;
+        double legitimacyRecoveryStrength = 0.010;
     } polity{};
 
     struct Tech {
@@ -113,6 +144,12 @@ struct SimulationConfig {
         double oreIntensity = 0.90;
         double goodsToMilitary = 0.55;
         double servicesScaling = 1.00;
+        double tradeResourceMismatchDemandBoost = 0.55;
+        double tradeScarcityCapacityBoost = 0.65;
+        double tradeMaxPricePremium = 1.30;
+        double tradeIntensityScale = 5.0;
+        double tradeIntensityValueNormBase = 2000.0;
+        double tradeIntensityMemory = 0.35;
         bool useGPU = true;
     } economy{};
 

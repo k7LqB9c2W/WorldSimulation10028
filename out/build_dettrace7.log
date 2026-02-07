@@ -1,0 +1,20 @@
+
+=== Building Release x64 ===
+**********************************************************************
+** Visual Studio 2022 Developer Command Prompt v17.12.4
+** Copyright (c) 2022 Microsoft Corporation
+**********************************************************************
+
+=== Configuring Release x64 (Ninja) ===
+-- Found SFML 2.6.1 in C:/SFML-2.6.1/lib/cmake/SFML
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: C:/WS/WorldSimulation10028/out/cmake/release
+
+=== Building in out\cmake\release ===
+[1/4] Building CXX object CMakeFiles\WorldSimulation.dir\src\map.cpp.obj
+C:\WS\WorldSimulation10028\src\map.cpp(48): warning C4996: 'getenv': This function or variable may be unsafe. Consider using _dupenv_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+[2/4] Building CXX object CMakeFiles\worldsim_cli.dir\src\map.cpp.obj
+C:\WS\WorldSimulation10028\src\map.cpp(48): warning C4996: 'getenv': This function or variable may be unsafe. Consider using _dupenv_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+[3/4] Linking CXX executable bin\WorldSimulation.exe
+[4/4] Linking CXX executable bin\worldsim_cli.exe
