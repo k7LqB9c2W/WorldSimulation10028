@@ -1,7 +1,7 @@
 {
-  "stop_condition": "SAFETY",
-  "best_objective": 40.724344571064734,
-  "best_holdout_objective": 38.731423353681365,
+  "stop_condition": "MANUAL_STOP",
+  "best_objective": 40.10594745379787,
+  "best_holdout_objective": 38.81183010890724,
   "best_top3_violations": [
     "STORAGE_SMOOTHING_CHEAT"
   ],
@@ -9,20 +9,20 @@
   "best_config_hash16": "f26dbf166d674f45",
   "best_eval": {
     "tuning": {
-      "score_median": 40.724344571064734,
-      "stddev": 0.6923969428932484,
+      "score_median": 40.10594745379787,
+      "stddev": 0.13430986851504967,
       "hardfail_rate": 0.0,
       "variance_penalty": 0.0,
       "hardfail_penalty": 0.0,
-      "objective": 40.724344571064734
+      "objective": 40.10594745379787
     },
     "holdout": {
-      "score_median": 38.731423353681365,
-      "stddev": 0.36179179742580914,
+      "score_median": 38.81183010890724,
+      "stddev": 0.7224709232396904,
       "hardfail_rate": 0.0,
       "variance_penalty": 0.0,
       "hardfail_penalty": 0.0,
-      "objective": 38.731423353681365
+      "objective": 38.81183010890724
     }
   },
   "iterations_completed": 10

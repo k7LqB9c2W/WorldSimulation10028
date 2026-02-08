@@ -1,0 +1,77 @@
+{
+  "stop_condition": "STRUCTURAL_CHANGE_SIGNAL",
+  "best_objective": 62.458911376190606,
+  "best_objective_inner": 63.352764297813565,
+  "best_objective_medium": 61.8846580505858,
+  "best_holdout_objective": 60.84676326922096,
+  "best_holdout_objective_inner": 62.81126728853707,
+  "best_holdout_objective_medium": 62.13802665854883,
+  "best_top3_violations": [],
+  "best_config": "/mnt/c/WS/WorldSimulation10028/out/fine_tuning_curriculum_run1/best_sim_config.toml",
+  "best_config_hash16": "dd8225bb8b472448",
+  "best_eval": {
+    "tuning": {
+      "score_median": 62.458911376190606,
+      "stddev": 0.8442029695696649,
+      "hardfail_rate": 0.0,
+      "variance_penalty": 0.0,
+      "hardfail_penalty": 0.0,
+      "objective": 62.458911376190606
+    },
+    "holdout": {
+      "score_median": 60.84676326922096,
+      "stddev": 0.8867242330944549,
+      "hardfail_rate": 0.0,
+      "variance_penalty": 0.0,
+      "hardfail_penalty": 0.0,
+      "objective": 60.84676326922096
+    },
+    "horizons": {
+      "inner": {
+        "end_year": -1000,
+        "tuning": {
+          "score_median": 63.352764297813565,
+          "stddev": 1.1264372097088369,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 63.352764297813565
+        }
+      },
+      "medium": {
+        "end_year": 1,
+        "tuning": null,
+        "holdout": null
+      },
+      "long": {
+        "end_year": 2025,
+        "tuning": {
+          "score_median": 62.458911376190606,
+          "stddev": 0.8442029695696649,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 62.458911376190606
+        },
+        "holdout": {
+          "score_median": 60.84676326922096,
+          "stddev": 0.8867242330944549,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 60.84676326922096
+        },
+        "top3": []
+      }
+    }
+  },
+  "curriculum": {
+    "enabled": true,
+    "inner_end_year": -1000,
+    "medium_end_year": 1,
+    "long_end_year": 2025,
+    "medium_check_every_iterations": 6,
+    "medium_check_every_accepted": 2
+  },
+  "iterations_completed": 16
+}

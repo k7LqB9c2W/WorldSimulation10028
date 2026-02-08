@@ -1,0 +1,48 @@
+{
+  "profile_version": "fine_tuning_runner_v1",
+  "spec_source": "FineTuning.MD",
+  "spec_version": "v7",
+  "runtime_defaults": {
+    "tuner_script": "tools/fine_tune_realism.py",
+    "config": "data/sim_config.toml",
+    "schema": "data/sim_config_schema.json",
+    "definitions": "data/realism_definitions.json",
+    "exe_dir": "out/cmake/release/bin",
+    "out_dir": "out/fine_tuning_autorun",
+    "max_iterations": 120,
+    "seed_jobs": 8,
+    "force_rebaseline": false
+  },
+  "horizon_curriculum_defaults": {
+    "enabled": true,
+    "inner_end_year": -1000,
+    "medium_end_year": 1,
+    "long_end_year": "config.world.endYear",
+    "medium_check_every_iterations": 6,
+    "medium_check_every_accepted": 2,
+    "notes": "Inner loop runs short horizon; medium checks run periodically; promotion/final acceptance runs long horizon."
+  },
+  "policy_from_finetuning_md": {
+    "objective": "score_median - variance_penalty - hardfail_penalty",
+    "acceptance": {
+      "no_hardfails_on_tuning": true,
+      "min_delta": 0.5,
+      "holdout_objective_min_delta": -1.0,
+      "holdout_hardfail_max": 0,
+      "require_canary_pass": true,
+      "require_backend_parity_pass": true
+    },
+    "stop_conditions": {
+      "convergence_iterations": 50,
+      "target_objective": 90.0,
+      "major_violation_threshold": 50.0,
+      "plateau_iterations_structural": 8,
+      "safety_consecutive_gate_failures": 5
+    }
+  },
+  "apply_policy": {
+    "live_config_path": "data/sim_config.toml",
+    "only_if_better_than_baseline": true,
+    "min_apply_improvement": 0.0
+  }
+}

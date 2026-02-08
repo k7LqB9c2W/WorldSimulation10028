@@ -1,0 +1,142 @@
+{
+  "seed": 86,
+  "configPath": "C:\\WS\\WorldSimulation10028\\data\\sim_config.toml",
+  "configHash": "a21f9f98ca482cc3",
+  "startYear": -5000,
+  "endYear": -4000,
+  "stoppedOnTargetTech": true,
+  "stoppedOnTargetTechYear": -4560,
+  "worldStartYear": -5000,
+  "useGPU": true,
+  "total_score": 0.0,
+  "gates": {
+    "metric_availability": true,
+    "canary_pass": false,
+    "backend_parity_pass": false,
+    "hardfail": ""
+  },
+  "top_violations": [],
+  "invariants": {
+    "ok": true,
+    "message": ""
+  },
+  "checkpoints": [
+    {
+      "year": -5000,
+      "world_pop_total": 15707470.000000,
+      "world_food_adequacy_index": 1.000000,
+      "world_trade_intensity": 0.002636,
+      "world_urban_share_proxy": 0.025135,
+      "world_tech_capability_index_median": 0.000003,
+      "world_state_capacity_index_median": 0.702835,
+      "major_war_count": 0,
+      "famine_wave_count": 0,
+      "epidemic_wave_count": 0,
+      "migration_rate_t": 0.037555
+    },
+    {
+      "year": -4950,
+      "world_pop_total": 21017719.000000,
+      "world_food_adequacy_index": 0.974836,
+      "world_trade_intensity": 0.000000,
+      "world_urban_share_proxy": 0.028263,
+      "world_tech_capability_index_median": 0.000179,
+      "world_state_capacity_index_median": 0.818491,
+      "major_war_count": 0,
+      "famine_wave_count": 30,
+      "epidemic_wave_count": 0,
+      "migration_rate_t": 0.028408
+    },
+    {
+      "year": -4900,
+      "world_pop_total": 24095475.000000,
+      "world_food_adequacy_index": 0.976173,
+      "world_trade_intensity": 0.000000,
+      "world_urban_share_proxy": 0.027204,
+      "world_tech_capability_index_median": 0.000305,
+      "world_state_capacity_index_median": 0.669872,
+      "major_war_count": 0,
+      "famine_wave_count": 32,
+      "epidemic_wave_count": 0,
+      "migration_rate_t": 0.022757
+    },
+    {
+      "year": -4850,
+      "world_pop_total": 26911325.000000,
+      "world_food_adequacy_index": 0.976355,
+      "world_trade_intensity": 0.000000,
+      "world_urban_share_proxy": 0.028205,
+      "world_tech_capability_index_median": 0.000367,
+      "world_state_capacity_index_median": 0.461969,
+      "major_war_count": 0,
+      "famine_wave_count": 43,
+      "epidemic_wave_count": 0,
+      "migration_rate_t": 0.017410
+    },
+    {
+      "year": -4800,
+      "world_pop_total": 29829279.000000,
+      "world_food_adequacy_index": 0.979974,
+      "world_trade_intensity": 0.000000,
+      "world_urban_share_proxy": 0.030568,
+      "world_tech_capability_index_median": 0.000339,
+      "world_state_capacity_index_median": 0.474057,
+      "major_war_count": 0,
+      "famine_wave_count": 65,
+      "epidemic_wave_count": 0,
+      "migration_rate_t": 0.020480
+    },
+    {
+      "year": -4750,
+      "world_pop_total": 33382228.000000,
+      "world_food_adequacy_index": 0.985072,
+      "world_trade_intensity": 0.002725,
+      "world_urban_share_proxy": 0.032531,
+      "world_tech_capability_index_median": 0.000417,
+      "world_state_capacity_index_median": 0.609335,
+      "major_war_count": 0,
+      "famine_wave_count": 76,
+      "epidemic_wave_count": 0,
+      "migration_rate_t": 0.015168
+    },
+    {
+      "year": -4700,
+      "world_pop_total": 37445688.000000,
+      "world_food_adequacy_index": 0.978348,
+      "world_trade_intensity": 0.003304,
+      "world_urban_share_proxy": 0.033977,
+      "world_tech_capability_index_median": 0.000476,
+      "world_state_capacity_index_median": 0.536554,
+      "major_war_count": 0,
+      "famine_wave_count": 51,
+      "epidemic_wave_count": 0,
+      "migration_rate_t": 0.016453
+    },
+    {
+      "year": -4650,
+      "world_pop_total": 41403615.000000,
+      "world_food_adequacy_index": 0.974733,
+      "world_trade_intensity": 0.003235,
+      "world_urban_share_proxy": 0.034216,
+      "world_tech_capability_index_median": 0.000491,
+      "world_state_capacity_index_median": 0.461447,
+      "major_war_count": 0,
+      "famine_wave_count": 71,
+      "epidemic_wave_count": 0,
+      "migration_rate_t": 0.019577
+    },
+    {
+      "year": -4600,
+      "world_pop_total": 45632181.000000,
+      "world_food_adequacy_index": 0.974353,
+      "world_trade_intensity": 0.000000,
+      "world_urban_share_proxy": 0.035626,
+      "world_tech_capability_index_median": 0.000521,
+      "world_state_capacity_index_median": 0.456098,
+      "major_war_count": 0,
+      "famine_wave_count": 82,
+      "epidemic_wave_count": 0,
+      "migration_rate_t": 0.032488
+    }
+  ]
+}

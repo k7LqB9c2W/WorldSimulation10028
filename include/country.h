@@ -150,6 +150,10 @@ public:
         double lastServicesOutput = 0.0;
         double lastMilitaryOutput = 0.0;
         double lastNonFoodOutput = 0.0;
+        // Annualized food accounting terms used by realism anti-loophole metrics.
+        double lastFoodAvailableBeforeLosses = 0.0;
+        double lastFoodSpoilageLoss = 0.0;
+        double lastFoodStorageLoss = 0.0;
         double lastFoodCons = 0.0;
         double lastNonFoodCons = 0.0;
         double lastInvestment = 0.0;

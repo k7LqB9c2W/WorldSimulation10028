@@ -7,6 +7,14 @@
   "convergence_iterations": 50,
   "target_objective": 90.0,
   "major_violation_threshold": 50.0,
+  "tuning_curriculum": {
+    "enabled": true,
+    "inner_end_year": -1000,
+    "medium_end_year": 1,
+    "long_end_year": null,
+    "medium_check_every_iterations": 6,
+    "medium_check_every_accepted": 2
+  },
   "parameters": [
     {
       "path": "food.baseForaging",

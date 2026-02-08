@@ -71,3 +71,80 @@ Common pattern:
 - Keep parallel seed execution (`--seed-jobs 4`) for throughput; it materially reduces wall-time without changing determinism semantics.
 - Preserve artifact paths and hashes from this entry for reproducibility checks.
 
+
+## Entry: 2026-02-08 07:36:19 UTC
+
+### What Changed
+- Added a tuning horizon curriculum and made it the default in `data/sim_config_schema.json`:
+  - `inner_end_year = -1000`
+  - `medium_end_year = 1`
+  - `long_end_year = null` (uses `config.world.endYear` at runtime)
+  - `medium_check_every_iterations = 6`
+  - `medium_check_every_accepted = 2`
+- Updated tuner `tools/fine_tune_realism.py` to use:
+  - fast inner-horizon candidate evaluation,
+  - periodic medium-horizon checks,
+  - long-horizon promotion/final acceptance checks.
+- Updated `data/fine_tuning_runner.json` with matching curriculum defaults as operational guidance.
+
+### Structural Mechanism Fix (Code)
+- Created mechanism-gap ticket: `MECHANISM_GAP_TICKET.md`.
+- Implemented low-capability food volatility/loss realism changes:
+  - `src/economy.cpp`: deterministic low-cap harvest variability and stronger low-cap post-harvest handling loss.
+  - `include/country.h`: explicit annual food accounting fields (`lastFoodAvailableBeforeLosses`, `lastFoodSpoilageLoss`, `lastFoodStorageLoss`).
+  - `src/cli_main.cpp`: loss metrics now read from explicit macro accounting fields; storage capability index reflects capacity-oriented components.
+
+### Validation Snapshot
+- Post-fix probe (seed 101, full horizon to configured end year):
+  - `STORAGE_SMOOTHING_CHEAT` cleared (`violations=[]` in evaluator output for that probe).
+  - Last-window indicators: `adequacy_var ~ 3.825e-04`, `loss_share ~ 0.133`, `storage_capability_index ~ 0.618`.
+- Post-fix 4-seed batch (`101,202,303,404`, full horizon):
+  - `storage_rows`: all zero severity for `STORAGE_SMOOTHING_CHEAT`.
+  - Aggregated objective: `61.89253019774067`.
+  - Top violations: none in that probe set.
+
+### Operational Policy Going Forward
+- Keep short horizon as the inner loop for throughput.
+- Use medium checks periodically to catch slow-burn regressions.
+- Use long horizon for promotion/best-so-far acceptance and final claims.
+- Do not treat short-horizon gains as final without long-horizon gate pass.
+
+## Entry: 2026-02-08 08:37:04 UTC
+
+### Run Scope
+- Run dir: `out/fine_tuning_curriculum_run1`
+- Curriculum active:
+  - inner horizon `-5000 -> -1000`
+  - medium horizon `-5000 -> 1` (periodic)
+  - long horizon `-5000 -> 2025` (promotion/final gate)
+- Command used:
+  - `python3 tools/fine_tune_realism.py --out-dir out/fine_tuning_curriculum_run1 --force-rebaseline --seed-jobs 16 --max-iterations 40 --no-write-live-config`
+
+### Baseline (same run)
+- Inner objective: `62.52024010582953`
+- Medium objective: `61.8846580505858`
+- Long objective: `61.89253019774067`
+- Long holdout objective: `61.42665129500658`
+- Top violations: none (`[]`)
+- Canary/parity baseline: pass (`baseline_gates.json`)
+
+### Iteration Outcome
+- Total iterations completed: `16`
+- Stop condition: `STRUCTURAL_CHANGE_SIGNAL`
+- Best objective (long tuning): `62.458911376190606`
+- Best holdout objective (long): `60.84676326922096`
+- Best top violations: none (`[]`)
+- Best config: `out/fine_tuning_curriculum_run1/best_sim_config.toml`
+
+### Accepted Change(s)
+- `iter_008` accepted:
+  - subsystem group: `food`
+  - parameter: `food.baseFarming`
+  - edit: `44 -> 46`
+  - inner objective delta: `+0.8325241919840352`
+  - promoted (long) objective delta: `+0.5663811784499373`
+  - canary/parity/holdout: pass
+
+### Notes
+- After `iter_008`, subsequent one-step proposals did not clear `min_delta` and plateau logic triggered structural stop.
+- `mechanism_gap_ticket.json` was emitted by the runner for this run.

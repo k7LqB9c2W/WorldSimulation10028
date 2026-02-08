@@ -502,3 +502,37 @@ If STRUCTURAL_CHANGE_SIGNAL triggers:
 15) Add early termination for hard-fail trajectories
 
 If a run hits a “no chance” state (broken accounting, invariant failure, persistent extinction), stop simulating further years and still write the required artifacts with a hard-fail reason. That can cut a lot of wasted compute in bad configs, especially early in search. This aligns with your hard-fail gates and extinction grace logic.
+
+HOW TO TUNE OPTIMIZED:
+1) Run many seeds in parallel as separate processes
+
+This is the safest form of parallelism because each seed stays single-threaded and deterministic, which matches your determinism and canary requirements in FineTuning.MD.
+
+2) Add early termination for hard-fail trajectories
+
+If a run hits a “no chance” state (broken accounting, invariant failure, persistent extinction), stop simulating further years and still write the required artifacts with a hard-fail reason. That can cut a lot of wasted compute in bad configs, especially early in search. This aligns with your hard-fail gates and extinction grace logic.
+
+
+A good setup is a curriculum of horizons:
+
+Fast inner-loop tuning: run shorter horizons most iterations to get many more candidate tests per hour.
+
+Example: 5000 BCE to 2000 BCE, or 5000 BCE to 1000 BCE.
+
+This focuses the optimizer on early settlement, food volatility, migration, basic conflict, and “low capability” regime behavior (which is where you are currently failing with STORAGE_SMOOTHING_CHEAT). 
+
+FineTuning
+
+ 
+
+TUNINGLOG
+
+Medium horizon checkpoints (less frequent): every N accepted improvements (or every K iterations), re-run to a later date to catch slow-burn pathologies.
+
+Example: 5000 BCE to 1 CE or 500 CE.
+
+Long horizon gate (rare): run to 2025 CE only for “promotion” decisions (baseline refresh, final acceptance, or before you call something “best”). This makes sure late dynamics (high capability disease transition, logistics, trade scaling, state capacity) did not get accidentally broken while optimizing the early game. 
+
+FineTuning
+
+Why this works: 

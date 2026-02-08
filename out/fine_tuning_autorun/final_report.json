@@ -1,0 +1,29 @@
+{
+  "stop_condition": "MANUAL_STOP",
+  "best_objective": 40.72434457106475,
+  "best_holdout_objective": 38.7314233536814,
+  "best_top3_violations": [
+    "STORAGE_SMOOTHING_CHEAT"
+  ],
+  "best_config": "C:\\WS\\WorldSimulation10028\\out\\fine_tuning_autorun\\best_sim_config.toml",
+  "best_config_hash16": "29ecf24d68487d62",
+  "best_eval": {
+    "tuning": {
+      "score_median": 40.72434457106475,
+      "stddev": 0.692396942893256,
+      "hardfail_rate": 0.0,
+      "variance_penalty": 0.0,
+      "hardfail_penalty": 0.0,
+      "objective": 40.72434457106475
+    },
+    "holdout": {
+      "score_median": 38.7314233536814,
+      "stddev": 0.3617917974257878,
+      "hardfail_rate": 0.0,
+      "variance_penalty": 0.0,
+      "hardfail_penalty": 0.0,
+      "objective": 38.7314233536814
+    }
+  },
+  "iterations_completed": 2
+}

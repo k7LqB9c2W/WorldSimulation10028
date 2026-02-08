@@ -1056,6 +1056,11 @@ void EconomyModelCPU::tickYear(int year,
     const int n = static_cast<int>(countries.size());
     if (n <= 0) return;
     const SimulationConfig& cfg = m_ctx->config;
+    const double twoPi = 6.28318530717958647692;
+    const double seedPhase = static_cast<double>(m_ctx->worldSeed & 0xFFFFull) / 65535.0;
+    const double globalCycleA = std::sin(twoPi * (static_cast<double>(year) + 37.0 * seedPhase) / 17.0);
+    const double globalCycleB = std::sin(twoPi * (static_cast<double>(year) + 83.0 * seedPhase) / 61.0);
+    const double globalFoodShock = std::clamp(0.65 * globalCycleA + 0.35 * globalCycleB, -1.0, 1.0);
 
     map.prepareCountryClimateCaches(n);
 
@@ -1217,6 +1222,25 @@ void EconomyModelCPU::tickYear(int year,
             m.leakageRate = 0.20;
             m.institutionCapacity = clamp01(0.20 + 0.40 * control + 0.25 * legitimacy);
         }
+
+        // Low-capability societies should face larger year-to-year food variability and weaker
+        // smoothing buffers. Anchor this to the same knowledge scale used by CLI capability metrics.
+        const auto& domains = c.getKnowledge();
+        double meanDomain = 0.0;
+        for (double kv : domains) meanDomain += std::max(0.0, kv);
+        meanDomain /= static_cast<double>(Country::kDomains);
+        const double techScale = std::max(1.0, 16000.0 * std::max(0.25, cfg.tech.capabilityThresholdScale));
+        const double techCapabilityApprox = std::clamp(
+            (meanDomain * (0.7 + 0.3 * m.marketAccess) * (0.7 + 0.3 * m.institutionCapacity)) / techScale,
+            0.0, 1.0);
+        const double lowCapExposure = clamp01((0.35 - techCapabilityApprox) / 0.35);
+        const double climateVolatility = clamp01(std::abs(1.0 - climateMult) / 0.50);
+        const double buffering = clamp01(0.55 * m.marketAccess + 0.45 * m.institutionCapacity);
+        const double localPeriod = 11.0 + static_cast<double>(i % 7);
+        const double localPhase = std::fmod(19.0 + static_cast<double>((i * 37) % 97) + 53.0 * seedPhase, 251.0);
+        const double localCycle = std::sin(twoPi * (static_cast<double>(year) + localPhase) / localPeriod);
+        const double shockAmplitude = lowCapExposure * (0.14 + 0.10 * climateVolatility) * (1.0 - 0.65 * buffering);
+        const double harvestShockMul = std::clamp(1.0 + shockAmplitude * (0.65 * globalFoodShock + 0.35 * localCycle), 0.65, 1.30);
 
         // Endogenous budget shares from macro stress (not player knobs).
         const double faminePressure = clamp01(m.famineSeverity + std::max(0.0, 0.92 - m.foodSecurity));
@@ -1404,7 +1428,7 @@ void EconomyModelCPU::tickYear(int year,
         laborMilitary[static_cast<size_t>(i)] = l[4];
         m.lastLaborFoodShare = (laborTotal > 1e-9) ? clamp01(l[0] / laborTotal) : 0.0;
 
-        foodOutAnnual[static_cast<size_t>(i)] = sectorOutput(0, l[0]);
+        foodOutAnnual[static_cast<size_t>(i)] = sectorOutput(0, l[0]) * harvestShockMul;
         goodsOutAnnual[static_cast<size_t>(i)] = sectorOutput(1, l[1]);
         servicesOutAnnual[static_cast<size_t>(i)] = sectorOutput(2, l[2]);
         militaryOutAnnual[static_cast<size_t>(i)] = sectorOutput(4, l[4]);
@@ -1422,10 +1446,20 @@ void EconomyModelCPU::tickYear(int year,
         const double storageTechBonus = (potteryStorage ? 0.30 : 0.0) + (preservation ? 0.22 : 0.0);
         m.foodStockCap = std::max(1.0, (std::max(0.05, cfg.food.storageBase) + 1.10 * m.marketAccess + 0.85 * m.institutionCapacity + storageTechBonus) * std::max(1.0, subsistenceFoodNeedAnnual));
         const double climateSpoilage = clamp01((1.0 - climateMult) * 0.6 + 0.3);
+        const double lowCapFragility = lowCapExposure * (0.35 + 0.65 * (1.0 - buffering));
+        const double shockStress = std::max(0.0, 1.0 - harvestShockMul);
         m.spoilageRate = std::clamp(std::max(0.0, cfg.food.spoilageBase) + 0.18 * climateSpoilage - 0.05 * m.institutionCapacity -
-                                        (potteryStorage ? 0.04 : 0.0) - (preservation ? 0.05 : 0.0),
+                                        (potteryStorage ? 0.04 : 0.0) - (preservation ? 0.05 : 0.0) +
+                                        0.08 * lowCapFragility + 0.05 * shockStress,
                                     0.01, 0.35);
+        const double availableBeforeLosses = std::max(0.0, m.foodStock + foodOutAnnual[static_cast<size_t>(i)] * yearsD);
         const double spoilageTotal = m.foodStock * (1.0 - std::pow(std::max(0.0, 1.0 - m.spoilageRate), yearsD));
+        const double handlingLossRate = std::clamp(
+            lowCapExposure * (0.12 + 0.12 * (1.0 - m.institutionCapacity) + 0.08 * climateVolatility + (c.isAtWar() ? 0.05 : 0.0)),
+            0.0, 0.60);
+        const double remainingAfterSpoilage = std::max(0.0, availableBeforeLosses - spoilageTotal);
+        const double handlingLossTotal =
+            remainingAfterSpoilage * (1.0 - std::pow(std::max(0.0, 1.0 - handlingLossRate), yearsD));
 
         const double incomeProxy = std::max(0.0, oldRealWage[static_cast<size_t>(i)]);
         const double goodsNeedAnnualHousehold = pop * (0.00022 + 0.00034 * clamp01(incomeProxy / 2.5));
@@ -1444,7 +1478,7 @@ void EconomyModelCPU::tickYear(int year,
         servicesNeed[static_cast<size_t>(i)] = (servicesNeedAnnualHousehold + govServicesNeedAnnual) * yearsD;
         militaryNeed[static_cast<size_t>(i)] = militaryNeedAnnual * yearsD;
 
-        foodAvailPreTrade[static_cast<size_t>(i)] = std::max(0.0, m.foodStock + foodOutAnnual[static_cast<size_t>(i)] * yearsD - spoilageTotal);
+        foodAvailPreTrade[static_cast<size_t>(i)] = std::max(0.0, availableBeforeLosses - spoilageTotal - handlingLossTotal);
         goodsAvailPreTrade[static_cast<size_t>(i)] = std::max(0.0, m.nonFoodStock + goodsOutAnnual[static_cast<size_t>(i)] * yearsD);
         servicesAvail[static_cast<size_t>(i)] = std::max(0.0, m.servicesStock + servicesOutAnnual[static_cast<size_t>(i)] * yearsD);
         militaryAvail[static_cast<size_t>(i)] = std::max(0.0, m.militarySupplyStock + militaryOutAnnual[static_cast<size_t>(i)] * yearsD);
@@ -1465,6 +1499,9 @@ void EconomyModelCPU::tickYear(int year,
         m.lastNonFoodShortage = 0.0;
         m.lastFoodCons = subsistenceFoodNeedAnnual;
         m.lastNonFoodCons = goodsNeedAnnualHousehold + servicesNeedAnnualHousehold;
+        m.lastFoodAvailableBeforeLosses = availableBeforeLosses / yearsD;
+        m.lastFoodSpoilageLoss = spoilageTotal / yearsD;
+        m.lastFoodStorageLoss = handlingLossTotal / yearsD;
 
         const double valueAddedAnnual =
             foodOutAnnual[static_cast<size_t>(i)] * foodPrice[static_cast<size_t>(i)] +

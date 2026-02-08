@@ -15,6 +15,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <memory>
 
@@ -50,6 +51,9 @@ struct RunOptions {
     int parityCheckpointEveryYears = 25;
     std::string parityRole; // internal: "gui" or "cli"
     std::string parityOut;  // internal: checkpoint checksum output path
+    std::string techUnlockLog; // optional path; when set, emits per-country tech unlock events
+    bool techUnlockLogIncludeInitial = true;
+    int stopOnTechId = -1; // optional: stop run early once any country unlocks this tech id
 };
 
 struct MetricsSnapshot {
@@ -176,7 +180,9 @@ void printUsage(const char* argv0) {
               << " [--seed N] [--config path] [--startYear Y] [--endYear Y]\n"
               << "       [--checkpointEveryYears N] [--outDir path] [--useGPU 0|1]\n"
               << "       [--parityCheckYears N] [--parityCheckpointEveryYears N]\n"
-              << "       [--parityRole gui|cli] [--parityOut path]\n";
+              << "       [--parityRole gui|cli] [--parityOut path]\n"
+              << "       [--techUnlockLog path] [--techUnlockLogIncludeInitial 0|1]\n"
+              << "       [--stopOnTechId N]\n";
 }
 
 bool parseArgs(int argc, char** argv, RunOptions& opt) {
@@ -246,6 +252,24 @@ bool parseArgs(int argc, char** argv, RunOptions& opt) {
             if (!requireValue(opt.parityOut)) return false;
         } else if (arg.rfind("--parityOut=", 0) == 0) {
             opt.parityOut = arg.substr(12);
+        } else if (arg == "--techUnlockLog") {
+            if (!requireValue(opt.techUnlockLog)) return false;
+        } else if (arg.rfind("--techUnlockLog=", 0) == 0) {
+            opt.techUnlockLog = arg.substr(16);
+        } else if (arg == "--techUnlockLogIncludeInitial") {
+            std::string v;
+            bool parsed = false;
+            if (!requireValue(v) || !parseBool01(v, parsed)) return false;
+            opt.techUnlockLogIncludeInitial = parsed;
+        } else if (arg.rfind("--techUnlockLogIncludeInitial=", 0) == 0) {
+            bool parsed = false;
+            if (!parseBool01(arg.substr(30), parsed)) return false;
+            opt.techUnlockLogIncludeInitial = parsed;
+        } else if (arg == "--stopOnTechId") {
+            std::string v;
+            if (!requireValue(v) || !parseInt(v, opt.stopOnTechId)) return false;
+        } else if (arg.rfind("--stopOnTechId=", 0) == 0) {
+            if (!parseInt(arg.substr(15), opt.stopOnTechId)) return false;
         } else {
             std::cerr << "Unknown flag: " << arg << "\n";
             return false;
@@ -508,6 +532,7 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
         const double db = std::clamp(m.diseaseBurden, 0.0, 1.0);
         const double ma = std::clamp(m.marketAccess, 0.0, 1.0);
         const double ctrl = std::clamp(c.getAvgControl(), 0.0, 1.0);
+        const double logi = std::clamp(c.getLogisticsReach(), 0.0, 1.0);
         const double inst = std::clamp(m.institutionCapacity, 0.0, 1.0);
         foodSec.push_back(fs);
         disease.push_back(db);
@@ -518,11 +543,21 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
         if (fs < 1.0) faminePop += pop;
         famineDeaths += std::max(0.0, m.lastDeathsFamine);
         diseaseDeaths += std::max(0.0, m.lastDeathsEpi);
-        const double avail = std::max(0.0, m.lastFoodOutput + m.foodStock);
+        double avail = std::max(0.0, m.lastFoodAvailableBeforeLosses);
+        if (!(std::isfinite(avail) && avail > 0.0)) {
+            avail = std::max(0.0, m.lastFoodOutput + m.foodStock);
+        }
         availableBeforeLoss += avail;
-        const double lossNow = std::max(0.0, avail - m.lastFoodCons - std::max(0.0, m.foodStock));
-        storageLoss += lossNow;
-        spoilage += std::max(0.0, m.foodStock * std::clamp(m.spoilageRate, 0.0, 1.0));
+        double storageLossNow = std::max(0.0, m.lastFoodStorageLoss);
+        if (!std::isfinite(storageLossNow)) {
+            storageLossNow = 0.0;
+        }
+        double spoilageNow = std::max(0.0, m.lastFoodSpoilageLoss);
+        if (!std::isfinite(spoilageNow)) {
+            spoilageNow = std::max(0.0, m.foodStock * std::clamp(m.spoilageRate, 0.0, 1.0));
+        }
+        storageLoss += storageLossNow;
+        spoilage += spoilageNow;
         extraction += std::max(0.0, m.cumulativeOreExtraction + m.cumulativeCoalExtraction);
 
         const auto& k = c.getKnowledge();
@@ -533,9 +568,10 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
         const double techIdx = std::clamp(composite / std::max(1.0, t3), 0.0, 1.0);
         techCapIdx.push_back(techIdx);
 
-        const double logIdx = clamp01(0.50 * ma + 0.30 * std::clamp(c.getLogisticsReach(), 0.0, 1.0) + 0.20 * ctrl);
+        const double logIdx = clamp01(0.50 * ma + 0.30 * logi + 0.20 * ctrl);
         const double stockRatio = (m.foodStockCap > 1e-9) ? std::clamp(m.foodStock / m.foodStockCap, 0.0, 2.0) : 0.0;
-        const double storIdx = clamp01(0.60 * std::clamp(stockRatio, 0.0, 1.0) + 0.20 * inst + 0.20 * (1.0 - std::clamp(m.spoilageRate, 0.0, 1.0)));
+        const double lossShareNow = (avail > 1e-9) ? std::clamp((spoilageNow + storageLossNow) / avail, 0.0, 1.0) : 0.0;
+        const double storIdx = clamp01(0.40 + 0.30 * std::clamp(stockRatio, 0.0, 1.0) + 0.20 * inst + 0.10 * logi);
         const double healthIdx = clamp01(0.45 * std::clamp(c.getHealthSpendingShare(), 0.0, 1.0) + 0.35 * inst + 0.20 * (1.0 - db));
         logisticsCapIdx.push_back(logIdx);
         storageCapIdx.push_back(storIdx);
@@ -703,6 +739,31 @@ std::string jsonEscape(const std::string& input) {
             default: out.push_back(c); break;
         }
     }
+    return out;
+}
+
+std::string csvEscape(const std::string& input) {
+    bool needsQuotes = false;
+    for (char c : input) {
+        if (c == '"' || c == ',' || c == '\n' || c == '\r') {
+            needsQuotes = true;
+            break;
+        }
+    }
+    if (!needsQuotes) {
+        return input;
+    }
+    std::string out;
+    out.reserve(input.size() + 2);
+    out.push_back('"');
+    for (char c : input) {
+        if (c == '"') {
+            out += "\"\"";
+        } else {
+            out.push_back(c);
+        }
+    }
+    out.push_back('"');
     return out;
 }
 
@@ -1271,6 +1332,23 @@ int main(int argc, char** argv) {
 
     std::filesystem::create_directories(opt.outDir);
 
+    std::ofstream techLog;
+    const bool techLogEnabled = !opt.techUnlockLog.empty();
+    std::unordered_map<int, std::unordered_set<int>> seenTechByCountry;
+    std::unordered_set<int> seenCountryIds;
+    if (techLogEnabled) {
+        std::filesystem::path techLogPath(opt.techUnlockLog);
+        if (techLogPath.has_parent_path()) {
+            std::filesystem::create_directories(techLogPath.parent_path());
+        }
+        techLog.open(techLogPath);
+        if (!techLog) {
+            std::cerr << "Could not open tech unlock log: " << techLogPath.string() << "\n";
+            return 2;
+        }
+        techLog << "year,event_type,country_index,country_name,tech_id,tech_name,total_unlocked_techs\n";
+    }
+
     std::cout << "worldsim_cli seed=" << opt.seed
               << " config=" << ctx.configPath
               << " hash=" << ctx.configHash
@@ -1278,6 +1356,65 @@ int main(int argc, char** argv) {
               << " end=" << endYear
               << " gpu=" << (ctx.config.economy.useGPU ? 1 : 0)
               << "\n";
+
+    auto maybeLogTechEvents = [&](int year) {
+        if (!techLogEnabled) return;
+        const auto& techDefs = technologyManager.getTechnologies();
+        for (const Country& c : countries) {
+            const int countryId = c.getCountryIndex();
+            const auto& unlocked = technologyManager.getUnlockedTechnologies(c);
+            auto& seen = seenTechByCountry[countryId];
+            const bool firstSeenCountry = seenCountryIds.insert(countryId).second;
+
+            if (firstSeenCountry) {
+                for (int techId : unlocked) {
+                    seen.insert(techId);
+                    if (!opt.techUnlockLogIncludeInitial) continue;
+                    auto it = techDefs.find(techId);
+                    const std::string techName = (it != techDefs.end()) ? it->second.name : std::string("Unknown");
+                    techLog << year
+                            << ",initial,"
+                            << countryId << ","
+                            << csvEscape(c.getName()) << ","
+                            << techId << ","
+                            << csvEscape(techName) << ","
+                            << static_cast<int>(unlocked.size())
+                            << "\n";
+                }
+                continue;
+            }
+
+            for (int techId : unlocked) {
+                if (!seen.insert(techId).second) {
+                    continue;
+                }
+                auto it = techDefs.find(techId);
+                const std::string techName = (it != techDefs.end()) ? it->second.name : std::string("Unknown");
+                techLog << year
+                        << ",unlock,"
+                        << countryId << ","
+                        << csvEscape(c.getName()) << ","
+                        << techId << ","
+                        << csvEscape(techName) << ","
+                        << static_cast<int>(unlocked.size())
+                        << "\n";
+            }
+        }
+    };
+
+    auto anyCountryHasTech = [&](int techId) -> bool {
+        if (techId < 0) return false;
+        for (const Country& c : countries) {
+            const auto& unlocked = technologyManager.getUnlockedTechnologies(c);
+            if (std::find(unlocked.begin(), unlocked.end(), techId) != unlocked.end()) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    bool stoppedOnTargetTech = false;
+    int stoppedOnTargetTechYear = std::numeric_limits<int>::min();
 
     auto simulateOneYear = [&](int year) {
         SimulationStepContext stepCtx{
@@ -1296,6 +1433,12 @@ int main(int argc, char** argv) {
     // Warm-up from world start to requested range start.
     for (int y = worldStartYear; y < startYear; ++y) {
         simulateOneYear(y);
+        maybeLogTechEvents(y);
+        if (opt.stopOnTechId >= 0 && anyCountryHasTech(opt.stopOnTechId)) {
+            stoppedOnTargetTech = true;
+            stoppedOnTargetTechYear = y;
+            break;
+        }
     }
 
     std::vector<uint8_t> wasAtWar(countries.size(), 0u);
@@ -1321,8 +1464,13 @@ int main(int argc, char** argv) {
     std::vector<uint8_t> epidemicWave(countries.size(), 0u);
     std::vector<uint8_t> migrationWave(countries.size(), 0u);
 
-    for (int y = startYear; y <= endYear; ++y) {
+    for (int y = startYear; y <= endYear && !stoppedOnTargetTech; ++y) {
         simulateOneYear(y);
+        maybeLogTechEvents(y);
+        if (opt.stopOnTechId >= 0 && anyCountryHasTech(opt.stopOnTechId)) {
+            stoppedOnTargetTech = true;
+            stoppedOnTargetTechYear = y;
+        }
 
         if (wasAtWar.size() < countries.size()) {
             const size_t old = wasAtWar.size();
@@ -1481,6 +1629,8 @@ int main(int argc, char** argv) {
         js << "  \"configHash\": \"" << jsonEscape(ctx.configHash) << "\",\n";
         js << "  \"startYear\": " << startYear << ",\n";
         js << "  \"endYear\": " << endYear << ",\n";
+        js << "  \"stoppedOnTargetTech\": " << (stoppedOnTargetTech ? "true" : "false") << ",\n";
+        js << "  \"stoppedOnTargetTechYear\": " << (stoppedOnTargetTech ? std::to_string(stoppedOnTargetTechYear) : std::string("null")) << ",\n";
         js << "  \"worldStartYear\": " << worldStartYear << ",\n";
         js << "  \"useGPU\": " << (ctx.config.economy.useGPU ? "true" : "false") << ",\n";
         js << "  \"total_score\": 0.0,\n";
@@ -1527,6 +1677,8 @@ int main(int argc, char** argv) {
         meta << "  \"backend\": \"" << (ctx.config.economy.useGPU ? "gpu" : "cpu") << "\",\n";
         meta << "  \"start_year\": " << startYear << ",\n";
         meta << "  \"end_year\": " << endYear << ",\n";
+        meta << "  \"stopped_on_target_tech\": " << (stoppedOnTargetTech ? "true" : "false") << ",\n";
+        meta << "  \"stopped_on_target_tech_year\": " << (stoppedOnTargetTech ? std::to_string(stoppedOnTargetTechYear) : std::string("null")) << ",\n";
         meta << "  \"map_hash\": \"" << jsonEscape(SimulationContext::hashFileFNV1a("assets/images/map.png")) << "\",\n";
         meta << "  \"goals_version\": \"realism-envelope-v7\",\n";
         meta << "  \"evaluator_version\": \"v7\",\n";

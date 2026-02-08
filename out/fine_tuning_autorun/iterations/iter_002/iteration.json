@@ -1,0 +1,38 @@
+{
+  "iteration": 2,
+  "subsystem_group": "migration",
+  "parameter_edits": [
+    {
+      "path": "migration.famineShockMultiplier",
+      "old": 1.6,
+      "new": 1.6500000000000001,
+      "recommended_step": 0.05
+    }
+  ],
+  "top_violations_before": [
+    "STORAGE_SMOOTHING_CHEAT"
+  ],
+  "top_violations_after": [
+    "STORAGE_SMOOTHING_CHEAT"
+  ],
+  "objective_tuning": 39.90435475183769,
+  "score_delta": -0.8199898192270609,
+  "gates": {
+    "metric_availability": true,
+    "canary_pass": false,
+    "backend_parity_pass": false,
+    "holdout_pass": false,
+    "tuning_hardfails": [],
+    "holdout_hardfails": []
+  },
+  "holdout_objective": null,
+  "accepted": false,
+  "best_so_far": {
+    "objective": 40.72434457106475,
+    "holdout_objective": 38.7314233536814,
+    "config_path": "C:\\WS\\WorldSimulation10028\\out\\fine_tuning_autorun\\best_sim_config.toml",
+    "config_hash16": "29ecf24d68487d62"
+  },
+  "canary_detail": [],
+  "parity_detail": []
+}

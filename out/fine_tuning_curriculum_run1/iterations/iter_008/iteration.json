@@ -1,0 +1,138 @@
+{
+  "iteration": 8,
+  "subsystem_group": "food",
+  "parameter_edits": [
+    {
+      "path": "food.baseFarming",
+      "old": 44,
+      "new": 46.0,
+      "recommended_step": 2.0
+    }
+  ],
+  "top_violations_before": [],
+  "top_violations_after": [],
+  "top_violations_after_long": [],
+  "objective_tuning": 62.458911376190606,
+  "objective_tuning_inner": 63.352764297813565,
+  "objective_tuning_medium": null,
+  "objective_tuning_long": 62.458911376190606,
+  "score_delta": 0.5663811784499373,
+  "score_delta_inner": 0.8325241919840352,
+  "score_delta_medium": null,
+  "gates": {
+    "metric_availability": true,
+    "canary_pass": true,
+    "backend_parity_pass": true,
+    "medium_required": false,
+    "medium_pass": true,
+    "long_ran": true,
+    "holdout_pass": true,
+    "tuning_hardfails": [],
+    "medium_hardfails": [],
+    "medium_holdout_hardfails": [],
+    "long_hardfails": [],
+    "holdout_hardfails": []
+  },
+  "holdout_objective": 60.84676326922096,
+  "accepted": true,
+  "best_so_far": {
+    "objective": 62.458911376190606,
+    "holdout_objective": 60.84676326922096,
+    "config_path": "/mnt/c/WS/WorldSimulation10028/out/fine_tuning_curriculum_run1/best_sim_config.toml",
+    "config_hash16": "dd8225bb8b472448"
+  },
+  "canary_detail": [
+    {
+      "metric": "world_pop_total",
+      "mode": "relative",
+      "eps": 0.0005,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_food_adequacy_index",
+      "mode": "absolute",
+      "eps": 0.002,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "habitable_cell_share_pop_gt_small",
+      "mode": "absolute",
+      "eps": 0.002,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_trade_intensity",
+      "mode": "relative",
+      "eps": 0.0025,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_urban_share_proxy",
+      "mode": "absolute",
+      "eps": 0.002,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "event_rates_per_century_per_billion",
+      "mode": "absolute",
+      "eps": 0.05,
+      "max_error": 0.0,
+      "pass": true
+    }
+  ],
+  "parity_detail": [
+    {
+      "metric": "world_pop_total",
+      "mode": "relative",
+      "eps": 0.002,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_food_adequacy_index",
+      "mode": "absolute",
+      "eps": 0.01,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "habitable_cell_share_pop_gt_small",
+      "mode": "absolute",
+      "eps": 0.01,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_trade_intensity",
+      "mode": "relative",
+      "eps": 0.01,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "world_urban_share_proxy",
+      "mode": "absolute",
+      "eps": 0.01,
+      "max_error": 0.0,
+      "pass": true
+    },
+    {
+      "metric": "event_rates_per_century_per_billion",
+      "mode": "absolute",
+      "eps": 0.2,
+      "max_error": 0.0,
+      "pass": true
+    }
+  ],
+  "curriculum": {
+    "enabled": true,
+    "inner_end_year": -1000,
+    "medium_end_year": 1,
+    "long_end_year": 2025
+  }
+}

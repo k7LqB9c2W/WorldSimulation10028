@@ -17,9 +17,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 try:
-    import tomllib  # py311+
-except Exception as exc:  # pragma: no cover
-    raise SystemExit(f"Python 3.11+ is required (tomllib missing): {exc}")
+    import tomli as toml_reader  # preferred explicit dependency
+except Exception:
+    try:
+        import tomllib as toml_reader  # py311+ fallback
+    except Exception as exc:  # pragma: no cover
+        raise SystemExit(
+            "TOML parser not available. Install tomli (`pip install tomli`) "
+            f"or use Python 3.11+ (tomllib). Details: {exc}"
+        )
 
 
 TINY = 1e-12
@@ -121,7 +127,7 @@ def write_json(path: Path, data: Dict[str, Any]) -> None:
 
 def load_toml(path: Path) -> Dict[str, Any]:
     with path.open("rb") as f:
-        return tomllib.load(f)
+        return toml_reader.load(f)
 
 
 def format_toml_value(v: Any) -> str:
@@ -647,8 +653,14 @@ def run_cli(
         f"--outDir {out_win} "
         f'--useGPU {1 if use_gpu else 0} >NUL 2>&1'
     )
+    cmd_exe = None
+    if os.name == "nt":
+        cmd_exe = os.environ.get("COMSPEC", "cmd.exe")
+    else:
+        wsl_cmd = Path("/mnt/c/Windows/System32/cmd.exe")
+        cmd_exe = str(wsl_cmd) if wsl_cmd.exists() else "cmd.exe"
     p = subprocess.run(
-        ["/mnt/c/Windows/System32/cmd.exe", "/c", cmd],
+        [cmd_exe, "/c", cmd],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         check=False,
@@ -726,6 +738,7 @@ def run_seed_set(
     use_gpu: bool,
     defs: Dict[str, Any],
     jobs: int = 1,
+    label: str = "",
 ) -> List[SeedEval]:
     out_dir.mkdir(parents=True, exist_ok=True)
     n_jobs = max(1, min(int(jobs), len(seeds)))
@@ -735,15 +748,30 @@ def run_seed_set(
         run_cli(exe_dir, seed, config_path, sd, start_year, end_year, checkpoint_every, use_gpu)
         return evaluate_seed_run(seed, sd, defs)
 
+    def p(msg: str) -> None:
+        if label:
+            print(f"[{label}] {msg}", flush=True)
+
+    p(f"starting {len(seeds)} seed(s), jobs={n_jobs}, gpu={use_gpu}, years={start_year}->{end_year}")
+
     if n_jobs == 1:
-        return [run_one(seed) for seed in seeds]
+        out: List[SeedEval] = []
+        for i, seed in enumerate(seeds, start=1):
+            p(f"seed {seed} ({i}/{len(seeds)}) start")
+            out.append(run_one(seed))
+            p(f"seed {seed} ({i}/{len(seeds)}) done")
+        return out
 
     by_seed: Dict[int, SeedEval] = {}
     with ThreadPoolExecutor(max_workers=n_jobs) as pool:
         futures = {pool.submit(run_one, seed): seed for seed in seeds}
+        p("all workers launched")
+        done_n = 0
         for fut in as_completed(futures):
             seed = futures[fut]
             by_seed[seed] = fut.result()
+            done_n += 1
+            p(f"seed {seed} ({done_n}/{len(seeds)}) done")
     return [by_seed[seed] for seed in seeds]
 
 
@@ -757,6 +785,8 @@ def main() -> int:
     ap.add_argument("--max-iterations", type=int, default=80)
     ap.add_argument("--seed-jobs", type=int, default=4)
     ap.add_argument("--force-rebaseline", action="store_true")
+    ap.add_argument("--stop-flag", default="", help="Optional file path; if created, loop stops gracefully after current iteration.")
+    ap.add_argument("--no-write-live-config", action="store_true", help="Do not overwrite --config with best_sim_config.toml at end.")
     args = ap.parse_args()
 
     root = Path.cwd()
@@ -768,6 +798,7 @@ def main() -> int:
     out_root.mkdir(parents=True, exist_ok=True)
     it_root = out_root / "iterations"
     it_root.mkdir(parents=True, exist_ok=True)
+    stop_flag = Path(args.stop_flag).resolve() if args.stop_flag else None
 
     defs = load_json(defs_path)
     schema = load_json(schema_path)
@@ -776,6 +807,17 @@ def main() -> int:
     end_year = int(cfg0["world"]["endYear"])
     checkpoint_every = int(schema.get("checkpoint_every_years", 50))
     seed_jobs = max(1, int(args.seed_jobs))
+    curriculum = schema.get("tuning_curriculum", {}) if isinstance(schema.get("tuning_curriculum", {}), dict) else {}
+    curriculum_enabled = bool(curriculum.get("enabled", False))
+    long_end_year = int(end_year if curriculum.get("long_end_year", None) is None else curriculum.get("long_end_year", end_year))
+    inner_end_year = int(curriculum.get("inner_end_year", end_year)) if curriculum_enabled else int(end_year)
+    medium_end_year = int(curriculum.get("medium_end_year", long_end_year)) if curriculum_enabled else int(long_end_year)
+    long_end_year = max(start_year, min(end_year, long_end_year))
+    inner_end_year = max(start_year, min(long_end_year, inner_end_year))
+    medium_end_year = max(inner_end_year, min(long_end_year, medium_end_year))
+    medium_check_every_iterations = int(curriculum.get("medium_check_every_iterations", 0)) if curriculum_enabled else 0
+    medium_check_every_accepted = int(curriculum.get("medium_check_every_accepted", 0)) if curriculum_enabled else 0
+    medium_enabled = curriculum_enabled and (medium_end_year > inner_end_year) and ((medium_check_every_iterations > 0) or (medium_check_every_accepted > 0))
     tuning_seeds = [int(x) for x in schema["tuning_seeds"]]
     holdout_seeds = [int(x) for x in schema["holdout_seeds"]]
     pdefs = [p for p in schema["parameters"] if bool(p.get("safe_to_auto_tune", False))]
@@ -806,67 +848,247 @@ def main() -> int:
     baseline_dir = out_root / "baseline"
     baseline_obj_path = out_root / "baseline_objective.json"
     baseline_gate_path = out_root / "baseline_gates.json"
+    print(f"[startup] output_dir={out_root}", flush=True)
+    print(f"[startup] tuning_seeds={tuning_seeds} holdout_seeds={holdout_seeds} seed_jobs={seed_jobs}", flush=True)
+    print(
+        f"[startup] horizons inner={inner_end_year} medium={medium_end_year if medium_enabled else 'disabled'} long={long_end_year}",
+        flush=True,
+    )
+    base_inner_agg: Dict[str, Any]
+    base_inner_holdout_agg: Dict[str, Any]
+    base_inner_top3: List[str]
+    base_medium_agg: Dict[str, Any]
+    base_medium_holdout_agg: Dict[str, Any]
+    base_medium_top3: List[str]
+    base_agg: Dict[str, Any]
+    base_holdout_agg: Dict[str, Any]
+    base_top3: List[str]
+
+    use_cached = False
     if (not args.force_rebaseline) and baseline_obj_path.exists() and baseline_gate_path.exists():
+        bo_probe = load_json(baseline_obj_path)
+        hz_probe = bo_probe.get("horizons", {}) if isinstance(bo_probe.get("horizons", {}), dict) else {}
+        if curriculum_enabled:
+            has_inner = isinstance(hz_probe.get("inner", {}), dict)
+            has_long = isinstance(hz_probe.get("long", {}), dict)
+            has_medium = (not medium_enabled) or isinstance(hz_probe.get("medium", {}), dict)
+            use_cached = has_inner and has_long and has_medium
+        else:
+            use_cached = bool("tuning" in bo_probe and "holdout" in bo_probe)
+
+    if use_cached:
+        print("[baseline] reusing cached baseline_objective.json and baseline_gates.json", flush=True)
         bo = load_json(baseline_obj_path)
-        base_agg = bo["tuning"]
-        base_holdout_agg = bo["holdout"]
-        base_top3 = list(bo.get("top3", []))
+        hz = bo.get("horizons", {}) if isinstance(bo.get("horizons", {}), dict) else {}
+        if curriculum_enabled:
+            base_inner_agg = hz["inner"]["tuning"]
+            base_inner_holdout_agg = hz["inner"]["holdout"]
+            base_inner_top3 = list(hz["inner"].get("top3", []))
+            if medium_enabled:
+                base_medium_agg = hz["medium"]["tuning"]
+                base_medium_holdout_agg = hz["medium"]["holdout"]
+                base_medium_top3 = list(hz["medium"].get("top3", []))
+            else:
+                base_medium_agg = base_inner_agg
+                base_medium_holdout_agg = base_inner_holdout_agg
+                base_medium_top3 = base_inner_top3
+            base_agg = hz["long"]["tuning"]
+            base_holdout_agg = hz["long"]["holdout"]
+            base_top3 = list(hz["long"].get("top3", []))
+        else:
+            base_agg = bo["tuning"]
+            base_holdout_agg = bo["holdout"]
+            base_top3 = list(bo.get("top3", []))
+            base_inner_agg = base_agg
+            base_inner_holdout_agg = base_holdout_agg
+            base_inner_top3 = base_top3
+            base_medium_agg = base_agg
+            base_medium_holdout_agg = base_holdout_agg
+            base_medium_top3 = base_top3
         bg = load_json(baseline_gate_path)
         canary_ok = bool(bg.get("canary_pass", False))
         parity_ok = bool(bg.get("parity_pass", False))
         canary_det = list(bg.get("canary", []))
         parity_det = list(bg.get("parity", []))
     else:
-        baseline_tune = run_seed_set(
+        print(f"[baseline] running baseline inner horizon (end={inner_end_year})", flush=True)
+        baseline_inner_tune = run_seed_set(
             tuning_seeds,
             exe_dir,
             config_path,
-            baseline_dir / "tuning",
+            baseline_dir / "inner" / "tuning",
             start_year,
-            end_year,
+            inner_end_year,
             checkpoint_every,
             bool(cfg0["economy"]["useGPU"]),
             defs,
             jobs=seed_jobs,
+            label="baseline:inner:tuning",
         )
-        base_agg = aggregate_objective(baseline_tune, defs)
-        base_top3 = top3_violations(baseline_tune)
-        baseline_holdout = run_seed_set(
+        base_inner_agg = aggregate_objective(baseline_inner_tune, defs)
+        base_inner_top3 = top3_violations(baseline_inner_tune)
+        baseline_inner_holdout = run_seed_set(
             holdout_seeds,
             exe_dir,
             config_path,
-            baseline_dir / "holdout",
+            baseline_dir / "inner" / "holdout",
             start_year,
-            end_year,
+            inner_end_year,
             checkpoint_every,
             bool(cfg0["economy"]["useGPU"]),
             defs,
             jobs=seed_jobs,
+            label="baseline:inner:holdout",
         )
-        base_holdout_agg = aggregate_objective(baseline_holdout, defs)
-        write_json(out_root / "baseline_objective.json", {"tuning": base_agg, "holdout": base_holdout_agg, "top3": base_top3})
+        base_inner_holdout_agg = aggregate_objective(baseline_inner_holdout, defs)
+        print(
+            f"[baseline] inner objective={float(base_inner_agg['objective']):.6f} holdout={float(base_inner_holdout_agg['objective']):.6f} top3={base_inner_top3}",
+            flush=True,
+        )
 
-        # Canary/parity baseline.
+        if medium_enabled:
+            print(f"[baseline] running baseline medium horizon (end={medium_end_year})", flush=True)
+            baseline_medium_tune = run_seed_set(
+                tuning_seeds,
+                exe_dir,
+                config_path,
+                baseline_dir / "medium" / "tuning",
+                start_year,
+                medium_end_year,
+                checkpoint_every,
+                bool(cfg0["economy"]["useGPU"]),
+                defs,
+                jobs=seed_jobs,
+                label="baseline:medium:tuning",
+            )
+            base_medium_agg = aggregate_objective(baseline_medium_tune, defs)
+            base_medium_top3 = top3_violations(baseline_medium_tune)
+            baseline_medium_holdout = run_seed_set(
+                holdout_seeds,
+                exe_dir,
+                config_path,
+                baseline_dir / "medium" / "holdout",
+                start_year,
+                medium_end_year,
+                checkpoint_every,
+                bool(cfg0["economy"]["useGPU"]),
+                defs,
+                jobs=seed_jobs,
+                label="baseline:medium:holdout",
+            )
+            base_medium_holdout_agg = aggregate_objective(baseline_medium_holdout, defs)
+            print(
+                f"[baseline] medium objective={float(base_medium_agg['objective']):.6f} holdout={float(base_medium_holdout_agg['objective']):.6f} top3={base_medium_top3}",
+                flush=True,
+            )
+        else:
+            base_medium_agg = base_inner_agg
+            base_medium_holdout_agg = base_inner_holdout_agg
+            base_medium_top3 = base_inner_top3
+
+        print(f"[baseline] running baseline long horizon (end={long_end_year})", flush=True)
+        baseline_long_tune = run_seed_set(
+            tuning_seeds,
+            exe_dir,
+            config_path,
+            baseline_dir / "long" / "tuning",
+            start_year,
+            long_end_year,
+            checkpoint_every,
+            bool(cfg0["economy"]["useGPU"]),
+            defs,
+            jobs=seed_jobs,
+            label="baseline:long:tuning",
+        )
+        base_agg = aggregate_objective(baseline_long_tune, defs)
+        base_top3 = top3_violations(baseline_long_tune)
+        baseline_long_holdout = run_seed_set(
+            holdout_seeds,
+            exe_dir,
+            config_path,
+            baseline_dir / "long" / "holdout",
+            start_year,
+            long_end_year,
+            checkpoint_every,
+            bool(cfg0["economy"]["useGPU"]),
+            defs,
+            jobs=seed_jobs,
+            label="baseline:long:holdout",
+        )
+        base_holdout_agg = aggregate_objective(baseline_long_holdout, defs)
+        print(
+            f"[baseline] long objective={float(base_agg['objective']):.6f} holdout={float(base_holdout_agg['objective']):.6f} top3={base_top3}",
+            flush=True,
+        )
+
+        write_json(
+            out_root / "baseline_objective.json",
+            {
+                "horizons": {
+                    "inner": {"end_year": inner_end_year, "tuning": base_inner_agg, "holdout": base_inner_holdout_agg, "top3": base_inner_top3},
+                    "medium": {"end_year": medium_end_year, "tuning": base_medium_agg, "holdout": base_medium_holdout_agg, "top3": base_medium_top3},
+                    "long": {"end_year": long_end_year, "tuning": base_agg, "holdout": base_holdout_agg, "top3": base_top3},
+                },
+                # Legacy keys remain mapped to long-horizon objective for compatibility.
+                "tuning": base_agg,
+                "holdout": base_holdout_agg,
+                "top3": base_top3,
+            },
+        )
+
+        # Canary/parity baseline uses inner horizon for fast deterministic safety checks.
+        print("[baseline] running canary checks (inner horizon)", flush=True)
         canary_dir = baseline_dir / "canary"
-        canary_a = run_seed_set([tuning_seeds[0]], exe_dir, config_path, canary_dir / "a", start_year, end_year, checkpoint_every, bool(cfg0["economy"]["useGPU"]), defs)[0]
-        canary_b = run_seed_set([tuning_seeds[0]], exe_dir, config_path, canary_dir / "b", start_year, end_year, checkpoint_every, bool(cfg0["economy"]["useGPU"]), defs)[0]
+        canary_a = run_seed_set([tuning_seeds[0]], exe_dir, config_path, canary_dir / "a", start_year, inner_end_year, checkpoint_every, bool(cfg0["economy"]["useGPU"]), defs, label="baseline:canary:a")[0]
+        canary_b = run_seed_set([tuning_seeds[0]], exe_dir, config_path, canary_dir / "b", start_year, inner_end_year, checkpoint_every, bool(cfg0["economy"]["useGPU"]), defs, label="baseline:canary:b")[0]
         canary_ok, canary_det = compare_metric_series(canary_a, canary_b, defs["canary_eps"])
+        print(f"[baseline] canary_pass={canary_ok}", flush=True)
+        print("[baseline] running parity checks (inner horizon)", flush=True)
         parity_dir = baseline_dir / "parity"
-        parity_gpu = run_seed_set([tuning_seeds[0]], exe_dir, config_path, parity_dir / "gpu", start_year, end_year, checkpoint_every, True, defs)[0]
-        parity_cpu = run_seed_set([tuning_seeds[0]], exe_dir, config_path, parity_dir / "cpu", start_year, end_year, checkpoint_every, False, defs)[0]
+        parity_gpu = run_seed_set([tuning_seeds[0]], exe_dir, config_path, parity_dir / "gpu", start_year, inner_end_year, checkpoint_every, True, defs, label="baseline:parity:gpu")[0]
+        parity_cpu = run_seed_set([tuning_seeds[0]], exe_dir, config_path, parity_dir / "cpu", start_year, inner_end_year, checkpoint_every, False, defs, label="baseline:parity:cpu")[0]
         parity_ok, parity_det = compare_metric_series(parity_gpu, parity_cpu, defs["parity_eps"])
-        write_json(out_root / "baseline_gates.json", {"canary_pass": canary_ok, "canary": canary_det, "parity_pass": parity_ok, "parity": parity_det})
+        print(f"[baseline] parity_pass={parity_ok}", flush=True)
+        write_json(
+            out_root / "baseline_gates.json",
+            {
+                "horizon_end_year": inner_end_year,
+                "canary_pass": canary_ok,
+                "canary": canary_det,
+                "parity_pass": parity_ok,
+                "parity": parity_det,
+            },
+        )
 
+    best_inner_obj = float(base_inner_agg["objective"])
+    best_inner_holdout_obj = float(base_inner_holdout_agg["objective"])
+    best_medium_obj = float(base_medium_agg["objective"])
+    best_medium_holdout_obj = float(base_medium_holdout_agg["objective"])
     best_obj = float(base_agg["objective"])
     best_holdout_obj = float(base_holdout_agg["objective"])
-    best_eval = {"tuning": base_agg, "holdout": base_holdout_agg}
+    best_eval = {
+        "tuning": base_agg,
+        "holdout": base_holdout_agg,
+        "horizons": {
+            "inner": {"tuning": base_inner_agg, "holdout": base_inner_holdout_agg, "top3": base_inner_top3, "end_year": inner_end_year},
+            "medium": {"tuning": base_medium_agg, "holdout": base_medium_holdout_agg, "top3": base_medium_top3, "end_year": medium_end_year},
+            "long": {"tuning": base_agg, "holdout": base_holdout_agg, "top3": base_top3, "end_year": long_end_year},
+        },
+    }
     best_top3 = base_top3
+    print(
+        f"[baseline] complete inner_obj={best_inner_obj:.6f} long_obj={best_obj:.6f} long_holdout={best_holdout_obj:.6f} top3={best_top3}",
+        flush=True,
+    )
 
     # Iterative loop.
     group_idx = 0
     per_group_param_idx: Dict[str, int] = {g: 0 for g in groups}
-    prev_top3 = base_top3
+    prev_top3 = base_inner_top3
     for it in range(1, args.max_iterations + 1):
+        if stop_flag is not None and stop_flag.exists():
+            stop_reason = "MANUAL_STOP"
+            break
         it_dir = it_root / f"iter_{it:03d}"
         it_dir.mkdir(parents=True, exist_ok=True)
 
@@ -884,74 +1106,211 @@ def main() -> int:
         set_param(cand_cfg, path, new_val)
         cand_cfg_path = it_dir / "candidate_sim_config.toml"
         dump_toml(cand_cfg, cand_cfg_path)
+        print(
+            f"[iter {it:03d}] testing group={group} param={path} old={old_val} new={new_val}",
+            flush=True,
+        )
 
-        cand_tune = run_seed_set(
+        top3_before = list(prev_top3)
+        cand_inner = run_seed_set(
             tuning_seeds,
             exe_dir,
             cand_cfg_path,
-            it_dir / "tuning",
+            it_dir / "inner" / "tuning",
             start_year,
-            end_year,
+            inner_end_year,
             checkpoint_every,
             bool(cand_cfg["economy"]["useGPU"]),
             defs,
             jobs=seed_jobs,
+            label=f"iter {it:03d}:inner:tuning",
         )
-        cand_agg = aggregate_objective(cand_tune, defs)
-        cand_top3 = top3_violations(cand_tune)
-        tune_hardfails = sorted({hf for s in cand_tune for hf in s.hardfails})
-        objective_delta = float(cand_agg["objective"]) - float(best_obj)
+        cand_inner_agg = aggregate_objective(cand_inner, defs)
+        cand_inner_top3 = top3_violations(cand_inner)
+        tune_hardfails = sorted({hf for s in cand_inner for hf in s.hardfails})
+        inner_delta = float(cand_inner_agg["objective"]) - float(best_inner_obj)
+        objective_delta = inner_delta
+        cand_agg = cand_inner_agg
+        cand_top3 = cand_inner_top3
 
         # Run expensive canary/parity checks only for candidates that clear basic improvement gates.
         canary_pass = False
         parity_pass = False
         canary_detail: List[Dict[str, Any]] = []
         parity_detail: List[Dict[str, Any]] = []
-        if (len(tune_hardfails) == 0) and (objective_delta >= float(defs["thresholds"]["min_delta"])):
-            cand_canary_a = run_seed_set([tuning_seeds[0]], exe_dir, cand_cfg_path, it_dir / "canary" / "a", start_year, end_year, checkpoint_every, bool(cand_cfg["economy"]["useGPU"]), defs)[0]
-            cand_canary_b = run_seed_set([tuning_seeds[0]], exe_dir, cand_cfg_path, it_dir / "canary" / "b", start_year, end_year, checkpoint_every, bool(cand_cfg["economy"]["useGPU"]), defs)[0]
+        if (len(tune_hardfails) == 0) and (inner_delta >= float(defs["thresholds"]["min_delta"])):
+            print(f"[iter {it:03d}] running canary checks", flush=True)
+            cand_canary_a = run_seed_set([tuning_seeds[0]], exe_dir, cand_cfg_path, it_dir / "canary" / "a", start_year, inner_end_year, checkpoint_every, bool(cand_cfg["economy"]["useGPU"]), defs, label=f"iter {it:03d}:canary:a")[0]
+            cand_canary_b = run_seed_set([tuning_seeds[0]], exe_dir, cand_cfg_path, it_dir / "canary" / "b", start_year, inner_end_year, checkpoint_every, bool(cand_cfg["economy"]["useGPU"]), defs, label=f"iter {it:03d}:canary:b")[0]
             canary_pass, canary_detail = compare_metric_series(cand_canary_a, cand_canary_b, defs["canary_eps"])
 
-            cand_parity_gpu = run_seed_set([tuning_seeds[0]], exe_dir, cand_cfg_path, it_dir / "parity" / "gpu", start_year, end_year, checkpoint_every, True, defs)[0]
-            cand_parity_cpu = run_seed_set([tuning_seeds[0]], exe_dir, cand_cfg_path, it_dir / "parity" / "cpu", start_year, end_year, checkpoint_every, False, defs)[0]
+            print(f"[iter {it:03d}] canary_pass={canary_pass}; running parity checks", flush=True)
+            cand_parity_gpu = run_seed_set([tuning_seeds[0]], exe_dir, cand_cfg_path, it_dir / "parity" / "gpu", start_year, inner_end_year, checkpoint_every, True, defs, label=f"iter {it:03d}:parity:gpu")[0]
+            cand_parity_cpu = run_seed_set([tuning_seeds[0]], exe_dir, cand_cfg_path, it_dir / "parity" / "cpu", start_year, inner_end_year, checkpoint_every, False, defs, label=f"iter {it:03d}:parity:cpu")[0]
             parity_pass, parity_detail = compare_metric_series(cand_parity_gpu, cand_parity_cpu, defs["parity_eps"])
+            print(f"[iter {it:03d}] parity_pass={parity_pass}", flush=True)
+        else:
+            print(
+                f"[iter {it:03d}] skipping canary/parity (hardfails={len(tune_hardfails)} inner_delta={inner_delta:.6f})",
+                flush=True,
+            )
+
+        medium_required = medium_enabled and (
+            (medium_check_every_iterations > 0 and (it % medium_check_every_iterations == 0))
+            or (medium_check_every_accepted > 0 and ((accepted_iters + 1) % medium_check_every_accepted == 0))
+        )
+        medium_pass = True
+        medium_ran = False
+        medium_hardfails: List[str] = []
+        medium_holdout_hardfails: List[str] = []
+        medium_agg = {}
+        medium_holdout_agg = {}
+        medium_delta = 0.0
 
         holdout_ok = False
         holdout_agg = {}
         holdout_hardfails: List[str] = []
+        cand_hold: List[SeedEval] = []
+        long_ran = False
+        long_hardfails: List[str] = []
+        cand_long: List[SeedEval] = []
 
-        # Provisional acceptance gate before holdouts.
+        # Provisional acceptance gate from fast inner horizon.
         no_hardfail_tuning = len(tune_hardfails) == 0
-        improve_ok = objective_delta >= float(defs["thresholds"]["min_delta"])
+        improve_ok = inner_delta >= float(defs["thresholds"]["min_delta"])
         if no_hardfail_tuning and improve_ok and canary_pass and parity_pass:
-            cand_hold = run_seed_set(
-                holdout_seeds,
-                exe_dir,
-                cand_cfg_path,
-                it_dir / "holdout",
-                start_year,
-                end_year,
-                checkpoint_every,
-                bool(cand_cfg["economy"]["useGPU"]),
-                defs,
-                jobs=seed_jobs,
-            )
-            holdout_agg = aggregate_objective(cand_hold, defs)
-            holdout_hardfails = sorted({hf for s in cand_hold for hf in s.hardfails})
-            holdout_delta_req = float(defs["thresholds"]["holdout_objective_min_delta"])
-            holdout_ok = (
-                len(holdout_hardfails) <= int(defs["thresholds"]["holdout_hardfail_max"])
-                and float(holdout_agg["objective"]) >= float(best_holdout_obj) + holdout_delta_req
-            )
+            if medium_required:
+                medium_ran = True
+                print(f"[iter {it:03d}] running medium horizon checks (end={medium_end_year})", flush=True)
+                cand_medium = run_seed_set(
+                    tuning_seeds,
+                    exe_dir,
+                    cand_cfg_path,
+                    it_dir / "medium" / "tuning",
+                    start_year,
+                    medium_end_year,
+                    checkpoint_every,
+                    bool(cand_cfg["economy"]["useGPU"]),
+                    defs,
+                    jobs=seed_jobs,
+                    label=f"iter {it:03d}:medium:tuning",
+                )
+                medium_agg = aggregate_objective(cand_medium, defs)
+                medium_hardfails = sorted({hf for s in cand_medium for hf in s.hardfails})
+                medium_delta = float(medium_agg["objective"]) - float(best_medium_obj)
+                cand_medium_hold = run_seed_set(
+                    holdout_seeds,
+                    exe_dir,
+                    cand_cfg_path,
+                    it_dir / "medium" / "holdout",
+                    start_year,
+                    medium_end_year,
+                    checkpoint_every,
+                    bool(cand_cfg["economy"]["useGPU"]),
+                    defs,
+                    jobs=seed_jobs,
+                    label=f"iter {it:03d}:medium:holdout",
+                )
+                medium_holdout_agg = aggregate_objective(cand_medium_hold, defs)
+                medium_holdout_hardfails = sorted({hf for s in cand_medium_hold for hf in s.hardfails})
+                holdout_delta_req = float(defs["thresholds"]["holdout_objective_min_delta"])
+                medium_pass = (
+                    len(medium_hardfails) == 0
+                    and len(medium_holdout_hardfails) <= int(defs["thresholds"]["holdout_hardfail_max"])
+                    and float(medium_holdout_agg["objective"]) >= float(best_medium_holdout_obj) + holdout_delta_req
+                )
+                print(
+                    f"[iter {it:03d}] medium_obj={float(medium_agg['objective']):.6f} medium_delta={medium_delta:.6f} "
+                    f"medium_holdout={float(medium_holdout_agg['objective']):.6f} medium_pass={medium_pass}",
+                    flush=True,
+                )
+            if medium_pass:
+                long_ran = True
+                print(f"[iter {it:03d}] running long horizon promotion check (end={long_end_year})", flush=True)
+                cand_long = run_seed_set(
+                    tuning_seeds,
+                    exe_dir,
+                    cand_cfg_path,
+                    it_dir / "long" / "tuning",
+                    start_year,
+                    long_end_year,
+                    checkpoint_every,
+                    bool(cand_cfg["economy"]["useGPU"]),
+                    defs,
+                    jobs=seed_jobs,
+                    label=f"iter {it:03d}:long:tuning",
+                )
+                cand_agg = aggregate_objective(cand_long, defs)
+                cand_top3 = top3_violations(cand_long)
+                long_hardfails = sorted({hf for s in cand_long for hf in s.hardfails})
+                objective_delta = float(cand_agg["objective"]) - float(best_obj)
+                long_improve_ok = objective_delta >= float(defs["thresholds"]["min_delta"])
+                if len(long_hardfails) == 0 and long_improve_ok:
+                    print(f"[iter {it:03d}] running long holdout validation", flush=True)
+                    cand_hold = run_seed_set(
+                        holdout_seeds,
+                        exe_dir,
+                        cand_cfg_path,
+                        it_dir / "long" / "holdout",
+                        start_year,
+                        long_end_year,
+                        checkpoint_every,
+                        bool(cand_cfg["economy"]["useGPU"]),
+                        defs,
+                        jobs=seed_jobs,
+                        label=f"iter {it:03d}:long:holdout",
+                    )
+                    holdout_agg = aggregate_objective(cand_hold, defs)
+                    holdout_hardfails = sorted({hf for s in cand_hold for hf in s.hardfails})
+                    holdout_delta_req = float(defs["thresholds"]["holdout_objective_min_delta"])
+                    holdout_ok = (
+                        len(holdout_hardfails) <= int(defs["thresholds"]["holdout_hardfail_max"])
+                        and float(holdout_agg["objective"]) >= float(best_holdout_obj) + holdout_delta_req
+                    )
+                    print(
+                        f"[iter {it:03d}] long_obj={float(cand_agg['objective']):.6f} long_delta={objective_delta:.6f} "
+                        f"holdout_obj={float(holdout_agg['objective']):.6f} holdout_ok={holdout_ok}",
+                        flush=True,
+                    )
+                else:
+                    print(
+                        f"[iter {it:03d}] skipping long holdout (long_hardfails={len(long_hardfails)} long_delta={objective_delta:.6f})",
+                        flush=True,
+                    )
+            else:
+                print(f"[iter {it:03d}] medium gate failed, skipping long promotion check", flush=True)
         else:
-            holdout_ok = False
+            print(
+                f"[iter {it:03d}] promotion checks skipped (no_hardfail={no_hardfail_tuning} improve_ok={improve_ok} canary={canary_pass} parity={parity_pass})",
+                flush=True,
+            )
 
-        accepted = no_hardfail_tuning and improve_ok and canary_pass and parity_pass and holdout_ok
+        accepted = (
+            no_hardfail_tuning
+            and improve_ok
+            and canary_pass
+            and parity_pass
+            and medium_pass
+            and long_ran
+            and holdout_ok
+        )
         if accepted:
             best_cfg = cand_cfg
+            best_inner_obj = float(cand_inner_agg["objective"])
+            if medium_ran:
+                best_medium_obj = float(medium_agg["objective"])
+                best_medium_holdout_obj = float(medium_holdout_agg["objective"])
             best_obj = float(cand_agg["objective"])
             best_holdout_obj = float(holdout_agg["objective"])
-            best_eval = {"tuning": cand_agg, "holdout": holdout_agg}
+            best_eval = {
+                "tuning": cand_agg,
+                "holdout": holdout_agg,
+                "horizons": {
+                    "inner": {"end_year": inner_end_year, "tuning": cand_inner_agg},
+                    "medium": {"end_year": medium_end_year, "tuning": medium_agg if medium_ran else None, "holdout": medium_holdout_agg if medium_ran else None},
+                    "long": {"end_year": long_end_year, "tuning": cand_agg, "holdout": holdout_agg, "top3": cand_top3},
+                },
+            }
             best_top3 = cand_top3
             dump_toml(best_cfg, best_cfg_path)
             accepted_iters += 1
@@ -970,11 +1329,11 @@ def main() -> int:
             gate_failed = True
         consecutive_gate_fail = (consecutive_gate_fail + 1) if gate_failed else 0
 
-        if cand_top3 == prev_top3 and objective_delta < float(defs["thresholds"]["min_delta"]):
+        if cand_inner_top3 == prev_top3 and inner_delta < float(defs["thresholds"]["min_delta"]):
             plateau_same_top3 += 1
         else:
             plateau_same_top3 = 0
-        prev_top3 = cand_top3
+        prev_top3 = cand_inner_top3
 
         iter_json = {
             "iteration": it,
@@ -987,16 +1346,28 @@ def main() -> int:
                     "recommended_step": pdef["recommended_step"],
                 }
             ],
-            "top_violations_before": base_top3 if it == 1 else best_top3,
-            "top_violations_after": cand_top3,
+            "top_violations_before": top3_before,
+            "top_violations_after": cand_inner_top3,
+            "top_violations_after_long": cand_top3 if long_ran else None,
             "objective_tuning": cand_agg["objective"],
+            "objective_tuning_inner": cand_inner_agg["objective"],
+            "objective_tuning_medium": medium_agg.get("objective", None) if medium_ran else None,
+            "objective_tuning_long": cand_agg["objective"] if long_ran else None,
             "score_delta": objective_delta,
+            "score_delta_inner": inner_delta,
+            "score_delta_medium": medium_delta if medium_ran else None,
             "gates": {
                 "metric_availability": "MISSING_METRIC" not in tune_hardfails,
                 "canary_pass": canary_pass,
                 "backend_parity_pass": parity_pass,
+                "medium_required": medium_required,
+                "medium_pass": medium_pass,
+                "long_ran": long_ran,
                 "holdout_pass": holdout_ok,
                 "tuning_hardfails": tune_hardfails,
+                "medium_hardfails": medium_hardfails,
+                "medium_holdout_hardfails": medium_holdout_hardfails,
+                "long_hardfails": long_hardfails,
                 "holdout_hardfails": holdout_hardfails,
             },
             "holdout_objective": holdout_agg.get("objective", None),
@@ -1009,8 +1380,23 @@ def main() -> int:
             },
             "canary_detail": canary_detail,
             "parity_detail": parity_detail,
+            "curriculum": {
+                "enabled": curriculum_enabled,
+                "inner_end_year": inner_end_year,
+                "medium_end_year": medium_end_year if medium_enabled else None,
+                "long_end_year": long_end_year,
+            },
         }
         write_json(it_dir / "iteration.json", iter_json)
+        print(
+            f"[iter {it:03d}] group={group} param={path} old={old_val} new={new_val} "
+            f"inner_obj={cand_inner_agg['objective']:.6f} inner_delta={inner_delta:.6f} "
+            f"promoted_obj={cand_agg['objective']:.6f} promoted_delta={objective_delta:.6f} accepted={accepted}",
+            flush=True,
+        )
+        if stop_flag is not None and stop_flag.exists():
+            stop_reason = "MANUAL_STOP"
+            break
 
         # Stop conditions (first triggered wins).
         if (
@@ -1021,7 +1407,8 @@ def main() -> int:
             stop_reason = "CONVERGENCE"
             break
 
-        major_left = any(float(v.get("severity", 0.0)) >= float(schema.get("major_violation_threshold", 50.0)) for s in cand_tune for v in s.violations)
+        major_left_src = cand_long if long_ran else cand_inner
+        major_left = any(float(v.get("severity", 0.0)) >= float(schema.get("major_violation_threshold", 50.0)) for s in major_left_src for v in s.violations)
         major_left = major_left or any(float(v.get("severity", 0.0)) >= float(schema.get("major_violation_threshold", 50.0)) for s in (cand_hold if holdout_ok else []) for v in s.violations)
         if best_obj >= float(schema.get("target_objective", 90.0)) and (not major_left):
             stop_reason = "TARGET_REALISM"
@@ -1039,17 +1426,30 @@ def main() -> int:
     final = {
         "stop_condition": stop_reason if stop_reason else "MAX_ITERATIONS",
         "best_objective": best_obj,
+        "best_objective_inner": best_inner_obj,
+        "best_objective_medium": best_medium_obj,
         "best_holdout_objective": best_holdout_obj,
+        "best_holdout_objective_inner": best_inner_holdout_obj,
+        "best_holdout_objective_medium": best_medium_holdout_obj,
         "best_top3_violations": best_top3,
         "best_config": str(best_cfg_path),
         "best_config_hash16": hash16(best_cfg_path),
         "best_eval": best_eval,
+        "curriculum": {
+            "enabled": curriculum_enabled,
+            "inner_end_year": inner_end_year,
+            "medium_end_year": medium_end_year if medium_enabled else None,
+            "long_end_year": long_end_year,
+            "medium_check_every_iterations": medium_check_every_iterations,
+            "medium_check_every_accepted": medium_check_every_accepted,
+        },
         "iterations_completed": len(list(it_root.glob("iter_*"))),
     }
     write_json(out_root / "final_report.json", final)
 
     # Also update the live config to best-so-far so subsequent runs use best known settings.
-    shutil.copyfile(best_cfg_path, config_path)
+    if not bool(args.no_write_live_config):
+        shutil.copyfile(best_cfg_path, config_path)
 
     # Mechanism-gap ticket on structural stop.
     if final["stop_condition"] == "STRUCTURAL_CHANGE_SIGNAL":

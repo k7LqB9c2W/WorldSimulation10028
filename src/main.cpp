@@ -1832,7 +1832,7 @@ int main(int argc, char** argv) {
 		                        if (ImGui::Checkbox("News (5)", &showNews)) {
 		                            news.setWindowVisible(showNews);
 		                        }
-		                        ImGui::Checkbox("Wealth Leaderboard (L)", &guiShowLeaderboard);
+		                        ImGui::Checkbox("Leaderboards (L)", &guiShowLeaderboard);
 		                        ImGui::Separator();
 
 		                        bool warm = renderer.warmongerHighlightsEnabled();
@@ -2055,96 +2055,286 @@ int main(int argc, char** argv) {
 		                    }
 		                }
 
-		                // Wealth leaderboard
+		                // Leaderboards (Wealth / Technology / Institutions)
 		                if (guiShowLeaderboard) {
 		                    ImGui::SetNextWindowSize(ImVec2(820.0f, 700.0f), ImGuiCond_FirstUseEver);
-		                    if (ImGui::Begin("Wealth Leaderboard", &guiShowLeaderboard)) {
-		                        struct Row { int idx; double wealth; double gdp; double exports; long long pop; };
+		                    if (ImGui::Begin("Leaderboards", &guiShowLeaderboard)) {
+		                        struct Row {
+		                            int idx;
+		                            double wealth;
+		                            double gdp;
+		                            double exports;
+		                            long long pop;
+		                            int techCount;
+		                            int institutionCount;
+		                        };
 		                        std::vector<Row> rows;
 		                        rows.reserve(countries.size());
 		                        for (int i = 0; i < static_cast<int>(countries.size()); ++i) {
 		                            const Country& c = countries[static_cast<size_t>(i)];
 		                            if (c.getPopulation() <= 0) continue;
-		                            rows.push_back({i, c.getWealth(), c.getGDP(), c.getExports(), c.getPopulation()});
+		                            rows.push_back({
+		                                i,
+		                                c.getWealth(),
+		                                c.getGDP(),
+		                                c.getExports(),
+		                                c.getPopulation(),
+		                                static_cast<int>(technologyManager.getUnlockedTechnologies(c).size()),
+		                                static_cast<int>(cultureManager.getUnlockedCivics(c).size())
+		                            });
 		                        }
 
-		                        if (ImGui::BeginTable("##wealth", 7, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-		                                                       ImGuiTableFlags_ScrollY | ImGuiTableFlags_Sortable |
-		                                                       ImGuiTableFlags_SizingFixedFit,
-		                                              ImVec2(0, 0))) {
-		                            ImGui::TableSetupScrollFreeze(0, 1);
-		                            ImGui::TableSetupColumn("Rank", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 60.0f);
-		                            ImGui::TableSetupColumn(" ", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 24.0f);
-		                            ImGui::TableSetupColumn("Country");
-		                            ImGui::TableSetupColumn("Wealth");
-		                            ImGui::TableSetupColumn("GDP");
-		                            ImGui::TableSetupColumn("Exports");
-		                            ImGui::TableSetupColumn("Pop");
-		                            ImGui::TableHeadersRow();
+		                        if (ImGui::BeginTabBar("##leaderboardTabs")) {
+		                            if (ImGui::BeginTabItem("Wealth")) {
+		                                if (ImGui::BeginTable("##wealth", 7, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+		                                                               ImGuiTableFlags_ScrollY | ImGuiTableFlags_Sortable |
+		                                                               ImGuiTableFlags_SizingFixedFit,
+		                                                      ImVec2(0, 0))) {
+		                                    ImGui::TableSetupScrollFreeze(0, 1);
+		                                    ImGui::TableSetupColumn("Rank", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 60.0f);
+		                                    ImGui::TableSetupColumn(" ", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 24.0f);
+		                                    ImGui::TableSetupColumn("Country");
+		                                    ImGui::TableSetupColumn("Wealth");
+		                                    ImGui::TableSetupColumn("GDP");
+		                                    ImGui::TableSetupColumn("Exports");
+		                                    ImGui::TableSetupColumn("Pop");
+		                                    ImGui::TableHeadersRow();
 
-		                            if (ImGuiTableSortSpecs* sort = ImGui::TableGetSortSpecs()) {
-		                                if (sort->SpecsDirty && sort->SpecsCount > 0) {
-		                                    const ImGuiTableColumnSortSpecs& s = sort->Specs[0];
-		                                    auto cmp = [&](const Row& a, const Row& b) {
-		                                        auto dir = (s.SortDirection == ImGuiSortDirection_Ascending) ? 1 : -1;
-		                                        auto by = [&](auto va, auto vb) {
-		                                            if (va < vb) return -1 * dir;
-		                                            if (va > vb) return  1 * dir;
-		                                            return 0;
-		                                        };
-		                                        int r = 0;
-		                                        switch (s.ColumnIndex) {
-		                                            case 3: r = by(a.wealth, b.wealth); break;
-		                                            case 4: r = by(a.gdp, b.gdp); break;
-		                                            case 5: r = by(a.exports, b.exports); break;
-		                                            case 6: r = by(a.pop, b.pop); break;
-		                                            default: r = 0; break;
+		                                    if (ImGuiTableSortSpecs* sort = ImGui::TableGetSortSpecs()) {
+		                                        if (sort->SpecsDirty && sort->SpecsCount > 0) {
+		                                            const ImGuiTableColumnSortSpecs& s = sort->Specs[0];
+		                                            auto cmp = [&](const Row& a, const Row& b) {
+		                                                auto dir = (s.SortDirection == ImGuiSortDirection_Ascending) ? 1 : -1;
+		                                                auto by = [&](auto va, auto vb) {
+		                                                    if (va < vb) return -1 * dir;
+		                                                    if (va > vb) return  1 * dir;
+		                                                    return 0;
+		                                                };
+		                                                int sr = 0;
+		                                                switch (s.ColumnIndex) {
+		                                                    case 3: sr = by(a.wealth, b.wealth); break;
+		                                                    case 4: sr = by(a.gdp, b.gdp); break;
+		                                                    case 5: sr = by(a.exports, b.exports); break;
+		                                                    case 6: sr = by(a.pop, b.pop); break;
+		                                                    default: sr = 0; break;
+		                                                }
+		                                                if (sr != 0) return sr < 0;
+		                                                return a.idx < b.idx;
+		                                            };
+		                                            std::sort(rows.begin(), rows.end(), cmp);
+		                                            sort->SpecsDirty = false;
 		                                        }
-		                                        if (r != 0) return r < 0;
-		                                        return a.idx < b.idx;
-		                                    };
-		                                    std::sort(rows.begin(), rows.end(), cmp);
-		                                    sort->SpecsDirty = false;
-		                                }
-		                            } else {
-		                                std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
-		                                    if (a.wealth != b.wealth) return a.wealth > b.wealth;
-		                                    return a.idx < b.idx;
-		                                });
-		                            }
-
-		                            ImGuiListClipper clipper;
-		                            clipper.Begin(static_cast<int>(rows.size()));
-		                            while (clipper.Step()) {
-		                                for (int r = clipper.DisplayStart; r < clipper.DisplayEnd; ++r) {
-		                                    const Country& c = countries[static_cast<size_t>(rows[r].idx)];
-		                                    ImGui::TableNextRow();
-
-		                                    ImGui::TableSetColumnIndex(0);
-		                                    ImGui::Text("%d", r + 1);
-
-		                                    ImGui::TableSetColumnIndex(1);
-		                                    ImGui::ColorButton(("##col" + std::to_string(r)).c_str(), toImVec4(c.getColor()), ImGuiColorEditFlags_NoTooltip, ImVec2(12, 12));
-
-		                                    ImGui::TableSetColumnIndex(2);
-		                                    if (ImGui::Selectable(c.getName().c_str(), selectedCountry && selectedCountry->getCountryIndex() == c.getCountryIndex(),
-		                                                          ImGuiSelectableFlags_SpanAllColumns)) {
-		                                        selectedCountry = &countries[static_cast<size_t>(rows[r].idx)];
-		                                        showCountryInfo = true;
+		                                    } else {
+		                                        std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
+		                                            if (a.wealth != b.wealth) return a.wealth > b.wealth;
+		                                            return a.idx < b.idx;
+		                                        });
 		                                    }
 
-		                                    ImGui::TableSetColumnIndex(3);
-		                                    ImGui::TextUnformatted(formatMoneyAbbrev(rows[r].wealth).c_str());
-		                                    ImGui::TableSetColumnIndex(4);
-		                                    ImGui::TextUnformatted(formatMoneyAbbrev(rows[r].gdp).c_str());
-		                                    ImGui::TableSetColumnIndex(5);
-		                                    ImGui::TextUnformatted(formatMoneyAbbrev(rows[r].exports).c_str());
-		                                    ImGui::TableSetColumnIndex(6);
-		                                    ImGui::Text("%lld", rows[r].pop);
+		                                    ImGuiListClipper clipper;
+		                                    clipper.Begin(static_cast<int>(rows.size()));
+		                                    while (clipper.Step()) {
+		                                        for (int r = clipper.DisplayStart; r < clipper.DisplayEnd; ++r) {
+		                                            const Country& c = countries[static_cast<size_t>(rows[r].idx)];
+		                                            ImGui::TableNextRow();
+
+		                                            ImGui::TableSetColumnIndex(0);
+		                                            ImGui::Text("%d", r + 1);
+
+		                                            ImGui::TableSetColumnIndex(1);
+		                                            ImGui::ColorButton(("##wcol" + std::to_string(r)).c_str(), toImVec4(c.getColor()), ImGuiColorEditFlags_NoTooltip, ImVec2(12, 12));
+
+		                                            ImGui::TableSetColumnIndex(2);
+		                                            if (ImGui::Selectable(c.getName().c_str(), selectedCountry && selectedCountry->getCountryIndex() == c.getCountryIndex(),
+		                                                                  ImGuiSelectableFlags_SpanAllColumns)) {
+		                                                selectedCountry = &countries[static_cast<size_t>(rows[r].idx)];
+		                                                showCountryInfo = true;
+		                                            }
+
+		                                            ImGui::TableSetColumnIndex(3);
+		                                            ImGui::TextUnformatted(formatMoneyAbbrev(rows[r].wealth).c_str());
+		                                            ImGui::TableSetColumnIndex(4);
+		                                            ImGui::TextUnformatted(formatMoneyAbbrev(rows[r].gdp).c_str());
+		                                            ImGui::TableSetColumnIndex(5);
+		                                            ImGui::TextUnformatted(formatMoneyAbbrev(rows[r].exports).c_str());
+		                                            ImGui::TableSetColumnIndex(6);
+		                                            ImGui::Text("%lld", rows[r].pop);
+		                                        }
+		                                    }
+
+		                                    ImGui::EndTable();
 		                                }
+		                                ImGui::EndTabItem();
 		                            }
 
-		                            ImGui::EndTable();
+		                            if (ImGui::BeginTabItem("Technology")) {
+		                                if (ImGui::BeginTable("##technology", 7, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+		                                                               ImGuiTableFlags_ScrollY | ImGuiTableFlags_Sortable |
+		                                                               ImGuiTableFlags_SizingFixedFit,
+		                                                      ImVec2(0, 0))) {
+		                                    ImGui::TableSetupScrollFreeze(0, 1);
+		                                    ImGui::TableSetupColumn("Rank", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 60.0f);
+		                                    ImGui::TableSetupColumn(" ", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 24.0f);
+		                                    ImGui::TableSetupColumn("Country");
+		                                    ImGui::TableSetupColumn("Technologies");
+		                                    ImGui::TableSetupColumn("Institutions");
+		                                    ImGui::TableSetupColumn("Pop");
+		                                    ImGui::TableSetupColumn("Wealth");
+		                                    ImGui::TableHeadersRow();
+
+		                                    if (ImGuiTableSortSpecs* sort = ImGui::TableGetSortSpecs()) {
+		                                        if (sort->SpecsDirty && sort->SpecsCount > 0) {
+		                                            const ImGuiTableColumnSortSpecs& s = sort->Specs[0];
+		                                            auto cmp = [&](const Row& a, const Row& b) {
+		                                                auto dir = (s.SortDirection == ImGuiSortDirection_Ascending) ? 1 : -1;
+		                                                auto by = [&](auto va, auto vb) {
+		                                                    if (va < vb) return -1 * dir;
+		                                                    if (va > vb) return  1 * dir;
+		                                                    return 0;
+		                                                };
+		                                                int sr = 0;
+		                                                switch (s.ColumnIndex) {
+		                                                    case 3: sr = by(a.techCount, b.techCount); break;
+		                                                    case 4: sr = by(a.institutionCount, b.institutionCount); break;
+		                                                    case 5: sr = by(a.pop, b.pop); break;
+		                                                    case 6: sr = by(a.wealth, b.wealth); break;
+		                                                    default: sr = 0; break;
+		                                                }
+		                                                if (sr != 0) return sr < 0;
+		                                                return a.idx < b.idx;
+		                                            };
+		                                            std::sort(rows.begin(), rows.end(), cmp);
+		                                            sort->SpecsDirty = false;
+		                                        }
+		                                    } else {
+		                                        std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
+		                                            if (a.techCount != b.techCount) return a.techCount > b.techCount;
+		                                            if (a.institutionCount != b.institutionCount) return a.institutionCount > b.institutionCount;
+		                                            if (a.pop != b.pop) return a.pop > b.pop;
+		                                            return a.idx < b.idx;
+		                                        });
+		                                    }
+
+		                                    ImGuiListClipper clipper;
+		                                    clipper.Begin(static_cast<int>(rows.size()));
+		                                    while (clipper.Step()) {
+		                                        for (int r = clipper.DisplayStart; r < clipper.DisplayEnd; ++r) {
+		                                            const Country& c = countries[static_cast<size_t>(rows[r].idx)];
+		                                            ImGui::TableNextRow();
+
+		                                            ImGui::TableSetColumnIndex(0);
+		                                            ImGui::Text("%d", r + 1);
+
+		                                            ImGui::TableSetColumnIndex(1);
+		                                            ImGui::ColorButton(("##tcol" + std::to_string(r)).c_str(), toImVec4(c.getColor()), ImGuiColorEditFlags_NoTooltip, ImVec2(12, 12));
+
+		                                            ImGui::TableSetColumnIndex(2);
+		                                            if (ImGui::Selectable(c.getName().c_str(), selectedCountry && selectedCountry->getCountryIndex() == c.getCountryIndex(),
+		                                                                  ImGuiSelectableFlags_SpanAllColumns)) {
+		                                                selectedCountry = &countries[static_cast<size_t>(rows[r].idx)];
+		                                                showCountryInfo = true;
+		                                            }
+
+		                                            ImGui::TableSetColumnIndex(3);
+		                                            ImGui::Text("%d", rows[r].techCount);
+		                                            ImGui::TableSetColumnIndex(4);
+		                                            ImGui::Text("%d", rows[r].institutionCount);
+		                                            ImGui::TableSetColumnIndex(5);
+		                                            ImGui::Text("%lld", rows[r].pop);
+		                                            ImGui::TableSetColumnIndex(6);
+		                                            ImGui::TextUnformatted(formatMoneyAbbrev(rows[r].wealth).c_str());
+		                                        }
+		                                    }
+
+		                                    ImGui::EndTable();
+		                                }
+		                                ImGui::EndTabItem();
+		                            }
+
+		                            if (ImGui::BeginTabItem("Institutions")) {
+		                                if (ImGui::BeginTable("##institutions", 7, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+		                                                               ImGuiTableFlags_ScrollY | ImGuiTableFlags_Sortable |
+		                                                               ImGuiTableFlags_SizingFixedFit,
+		                                                      ImVec2(0, 0))) {
+		                                    ImGui::TableSetupScrollFreeze(0, 1);
+		                                    ImGui::TableSetupColumn("Rank", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 60.0f);
+		                                    ImGui::TableSetupColumn(" ", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 24.0f);
+		                                    ImGui::TableSetupColumn("Country");
+		                                    ImGui::TableSetupColumn("Institutions");
+		                                    ImGui::TableSetupColumn("Technologies");
+		                                    ImGui::TableSetupColumn("Pop");
+		                                    ImGui::TableSetupColumn("Wealth");
+		                                    ImGui::TableHeadersRow();
+
+		                                    if (ImGuiTableSortSpecs* sort = ImGui::TableGetSortSpecs()) {
+		                                        if (sort->SpecsDirty && sort->SpecsCount > 0) {
+		                                            const ImGuiTableColumnSortSpecs& s = sort->Specs[0];
+		                                            auto cmp = [&](const Row& a, const Row& b) {
+		                                                auto dir = (s.SortDirection == ImGuiSortDirection_Ascending) ? 1 : -1;
+		                                                auto by = [&](auto va, auto vb) {
+		                                                    if (va < vb) return -1 * dir;
+		                                                    if (va > vb) return  1 * dir;
+		                                                    return 0;
+		                                                };
+		                                                int sr = 0;
+		                                                switch (s.ColumnIndex) {
+		                                                    case 3: sr = by(a.institutionCount, b.institutionCount); break;
+		                                                    case 4: sr = by(a.techCount, b.techCount); break;
+		                                                    case 5: sr = by(a.pop, b.pop); break;
+		                                                    case 6: sr = by(a.wealth, b.wealth); break;
+		                                                    default: sr = 0; break;
+		                                                }
+		                                                if (sr != 0) return sr < 0;
+		                                                return a.idx < b.idx;
+		                                            };
+		                                            std::sort(rows.begin(), rows.end(), cmp);
+		                                            sort->SpecsDirty = false;
+		                                        }
+		                                    } else {
+		                                        std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
+		                                            if (a.institutionCount != b.institutionCount) return a.institutionCount > b.institutionCount;
+		                                            if (a.techCount != b.techCount) return a.techCount > b.techCount;
+		                                            if (a.pop != b.pop) return a.pop > b.pop;
+		                                            return a.idx < b.idx;
+		                                        });
+		                                    }
+
+		                                    ImGuiListClipper clipper;
+		                                    clipper.Begin(static_cast<int>(rows.size()));
+		                                    while (clipper.Step()) {
+		                                        for (int r = clipper.DisplayStart; r < clipper.DisplayEnd; ++r) {
+		                                            const Country& c = countries[static_cast<size_t>(rows[r].idx)];
+		                                            ImGui::TableNextRow();
+
+		                                            ImGui::TableSetColumnIndex(0);
+		                                            ImGui::Text("%d", r + 1);
+
+		                                            ImGui::TableSetColumnIndex(1);
+		                                            ImGui::ColorButton(("##icol" + std::to_string(r)).c_str(), toImVec4(c.getColor()), ImGuiColorEditFlags_NoTooltip, ImVec2(12, 12));
+
+		                                            ImGui::TableSetColumnIndex(2);
+		                                            if (ImGui::Selectable(c.getName().c_str(), selectedCountry && selectedCountry->getCountryIndex() == c.getCountryIndex(),
+		                                                                  ImGuiSelectableFlags_SpanAllColumns)) {
+		                                                selectedCountry = &countries[static_cast<size_t>(rows[r].idx)];
+		                                                showCountryInfo = true;
+		                                            }
+
+		                                            ImGui::TableSetColumnIndex(3);
+		                                            ImGui::Text("%d", rows[r].institutionCount);
+		                                            ImGui::TableSetColumnIndex(4);
+		                                            ImGui::Text("%d", rows[r].techCount);
+		                                            ImGui::TableSetColumnIndex(5);
+		                                            ImGui::Text("%lld", rows[r].pop);
+		                                            ImGui::TableSetColumnIndex(6);
+		                                            ImGui::TextUnformatted(formatMoneyAbbrev(rows[r].wealth).c_str());
+		                                        }
+		                                    }
+
+		                                    ImGui::EndTable();
+		                                }
+		                                ImGui::EndTabItem();
+		                            }
+		                            ImGui::EndTabBar();
 		                        }
 		                    }
 		                    ImGui::End();
