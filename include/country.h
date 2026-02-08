@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <string>
 #include <algorithm>
+#include <limits>
 #include "resource.h"
 #include "news.h"
 
@@ -91,7 +92,8 @@ public:
             double growthRate,
             const std::string& name,
             Type type,
-            std::uint64_t rngSeed);
+            std::uint64_t rngSeed,
+            int foundingYear = -20000);
     void update(const std::vector<std::vector<bool>>& isLandGrid, std::vector<std::vector<int>>& countryGrid, std::mutex& gridMutex, int gridCellSize, int regionSize, std::unordered_set<int>& dirtyRegions, int currentYear, const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& resourceGrid, News& news, bool plagueActive, long long& plagueDeaths, Map& map, const class TechnologyManager& technologyManager, std::vector<Country>& allCountries);
     long long getPopulation() const;
     sf::Color getColor() const;
@@ -660,9 +662,9 @@ private:
     std::vector<sf::Vector2i> m_ports; // Port positions within national territory
     std::unordered_set<int> m_airways; // Airway connections (other country indices)
     std::unordered_map<int, std::vector<sf::Vector2i>> m_roadsToCountries; // Roads to specific countries
-    int m_nextRoadCheckYear = -5000; // When to next check for road building opportunities (initialize to start year)
-	int m_nextPortCheckYear = -5000; // When to next check for port building opportunities
-	int m_nextAirwayCheckYear = -5000; // When to next check for airway building opportunities
+    int m_nextRoadCheckYear = std::numeric_limits<int>::min(); // When to next check for road building opportunities (initialize to start year)
+	int m_nextPortCheckYear = std::numeric_limits<int>::min(); // When to next check for port building opportunities
+	int m_nextAirwayCheckYear = std::numeric_limits<int>::min(); // When to next check for airway building opportunities
 	bool m_hasCheckedMajorCityUpgrade = false; // Track if we've checked for major city upgrade this population milestone
 	long long m_prePlaguePopulation;
     std::vector<Country*> m_enemies;
@@ -737,7 +739,7 @@ private:
 	    double educationSpendingShare = 0.00; // placeholder
         double rndSpendingShare = 0.00;
 	    double debt = 0.0;
-	    int lastPolicyYear = -5000;
+	    int lastPolicyYear = std::numeric_limits<int>::min();
 	};
 		PolityState m_polity{};
 		int m_expansionBudgetCells = 0; // desired claims per year (AI-controlled)
@@ -751,6 +753,6 @@ private:
         double m_autonomyPressure = 0.0;
         int m_autonomyOverThresholdYears = 0;
         std::vector<RegionalState> m_regions;
-        int m_nextSuccessionYear = -5000;
+        int m_nextSuccessionYear = std::numeric_limits<int>::min();
         double m_eliteDefectionPressure = 0.0;
 	};

@@ -1,6 +1,6 @@
 [world]
 yearsPerTick = 1
-startYear = -5000
+startYear = -20000
 endYear = 2025
 rngSeedMode = "provided"
 deterministicMode = true
@@ -136,7 +136,7 @@ tradeIntensityMemory = 0.72
 useGPU = true
 
 [scoring]
-checkpointsYears = [-5000, -3000, -1000, 0, 1000, 1500, 2025]
+checkpointsYears = [-20000, -5000, -3000, -1000, 0, 1000, 1500, 2025]
 weightFoodSecurityStability = 1
 weightInnovationUrbanization = 1
 weightEmpireLogisticsConstraint = 1

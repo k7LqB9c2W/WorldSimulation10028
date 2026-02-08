@@ -1854,7 +1854,7 @@ void Renderer::renderMegaTimeJumpScreen(const std::string& inputText, const sf::
     instructionText.setFont(font);
     instructionText.setCharacterSize(20);
     instructionText.setFillColor(sf::Color::White);
-    instructionText.setString("Enter target year (-5000 to 2025):");
+    instructionText.setString("Enter target year:");
     instructionText.setPosition(m_window.getSize().x / 2 - 150, m_window.getSize().y / 2 - 60);
     m_window.draw(instructionText);
     

@@ -1,0 +1,64 @@
+{
+  "seed": 1,
+  "configPath": "data\\sim_config.toml",
+  "configHash": "615eb52bc66b9303",
+  "startYear": -20000,
+  "endYear": -19990,
+  "stoppedOnTargetTech": false,
+  "stoppedOnTargetTechYear": null,
+  "worldStartYear": -20000,
+  "useGPU": false,
+  "total_score": 0.0,
+  "gates": {
+    "metric_availability": true,
+    "canary_pass": false,
+    "backend_parity_pass": false,
+    "hardfail": ""
+  },
+  "top_violations": [],
+  "invariants": {
+    "ok": true,
+    "message": ""
+  },
+  "checkpoints": [
+    {
+      "year": -20000,
+      "world_pop_total": 18282238.000000,
+      "world_food_adequacy_index": 0.996728,
+      "world_trade_intensity": 0.000916,
+      "world_urban_share_proxy": 0.024469,
+      "world_tech_capability_index_median": 0.000004,
+      "world_state_capacity_index_median": 0.703128,
+      "major_war_count": 0,
+      "famine_wave_count": 2,
+      "epidemic_wave_count": 0,
+      "migration_rate_t": 0.042672
+    },
+    {
+      "year": -19995,
+      "world_pop_total": 18839497.000000,
+      "world_food_adequacy_index": 0.911472,
+      "world_trade_intensity": 0.000725,
+      "world_urban_share_proxy": 0.026238,
+      "world_tech_capability_index_median": 0.000021,
+      "world_state_capacity_index_median": 0.752715,
+      "major_war_count": 0,
+      "famine_wave_count": 21,
+      "epidemic_wave_count": 0,
+      "migration_rate_t": 0.144929
+    },
+    {
+      "year": -19990,
+      "world_pop_total": 19479740.000000,
+      "world_food_adequacy_index": 0.945923,
+      "world_trade_intensity": 0.000656,
+      "world_urban_share_proxy": 0.027026,
+      "world_tech_capability_index_median": 0.000039,
+      "world_state_capacity_index_median": 0.777055,
+      "major_war_count": 0,
+      "famine_wave_count": 1,
+      "epidemic_wave_count": 0,
+      "migration_rate_t": 0.113223
+    }
+  ]
+}

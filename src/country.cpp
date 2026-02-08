@@ -26,7 +26,8 @@ Country::Country(int countryIndex,
                  double growthRate,
                  const std::string& name,
                  Type type,
-                 std::uint64_t rngSeed) :
+                 std::uint64_t rngSeed,
+                 int foundingYear) :
     m_countryIndex(countryIndex),
 	    m_rng(rngSeed),
 	    m_color(color),
@@ -78,7 +79,7 @@ Country::Country(int countryIndex,
     
     // Initialize technology sharing timer for trader countries
     if (m_type == Type::Trader) {
-        initializeTechSharingTimer(-5000); // Start from 5000 BCE
+        initializeTechSharingTimer(foundingYear);
     }
 
     // 🚀 STAGGERED OPTIMIZATION: Each country gets a random neighbor recalculation interval (20-80 years)
@@ -91,26 +92,26 @@ Country::Country(int countryIndex,
 
     // Stagger initial war check year for Warmongers
     if (m_type == Type::Warmonger) {
-        std::uniform_int_distribution<> staggerDist(-4950, -4450); // Example: Range from -4950 to -4450 So countries will trigger their first look for war within -4950 to -4450
+        std::uniform_int_distribution<> staggerDist(foundingYear + 50, foundingYear + 550);
         m_nextWarCheckYear = staggerDist(m_rng);
     }
 
     // Stagger initial road-building check year to offset load
     {
         std::uniform_int_distribution<> initialRoadOffset(0, 120);
-        m_nextRoadCheckYear = -5000 + initialRoadOffset(m_rng);
+        m_nextRoadCheckYear = foundingYear + initialRoadOffset(m_rng);
     }
 
     // Stagger initial port-building check year to offset load
     {
         std::uniform_int_distribution<> initialPortOffset(0, 160);
-        m_nextPortCheckYear = -5000 + initialPortOffset(m_rng);
+        m_nextPortCheckYear = foundingYear + initialPortOffset(m_rng);
     }
 
     // Stagger initial airway-building check year to offset load
     {
         std::uniform_int_distribution<> initialAirwayOffset(0, 220);
-        m_nextAirwayCheckYear = -5000 + initialAirwayOffset(m_rng);
+        m_nextAirwayCheckYear = foundingYear + initialAirwayOffset(m_rng);
     }
     
     // 🎯 INITIALIZE EXPANSION CONTENTMENT SYSTEM - reuse existing gen
@@ -177,10 +178,10 @@ Country::Country(int countryIndex,
 	        m_polity.infraSpendingShare = 0.42;
 	    }
 	    std::uniform_int_distribution<int> policyOffset(0, 4);
-	    m_polity.lastPolicyYear = -5000 + policyOffset(m_rng);
+	    m_polity.lastPolicyYear = foundingYear + policyOffset(m_rng);
         {
             std::uniform_int_distribution<int> successionInterval(18, 45);
-            m_nextSuccessionYear = -5000 + successionInterval(m_rng);
+            m_nextSuccessionYear = foundingYear + successionInterval(m_rng);
         }
 
         initializePopulationCohorts();

@@ -154,11 +154,11 @@ Map::Map(const sf::Image& baseImage,
             rebuildCellConstructionCache();
 		    ensureFieldGrids();
 	        initializeClimateBaseline();
-	        tickWeather(-5000, 1);
+	        tickWeather(m_ctx->config.world.startYear, 1);
 	        buildCoastalLandCandidates();
         const std::uint64_t plagueRoll = SimulationContext::mix64(m_ctx->worldSeed ^ 0x504C41475545494EULL);
         m_plagueInterval = 600 + static_cast<int>(plagueRoll % 101ULL);
-        m_nextPlagueYear = -5000 + m_plagueInterval; // First plague year
+        m_nextPlagueYear = m_ctx->config.world.startYear + m_plagueInterval; // First plague year
 		}
 
 // 🔥 NUCLEAR OPTIMIZATION: Lightning-fast resource grid initialization
@@ -2283,7 +2283,7 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
     };
 
     // ============================================================
-    // Phase 0: realistic 5000 BCE global population (heavy tail)
+    // Phase 0: realistic start-year global population (heavy tail)
     // ============================================================
     const long long worldPopMin = 5'000'000;
     const long long worldPopMax = 20'000'000;
@@ -2464,7 +2464,8 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
                                growthRate,
                                countryName,
                                countryType,
-                               m_ctx->seedForCountry(i));
+                               m_ctx->seedForCountry(i),
+                               m_ctx->config.world.startYear);
         {
             auto& epi = countries.back().getEpidemicStateMutable();
             const double i0 = std::clamp(m_ctx->config.disease.initialInfectedShare, 0.0, 0.25);
@@ -2679,7 +2680,7 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
     // territory changes should go through `setCountryOwner*()` so adjacency stays correct incrementally.
     rebuildCountryPotentials(static_cast<int>(countries.size()));
     rebuildAdjacency(countries);
-    updateControlGrid(countries, /*year*/-5000, /*dtYears*/1);
+    updateControlGrid(countries, m_ctx->config.world.startYear, /*dtYears*/1);
     initializePopulationGridFromCountries(countries);
     applyPopulationTotalsToCountries(countries);
 }
@@ -3858,7 +3859,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
 
         const int newIndex = static_cast<int>(countries.size());
         Country newCountry(newIndex, newColor, newStart, newPop, growthRate, newName, country.getType(),
-                           m_ctx->seedForCountry(newIndex));
+                           m_ctx->seedForCountry(newIndex), currentYear);
         newCountry.setIdeology(country.getIdeology());
         const double newCountryLegitBefore = clamp01(newCountry.getLegitimacy());
         {
@@ -4545,7 +4546,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
 
 	            const int newIndex = static_cast<int>(countries.size());
 	            Country newCountry(newIndex, newColor, newStart, /*initialPop*/50000, /*growth*/0.0005, newName,
-	                               c.getType(), m_ctx->seedForCountry(newIndex));
+	                               c.getType(), m_ctx->seedForCountry(newIndex), currentYear);
 	            newCountry.setIdeology(c.getIdeology());
 	            newCountry.setStability(std::max(0.30, std::min(0.60, c.getStability())));
 	            const double colonyLegitBefore = clamp01(newCountry.getLegitimacy());
@@ -4842,7 +4843,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
 
         int newIndex = static_cast<int>(countries.size());
         Country newCountry(newIndex, newColor, newStart, newPop, growthRate, newName, country.getType(),
-                           m_ctx->seedForCountry(newIndex));
+                           m_ctx->seedForCountry(newIndex), currentYear);
         newCountry.setIdeology(country.getIdeology());
         newCountry.setStability(0.45);
         newCountry.setFragmentationCooldown(fragmentationCooldown);

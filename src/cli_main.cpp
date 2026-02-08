@@ -38,6 +38,7 @@ namespace {
 
 constexpr int kDefaultNumCountries = 100;
 constexpr int kDefaultMaxCountries = 400; // Keep aligned with GUI defaults.
+constexpr int kEarliestSupportedStartYear = -20000;
 
 struct RunOptions {
     std::uint64_t seed = 1;
@@ -182,7 +183,8 @@ void printUsage(const char* argv0) {
               << "       [--parityCheckYears N] [--parityCheckpointEveryYears N]\n"
               << "       [--parityRole gui|cli] [--parityOut path]\n"
               << "       [--techUnlockLog path] [--techUnlockLogIncludeInitial 0|1]\n"
-              << "       [--stopOnTechId N]\n";
+              << "       [--stopOnTechId N]\n"
+              << "Notes: supported minimum start year is " << kEarliestSupportedStartYear << ".\n";
 }
 
 bool parseArgs(int argc, char** argv, RunOptions& opt) {
@@ -928,6 +930,34 @@ bool initializeRuntime(CliRuntime& rt,
                        int numCountries,
                        int maxCountries,
                        std::string* errorOut) {
+    if (rt.ctx.config.world.startYear < kEarliestSupportedStartYear) {
+        if (errorOut) {
+            *errorOut = "Config world.startYear is earlier than supported minimum (" +
+                        std::to_string(kEarliestSupportedStartYear) + ").";
+        }
+        return false;
+    }
+
+    if (opt.startYear != std::numeric_limits<int>::min()) {
+        if (opt.startYear < kEarliestSupportedStartYear) {
+            if (errorOut) {
+                *errorOut = "Requested --startYear is earlier than supported minimum (" +
+                            std::to_string(kEarliestSupportedStartYear) + ").";
+            }
+            return false;
+        }
+        if (opt.startYear < rt.ctx.config.world.startYear) {
+            rt.ctx.config.world.startYear = opt.startYear;
+        }
+    }
+
+    if (rt.ctx.config.world.endYear < rt.ctx.config.world.startYear) {
+        if (errorOut) {
+            *errorOut = "Invalid config year bounds: endYear < startYear.";
+        }
+        return false;
+    }
+
     if (opt.useGPU >= 0) {
         rt.ctx.config.economy.useGPU = (opt.useGPU != 0);
     }
@@ -1313,8 +1343,10 @@ int main(int argc, char** argv) {
     int worldStartYear = ctx.config.world.startYear;
     int startYear = (opt.startYear == std::numeric_limits<int>::min()) ? worldStartYear : opt.startYear;
     int endYear = (opt.endYear == std::numeric_limits<int>::min()) ? ctx.config.world.endYear : opt.endYear;
-    if (startYear < worldStartYear) {
-        startYear = worldStartYear;
+    if (startYear < kEarliestSupportedStartYear) {
+        std::cerr << "Invalid startYear=" << startYear
+                  << " (minimum supported is " << kEarliestSupportedStartYear << ")\n";
+        return 2;
     }
     if (endYear < startYear) {
         std::cerr << "Invalid year range: startYear=" << startYear << " endYear=" << endYear << "\n";

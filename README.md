@@ -1,6 +1,6 @@
 # WorldSimulation
 
-This project simulates open-ended societal development starting in 5000 BCE.
+This project simulates open-ended societal development starting in 20,000 BCE by default.
 The model is free-form: outcomes should emerge from mechanisms (food, logistics, disease, institutions, trade, war), not scripted historical timelines.
 
 ## Quick Start
@@ -9,6 +9,9 @@ The model is free-form: outcomes should emerge from mechanisms (food, logistics,
 - Build your normal GUI target (`WorldSimulation`) with your existing CMake/Visual Studio workflow.
 - Optional runtime config override:
   - `WorldSimulation --config data/sim_config.toml`
+- On launch, the GUI shows an ImGui start-year prompt before simulation begins.
+  - Allowed range: `-20000` to configured `world.endYear`
+  - Default input: configured `world.startYear` (now `-20000`)
 
 ### CLI build/run
 - Build target: `worldsim_cli`
@@ -53,8 +56,10 @@ Supported flags:
 - `--outDir path`
 - `--useGPU 0|1`
 
+`--startYear` supports values down to `-20000` (20,000 BCE).
+
 Example:
-- `worldsim_cli --seed 7 --config data/sim_config.toml --startYear -5000 --endYear 2025 --checkpointEveryYears 50 --outDir out/cli_runs/seed_7 --useGPU 0`
+- `worldsim_cli --seed 7 --config data/sim_config.toml --startYear -20000 --endYear 2025 --checkpointEveryYears 50 --outDir out/cli_runs/seed_7 --useGPU 0`
 
 ### CLI outputs
 Each run writes:

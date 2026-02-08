@@ -8,7 +8,7 @@
 struct SimulationConfig {
     struct World {
         int yearsPerTick = 1;
-        int startYear = -5000;
+        int startYear = -20000;
         int endYear = 2025;
         std::string rngSeedMode = "provided";
         bool deterministicMode = true;
@@ -154,7 +154,7 @@ struct SimulationConfig {
     } economy{};
 
     struct Scoring {
-        std::vector<int> checkpointsYears = {-5000, -3000, -1000, 0, 1000, 1500, 2025};
+        std::vector<int> checkpointsYears = {-20000, -5000, -3000, -1000, 0, 1000, 1500, 2025};
         double weightFoodSecurityStability = 1.0;
         double weightInnovationUrbanization = 1.0;
         double weightEmpireLogisticsConstraint = 1.0;

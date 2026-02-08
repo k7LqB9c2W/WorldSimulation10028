@@ -6,7 +6,7 @@
 GreatPeopleManager::GreatPeopleManager(SimulationContext& ctx)
     : m_rng(ctx.makeRng(0x4752454154504552ull)) { // "GREATPER"
     std::uniform_int_distribution<> eventIntervalDist(100, 500);
-    m_nextEventYear = -5000 + eventIntervalDist(m_rng);
+    m_nextEventYear = ctx.config.world.startYear + eventIntervalDist(m_rng);
 }
 
 // Generates a random name from a mixture of syllables and optional prefixes/suffixes.

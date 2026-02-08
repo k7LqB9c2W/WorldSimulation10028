@@ -76,7 +76,7 @@ struct ShippingRoute {
     float totalLen = 0.0f;
 
     bool isActive = true;
-    int establishedYear = -5000;
+    int establishedYear = std::numeric_limits<int>::min() / 2;
 };
 
 // Market structure for advanced economy
@@ -217,11 +217,11 @@ private:
     
     // Optimization for fast forward
     int m_lastTradeYear = std::numeric_limits<int>::min() / 2;
-    int m_lastBarterYear = -5000;
-    int m_lastMarketUpdateYear = -5000;
+    int m_lastBarterYear = std::numeric_limits<int>::min() / 2;
+    int m_lastMarketUpdateYear = std::numeric_limits<int>::min() / 2;
 
     // Export value proxy (in "gold-equivalent" units) for the last processed trade year.
-    int m_lastCountryExportsYear = -5000;
+    int m_lastCountryExportsYear = std::numeric_limits<int>::min() / 2;
     std::vector<double> m_countryExportsValue;
 
     // Shipping route membership for O(1) trade bonuses.

@@ -87,6 +87,7 @@ bool megaTimeJumpDebugLogEnabled = false;
 std::string megaTimeJumpInputError = "";
 bool megaTimeJumpFocusInputNextFrame = false;
 int megaTimeJumpInputSessionId = 0;
+constexpr int kEarliestSupportedStartYear = -20000;
 
 namespace {
 std::string buildMegaDebugLogPath(const char* argv0) {
@@ -147,6 +148,28 @@ std::optional<std::string> tryParseConfigArg(int argc, char** argv) {
         const std::string prefix = "--config=";
         if (arg.rfind(prefix, 0) == 0) {
             return arg.substr(prefix.size());
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<int> tryParseStartYearArg(int argc, char** argv) {
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i] ? std::string(argv[i]) : std::string();
+        if (arg == "--startYear" && i + 1 < argc) {
+            try {
+                return std::stoi(argv[i + 1]);
+            } catch (...) {
+                return std::nullopt;
+            }
+        }
+        const std::string prefix = "--startYear=";
+        if (arg.rfind(prefix, 0) == 0) {
+            try {
+                return std::stoi(arg.substr(prefix.size()));
+            } catch (...) {
+                return std::nullopt;
+            }
         }
     }
     return std::nullopt;
@@ -410,7 +433,19 @@ int main(int argc, char** argv) {
 		        return nullptr;
 		    };
 
-    int currentYear = ctx.config.world.startYear;
+    const int configuredDefaultStartYear =
+        std::clamp(ctx.config.world.startYear, kEarliestSupportedStartYear, ctx.config.world.endYear);
+    int requestedStartupYear = configuredDefaultStartYear;
+    if (auto y = tryParseStartYearArg(argc, argv)) {
+        requestedStartupYear = *y;
+    }
+    int currentYear = configuredDefaultStartYear;
+    std::string simulationStartYearInput = std::to_string(requestedStartupYear);
+    std::string simulationStartYearInputError;
+    bool simulationStartYearPromptMode = true;
+    bool simulationStartYearFocusInputNextFrame = true;
+    int simulationStartYearInputSessionId = 0;
+    renderer.updateYearText(currentYear);
     sf::Clock yearClock;
     sf::Time yearDuration = sf::seconds(1.0f);
     
@@ -693,7 +728,7 @@ int main(int argc, char** argv) {
                         megaTimeJumpSuppressOpenKeyText = false;
                     }
 
-		            if ((guiVisible || megaTimeJumpMode) && !suppressImGuiEvent) {
+		            if ((guiVisible || megaTimeJumpMode || simulationStartYearPromptMode) && !suppressImGuiEvent) {
 		                ImGui::SFML::ProcessEvent(window, event);
 		            }
 
@@ -715,6 +750,13 @@ int main(int argc, char** argv) {
 			                    }
 			                    continue;
 			                }
+
+                            if (simulationStartYearPromptMode) {
+                                if (event.key.code == sf::Keyboard::Escape) {
+                                    window.close();
+                                }
+                                continue;
+                            }
 
 	                const bool guiCapturesKeyboard = guiVisible && ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().WantCaptureKeyboard;
 	                if (guiCapturesKeyboard) {
@@ -1060,7 +1102,7 @@ int main(int argc, char** argv) {
                 if (guiCapturesMouse) {
                     continue;
                 }
-                if (megaTimeJumpMode) {
+                if (megaTimeJumpMode || simulationStartYearPromptMode) {
                     continue;
                 }
 
@@ -1089,20 +1131,20 @@ int main(int argc, char** argv) {
                 if (guiCapturesMouse) {
                     continue;
                 }
-                if (megaTimeJumpMode) {
+                if (megaTimeJumpMode || simulationStartYearPromptMode) {
                     continue;
                 }
                 if (viewMode == ViewMode::Globe) {
                     sf::Vector2i mousePos = sf::Mouse::getPosition(window);
                     globeRightDragActive = true;
                     globeRightDragRotating = false;
-                    globeRightClickPendingPick = paintMode && !megaTimeJumpMode;
+                    globeRightClickPendingPick = paintMode && !megaTimeJumpMode && !simulationStartYearPromptMode;
                     globeRightPressPos = mousePos;
                     globeLastMousePos = mousePos;
                     continue;
                 }
 
-                if (paintMode && !megaTimeJumpMode) {
+                if (paintMode && !megaTimeJumpMode && !simulationStartYearPromptMode) {
                     sf::Vector2i mousePos = sf::Mouse::getPosition(window);
                     sf::Vector2i gridPos;
                     if (tryGetGridUnderMouse(mousePos, gridPos) &&
@@ -1120,12 +1162,12 @@ int main(int argc, char** argv) {
                 if (guiCapturesMouse) {
                     continue;
                 }
-                if (megaTimeJumpMode) {
+                if (megaTimeJumpMode || simulationStartYearPromptMode) {
                     continue;
                 }
 
                 renderingNeedsUpdate = true; // Force render for interaction
-		                if (forceInvasionMode && !megaTimeJumpMode && !paintMode) {
+		                if (forceInvasionMode && !megaTimeJumpMode && !simulationStartYearPromptMode && !paintMode) {
 		                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
 		                    sf::Vector2i gridPos;
 		                    if (!tryGetGridUnderMouse(mousePos, gridPos)) {
@@ -1164,7 +1206,7 @@ int main(int argc, char** argv) {
                         }
 	                    }
 	                }
-		                else if (paintMode && !megaTimeJumpMode) {
+		                else if (paintMode && !megaTimeJumpMode && !simulationStartYearPromptMode) {
                     isDragging = false;
                     paintStrokeActive = false;
                     paintStrokeAffectedCountries.clear();
@@ -1245,7 +1287,8 @@ int main(int argc, char** argv) {
 	                                               growthRate,
 	                                               countryName,
 	                                               countryType,
-	                                               ctx.seedForCountry(newCountryIndex));
+	                                               ctx.seedForCountry(newCountryIndex),
+                                               currentYear);
 
                         // Use Map's methods to update the grid and dirty regions
                         map.setCountryGridValue(gridPos.x, gridPos.y, newCountryIndex);
@@ -1369,7 +1412,7 @@ int main(int argc, char** argv) {
 	                }
 
 	                // Hover tracking (for highlight + selection tools)
-	                if (!megaTimeJumpMode && !guiCapturesMouse) {
+	                if (!megaTimeJumpMode && !simulationStartYearPromptMode && !guiCapturesMouse) {
 	                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
 	                    sf::Vector2i gridPos;
 	                    if (tryGetGridUnderMouse(mousePos, gridPos) &&
@@ -1388,7 +1431,7 @@ int main(int argc, char** argv) {
 	                    }
 	                }
 
-	                if (paintStrokeActive && paintMode && !megaTimeJumpMode && !guiCapturesMouse) {
+	                if (paintStrokeActive && paintMode && !megaTimeJumpMode && !simulationStartYearPromptMode && !guiCapturesMouse) {
 	                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
 	                    sf::Vector2i gridPos;
 	                    if (!tryGetGridUnderMouse(mousePos, gridPos)) {
@@ -1602,12 +1645,13 @@ int main(int argc, char** argv) {
 		        // 🔥 NUCLEAR OPTIMIZATION: EVENT-DRIVEN SIMULATION ARCHITECTURE 🔥
 		        
 		        // STEP 1: Check if we need to advance simulation (ONCE PER YEAR, NOT 60 TIMES!)
-		        bool uiModalActive = megaTimeJumpMode;
+		        bool uiModalActive = megaTimeJumpMode || simulationStartYearPromptMode;
 		        if (uiModalActive) {
 		            yearClock.restart(); // Prevent time accumulation causing a jump when closing UI
 		        }
         sf::Time currentYearDuration = turboMode ? turboYearDuration : yearDuration;
-        if (((yearClock.getElapsedTime() >= currentYearDuration) && !paused && !paintStrokeActive && !uiModalActive) || simulationNeedsUpdate) {
+        if (!uiModalActive &&
+            (((yearClock.getElapsedTime() >= currentYearDuration) && !paused && !paintStrokeActive) || simulationNeedsUpdate)) {
             
             // ADVANCE YEAR
             if (!simulationNeedsUpdate) { // Don't advance on forced updates
@@ -1678,6 +1722,76 @@ int main(int argc, char** argv) {
 		        bool renderedFrame = false;
 
 		        {
+                    auto drawSimulationStartYearWindow = [&]() {
+                        const ImVec2 center(static_cast<float>(window.getSize().x) * 0.5f,
+                                            static_cast<float>(window.getSize().y) * 0.5f);
+                        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+                        ImGui::SetNextWindowSize(ImVec2(540.0f, 0.0f), ImGuiCond_Appearing);
+                        ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
+                        if (ImGui::Begin("Simulation Start Year", nullptr, flags)) {
+                            ImGui::TextUnformatted("Choose the year where the simulation begins.");
+                            ImGui::Text("Allowed range: %d to %d", kEarliestSupportedStartYear, ctx.config.world.endYear);
+                            ImGui::Text("Default from config: %d", configuredDefaultStartYear);
+                            if (simulationStartYearFocusInputNextFrame) {
+                                ImGui::SetKeyboardFocusHere();
+                                simulationStartYearFocusInputNextFrame = false;
+                            }
+                            const std::string label =
+                                "Start Year##sim_start_" + std::to_string(simulationStartYearInputSessionId);
+                            const bool enterPressed = ImGui::InputText(
+                                label.c_str(),
+                                &simulationStartYearInput,
+                                ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue);
+
+                            auto tryApplyStartYear = [&]() {
+                                if (simulationStartYearInput.empty()) {
+                                    simulationStartYearInputError = "Enter a start year.";
+                                    return;
+                                }
+
+                                int requestedYear = 0;
+                                try {
+                                    requestedYear = std::stoi(simulationStartYearInput);
+                                } catch (...) {
+                                    simulationStartYearInputError = "Invalid year format.";
+                                    return;
+                                }
+
+                                if (requestedYear < kEarliestSupportedStartYear ||
+                                    requestedYear > ctx.config.world.endYear) {
+                                    simulationStartYearInputError = "Start year must be between " +
+                                        std::to_string(kEarliestSupportedStartYear) + " and " +
+                                        std::to_string(ctx.config.world.endYear) + ".";
+                                    return;
+                                }
+
+                                currentYear = requestedYear;
+                                renderer.updateYearText(currentYear);
+                                simulationStartYearPromptMode = false;
+                                simulationStartYearInputError.clear();
+                                yearClock.restart();
+                                simulationNeedsUpdate = true;
+                            };
+
+                            bool startRequested = ImGui::Button("Start Simulation");
+                            ImGui::SameLine();
+                            if (ImGui::Button("Use Default")) {
+                                simulationStartYearInput = std::to_string(configuredDefaultStartYear);
+                                simulationStartYearInputError.clear();
+                                simulationStartYearFocusInputNextFrame = true;
+                                simulationStartYearInputSessionId++;
+                            }
+                            if (!simulationStartYearInputError.empty()) {
+                                ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.45f, 1.0f), "%s",
+                                                   simulationStartYearInputError.c_str());
+                            }
+                            if (startRequested || enterPressed) {
+                                tryApplyStartYear();
+                            }
+                        }
+                        ImGui::End();
+                    };
+
                     auto drawMegaTimeJumpWindow = [&]() {
                         const ImVec2 center(static_cast<float>(window.getSize().x) * 0.5f,
                                             static_cast<float>(window.getSize().y) * 0.5f);
@@ -1686,7 +1800,7 @@ int main(int argc, char** argv) {
                         ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
                         if (ImGui::Begin("Mega Time Jump", nullptr, flags)) {
                             ImGui::Text("Current Year: %d", currentYear);
-                            ImGui::TextUnformatted("Enter target year (-5000 to 2025)");
+                            ImGui::Text("Enter target year (%d to %d)", ctx.config.world.startYear, ctx.config.world.endYear);
 	                            if (megaTimeJumpFocusInputNextFrame) {
 	                                ImGui::SetKeyboardFocusHere();
 	                                megaTimeJumpFocusInputNextFrame = false;
@@ -1721,7 +1835,7 @@ int main(int argc, char** argv) {
                         ImGui::End();
                     };
 
-                    if (megaTimeJumpMode && !guiVisible) {
+                    if ((megaTimeJumpMode || simulationStartYearPromptMode) && !guiVisible) {
                         ImGui::SFML::Update(window, imguiDt);
                     }
 
@@ -2437,12 +2551,16 @@ int main(int argc, char** argv) {
 		                }
 			            }
 
+                        if (simulationStartYearPromptMode) {
+                            drawSimulationStartYearWindow();
+                        }
+
                         if (megaTimeJumpMode) {
                             drawMegaTimeJumpWindow();
                         }
 
 		            window.setView(enableZoom ? zoomedView : defaultView);
-                    renderer.setGuiVisible(guiVisible || megaTimeJumpMode);
+                    renderer.setGuiVisible(guiVisible || megaTimeJumpMode || simulationStartYearPromptMode);
 
 		            renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo, viewMode);
 
