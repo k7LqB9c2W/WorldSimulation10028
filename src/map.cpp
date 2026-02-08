@@ -96,6 +96,49 @@ bool useDeterministicOverseasFallback(const SimulationContext* ctx) {
     // Default "auto": keep behavior coupled to deterministic mode.
     return ctx->config.world.deterministicMode;
 }
+
+double paleoTempOffsetC(int year) {
+    // Coarse global baseline: colder LGM-like start, warming into early Holocene.
+    if (year <= -20000) return -6.0;
+    if (year <= -15000) {
+        const double t = static_cast<double>(year + 20000) / 5000.0;
+        return -6.0 + t * (2.0); // -6 -> -4
+    }
+    if (year <= -12000) {
+        const double t = static_cast<double>(year + 15000) / 3000.0;
+        return -4.0 + t * (2.4); // -4 -> -1.6
+    }
+    if (year <= -8000) {
+        const double t = static_cast<double>(year + 12000) / 4000.0;
+        return -1.6 + t * (1.3); // -1.6 -> -0.3
+    }
+    if (year <= -5000) {
+        const double t = static_cast<double>(year + 8000) / 3000.0;
+        return -0.3 + t * (0.3); // -0.3 -> 0
+    }
+    return 0.0;
+}
+
+double paleoPrecipOffset01(int year) {
+    if (year <= -20000) return -0.08;
+    if (year <= -15000) {
+        const double t = static_cast<double>(year + 20000) / 5000.0;
+        return -0.08 + t * (0.02); // -0.08 -> -0.06
+    }
+    if (year <= -12000) {
+        const double t = static_cast<double>(year + 15000) / 3000.0;
+        return -0.06 + t * (0.03); // -0.06 -> -0.03
+    }
+    if (year <= -8000) {
+        const double t = static_cast<double>(year + 12000) / 4000.0;
+        return -0.03 + t * (0.02); // -0.03 -> -0.01
+    }
+    if (year <= -5000) {
+        const double t = static_cast<double>(year + 8000) / 3000.0;
+        return -0.01 + t * (0.01); // -0.01 -> 0
+    }
+    return 0.0;
+}
 } // namespace
 
 Map::Map(const sf::Image& baseImage,
@@ -789,6 +832,8 @@ void Map::tickWeather(int year, int dtYears) {
     const int W = m_fieldW;
     const int H = m_fieldH;
     const size_t n = static_cast<size_t>(W) * static_cast<size_t>(H);
+    const float paleoTempOffset = static_cast<float>(paleoTempOffsetC(year));
+    const float paleoPrecipOffset = static_cast<float>(paleoPrecipOffset01(year));
 
     // Coarse weather grid (fieldW/8 by fieldH/8, clamped to >=1).
     const int cw = std::max(1, W / 8);
@@ -879,8 +924,8 @@ void Map::tickWeather(int year, int dtYears) {
             m_fieldTempAnom[idx] = tA;
             m_fieldPrecipAnom[idx] = pA;
 
-            const float temp = m_fieldTempMean[idx] + tA;
-            const float prec = m_fieldPrecipMean[idx] + pA;
+            const float temp = m_fieldTempMean[idx] + tA + paleoTempOffset;
+            const float prec = clamp01f(m_fieldPrecipMean[idx] + pA + paleoPrecipOffset);
             const float b = biomeBaseYield(m_fieldBiome[idx]);
             const float y = b * tempResponse(temp) * precipResponse(prec);
             m_fieldFoodYieldMult[idx] = std::max(0.05f, std::min(1.80f, y));
@@ -1693,7 +1738,11 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries,
     }
 }
 
-void Map::updateCitiesFromPopulation(std::vector<Country>& countries, int currentYear, int createEveryNYears, News& news) {
+void Map::updateCitiesFromPopulation(std::vector<Country>& countries,
+                                     int currentYear,
+                                     int createEveryNYears,
+                                     News& news,
+                                     const TechnologyManager* technologyManager) {
     if (!isPopulationGridActive()) {
         return;
     }
@@ -1723,12 +1772,18 @@ void Map::updateCitiesFromPopulation(std::vector<Country>& countries, int curren
     std::vector<double> foodSecurity(static_cast<size_t>(countryCount), 1.0);
     std::vector<double> control(static_cast<size_t>(countryCount), 0.0);
     std::vector<double> stability(static_cast<size_t>(countryCount), 1.0);
+    std::vector<uint8_t> canFormCities(static_cast<size_t>(countryCount), technologyManager ? 0u : 1u);
     for (int i = 0; i < countryCount; ++i) {
         const Country& c = countries[static_cast<size_t>(i)];
         marketAccess[static_cast<size_t>(i)] = clamp01(c.getMarketAccess());
         foodSecurity[static_cast<size_t>(i)] = clamp01(c.getFoodSecurity());
         control[static_cast<size_t>(i)] = clamp01(c.getAvgControl());
         stability[static_cast<size_t>(i)] = clamp01(c.getStability());
+        if (technologyManager) {
+            const bool hasSedentism = technologyManager->hasAdoptedTech(c, 113);
+            const bool hasAgriculture = technologyManager->hasAdoptedTech(c, 20);
+            canFormCities[static_cast<size_t>(i)] = (hasSedentism && hasAgriculture) ? 1u : 0u;
+        }
     }
 
     auto KFor = [&](size_t fi) -> double {
@@ -1779,7 +1834,10 @@ void Map::updateCitiesFromPopulation(std::vector<Country>& countries, int curren
             1.0 * (st - 0.50);
         const double spec = sigmoid(x);
 
-        const double uShare = std::clamp(0.01 + 0.35 * spec, 0.01, 0.45);
+        double uShare = std::clamp(0.01 + 0.35 * spec, 0.01, 0.45);
+        if (canFormCities[static_cast<size_t>(owner)] == 0u) {
+            uShare = std::min(uShare, 0.02); // Camp-level urban share before sedentary agriculture.
+        }
         const double uPop = pop * uShare;
         const double specialists = uPop * (0.35 + 0.65 * spec);
 
@@ -1916,6 +1974,10 @@ void Map::updateCitiesFromPopulation(std::vector<Country>& countries, int curren
 
         Country& c = countries[static_cast<size_t>(owner)];
         if (c.getPopulation() <= 0) continue;
+        if (canFormCities[static_cast<size_t>(owner)] == 0u) {
+            c.resetCityCandidate();
+            continue;
+        }
 
         const double pop = static_cast<double>(std::max<long long>(1, c.getPopulation()));
         const double requiredUrbanPop = std::max(8000.0, 0.015 * pop);
@@ -2776,7 +2838,8 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
                                   int currentYear,
                                   int dtYears,
                                   News& news,
-                                  const std::vector<float>* tradeIntensityMatrix) {
+                                  const std::vector<float>* tradeIntensityMatrix,
+                                  const TechnologyManager* technologyManager) {
     attachCountriesForOwnershipSync(&countries);
     const int years = std::max(1, dtYears);
     const double yearsD = static_cast<double>(years);
@@ -3228,7 +3291,7 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
 
     applyPopulationTotalsToCountries(countries);
     const int createEveryNYears = (dtYears <= 1) ? 10 : 50;
-    updateCitiesFromPopulation(countries, currentYear, createEveryNYears, news);
+    updateCitiesFromPopulation(countries, currentYear, createEveryNYears, news, technologyManager);
 }
 
 void Map::markCountryExtinct(std::vector<Country>& countries, int countryIndex, int currentYear, News& news) {
@@ -6378,7 +6441,7 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
 
                 tickWeather(currentYear, 1);
                 macroEconomy.tickYear(currentYear, 1, *this, countries, techManager, tradeManager, news);
-                tickDemographyAndCities(countries, currentYear, 1, news, &macroEconomy.getLastTradeIntensity());
+                tickDemographyAndCities(countries, currentYear, 1, news, &macroEconomy.getLastTradeIntensity(), &techManager);
                 techManager.tickYear(countries, *this, &macroEconomy.getLastTradeIntensity(), currentYear, 1);
                 cultureManager.tickYear(countries, *this, techManager, &macroEconomy.getLastTradeIntensity(), currentYear, 1, news);
                 greatPeopleManager.updateEffects(currentYear, countries, news, 1);
@@ -6458,6 +6521,7 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
     std::cout << "  Plague outbreaks: " << totalPlagues << std::endl;
     std::cout << "  Plague deaths: " << m_plagueDeathToll << std::endl;
     std::cout << "  Tech breakthroughs: " << totalTechBreakthroughs << std::endl;
+    techManager.printMilestoneAdoptionSummary();
 
     return true;
 }
@@ -6504,6 +6568,10 @@ const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& Map:
 
 const SimulationConfig& Map::getConfig() const {
     return m_ctx->config;
+}
+
+std::uint64_t Map::getWorldSeed() const {
+    return m_ctx ? m_ctx->worldSeed : 0ull;
 }
 
 // Getter implementation (in country.cpp)

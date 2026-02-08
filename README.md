@@ -68,6 +68,28 @@ Each run writes:
 
 These include core metrics (population, urban proxy, war frequency, trade intensity, capability tiers, food security, disease burden, collapse count) plus invariant checks (NaN/inf, negative population/stocks, etc.).
 
+## Technology Model (20,000 BCE-ready)
+- Technology is now split into:
+  - `known` (idea exists in-country)
+  - `adoption` (`0..1`, practiced depth)
+- “Unlocked”/`hasTech` is derived from adoption threshold (default `tech.adoptionThreshold = 0.65`), not instant unlock.
+- Yearly flow:
+  - domain knowledge innovation/diffusion
+  - stochastic discovery (known=true) with feasibility gates
+  - known-tech diffusion + slow adoption seeding from connected neighbors
+  - adoption growth/decay (institutions, specialization, stability, connectivity, shocks)
+  - rare forgetting in tiny isolated collapses
+- Early Paleolithic/Mesolithic transitions were added (e.g., cordage, storage, proto-cultivation, sedentism), and agriculture/husbandry/pottery/writing/metallurgy now depend on realistic prerequisites + environment/resource gates.
+- Technology effects are applied proportionally from adoption (smoothed), not as binary jumps.
+- Mega time jump end-summary now includes median first-adoption years for milestone techs.
+
+## Deep-History Realism
+- Climate now includes a deterministic paleoclimate baseline shift:
+  - colder/drier around 20,000 BCE
+  - gradual warming/wetting toward Holocene
+- City formation is gated by tech transition:
+  - requires adopted Sedentism and Agriculture in both legacy and population-grid city founding paths.
+
 ## Python Evaluation Harness
 
 ### File: `tools/evaluate_run.py`

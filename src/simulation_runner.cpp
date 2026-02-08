@@ -174,7 +174,7 @@ void runAuthoritativeYearStep(int year, SimulationStepContext& ctx) {
     maybeTraceDeterminismStage("tickWeather", year, ctx);
     ctx.macroEconomy.tickYear(year, 1, ctx.map, ctx.countries, ctx.technologyManager, ctx.tradeManager, ctx.news);
     maybeTraceDeterminismStage("macroEconomy", year, ctx);
-    ctx.map.tickDemographyAndCities(ctx.countries, year, 1, ctx.news, &ctx.macroEconomy.getLastTradeIntensity());
+    ctx.map.tickDemographyAndCities(ctx.countries, year, 1, ctx.news, &ctx.macroEconomy.getLastTradeIntensity(), &ctx.technologyManager);
     maybeTraceDeterminismStage("demography", year, ctx);
     ctx.technologyManager.tickYear(ctx.countries, ctx.map, &ctx.macroEconomy.getLastTradeIntensity(), year, 1);
     maybeTraceDeterminismStage("technology", year, ctx);

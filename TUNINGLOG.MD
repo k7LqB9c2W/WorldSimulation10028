@@ -148,3 +148,25 @@ Common pattern:
 ### Notes
 - After `iter_008`, subsequent one-step proposals did not clear `min_delta` and plateau logic triggered structural stop.
 - `mechanism_gap_ticket.json` was emitted by the runner for this run.
+
+## Entry: 2026-02-08 22:53:35 UTC
+
+### Scope
+- Structural realism update for deep-history starts (`-20000`) with technology discovery/adoption separation and paleoclimate pacing.
+- This cycle included config tuning additions in `data/sim_config.toml` to support the new tech dynamics.
+
+### Config Tuning Added
+- Extended `[tech]` with discovery/adoption/loss controls:
+  - `adoptionThreshold`, `forgetPracticeThreshold`
+  - `discoveryBase`, `discoveryDifficultyScale`, `maxDiscoveriesPerYear`, `discoverySeedAdoption`
+  - `knownDiffusionBase`, `knownDiffusionTopK`, `adoptionSeedFromNeighbors`
+  - `adoptionBaseSpeed`, `adoptionDecayBase`, `collapseDecayMultiplier`
+  - `prereqAdoptionFraction`, `rareForgetYears`, `rareForgetChance`
+- Expanded scoring checkpoints for deep timeline monitoring:
+  - `[-20000, -15000, -12000, -8000, -5000, -3000, -1000, 0, 1000, 1500, 2025]`.
+
+### Validation Snapshot
+- Release build succeeded (`build.bat release`).
+- CLI smoke run succeeded:
+  - `worldsim_cli --seed 1 --config data/sim_config.toml --startYear -20000 --endYear -19990 --checkpointEveryYears 5 --outDir out/cli_runs/smoke_20000 --useGPU 0`
+

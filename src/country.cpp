@@ -187,6 +187,75 @@ Country::Country(int countryIndex,
         initializePopulationCohorts();
 	}
 
+void Country::ensureTechStateSize(int techCount) {
+    const int n = std::max(0, techCount);
+    if (static_cast<int>(m_knownTechDense.size()) < n) {
+        m_knownTechDense.resize(static_cast<size_t>(n), 0u);
+    }
+    if (static_cast<int>(m_adoptionTechDense.size()) < n) {
+        m_adoptionTechDense.resize(static_cast<size_t>(n), 0.0f);
+    }
+    if (static_cast<int>(m_lowAdoptionYearsDense.size()) < n) {
+        m_lowAdoptionYearsDense.resize(static_cast<size_t>(n), 0u);
+    }
+}
+
+bool Country::knowsTechDense(int idx) const {
+    if (idx < 0 || idx >= static_cast<int>(m_knownTechDense.size())) {
+        return false;
+    }
+    return m_knownTechDense[static_cast<size_t>(idx)] != 0u;
+}
+
+float Country::adoptionDense(int idx) const {
+    if (idx < 0 || idx >= static_cast<int>(m_adoptionTechDense.size())) {
+        return 0.0f;
+    }
+    return std::clamp(m_adoptionTechDense[static_cast<size_t>(idx)], 0.0f, 1.0f);
+}
+
+void Country::setKnownTechDense(int idx, bool known) {
+    if (idx < 0) return;
+    ensureTechStateSize(idx + 1);
+    m_knownTechDense[static_cast<size_t>(idx)] = known ? 1u : 0u;
+    if (!known) {
+        m_adoptionTechDense[static_cast<size_t>(idx)] = 0.0f;
+        m_lowAdoptionYearsDense[static_cast<size_t>(idx)] = 0u;
+    }
+}
+
+void Country::setAdoptionDense(int idx, float adoption) {
+    if (idx < 0) return;
+    ensureTechStateSize(idx + 1);
+    m_adoptionTechDense[static_cast<size_t>(idx)] = std::clamp(adoption, 0.0f, 1.0f);
+}
+
+int Country::lowAdoptionYearsDense(int idx) const {
+    if (idx < 0 || idx >= static_cast<int>(m_lowAdoptionYearsDense.size())) {
+        return 0;
+    }
+    return static_cast<int>(m_lowAdoptionYearsDense[static_cast<size_t>(idx)]);
+}
+
+void Country::setLowAdoptionYearsDense(int idx, int years) {
+    if (idx < 0) return;
+    ensureTechStateSize(idx + 1);
+    m_lowAdoptionYearsDense[static_cast<size_t>(idx)] =
+        static_cast<uint16_t>(std::clamp(years, 0, 65535));
+}
+
+void Country::clearTechStateDense() {
+    m_knownTechDense.clear();
+    m_adoptionTechDense.clear();
+    m_lowAdoptionYearsDense.clear();
+}
+
+bool Country::hasAdoptedTechId(const TechnologyManager& technologyManager, int techId, float threshold) const {
+    const int dense = technologyManager.getTechDenseIndex(techId);
+    if (dense < 0) return false;
+    return adoptionDense(dense) >= std::clamp(threshold, 0.0f, 1.0f);
+}
+
 // Check if the country can declare war
 bool Country::canDeclareWar() const {
     // Check if the country is at peace and not already at war with the maximum number of countries
@@ -1877,7 +1946,7 @@ bool Country::isNeighbor(const Country& other) const {
 		        checkCityGrowth(currentYear, news);
 	        
 	        // Legacy random city founding (PopulationGrid mode uses Map::updateCitiesFromPopulation()).
-	        if (m_population >= 10000 && canFoundCity() && !m_boundaryPixels.empty()) {
+	        if (m_population >= 10000 && canFoundCity(technologyManager) && !m_boundaryPixels.empty()) {
 	            foundCity(randomTerritoryCell(gen), news);
 	        }
 	    }
@@ -2209,6 +2278,11 @@ void Country::canonicalizeDeterministicScalars(double fineScale, double govScale
         m_polity.educationSpendingShare /= shareSum;
         m_polity.rndSpendingShare /= shareSum;
     }
+
+    for (float& a : m_adoptionTechDense) {
+        const double qv = q(static_cast<double>(a), fineScale);
+        a = static_cast<float>(std::clamp(qv, 0.0, 1.0));
+    }
 }
 
 // Get the resource manager
@@ -2379,7 +2453,7 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
     
 	    // Simplified city founding - every 20 years (legacy path only)
 	    if (!usePopGrid) {
-	        if (!plagueAffected && (currentYear % 20 == 0) && m_population >= 10000 && canFoundCity() && !m_boundaryPixels.empty()) {
+	        if (!plagueAffected && (currentYear % 20 == 0) && m_population >= 10000 && canFoundCity(technologyManager) && !m_boundaryPixels.empty()) {
 	            foundCity(randomTerritoryCell(gen), news);
 	        }
 	    }
@@ -2401,241 +2475,218 @@ void Country::applyPlagueDeaths(long long deaths) {
 }
 
 // 🧬 TECHNOLOGY EFFECTS SYSTEM
-void Country::applyTechnologyBonus(int techId) {
-	    switch(techId) {
-        // 🌾 EARLY AGRICULTURAL TECHNOLOGIES
-        case 10: // Irrigation
-            // Population growth now handled by logistic system
-            m_maxSizeMultiplier += 0.2; // +20% max territory size
+void Country::applyTechnologyBonus(int techId, double scale) {
+    const double s = std::clamp(scale, 0.0, 1.0);
+    if (s <= 0.0) {
+        return;
+    }
+    auto addInt = [&](int& v, double delta) {
+        v += static_cast<int>(std::llround(delta * s));
+    };
+    auto addDouble = [&](double& v, double delta) {
+        v += delta * s;
+    };
+    auto applyMult = [&](double& v, double fullMultiplier) {
+        v *= (1.0 + (fullMultiplier - 1.0) * s);
+    };
+    auto blendUpInt = [&](int& v, int base, int target) {
+        const int candidate = base + static_cast<int>(std::llround(static_cast<double>(target - base) * s));
+        v = std::max(v, candidate);
+    };
+    auto blendFreq = [&](int& v, int target) {
+        if (s < 0.25 || target <= 0) return;
+        const double inv = std::max(0.25, s);
+        const int candidate = std::max(1, static_cast<int>(std::llround(static_cast<double>(target) / inv)));
+        if (v <= 0) v = candidate;
+        else v = std::min(v, candidate);
+    };
+
+    switch (techId) {
+        case 10: addDouble(m_maxSizeMultiplier, 0.2); break;
+        case 20: addDouble(m_maxSizeMultiplier, 0.3); addInt(m_expansionRateBonus, 5); break;
+
+        case 11: addDouble(m_sciencePointsBonus, 3.0); break;
+        case 14: addDouble(m_sciencePointsBonus, 5.0); break;
+        case 22: addDouble(m_sciencePointsBonus, 8.0); break;
+        case TechId::UNIVERSITIES:
+            addDouble(m_sciencePointsBonus, 15.5);
+            addDouble(m_maxSizeMultiplier, 0.30);
+            applyMult(m_researchMultiplier, 1.10);
             break;
-        case 20: // Agriculture
-            // Population growth now handled by logistic system
-            m_maxSizeMultiplier += 0.3; // +30% max territory size
-            m_expansionRateBonus += 5; // +5 extra pixels per year
+        case TechId::ASTRONOMY: addDouble(m_sciencePointsBonus, 20.0); break;
+        case TechId::SCIENTIFIC_METHOD:
+            addDouble(m_sciencePointsBonus, 50.0);
+            applyMult(m_researchMultiplier, 1.10);
             break;
-            
-        // RESEARCH BOOST TECHNOLOGIES - MASSIVE EXPONENTIAL ACCELERATION
-        case 11: // Writing
-            m_sciencePointsBonus += 3.0; // +3.0 science points per year (written knowledge)
+        case 54:
+            addDouble(m_sciencePointsBonus, 30.0);
+            applyMult(m_researchMultiplier, 1.05);
             break;
-        case 14: // Mathematics
-            m_sciencePointsBonus += 5.0; // +5.0 science points per year (mathematical thinking)
+        case 69:
+            addDouble(m_sciencePointsBonus, 100.0);
+            applyMult(m_researchMultiplier, 1.10);
             break;
-	        case 22: // Philosophy
-	            m_sciencePointsBonus += 8.0; // +8.0 science points per year (systematic thinking)
-	            break;
-	        case TechId::UNIVERSITIES: // Universities
-	            m_sciencePointsBonus += 15.5; // +15.5 science points per year (organized learning + education)
-	            m_maxSizeMultiplier += 0.30; // +30% max territory size (educated population)
-	            m_researchMultiplier *= 1.10; // +10% research speed (organized learning)
-	            break;
-	        case TechId::ASTRONOMY: // Astronomy
-	            m_sciencePointsBonus += 20.0; // +20.0 science points per year (scientific observation)
-	            break;
-	        case TechId::SCIENTIFIC_METHOD: // Scientific Method
-	            m_sciencePointsBonus += 50.0; // +50.0 science points per year (RESEARCH REVOLUTION!)
-	            m_researchMultiplier *= 1.10; // +10% research speed (scientific methodology)
-	            break;
-        case 54: // Electricity
-            m_sciencePointsBonus += 30.0; // +30.0 science points per year (electrical age)
-            m_researchMultiplier *= 1.05; // +5% research speed (electrical infrastructure)
+        case 76: addDouble(m_sciencePointsBonus, 75.0); break;
+        case 79:
+            addDouble(m_sciencePointsBonus, 200.0);
+            applyMult(m_researchMultiplier, 1.10);
             break;
-        case 69: // Computers
-            m_sciencePointsBonus += 100.0; // +100.0 science points per year (COMPUTATIONAL REVOLUTION!)
-            m_researchMultiplier *= 1.10; // +10% research speed (computational power)
+        case 80: addDouble(m_sciencePointsBonus, 150.0); break;
+        case 85:
+            addDouble(m_sciencePointsBonus, 300.0);
+            applyMult(m_researchMultiplier, 1.15);
             break;
-        case 76: // Integrated Circuit
-            m_sciencePointsBonus += 75.0; // +75.0 science points per year (microprocessor age)
+        case 93:
+            addDouble(m_sciencePointsBonus, 250.0);
+            applyMult(m_researchMultiplier, 1.10);
             break;
-        case 79: // Internet
-            m_sciencePointsBonus += 200.0; // +200.0 science points per year (INFORMATION EXPLOSION!)
-            m_researchMultiplier *= 1.10; // +10% research speed (global knowledge sharing)
+
+        case 3:
+            addDouble(m_militaryStrengthBonus, 0.15);
+            addDouble(m_territoryCaptureBonusRate, 0.10);
             break;
-        case 80: // Personal Computers
-            m_sciencePointsBonus += 150.0; // +150.0 science points per year (computing for all)
+        case 9:
+            addDouble(m_militaryStrengthBonus, 0.25);
+            addDouble(m_defensiveBonus, 0.15);
             break;
-        case 85: // Artificial Intelligence
-            m_sciencePointsBonus += 300.0; // +300.0 science points per year (AI BREAKTHROUGH!)
-            m_researchMultiplier *= 1.15; // +15% research speed (AI-assisted research)
+        case 13:
+            addDouble(m_militaryStrengthBonus, 0.40);
+            addDouble(m_territoryCaptureBonusRate, 0.20);
+            addDouble(m_defensiveBonus, 0.25);
             break;
-        case 93: // Machine Learning
-            m_sciencePointsBonus += 250.0; // +250.0 science points per year (ML algorithms)
-            m_researchMultiplier *= 1.10; // +10% research speed (automated pattern recognition)
+        case 18:
+            addDouble(m_militaryStrengthBonus, 0.30);
+            addDouble(m_territoryCaptureBonusRate, 0.35);
+            addDouble(m_warDurationReduction, 0.20);
+            addInt(m_expansionRateBonus, 8);
             break;
-            
-        // 🗡️ ANCIENT MILITARY TECHNOLOGIES
-        case 3: // Archery
-            m_militaryStrengthBonus += 0.15; // +15% military strength
-            m_territoryCaptureBonusRate += 0.10; // +10% capture rate
+
+        case 16:
+            addDouble(m_maxSizeMultiplier, 0.25);
+            addInt(m_expansionRateBonus, 3);
             break;
-        case 9: // Bronze Working
-            m_militaryStrengthBonus += 0.25; // +25% military strength
-            m_defensiveBonus += 0.15; // +15% defensive bonus
+        case 17:
+            addDouble(m_maxSizeMultiplier, 0.40);
+            addInt(m_expansionRateBonus, 6);
             break;
-        case 13: // Iron Working
-            m_militaryStrengthBonus += 0.40; // +40% military strength
-            m_territoryCaptureBonusRate += 0.20; // +20% capture rate
-            m_defensiveBonus += 0.25; // +25% defensive bonus
+        case 23:
+            addDouble(m_maxSizeMultiplier, 0.50);
+            addInt(m_expansionRateBonus, 8);
             break;
-        case 18: // Horseback Riding
-            m_militaryStrengthBonus += 0.30; // +30% military strength
-            m_territoryCaptureBonusRate += 0.35; // +35% capture rate (cavalry speed)
-            m_warDurationReduction += 0.20; // -20% war duration (mobile warfare)
-            m_expansionRateBonus += 8; // +8 pixels per year (mobile expansion)
+        case 32:
+            addDouble(m_maxSizeMultiplier, 0.60);
+            addInt(m_expansionRateBonus, 10);
             break;
-            
-        // 🏗️ INFRASTRUCTURE TECHNOLOGIES
-        case 16: // Construction
-            m_maxSizeMultiplier += 0.25; // +25% max territory size
-            m_expansionRateBonus += 3; // +3 pixels per year
+
+        case 12:
+            addDouble(m_maxSizeMultiplier, 0.50);
+            addInt(m_expansionRateBonus, 12);
+            blendUpInt(m_burstExpansionRadius, 1, 2);
+            blendFreq(m_burstExpansionFrequency, 10);
             break;
-        case 17: // Roads
-            m_maxSizeMultiplier += 0.40; // +40% max territory size
-            m_expansionRateBonus += 6; // +6 pixels per year (road networks)
+        case 26:
+            addDouble(m_maxSizeMultiplier, 0.75);
+            addInt(m_expansionRateBonus, 20);
+            blendUpInt(m_burstExpansionRadius, 1, 3);
+            blendFreq(m_burstExpansionFrequency, 8);
             break;
-        case 23: // Engineering
-            m_maxSizeMultiplier += 0.50; // +50% max territory size
-            m_expansionRateBonus += 8; // +8 pixels per year (advanced construction)
+        case TechId::NAVIGATION:
+            addDouble(m_maxSizeMultiplier, 1.5);
+            addInt(m_flatMaxSizeBonus, 2000);
+            addInt(m_expansionRateBonus, 90);
+            blendUpInt(m_burstExpansionRadius, 1, 6);
+            blendFreq(m_burstExpansionFrequency, 4);
             break;
-        case 32: // Civil Service
-            m_maxSizeMultiplier += 0.60; // +60% max territory size (organized administration)
-            m_expansionRateBonus += 10; // +10 pixels per year
+
+        case 34:
+            addDouble(m_maxSizeMultiplier, 0.80);
+            addInt(m_expansionRateBonus, 25);
             break;
-            
-        // 🌊 RENAISSANCE EXPLORATION TECHNOLOGIES - MASSIVE COLONIAL EXPANSION!
-        case 12: // Shipbuilding
-            m_maxSizeMultiplier += 0.50; // +50% max territory size (overseas expansion)
-            m_expansionRateBonus += 12; // +12 pixels per year
-            m_burstExpansionRadius = 2; // Expand 2 pixels outward in bursts
-            m_burstExpansionFrequency = 10; // Burst expansion every 10 years
+        case TechId::ECONOMICS:
+            addDouble(m_maxSizeMultiplier, 1.2);
+            addInt(m_expansionRateBonus, 35);
             break;
-	        case 26: // Compass
-	            m_maxSizeMultiplier += 0.75; // +75% max territory size (navigation mastery)
-	            m_expansionRateBonus += 20; // +20 pixels per year (precise navigation)
-	            m_burstExpansionRadius = 3; // Expand 3 pixels outward in bursts
-	            m_burstExpansionFrequency = 8; // Burst expansion every 8 years
-	            break;
-	        case TechId::NAVIGATION: // Navigation
-	            m_maxSizeMultiplier += 1.5; // +150% max territory size (MASSIVE COLONIAL EMPIRES!)
-	            m_flatMaxSizeBonus += 2000; // +2000 coastal/ocean pixels (~190k sq mi) unlocked by blue-water navigation
-	            m_expansionRateBonus += 90; // +90 pixels per year (enhanced colonial logistics)
-	            m_burstExpansionRadius = 6; // Expand 6 pixels outward in bursts (deeper ocean corridors)
-	            m_burstExpansionFrequency = 4; // Burst expansion every 4 years
-	            break;
-            
-        // 💰 ECONOMIC EXPANSION TECHNOLOGIES
-	        case 34: // Banking
-	            m_maxSizeMultiplier += 0.80; // +80% max territory size (economic expansion)
-	            m_expansionRateBonus += 25; // +25 pixels per year (funded expansion)
-	            break;
-	        case TechId::ECONOMICS: // Economics
-	            m_maxSizeMultiplier += 1.2; // +120% max territory size (economic empires)
-	            m_expansionRateBonus += 35; // +35 pixels per year (economic efficiency)
-	            break;
-	        case 36: // Printing
-	            m_maxSizeMultiplier += 0.60; // +60% max territory size (information spread)
-	            m_expansionRateBonus += 15; // +15 pixels per year (administrative efficiency)
-	            m_sciencePointsBonus += 0.3; // +0.3 science points per year (knowledge spread)
-	            break;
-            
-        // 🚂 INDUSTRIAL EXPANSION
-        case 55: // Railroad
-            m_maxSizeMultiplier += 2.0; // +200% max territory size (CONTINENTAL EMPIRES!)
-            m_flatMaxSizeBonus += 3000; // +3000 inland pixels (~285k sq mi) opened by continental rail grids
-            m_expansionRateBonus += 180; // +180 pixels per year (rapid rail logistics)
-            m_burstExpansionRadius = 10; // Expand 10 pixels outward in bursts (rail hub surges)
-            m_burstExpansionFrequency = 2; // Burst expansion every 2 years
+        case 36:
+            addDouble(m_maxSizeMultiplier, 0.60);
+            addInt(m_expansionRateBonus, 15);
+            addDouble(m_sciencePointsBonus, 0.3);
             break;
-            
-	        // ⚔️ MEDIEVAL MILITARY TECHNOLOGIES
-	        case 28: // Steel
-	            m_militaryStrengthBonus += 0.50; // +50% military strength
-	            m_defensiveBonus += 0.40; // +40% defensive bonus
-	            m_territoryCaptureBonusRate += 0.25; // +25% capture rate
-	            m_warBurstConquestRadius = 3; // Capture 3 pixels deep in war bursts
-	            m_warBurstConquestFrequency = 8; // War burst every 8 years
-	            break;
-	        case 37: // Gunpowder
-	            m_militaryStrengthBonus += 0.75; // +75% military strength (revolutionary!)
-	            m_territoryCaptureBonusRate += 0.50; // +50% capture rate
-	            m_warDurationReduction += 0.30; // -30% war duration (decisive battles)
-	            m_warBurstConquestRadius = 5; // Capture 5 pixels deep in war bursts (CANNON BREAKTHROUGHS!)
-	            m_warBurstConquestFrequency = 5; // War burst every 5 years
-	            break;
-            
-	        // 🔫 INDUSTRIAL MILITARY TECHNOLOGIES
-	        case 47: // Firearms
-	            m_militaryStrengthBonus += 0.60; // +60% military strength
-	            m_territoryCaptureBonusRate += 0.40; // +40% capture rate
-	            m_warDurationReduction += 0.25; // -25% war duration
-	            m_warBurstConquestRadius = 4; // Capture 4 pixels deep (rifle advances)
-	            m_warBurstConquestFrequency = 6; // War burst every 6 years
-	            break;
-	        case 50: // Rifling
-	            m_militaryStrengthBonus += 0.35; // +35% additional strength
-	            m_defensiveBonus += 0.50; // +50% defensive bonus (accuracy)
-	            m_warBurstConquestRadius = 6; // Capture 6 pixels deep (precision warfare)
-	            m_warBurstConquestFrequency = 4; // War burst every 4 years
-	            break;
-        case 56: // Dynamite
-            m_militaryStrengthBonus += 0.45; // +45% military strength
-            m_territoryCaptureBonusRate += 0.60; // +60% capture rate (explosive breakthroughs)
-            m_warBurstConquestRadius = 7; // Capture 7 pixels deep (EXPLOSIVE BREAKTHROUGHS!)
-            m_warBurstConquestFrequency = 3; // War burst every 3 years
+        case 55:
+            addDouble(m_maxSizeMultiplier, 2.0);
+            addInt(m_flatMaxSizeBonus, 3000);
+            addInt(m_expansionRateBonus, 180);
+            blendUpInt(m_burstExpansionRadius, 1, 10);
+            blendFreq(m_burstExpansionFrequency, 2);
             break;
-            
-        // 💣 MODERN MILITARY TECHNOLOGIES
-        case 68: // Nuclear Fission
-            m_militaryStrengthBonus += 1.50; // +150% military strength (nuclear supremacy!)
-            m_warDurationReduction += 0.70; // -70% war duration (decisive advantage)
-            m_territoryCaptureBonusRate += 0.80; // +80% capture rate
-            m_warBurstConquestRadius = 10; // Capture 10 pixels deep (NUCLEAR DEVASTATION!)
-            m_warBurstConquestFrequency = 2; // War burst every 2 years
+
+        case 28:
+            addDouble(m_militaryStrengthBonus, 0.50);
+            addDouble(m_defensiveBonus, 0.40);
+            addDouble(m_territoryCaptureBonusRate, 0.25);
+            blendUpInt(m_warBurstConquestRadius, 1, 3);
+            blendFreq(m_warBurstConquestFrequency, 8);
             break;
-        case 77: // Advanced Ballistics
-            m_militaryStrengthBonus += 0.40; // +40% military strength
-            m_territoryCaptureBonusRate += 0.30; // +30% capture rate
-            m_defensiveBonus += 0.35; // +35% defensive bonus
-            m_warBurstConquestRadius = 5; // Capture 5 pixels deep (precision strikes)
-            m_warBurstConquestFrequency = 5; // War burst every 5 years
+        case 37:
+            addDouble(m_militaryStrengthBonus, 0.75);
+            addDouble(m_territoryCaptureBonusRate, 0.50);
+            addDouble(m_warDurationReduction, 0.30);
+            blendUpInt(m_warBurstConquestRadius, 1, 5);
+            blendFreq(m_warBurstConquestFrequency, 5);
             break;
-        case 84: // Stealth Technology
-            m_militaryStrengthBonus += 0.60; // +60% military strength
-            m_warDurationReduction += 0.40; // -40% war duration (surprise attacks)
-            m_territoryCaptureBonusRate += 0.45; // +45% capture rate
-            m_warBurstConquestRadius = 8; // Capture 8 pixels deep (stealth infiltration)
-            m_warBurstConquestFrequency = 3; // War burst every 3 years
+        case 47:
+            addDouble(m_militaryStrengthBonus, 0.60);
+            addDouble(m_territoryCaptureBonusRate, 0.40);
+            addDouble(m_warDurationReduction, 0.25);
+            blendUpInt(m_warBurstConquestRadius, 1, 4);
+            blendFreq(m_warBurstConquestFrequency, 6);
             break;
-            
-        // 🏥 MEDICAL/HEALTH TECHNOLOGIES  
-        case 96: // Sanitation
-            m_plagueResistanceBonus += 0.30; // 30% plague resistance
-            // Population growth now handled by logistic system
+        case 50:
+            addDouble(m_militaryStrengthBonus, 0.35);
+            addDouble(m_defensiveBonus, 0.50);
+            blendUpInt(m_warBurstConquestRadius, 1, 6);
+            blendFreq(m_warBurstConquestFrequency, 4);
             break;
-        case 53: // Vaccination
-            m_plagueResistanceBonus += 0.50; // 50% plague resistance
-            // Population growth now handled by logistic system
+        case 56:
+            addDouble(m_militaryStrengthBonus, 0.45);
+            addDouble(m_territoryCaptureBonusRate, 0.60);
+            blendUpInt(m_warBurstConquestRadius, 1, 7);
+            blendFreq(m_warBurstConquestFrequency, 3);
             break;
-        case 65: // Penicillin
-            m_plagueResistanceBonus += 0.60; // 60% plague resistance
-            // Population growth now handled by logistic system
+        case 68:
+            addDouble(m_militaryStrengthBonus, 1.50);
+            addDouble(m_warDurationReduction, 0.70);
+            addDouble(m_territoryCaptureBonusRate, 0.80);
+            blendUpInt(m_warBurstConquestRadius, 1, 10);
+            blendFreq(m_warBurstConquestFrequency, 2);
             break;
-            
-        // 🥶 FOOD/PRESERVATION TECHNOLOGIES
-        case 71: // Refrigeration
-            // Population growth now handled by logistic system
+        case 77:
+            addDouble(m_militaryStrengthBonus, 0.40);
+            addDouble(m_territoryCaptureBonusRate, 0.30);
+            addDouble(m_defensiveBonus, 0.35);
+            blendUpInt(m_warBurstConquestRadius, 1, 5);
+            blendFreq(m_warBurstConquestFrequency, 5);
             break;
-            
-        // 🔬 ADVANCED TECHNOLOGIES
-        case 81: // Genetic Engineering
-            // Population growth now handled by logistic system
-            m_plagueResistanceBonus += 0.40; // 40% additional plague resistance
-            m_militaryStrengthBonus += 0.30; // +30% military strength (enhanced soldiers)
+        case 84:
+            addDouble(m_militaryStrengthBonus, 0.60);
+            addDouble(m_warDurationReduction, 0.40);
+            addDouble(m_territoryCaptureBonusRate, 0.45);
+            blendUpInt(m_warBurstConquestRadius, 1, 8);
+            blendFreq(m_warBurstConquestFrequency, 3);
             break;
-        case 90: // Biotechnology
-            // Population growth now handled by logistic system
-            m_plagueResistanceBonus += 0.50; // 50% additional plague resistance
-            m_militaryStrengthBonus += 0.25; // +25% military strength (bio-enhancements)
+
+        case 96: addDouble(m_plagueResistanceBonus, 0.30); break;
+        case 53: addDouble(m_plagueResistanceBonus, 0.50); break;
+        case 65: addDouble(m_plagueResistanceBonus, 0.60); break;
+        case 71: break;
+        case 81:
+            addDouble(m_plagueResistanceBonus, 0.40);
+            addDouble(m_militaryStrengthBonus, 0.30);
+            break;
+        case 90:
+            addDouble(m_plagueResistanceBonus, 0.50);
+            addDouble(m_militaryStrengthBonus, 0.25);
+            break;
+        default:
             break;
     }
 }
@@ -3044,6 +3095,16 @@ bool Country::canFoundCity() const {
     // Calculate how many cities this population can support
     int maxCities = 1 + static_cast<int>(m_population / 2500000); // 1 city per 2.5M people
     return m_cities.size() < maxCities;
+}
+
+bool Country::canFoundCity(const TechnologyManager& technologyManager) const {
+    constexpr float kAdoptionGate = 0.55f;
+    // Sedentism + agriculture gate major city formation in deep prehistory.
+    if (!hasAdoptedTechId(technologyManager, 113, kAdoptionGate) ||
+        !hasAdoptedTechId(technologyManager, 20, kAdoptionGate)) {
+        return false;
+    }
+    return canFoundCity();
 }
 
 // Get the list of cities

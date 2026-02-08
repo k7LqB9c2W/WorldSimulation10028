@@ -56,7 +56,8 @@ public:
                                  int currentYear,
                                  int dtYears,
                                  News& news,
-                                 const std::vector<float>* tradeIntensityMatrix = nullptr);
+                                 const std::vector<float>* tradeIntensityMatrix = nullptr,
+                                 const class TechnologyManager* technologyManager = nullptr);
     // Optional: allow Map ownership writes to keep Country territory containers in sync.
     // Recommended to call once after countries are created/reserved, and Map will also
     // re-attach automatically in methods that already have a `countries` reference.
@@ -139,6 +140,7 @@ public:
 
     const std::vector<std::vector<std::unordered_map<Resource::Type, double>>>& getResourceGrid() const;
     const SimulationConfig& getConfig() const;
+    std::uint64_t getWorldSeed() const;
 
     // Fast cached accessors (used by fast-forward / mega time jump).
     double getCellFood(int x, int y) const;
@@ -308,7 +310,11 @@ public:
                             int dtYears,
                             const std::vector<float>* tradeIntensityMatrix);
     void applyPopulationTotalsToCountries(std::vector<Country>& countries) const;
-    void updateCitiesFromPopulation(std::vector<Country>& countries, int currentYear, int createEveryNYears, News& news);
+    void updateCitiesFromPopulation(std::vector<Country>& countries,
+                                    int currentYear,
+                                    int createEveryNYears,
+                                    News& news,
+                                    const class TechnologyManager* technologyManager);
 
 	// Phase 6: climate baseline + dynamic weather anomalies (field grid resolution).
 	std::vector<uint8_t> m_fieldLandMask;      // 0/1

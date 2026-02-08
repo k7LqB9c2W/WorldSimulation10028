@@ -134,6 +134,21 @@ struct SimulationConfig {
         double resourceReqEnergy = 0.40;
         double resourceReqOre = 0.35;
         double resourceReqConstruction = 0.25;
+        double adoptionThreshold = 0.65;
+        double forgetPracticeThreshold = 0.15;
+        double discoveryBase = 0.020;
+        double discoveryDifficultyScale = 0.90;
+        int maxDiscoveriesPerYear = 2;
+        double discoverySeedAdoption = 0.02;
+        double knownDiffusionBase = 0.020;
+        int knownDiffusionTopK = 6;
+        double adoptionSeedFromNeighbors = 0.08;
+        double adoptionBaseSpeed = 0.08;
+        double adoptionDecayBase = 0.05;
+        double collapseDecayMultiplier = 1.0;
+        double prereqAdoptionFraction = 0.70;
+        int rareForgetYears = 220;
+        double rareForgetChance = 0.0015;
     } tech{};
 
     struct Economy {
@@ -154,7 +169,7 @@ struct SimulationConfig {
     } economy{};
 
     struct Scoring {
-        std::vector<int> checkpointsYears = {-20000, -5000, -3000, -1000, 0, 1000, 1500, 2025};
+        std::vector<int> checkpointsYears = {-20000, -15000, -12000, -8000, -5000, -3000, -1000, 0, 1000, 1500, 2025};
         double weightFoodSecurityStability = 1.0;
         double weightInnovationUrbanization = 1.0;
         double weightEmpireLogisticsConstraint = 1.0;

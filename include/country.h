@@ -19,6 +19,7 @@
 // Forward declaration of Map
 class Map;
 class CultureManager;
+class TechnologyManager;
 struct SimulationConfig;
 
 namespace std {
@@ -362,6 +363,15 @@ public:
     double getKnowledgeDomain(int domainId) const { return (domainId >= 0 && domainId < kDomains) ? m_knowledge[static_cast<size_t>(domainId)] : 0.0; }
     double getInnovationRate() const { return m_innovationRate; }
     void setInnovationRate(double v) { m_innovationRate = std::max(0.0, v); }
+    void ensureTechStateSize(int techCount);
+    bool knowsTechDense(int idx) const;
+    float adoptionDense(int idx) const;
+    void setKnownTechDense(int idx, bool known);
+    void setAdoptionDense(int idx, float adoption);
+    int lowAdoptionYearsDense(int idx) const;
+    void setLowAdoptionYearsDense(int idx, int years);
+    void clearTechStateDense();
+    bool hasAdoptedTechId(const TechnologyManager& technologyManager, int techId, float threshold = 0.65f) const;
 
     // Phase 5B: cultural traits (0..1, slow-moving; no culture currency).
     static constexpr int kTraits = 7;
@@ -449,6 +459,7 @@ public:
     void setName(const std::string& name);
     Type getType() const; // Add a getter for the country type
     bool canFoundCity() const;
+    bool canFoundCity(const class TechnologyManager& technologyManager) const;
     void checkCityGrowth(int currentYear, News& news); // Check for city upgrades and new cities
     void buildRoads(std::vector<Country>& allCountries,
                     const class Map& map,
@@ -556,7 +567,7 @@ public:
     void applyPlagueDeaths(long long deaths);
     
     // Technology effects
-    void applyTechnologyBonus(int techId);
+    void applyTechnologyBonus(int techId, double scale = 1.0);
     double getTotalPopulationGrowthRate() const;
     double getPlagueResistance() const;
     double getMilitaryStrengthMultiplier() const;
@@ -642,6 +653,9 @@ private:
         double m_lastTaxBase = 0.0; // annualized taxable value base
         double m_lastTaxTake = 0.0; // annualized tax revenue actually collected
 	    KnowledgeVec m_knowledge{}; // domain knowledge stocks (unbounded, thresholds unlock tech)
+    std::vector<uint8_t> m_knownTechDense; // dense known-tech bitset (0/1).
+    std::vector<float> m_adoptionTechDense; // dense adoption level [0,1].
+    std::vector<uint16_t> m_lowAdoptionYearsDense; // consecutive years with very low adoption.
     double m_innovationRate = 0.0; // yearly innovation rate proxy (for UI/debug)
 	    TraitVec m_traits{}; // 0..1 cultural trait stocks
         ExplorationState m_exploration{};

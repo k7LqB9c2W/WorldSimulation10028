@@ -118,6 +118,21 @@ culturalFrictionStrength = 1.25
 resourceReqEnergy = 0.55
 resourceReqOre = 0.5
 resourceReqConstruction = 0.32
+adoptionThreshold = 0.65
+forgetPracticeThreshold = 0.15
+discoveryBase = 0.022
+discoveryDifficultyScale = 0.95
+maxDiscoveriesPerYear = 2
+discoverySeedAdoption = 0.02
+knownDiffusionBase = 0.022
+knownDiffusionTopK = 8
+adoptionSeedFromNeighbors = 0.09
+adoptionBaseSpeed = 0.085
+adoptionDecayBase = 0.048
+collapseDecayMultiplier = 1.25
+prereqAdoptionFraction = 0.7
+rareForgetYears = 240
+rareForgetChance = 0.0015
 
 [economy]
 foodLaborElasticity = 0.95
@@ -136,7 +151,7 @@ tradeIntensityMemory = 0.72
 useGPU = true
 
 [scoring]
-checkpointsYears = [-20000, -5000, -3000, -1000, 0, 1000, 1500, 2025]
+checkpointsYears = [-20000, -15000, -12000, -8000, -5000, -3000, -1000, 0, 1000, 1500, 2025]
 weightFoodSecurityStability = 1
 weightInnovationUrbanization = 1
 weightEmpireLogisticsConstraint = 1

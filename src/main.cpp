@@ -951,7 +951,7 @@ int main(int argc, char** argv) {
 
                                 map.updateCountries(countries, currentYear, news, technologyManager);
                                 macroEconomy.tickYear(currentYear, 1, map, countries, technologyManager, tradeManager, news);
-                                map.tickDemographyAndCities(countries, currentYear, 1, news, &macroEconomy.getLastTradeIntensity());
+                                map.tickDemographyAndCities(countries, currentYear, 1, news, &macroEconomy.getLastTradeIntensity(), &technologyManager);
 
                                 if (currentYear % 5 == 0) {
                                     technologyManager.tickYear(countries, map, &macroEconomy.getLastTradeIntensity(), currentYear, 5);

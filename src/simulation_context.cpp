@@ -212,6 +212,21 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "tech", "resourceReqEnergy", config.tech.resourceReqEnergy);
         readTomlValue(root, "tech", "resourceReqOre", config.tech.resourceReqOre);
         readTomlValue(root, "tech", "resourceReqConstruction", config.tech.resourceReqConstruction);
+        readTomlValue(root, "tech", "adoptionThreshold", config.tech.adoptionThreshold);
+        readTomlValue(root, "tech", "forgetPracticeThreshold", config.tech.forgetPracticeThreshold);
+        readTomlValue(root, "tech", "discoveryBase", config.tech.discoveryBase);
+        readTomlValue(root, "tech", "discoveryDifficultyScale", config.tech.discoveryDifficultyScale);
+        readTomlValue(root, "tech", "maxDiscoveriesPerYear", config.tech.maxDiscoveriesPerYear);
+        readTomlValue(root, "tech", "discoverySeedAdoption", config.tech.discoverySeedAdoption);
+        readTomlValue(root, "tech", "knownDiffusionBase", config.tech.knownDiffusionBase);
+        readTomlValue(root, "tech", "knownDiffusionTopK", config.tech.knownDiffusionTopK);
+        readTomlValue(root, "tech", "adoptionSeedFromNeighbors", config.tech.adoptionSeedFromNeighbors);
+        readTomlValue(root, "tech", "adoptionBaseSpeed", config.tech.adoptionBaseSpeed);
+        readTomlValue(root, "tech", "adoptionDecayBase", config.tech.adoptionDecayBase);
+        readTomlValue(root, "tech", "collapseDecayMultiplier", config.tech.collapseDecayMultiplier);
+        readTomlValue(root, "tech", "prereqAdoptionFraction", config.tech.prereqAdoptionFraction);
+        readTomlValue(root, "tech", "rareForgetYears", config.tech.rareForgetYears);
+        readTomlValue(root, "tech", "rareForgetChance", config.tech.rareForgetChance);
 
         readTomlValue(root, "economy", "foodLaborElasticity", config.economy.foodLaborElasticity);
         readTomlValue(root, "economy", "goodsLaborElasticity", config.economy.goodsLaborElasticity);
