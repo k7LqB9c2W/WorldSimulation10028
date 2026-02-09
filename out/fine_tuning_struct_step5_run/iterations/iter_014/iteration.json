@@ -1,0 +1,52 @@
+{
+  "iteration": 14,
+  "subsystem_group": "polity",
+  "parameter_edits": [
+    {
+      "path": "polity.demogShortageStabilityHit",
+      "old": 0.01,
+      "new": 0.011,
+      "recommended_step": 0.001
+    }
+  ],
+  "top_violations_before": [],
+  "top_violations_after": [],
+  "top_violations_after_long": null,
+  "objective_tuning": 72.90580232737685,
+  "objective_tuning_inner": 72.90580232737685,
+  "objective_tuning_medium": null,
+  "objective_tuning_long": null,
+  "score_delta": 0.046629422725288805,
+  "score_delta_inner": 0.046629422725288805,
+  "score_delta_medium": null,
+  "gates": {
+    "metric_availability": true,
+    "canary_pass": false,
+    "backend_parity_pass": false,
+    "medium_required": false,
+    "medium_pass": true,
+    "long_ran": false,
+    "holdout_pass": false,
+    "tuning_hardfails": [],
+    "medium_hardfails": [],
+    "medium_holdout_hardfails": [],
+    "long_hardfails": [],
+    "holdout_hardfails": []
+  },
+  "holdout_objective": null,
+  "accepted": false,
+  "best_so_far": {
+    "objective": 73.98615991461654,
+    "holdout_objective": 75.0346431072047,
+    "config_path": "/mnt/c/WS/WorldSimulation10028/out/fine_tuning_struct_step5_run/best_sim_config.toml",
+    "config_hash16": "62be78b2205646c3"
+  },
+  "canary_detail": [],
+  "parity_detail": [],
+  "curriculum": {
+    "enabled": true,
+    "inner_end_year": -1000,
+    "medium_end_year": 1,
+    "long_end_year": 2025
+  }
+}

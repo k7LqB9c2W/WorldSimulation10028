@@ -146,24 +146,73 @@ def format_toml_value(v: Any) -> str:
 
 def dump_toml(cfg: Dict[str, Any], path: Path) -> None:
     lines: List[str] = []
-    for section, values in cfg.items():
-        if not isinstance(values, dict):
-            continue
-        lines.append(f"[{section}]")
-        for k, v in values.items():
+
+    def emit_table(prefix: str, table: Dict[str, Any]) -> None:
+        scalars: List[Tuple[str, Any]] = []
+        subtables: List[Tuple[str, Dict[str, Any]]] = []
+        for k, v in table.items():
+            if isinstance(v, dict):
+                subtables.append((k, v))
+            else:
+                scalars.append((k, v))
+
+        if prefix:
+            lines.append(f"[{prefix}]")
+        for k, v in scalars:
             lines.append(f"{k} = {format_toml_value(v)}")
-        lines.append("")
+        if prefix and (scalars or subtables):
+            lines.append("")
+
+        for k, sub in subtables:
+            child = f"{prefix}.{k}" if prefix else k
+            emit_table(child, sub)
+
+    emit_table("", cfg)
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
 def get_param(cfg: Dict[str, Any], path: str) -> Any:
-    a, b = path.split(".", 1)
-    return cfg[a][b]
+    cur: Any = cfg
+    for key in path.split("."):
+        if not isinstance(cur, dict) or key not in cur:
+            raise KeyError(path)
+        cur = cur[key]
+    return cur
 
 
 def set_param(cfg: Dict[str, Any], path: str, value: Any) -> None:
-    a, b = path.split(".", 1)
-    cfg[a][b] = value
+    keys = path.split(".")
+    cur: Dict[str, Any] = cfg
+    for key in keys[:-1]:
+        nxt = cur.get(key)
+        if not isinstance(nxt, dict):
+            nxt = {}
+            cur[key] = nxt
+        cur = nxt
+    cur[keys[-1]] = value
+
+
+def apply_frozen_scenario(
+    cfg: Dict[str, Any],
+    frozen: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    if not bool(frozen.get("enabled", False)):
+        return []
+    req = frozen.get("required_paths", {})
+    if not isinstance(req, dict):
+        return []
+    changes: List[Dict[str, Any]] = []
+    for path, expected in req.items():
+        had_old = True
+        try:
+            old = get_param(cfg, path)
+        except Exception:
+            had_old = False
+            old = None
+        if (not had_old) or (old != expected):
+            set_param(cfg, path, copy.deepcopy(expected))
+            changes.append({"path": path, "old": old, "new": expected})
+    return changes
 
 
 def parse_eps_text(s: str) -> Tuple[str, float]:
@@ -803,8 +852,45 @@ def main() -> int:
     defs = load_json(defs_path)
     schema = load_json(schema_path)
     cfg0 = load_toml(config_path)
-    start_year = int(cfg0["world"]["startYear"])
-    end_year = int(cfg0["world"]["endYear"])
+    horizon_policy = schema.get("tuning_year_window", {}) if isinstance(schema.get("tuning_year_window", {}), dict) else {}
+    frozen_scenario = schema.get("frozen_scenario", {}) if isinstance(schema.get("frozen_scenario", {}), dict) else {}
+
+    # Enforce frozen baseline scenario settings (spawn/start-tech/world bounds) up front so
+    # every baseline/candidate run is comparable.
+    frozen_changes = apply_frozen_scenario(cfg0, frozen_scenario)
+    if frozen_changes:
+        print(f"[startup] applied {len(frozen_changes)} frozen scenario override(s) from schema", flush=True)
+
+    # Tuning window policy: all tuning horizons must live inside [-5000, 2025].
+    policy_start = int(horizon_policy.get("start_year", -5000))
+    policy_max_end = int(horizon_policy.get("max_end_year", 2025))
+    enforce_start_year = bool(horizon_policy.get("enforce_start_year", True))
+    allow_shorter_end_year = bool(horizon_policy.get("allow_shorter_end_year", True))
+    if policy_max_end < policy_start:
+        raise SystemExit(
+            f"Invalid tuning_year_window in schema: max_end_year ({policy_max_end}) < start_year ({policy_start})."
+        )
+
+    cfg_start = int(cfg0["world"]["startYear"])
+    cfg_end = int(cfg0["world"]["endYear"])
+    start_year = policy_start if enforce_start_year else max(cfg_start, policy_start)
+    end_year = min(cfg_end, policy_max_end)
+    if end_year < start_year:
+        raise SystemExit(
+            f"Tuning window invalid after policy clamp: start={start_year}, end={end_year}. "
+            f"Config/world bounds are start={cfg_start}, end={cfg_end}; policy is [{policy_start}, {policy_max_end}]."
+        )
+    if (not allow_shorter_end_year) and (end_year != policy_max_end):
+        raise SystemExit(
+            f"Tuning policy requires end_year={policy_max_end}, but effective end_year is {end_year}. "
+            f"Adjust config/world.endYear or policy."
+        )
+
+    # Ensure candidate configs themselves are pinned to the active tuning window so CLI
+    # does not warm-up from earlier eras outside policy bounds.
+    set_param(cfg0, "world.startYear", int(start_year))
+    set_param(cfg0, "world.endYear", int(policy_max_end))
+
     checkpoint_every = int(schema.get("checkpoint_every_years", 50))
     seed_jobs = max(1, int(args.seed_jobs))
     curriculum = schema.get("tuning_curriculum", {}) if isinstance(schema.get("tuning_curriculum", {}), dict) else {}
@@ -851,8 +937,30 @@ def main() -> int:
     print(f"[startup] output_dir={out_root}", flush=True)
     print(f"[startup] tuning_seeds={tuning_seeds} holdout_seeds={holdout_seeds} seed_jobs={seed_jobs}", flush=True)
     print(
+        f"[startup] tuning_window policy=[{policy_start}, {policy_max_end}] effective=[{start_year}, {end_year}]",
+        flush=True,
+    )
+    print(
         f"[startup] horizons inner={inner_end_year} medium={medium_end_year if medium_enabled else 'disabled'} long={long_end_year}",
         flush=True,
+    )
+    write_json(
+        out_root / "tuning_policy.json",
+        {
+            "tuning_year_window": {
+                "policy_start_year": policy_start,
+                "policy_max_end_year": policy_max_end,
+                "enforce_start_year": enforce_start_year,
+                "allow_shorter_end_year": allow_shorter_end_year,
+                "effective_start_year": start_year,
+                "effective_end_year": end_year,
+            },
+            "frozen_scenario": {
+                "enabled": bool(frozen_scenario.get("enabled", False)),
+                "required_paths": frozen_scenario.get("required_paths", {}),
+                "applied_overrides": frozen_changes,
+            },
+        },
     )
     base_inner_agg: Dict[str, Any]
     base_inner_holdout_agg: Dict[str, Any]

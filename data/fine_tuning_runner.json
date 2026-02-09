@@ -1,7 +1,7 @@
 {
   "profile_version": "fine_tuning_runner_v1",
   "spec_source": "FineTuning.MD",
-  "spec_version": "v7",
+  "spec_version": "v7+2026-02-09-addendum",
   "runtime_defaults": {
     "tuner_script": "tools/fine_tune_realism.py",
     "config": "data/sim_config.toml",
@@ -21,6 +21,30 @@
     "medium_check_every_iterations": 6,
     "medium_check_every_accepted": 2,
     "notes": "Inner loop runs short horizon; medium checks run periodically; promotion/final acceptance runs long horizon."
+  },
+  "tuning_year_window_defaults": {
+    "start_year": -5000,
+    "max_end_year": 2025,
+    "enforce_start_year": true,
+    "allow_shorter_end_year": true,
+    "notes": "All tuning horizons must stay within the 5000 BCE to 2025 CE window. Inner/medium may end earlier; long promotion uses end year 2025."
+  },
+  "frozen_scenario_defaults": {
+    "enabled": true,
+    "required_paths": {
+      "world.startYear": -5000,
+      "world.endYear": 2025,
+      "world.population.mode": "range",
+      "world.population.minValue": 5000000,
+      "world.population.maxValue": 20000000,
+      "spawn.enabled": true,
+      "spawn.maskPath": "assets/images/spawn.png",
+      "startTech.enabled": true,
+      "startTech.triggerYear": -5000,
+      "startTech.requireExactYear": true,
+      "startTech.autoGrantPrereqs": true
+    },
+    "notes": "Freeze spawn and 5000 BCE start-tech scenario settings for comparability across tuning runs."
   },
   "policy_from_finetuning_md": {
     "objective": "score_median - variance_penalty - hardfail_penalty",

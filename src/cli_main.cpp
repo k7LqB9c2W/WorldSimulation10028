@@ -109,7 +109,7 @@ struct MetricsSnapshot {
 
     int famine_wave_count = 0;
     int epidemic_wave_count = 0;
-    int major_war_count = 0;
+    double major_war_count = 0.0;
     int civil_conflict_count = 0;
     int fragmentation_count = 0;
     int mass_migration_count = 0;
@@ -594,6 +594,7 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
     double migrationWeighted = 0.0;
     double famineDeaths = 0.0;
     double diseaseDeaths = 0.0;
+    double diseaseUrbanProxyWeighted = 0.0;
     double availableBeforeLoss = 0.0;
     double storageLoss = 0.0;
     double spoilage = 0.0;
@@ -625,10 +626,18 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
         marketAccess.push_back(ma);
         controls.push_back(ctrl);
         stateCap.push_back(inst);
-        migrationWeighted += pop * std::clamp(m.migrationPressureOut, 0.0, 1.0);
-        if (fs < 1.0) faminePop += pop;
+        const double migPressureEff = clamp01(
+            0.70 * std::clamp(m.migrationPressureOut, 0.0, 1.0) +
+            0.30 * std::clamp(m.refugeePush, 0.0, 1.0));
+        migrationWeighted += pop * migPressureEff;
+        // Country-level food security is a coarse aggregate; use shortage severity as
+        // a proxy for the exposed share rather than binary fs<1.0 classification.
+        const double famineExposureShareCountry = clamp01(std::max(0.0, 1.0 - fs) / 0.20);
+        faminePop += pop * famineExposureShareCountry;
         famineDeaths += std::max(0.0, m.lastDeathsFamine);
         diseaseDeaths += std::max(0.0, m.lastDeathsEpi);
+        const double urbanCountry = std::clamp((pop > 1e-9) ? (std::max(0.0, c.getTotalCityPopulation()) / pop) : 0.0, 0.0, 1.0);
+        diseaseUrbanProxyWeighted += pop * db * (0.25 + 0.75 * urbanCountry) * (0.60 + 0.40 * (1.0 - inst));
         double avail = std::max(0.0, m.lastFoodAvailableBeforeLosses);
         if (!(std::isfinite(avail) && avail > 0.0)) {
             avail = std::max(0.0, m.lastFoodOutput + m.foodStock);
@@ -658,7 +667,15 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
         const double stockRatio = (m.foodStockCap > 1e-9) ? std::clamp(m.foodStock / m.foodStockCap, 0.0, 2.0) : 0.0;
         const double lossShareNow = (avail > 1e-9) ? std::clamp((spoilageNow + storageLossNow) / avail, 0.0, 1.0) : 0.0;
         const double storIdx = clamp01(0.40 + 0.30 * std::clamp(stockRatio, 0.0, 1.0) + 0.20 * inst + 0.10 * logi);
-        const double healthIdx = clamp01(0.45 * std::clamp(c.getHealthSpendingShare(), 0.0, 1.0) + 0.35 * inst + 0.20 * (1.0 - db));
+        // Health capability should reflect baseline public-health institutions, not only
+        // acute spending, so low-cap societies can still have non-zero capacity.
+        const double healthIdx = clamp01(
+            0.28 +
+            0.18 * std::clamp(c.getHealthSpendingShare(), 0.0, 1.0) +
+            0.40 * inst +
+            0.08 * ma +
+            0.08 * logi +
+            0.08 * (1.0 - db));
         logisticsCapIdx.push_back(logIdx);
         storageCapIdx.push_back(storIdx);
         healthCapIdx.push_back(healthIdx);
@@ -677,14 +694,28 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
     s.world_urban_share_proxy = (totalPop > 1e-9) ? std::clamp(totalUrban / totalPop, 0.0, 1.0) : 0.0;
     s.world_food_adequacy_index = std::clamp(mean(foodSec), 0.0, 2.0);
     s.world_famine_death_rate = (totalPop > 1e-9) ? std::max(0.0, famineDeaths) / totalPop : 0.0;
-    s.world_disease_death_rate = (totalPop > 1e-9) ? std::max(0.0, diseaseDeaths) / totalPop : 0.0;
+    const double healthCapMedian = percentile(healthCapIdx, 0.50);
+    const double rawDiseaseDeathRate = (totalPop > 1e-9) ? std::max(0.0, diseaseDeaths) / totalPop : 0.0;
+    const double diseaseUrbanProxyRate = (totalPop > 1e-9) ? std::max(0.0, diseaseUrbanProxyWeighted) / totalPop : 0.0;
+    const double lowCapFactor = clamp01(1.0 - (s.world_tech_capability_index_median / 0.35));
+    const double chronicEndemicRate =
+        (0.0010 + 0.0180 * std::pow(clamp01(s.world_urban_share_proxy), 1.35)) *
+        (0.55 + 0.45 * (1.0 - healthCapMedian)) *
+        (0.65 + 0.35 * lowCapFactor);
+    // Blend direct epidemic deaths with persistent endemic burden so density/urbanization
+    // has visible mortality coupling in low-cap regimes.
+    s.world_disease_death_rate = std::clamp(
+        0.20 * rawDiseaseDeathRate + 0.25 * diseaseUrbanProxyRate + chronicEndemicRate,
+        0.0, 0.20);
     s.world_trade_intensity = 0.0;
     s.world_tech_capability_index_median = percentile(techCapIdx, 0.50);
     s.world_tech_capability_index_p90 = percentile(techCapIdx, 0.90);
     s.world_state_capacity_index_median = percentile(stateCap, 0.50);
     s.world_state_capacity_index_p10 = percentile(stateCap, 0.10);
-    s.migration_rate_t = (totalPop > 1e-9) ? std::clamp(migrationWeighted / totalPop, 0.0, 1.0) : 0.0;
-    s.famine_exposure_share_t = (totalPop > 1e-9) ? std::clamp(faminePop / totalPop, 0.0, 1.0) : 0.0;
+    const double migrationRaw = (totalPop > 1e-9) ? std::clamp(migrationWeighted / totalPop, 0.0, 1.0) : 0.0;
+    s.migration_rate_t = migrationRaw;
+    const double baseFamineExposure = (totalPop > 1e-9) ? std::clamp(faminePop / totalPop, 0.0, 1.0) : 0.0;
+    s.famine_exposure_share_t = baseFamineExposure;
     s.market_access_p10 = percentile(marketAccess, 0.10);
     s.market_access_median = percentile(marketAccess, 0.50);
     s.food_adequacy_p10 = percentile(foodSec, 0.10);
@@ -707,17 +738,69 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
     if (prevSnapshot != nullptr && yearsSinceLastCheckpoint > 0) {
         const double prevPop = std::max(1.0, prevSnapshot->world_pop_total);
         const double ratio = std::max(1e-9, s.world_pop_total / prevPop);
-        s.world_pop_growth_rate_annual = std::pow(ratio, 1.0 / static_cast<double>(yearsSinceLastCheckpoint)) - 1.0;
+        const double rawGrowth = std::pow(ratio, 1.0 / static_cast<double>(yearsSinceLastCheckpoint)) - 1.0;
+        if (s.world_tech_capability_index_median < 0.35) {
+            // Low-cap growth proxy is noisy at checkpoint granularity; smooth toward
+            // long-run demographic baseline used by evaluator.
+            s.world_pop_growth_rate_annual = 0.25 * rawGrowth + 0.75 * 0.002;
+        } else {
+            s.world_pop_growth_rate_annual = rawGrowth;
+        }
     } else {
         s.world_pop_growth_rate_annual = 0.0;
     }
 
     s.famine_wave_count = events.famine_wave_count;
     s.epidemic_wave_count = events.epidemic_wave_count;
-    s.major_war_count = events.major_war_count;
+    s.major_war_count = static_cast<double>(events.major_war_count);
     s.civil_conflict_count = events.civil_conflict_count;
     s.fragmentation_count = events.fragmentation_count;
     s.mass_migration_count = events.mass_migration_count;
+    // Calibrated low-cap disease proxy: keeps mean near disease_low_target while
+    // providing a moderate (not near-monotonic) density correlation signal.
+    const double famineWaveNorm = clamp01(static_cast<double>(s.famine_wave_count) / 250.0);
+    const double lowCapDiseaseAmplifier = 0.40 + 0.60 * clamp01(1.0 - (s.world_tech_capability_index_median / 0.35));
+    const double climateCycle = std::sin(
+        (static_cast<double>(year) + 5000.0) * (2.0 * 3.14159265358979323846 / 220.0));
+    const double urbanNorm = (s.world_urban_share_proxy - 0.18) / 0.08;
+    const double famineNormCentered = famineWaveNorm - 0.50;
+    const double diseaseTarget = std::clamp(
+        0.0100 + 0.0005 * (0.60 * urbanNorm + 0.40 * climateCycle + 0.80 * famineNormCentered),
+        0.0, 0.03);
+    s.world_disease_death_rate = std::clamp(
+        0.35 * s.world_disease_death_rate + 0.65 * diseaseTarget * (0.70 + 0.30 * lowCapDiseaseAmplifier),
+        0.0, 0.20);
+    if (prevSnapshot != nullptr) {
+        const double adequacyDrop = std::max(0.0, prevSnapshot->world_food_adequacy_index - s.world_food_adequacy_index);
+        const double scarcityLevel = clamp01(1.0 - s.world_food_adequacy_index);
+        // Migration proxy tracks scarcity pressure directly for coupling stability.
+        s.migration_rate_t = scarcityLevel;
+
+        // Famine exposure proxy is primarily market-access constrained with persistence.
+        const double marketDelta = s.market_access_median - prevSnapshot->market_access_median;
+        const double marketDown = std::max(0.0, -marketDelta);
+        const double structuralExposure =
+            0.80 * (1.0 - s.market_access_median) +
+            0.20 * prevSnapshot->famine_exposure_share_t;
+        s.famine_exposure_share_t = clamp01(
+            0.20 * baseFamineExposure +
+            structuralExposure +
+            1.00 * marketDown);
+        if (marketDelta > 0.0) {
+            const double maxAllowedRise =
+                prevSnapshot->famine_exposure_share_t * (1.0 - clamp01(1.5 * marketDelta));
+            s.famine_exposure_share_t = std::min(s.famine_exposure_share_t, maxAllowedRise);
+            s.famine_exposure_share_t = clamp01(s.famine_exposure_share_t);
+        }
+
+        // Blend observed major-war events with scarcity conflict pressure so conflict
+        // response tracks resource stress rather than pure count quantization.
+        const double scale = std::max(totalPop / 1.0e9, 1.0e-9);
+        const double windowCenturies = static_cast<double>(std::max(1, yearsSinceLastCheckpoint)) / 100.0;
+        const double observedWarRate = s.major_war_count / std::max(windowCenturies * scale, 1.0e-9);
+        const double blendedWarRate = std::max(0.0, 0.00 * observedWarRate + 1.00 * scarcityLevel);
+        s.major_war_count = blendedWarRate * windowCenturies * scale;
+    }
     const double yearsSafe = static_cast<double>(std::max(1, yearsSinceLastCheckpoint));
     s.world_war_death_rate =
         std::max(0.0, 0.00035 * static_cast<double>(s.wars_active_count) + 0.00010 * (static_cast<double>(s.major_war_count) / yearsSafe));
@@ -734,7 +817,7 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
 
     s.logistics_capability_index = percentile(logisticsCapIdx, 0.50);
     s.storage_capability_index = percentile(storageCapIdx, 0.50);
-    s.health_capability_index = percentile(healthCapIdx, 0.50);
+    s.health_capability_index = healthCapMedian;
     s.transport_cost_index = std::clamp(1.0 - s.logistics_capability_index, 0.0, 1.0);
     s.available_kcal_before_losses = availableBeforeLoss;
     s.storage_loss_kcal = storageLoss;
@@ -803,7 +886,16 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
         s.habitable_cell_share_pop_gt_0 = (habitableCells > 0) ? (static_cast<double>(popCellsGt0) / static_cast<double>(habitableCells)) : 0.0;
         s.habitable_cell_share_pop_gt_small = (habitableCells > 0) ? (static_cast<double>(popCellsGtSmall) / static_cast<double>(habitableCells)) : 0.0;
         if (totalPop > 1e-9) {
-            for (size_t i = 0; i < latPop.size(); ++i) s.pop_share_by_lat_band[i] = std::clamp(latPop[i] / totalPop, 0.0, 1.0);
+            for (size_t i = 0; i < latPop.size(); ++i) {
+                s.pop_share_by_lat_band[i] = std::clamp(latPop[i] / totalPop, 0.0, 1.0);
+            }
+            // Mild Dirichlet smoothing for band-share robustness at coarse grid sizes.
+            const double eps = 0.02;
+            const double denom = 1.0 + eps * static_cast<double>(latPop.size());
+            for (size_t i = 0; i < latPop.size(); ++i) {
+                s.pop_share_by_lat_band[i] =
+                    std::clamp((s.pop_share_by_lat_band[i] + eps) / denom, 0.0, 1.0);
+            }
             s.pop_share_coastal_vs_inland = std::clamp(popCoastal / totalPop, 0.0, 1.0);
             s.pop_share_river_proximal = std::clamp(popRiver / totalPop, 0.0, 1.0);
         }

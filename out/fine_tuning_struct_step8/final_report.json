@@ -1,0 +1,101 @@
+{
+  "stop_condition": "STRUCTURAL_CHANGE_SIGNAL",
+  "best_objective": 87.36521186671388,
+  "best_objective_inner": 86.39923642247805,
+  "best_objective_medium": 86.62522815323445,
+  "best_holdout_objective": 87.14443218568486,
+  "best_holdout_objective_inner": 86.66878694751402,
+  "best_holdout_objective_medium": 86.50715238165147,
+  "best_top3_violations": [],
+  "best_config": "/mnt/c/WS/WorldSimulation10028/out/fine_tuning_struct_step8/best_sim_config.toml",
+  "best_config_hash16": "62be78b2205646c3",
+  "best_eval": {
+    "tuning": {
+      "score_median": 87.36521186671388,
+      "stddev": 0.7713796509198202,
+      "hardfail_rate": 0.0,
+      "variance_penalty": 0.0,
+      "hardfail_penalty": 0.0,
+      "objective": 87.36521186671388
+    },
+    "holdout": {
+      "score_median": 87.14443218568486,
+      "stddev": 0.031830378906093415,
+      "hardfail_rate": 0.0,
+      "variance_penalty": 0.0,
+      "hardfail_penalty": 0.0,
+      "objective": 87.14443218568486
+    },
+    "horizons": {
+      "inner": {
+        "tuning": {
+          "score_median": 86.39923642247805,
+          "stddev": 1.3233972030852443,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 86.39923642247805
+        },
+        "holdout": {
+          "score_median": 86.66878694751402,
+          "stddev": 0.1347864164845589,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 86.66878694751402
+        },
+        "top3": [],
+        "end_year": -1000
+      },
+      "medium": {
+        "tuning": {
+          "score_median": 86.62522815323445,
+          "stddev": 0.9982898666238269,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 86.62522815323445
+        },
+        "holdout": {
+          "score_median": 86.50715238165147,
+          "stddev": 0.23215714532794607,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 86.50715238165147
+        },
+        "top3": [],
+        "end_year": 1
+      },
+      "long": {
+        "tuning": {
+          "score_median": 87.36521186671388,
+          "stddev": 0.7713796509198202,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 87.36521186671388
+        },
+        "holdout": {
+          "score_median": 87.14443218568486,
+          "stddev": 0.031830378906093415,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 87.14443218568486
+        },
+        "top3": [],
+        "end_year": 2025
+      }
+    }
+  },
+  "curriculum": {
+    "enabled": true,
+    "inner_end_year": -1000,
+    "medium_end_year": 1,
+    "long_end_year": 2025,
+    "medium_check_every_iterations": 6,
+    "medium_check_every_accepted": 2
+  },
+  "iterations_completed": 8
+}

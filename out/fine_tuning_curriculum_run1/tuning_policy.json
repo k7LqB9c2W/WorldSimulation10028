@@ -1,0 +1,33 @@
+{
+  "tuning_year_window": {
+    "policy_start_year": -5000,
+    "policy_max_end_year": 2025,
+    "enforce_start_year": true,
+    "allow_shorter_end_year": true,
+    "effective_start_year": -5000,
+    "effective_end_year": 2025
+  },
+  "frozen_scenario": {
+    "enabled": true,
+    "required_paths": {
+      "world.startYear": -5000,
+      "world.endYear": 2025,
+      "world.population.mode": "range",
+      "world.population.minValue": 5000000,
+      "world.population.maxValue": 20000000,
+      "spawn.enabled": true,
+      "spawn.maskPath": "assets/images/spawn.png",
+      "startTech.enabled": true,
+      "startTech.triggerYear": -5000,
+      "startTech.requireExactYear": true,
+      "startTech.autoGrantPrereqs": true
+    },
+    "applied_overrides": [
+      {
+        "path": "world.startYear",
+        "old": -20000,
+        "new": -5000
+      }
+    ]
+  }
+}

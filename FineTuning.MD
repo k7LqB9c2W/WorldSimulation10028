@@ -536,3 +536,33 @@ Long horizon gate (rare): run to 2025 CE only for “promotion” decisions (bas
 FineTuning
 
 Why this works: 
+
+## 16) Project Addendum (2026-02-09)
+This dated addendum is binding for this repository.
+
+Tuning time window policy:
+- Tuning runs MUST stay inside the window [-5000, 2025].
+- Inner/medium runs may end earlier than 2025 (curriculum), but MUST NOT start before -5000.
+- Long promotion/final gate runs use end year 2025.
+- Runs in ranges such as -20000 to -10000 are out of policy for tuning.
+
+Implementation requirement:
+- Because CLI runtime can simulate warmup years from `config.world.startYear` before `--startYear`, tuning configs MUST pin:
+  - `world.startYear = -5000`
+  - `world.endYear = 2025`
+
+Frozen scenario settings for comparability:
+- Freeze baseline scenario knobs during tuning so objective comparisons remain valid across iterations/seeds:
+  - `world.population.mode = "range"`
+  - `world.population.minValue = 5000000`
+  - `world.population.maxValue = 20000000`
+  - `spawn.enabled = true`
+  - `spawn.maskPath = "assets/images/spawn.png"`
+  - `startTech.enabled = true`
+  - `startTech.triggerYear = -5000`
+  - `startTech.requireExactYear = true`
+  - `startTech.autoGrantPrereqs = true`
+
+Notes:
+- This addendum does not change the objective formula or hard-gate definitions in sections 1-15.
+- Tech-diffusion realism continues to be evaluated through existing realism metrics/objective unless a future dated addendum introduces additional explicit gates.

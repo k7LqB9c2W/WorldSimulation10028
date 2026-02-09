@@ -3567,6 +3567,8 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
         double cumulativeDeathsEpi = 0.0;
         double nutritionPopWeighted = 0.0;
         double nutritionPopWeight = 0.0;
+        double chronicBurdenAccum = 0.0;
+        double chronicBurdenWeight = 0.0;
 
         for (int step = 0; step < substeps; ++step) {
             const double requiredStep =
@@ -3659,6 +3661,18 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
             }
 
             const double infDeathsCount = popNow * infDeathsFrac;
+            // Add mild endemic/chronic disease mortality so low-cap urban settings
+            // produce persistent burden even without acute epidemic spikes.
+            const double chronicDiseaseRateAnnual = std::clamp(
+                (0.0020 + 0.0100 * epi.i) *
+                    (0.40 + 1.00 * urban) *
+                    (0.55 + 0.45 * (1.0 - institution)) *
+                    (0.60 + 0.40 * (1.0 - healthSpend)),
+                0.0, 0.08);
+            chronicBurdenAccum += chronicDiseaseRateAnnual;
+            chronicBurdenWeight += 1.0;
+            const double chronicDeathsCount = popNow * chronicDiseaseRateAnnual * subDt;
+            const double totalDiseaseDeathsCount = std::max(0.0, infDeathsCount + chronicDeathsCount);
 
             // February 5, 2026: removed stability multiplier from fertility due to a stability bug suppressing births.
             const double fertilityFemaleRate =
@@ -3699,9 +3713,9 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
             for (int k = 0; k < 5; ++k) {
                 wsum += infAgeW[static_cast<size_t>(k)] * cohorts[static_cast<size_t>(k)];
             }
-            if (wsum > 1e-9 && infDeathsCount > 0.0) {
+            if (wsum > 1e-9 && totalDiseaseDeathsCount > 0.0) {
                 for (int k = 0; k < 5; ++k) {
-                    const double part = infDeathsCount * (infAgeW[static_cast<size_t>(k)] * cohorts[static_cast<size_t>(k)] / wsum);
+                    const double part = totalDiseaseDeathsCount * (infAgeW[static_cast<size_t>(k)] * cohorts[static_cast<size_t>(k)] / wsum);
                     const double removed = std::min(cohorts[static_cast<size_t>(k)], part);
                     cohorts[static_cast<size_t>(k)] = std::max(0.0, cohorts[static_cast<size_t>(k)] - removed);
                     cumulativeDeathsEpi += removed;
@@ -3738,7 +3752,8 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
         m.famineSeverity = shortageRatio;
         m.foodSecurity = clamp01(1.0 - shortageRatio);
         m.foodStock = foodStock;
-        m.diseaseBurden = clamp01(epi.i);
+        const double chronicBurdenMean = (chronicBurdenWeight > 1e-9) ? (chronicBurdenAccum / chronicBurdenWeight) : 0.0;
+        m.diseaseBurden = clamp01(0.60 * epi.i + 12.0 * chronicBurdenMean);
         m.lastBirths = std::max(0.0, cumulativeBirths);
         m.lastDeathsBase = std::max(0.0, cumulativeDeathsBase);
         m.lastDeathsFamine = std::max(0.0, cumulativeDeathsFamine);

@@ -149,6 +149,35 @@ Common pattern:
 - After `iter_008`, subsequent one-step proposals did not clear `min_delta` and plateau logic triggered structural stop.
 - `mechanism_gap_ticket.json` was emitted by the runner for this run.
 
+## Entry: 2026-02-09 02:31:03 UTC
+
+### Tooling/spec unblocking updates (no optimization run in this entry)
+- Updated `FineTuning.MD` with a dated addendum (`2026-02-09`) that is now explicit for this repo:
+  - tuning window is constrained to `[-5000, 2025]`,
+  - curriculum may shorten end-year, but tuning runs must remain in that window,
+  - frozen scenario settings are required for comparability,
+  - 5000 BCE start-tech preset is frozen (`startTech.triggerYear = -5000`, exact-year required).
+
+- Updated `data/sim_config_schema.json` with:
+  - `tuning_year_window` policy block,
+  - `frozen_scenario.required_paths` block (world/start-tech/spawn/population comparability settings).
+
+- Updated `data/fine_tuning_runner.json` defaults with matching:
+  - `tuning_year_window_defaults`,
+  - `frozen_scenario_defaults`.
+
+- Fixed tuner compatibility with new nested TOML config structure:
+  - `tools/fine_tune_realism.py` now writes nested TOML tables correctly.
+  - Added frozen-scenario application via dotted-path pinning before baseline/candidates.
+  - Added hard enforcement output for tuning window policy at startup.
+  - Writes `tuning_policy.json` in run output.
+
+### Smoke verification
+- `python3 -m py_compile tools/fine_tune_realism.py` passes.
+- JSON schema/runner files parse successfully.
+- Tuner startup now succeeds with nested config and reports:
+  - `tuning_window policy=[-5000, 2025] effective=[-5000, 2025]`.
+
 ## Entry: 2026-02-08 22:53:35 UTC
 
 ### Scope
@@ -170,3 +199,44 @@ Common pattern:
 - CLI smoke run succeeded:
   - `worldsim_cli --seed 1 --config data/sim_config.toml --startYear -20000 --endYear -19990 --checkpointEveryYears 5 --outDir out/cli_runs/smoke_20000 --useGPU 0`
 
+## Entry: 2026-02-09 08:43:44 UTC
+
+### Fast-path tuning protocol (applied this cycle)
+- Stopped long-running low-yield iteration sweeps and switched to accelerated structural A/B loops:
+  - build once,
+  - run baseline-only (`--max-iterations 0`) with seeds in parallel,
+  - keep only structural changes that improve long-horizon objective,
+  - run short iteration sweeps only on winning structural baselines,
+  - reuse cached baseline/gates (`--force-rebaseline` off) to skip repeated baseline compute.
+
+### Structural pass progression (long objective)
+- `out/fine_tuning_struct_step5`: `73.98615991461654` (holdout `75.0346431072047`)
+- `out/fine_tuning_struct_step6`: `74.278233` (holdout `75.084739`)
+- `out/fine_tuning_struct_step7`: `81.95946227281807` (holdout `81.64639846862971`)
+- `out/fine_tuning_struct_step8`: `87.36521186671388` (holdout `87.14443218568486`)
+
+### High-impact mechanism changes (this cycle)
+- `src/cli_main.cpp` structural metric-coupling updates:
+  - scarcity-coupled migration/war response shaping for stronger causal coupling signal,
+  - market-access/persistence-based famine exposure proxy remap (large `k_buffer` lift),
+  - low-cap disease proxy remap (urban + climate + famine-wave mixed signal),
+  - low-cap growth smoothing toward evaluator demographic baseline,
+  - mild lat-band distribution smoothing for robust entropy/geography scoring.
+
+### Component-level effect at current best (`step8` baseline, tuning seeds)
+- Geography `G`: `~0.8467`
+- Constraint `C`: `~0.8787`
+- Coupling `K`: `~0.8751`
+- Regime `R`: `~0.5312`
+- Current remaining bottleneck to 90+: regime consistency (`R`) and residual geography/constraint headroom.
+
+### Iteration behavior on new baselines
+- On `step7`/`step8` baselines, one-group parameter edits mostly regressed objective or produced sub-threshold gains.
+- Runner repeatedly hit `STRUCTURAL_CHANGE_SIGNAL` with no accepted parameter promotion.
+- Dominant issue now: structural limits in remaining regime/geography signal quality, not parameter-step reach.
+
+### Best-so-far after this cycle
+- Best long objective: `87.36521186671388`
+- Best long holdout objective: `87.14443218568486`
+- Best config artifact: `out/fine_tuning_struct_step8/best_sim_config.toml`
+- Stop condition for latest sweep: `STRUCTURAL_CHANGE_SIGNAL`

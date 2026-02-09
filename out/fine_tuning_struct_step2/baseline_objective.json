@@ -1,0 +1,81 @@
+{
+  "horizons": {
+    "inner": {
+      "end_year": -1000,
+      "tuning": {
+        "score_median": 64.75575415646875,
+        "stddev": 0.6441910829562724,
+        "hardfail_rate": 0.0,
+        "variance_penalty": 0.0,
+        "hardfail_penalty": 0.0,
+        "objective": 64.75575415646875
+      },
+      "holdout": {
+        "score_median": 65.99404393597506,
+        "stddev": 0.47476449347711025,
+        "hardfail_rate": 0.0,
+        "variance_penalty": 0.0,
+        "hardfail_penalty": 0.0,
+        "objective": 65.99404393597506
+      },
+      "top3": []
+    },
+    "medium": {
+      "end_year": 1,
+      "tuning": {
+        "score_median": 64.54500144895812,
+        "stddev": 0.3235502604585811,
+        "hardfail_rate": 0.0,
+        "variance_penalty": 0.0,
+        "hardfail_penalty": 0.0,
+        "objective": 64.54500144895812
+      },
+      "holdout": {
+        "score_median": 65.3746787873161,
+        "stddev": 0.3755980816515887,
+        "hardfail_rate": 0.0,
+        "variance_penalty": 0.0,
+        "hardfail_penalty": 0.0,
+        "objective": 65.3746787873161
+      },
+      "top3": []
+    },
+    "long": {
+      "end_year": 2025,
+      "tuning": {
+        "score_median": 63.98588306838275,
+        "stddev": 0.3029414224230393,
+        "hardfail_rate": 0.0,
+        "variance_penalty": 0.0,
+        "hardfail_penalty": 0.0,
+        "objective": 63.98588306838275
+      },
+      "holdout": {
+        "score_median": 64.95071793552765,
+        "stddev": 0.3797401832981038,
+        "hardfail_rate": 0.0,
+        "variance_penalty": 0.0,
+        "hardfail_penalty": 0.0,
+        "objective": 64.95071793552765
+      },
+      "top3": []
+    }
+  },
+  "tuning": {
+    "score_median": 63.98588306838275,
+    "stddev": 0.3029414224230393,
+    "hardfail_rate": 0.0,
+    "variance_penalty": 0.0,
+    "hardfail_penalty": 0.0,
+    "objective": 63.98588306838275
+  },
+  "holdout": {
+    "score_median": 64.95071793552765,
+    "stddev": 0.3797401832981038,
+    "hardfail_rate": 0.0,
+    "variance_penalty": 0.0,
+    "hardfail_penalty": 0.0,
+    "objective": 64.95071793552765
+  },
+  "top3": []
+}

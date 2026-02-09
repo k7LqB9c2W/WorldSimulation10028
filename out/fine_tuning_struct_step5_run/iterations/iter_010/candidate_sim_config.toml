@@ -1,0 +1,179 @@
+[world]
+yearsPerTick = 1
+startYear = -5000
+endYear = 2025
+rngSeedMode = "provided"
+deterministicMode = true
+deterministicOverseasFallback = "auto"
+
+[world.population]
+mode = "range"
+fixedValue = 10000000
+minValue = 5000000
+maxValue = 20000000
+
+[spawn]
+enabled = true
+maskPath = "assets/images/spawn.png"
+colorTolerance = 15
+dupMode = "SplitConnectedComponents"
+
+[startTech]
+enabled = true
+triggerYear = -5000
+requireExactYear = true
+autoGrantPrereqs = true
+
+[food]
+baseForaging = 19.5
+baseFarming = 46
+climateSensitivity = 0.95
+riverlandFoodFloor = 120
+coastalBonus = 1.2
+spoilageBase = 0.19
+storageBase = 0.4
+clayMin = 0.8
+clayMax = 3
+clayHotspotChance = 0.08
+foragingNoAgriShare = 0.82
+foragingWithAgriShare = 0.3
+farmingWithAgriShare = 0.78
+
+[resources]
+oreWeightIron = 1
+oreWeightCopper = 0.85
+oreWeightTin = 1.2
+energyBiomassBase = 0.35
+energyCoalWeight = 1.85
+constructionClayWeight = 1
+constructionStoneBase = 0.55
+oreNormalization = 185
+energyNormalization = 170
+constructionNormalization = 130
+oreDepletionRate = 0.05
+coalDepletionRate = 0.045
+
+[migration]
+famineShockThreshold = 0.16
+epidemicShockThreshold = 0.1
+warShockThreshold = 0.18
+famineShockMultiplier = 1.6
+epidemicShockMultiplier = 1.25
+warShockMultiplier = 1.5
+corridorCoastBonus = 0.25
+corridorRiverlandBonus = 0.35
+corridorSteppeBonus = 0.15
+corridorMountainPenalty = 0.45
+corridorDesertPenalty = 0.25
+refugeeHalfLifeYears = 12
+culturalPreference = 0.2
+
+[disease]
+initialInfectedShare = 0.0002
+initialRecoveredShare = 0
+tradeImportWeight = 0.18
+endemicBase = 0.002
+endemicUrbanWeight = 0.85
+endemicHumidityWeight = 0.65
+endemicInstitutionMitigation = 0.5
+zoonoticBase = 0.0015
+zoonoticForagingWeight = 0.95
+zoonoticFarmingWeight = 0.35
+spilloverShockChance = 0.025
+spilloverShockMin = 0.003
+spilloverShockMax = 0.016
+warAmplifier = 0.27
+famineAmplifier = 0.35
+
+[war]
+supplyBase = 0.2
+supplyLogisticsWeight = 0.35
+supplyMarketWeight = 0.2
+supplyControlWeight = 0.2
+supplyEnergyWeight = 0.1
+supplyFoodStockWeight = 0.15
+overSupplyAttrition = 0.1
+terrainDefenseWeight = 0.35
+exhaustionRise = 0.1
+exhaustionPeaceThreshold = 0.78
+objectiveRaidWeight = 0.34
+objectiveBorderWeight = 0.2
+objectiveTributeWeight = 0.13
+objectiveVassalWeight = 0.12
+objectiveRegimeWeight = 0.1
+objectiveAnnihilationWeight = 0.17
+cooldownMinYears = 3
+cooldownMaxYears = 24
+peaceReparationsWeight = 0.2
+peaceTributeWeight = 0.25
+peaceReconstructionDrag = 0.22
+earlyAnnihilationBias = 0.45
+highInstitutionAnnihilationDamp = 0.85
+
+[polity]
+regionCountMin = 4
+regionCountMax = 9
+successionIntervalMin = 15
+successionIntervalMax = 36
+eliteDefectionSensitivity = 0.78
+farRegionPenalty = 0.52
+yearlyWarStabilityHit = 0.024
+yearlyPlagueStabilityHit = 0.034
+yearlyStagnationStabilityHit = 0.006
+peaceRecoveryLowGrowth = 0.008
+peaceRecoveryHighGrowth = 0.018
+resilienceRecoveryStrength = 0.02
+demogShortageStabilityHit = 0.01
+demogDiseaseStabilityHit = 0.007
+demogShortageLegitimacyHit = 0.009
+demogDiseaseLegitimacyHit = 0.006
+legitimacyRecoveryStrength = 0.018
+
+[tech]
+capabilityThresholdScale = 0.9
+diffusionBase = 0.015
+culturalFrictionStrength = 1.25
+resourceReqEnergy = 0.55
+resourceReqOre = 0.5
+resourceReqConstruction = 0.32
+adoptionThreshold = 0.65
+forgetPracticeThreshold = 0.15
+discoveryBase = 0.022
+discoveryDifficultyScale = 0.95
+maxDiscoveriesPerYear = 2
+discoverySeedAdoption = 0.02
+knownDiffusionBase = 0.022
+knownDiffusionTopK = 8
+adoptionSeedFromNeighbors = 0.09
+adoptionBaseSpeed = 0.085
+adoptionDecayBase = 0.048
+collapseDecayMultiplier = 1.25
+prereqAdoptionFraction = 0.7
+rareForgetYears = 240
+rareForgetChance = 0.0015
+
+[economy]
+foodLaborElasticity = 0.95
+goodsLaborElasticity = 0.62
+servicesLaborElasticity = 0.72
+energyIntensity = 1.25
+oreIntensity = 1.3
+goodsToMilitary = 0.75
+servicesScaling = 0.92
+tradeResourceMismatchDemandBoost = 0.85
+tradeScarcityCapacityBoost = 1.1
+tradeMaxPricePremium = 1.65
+tradeIntensityScale = 18
+tradeIntensityValueNormBase = 1200
+tradeIntensityMemory = 0.72
+useGPU = true
+
+[scoring]
+checkpointsYears = [-20000, -15000, -12000, -8000, -5000, -3000, -1000, 0, 1000, 1500, 2025]
+weightFoodSecurityStability = 1
+weightInnovationUrbanization = 1
+weightEmpireLogisticsConstraint = 1
+weightDiseaseTransition = 1
+weightTradeResourceInequality = 1
+weightVariancePenalty = 1
+weightBrittlenessPenalty = 1
