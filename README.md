@@ -12,6 +12,11 @@ The model is free-form: outcomes should emerge from mechanisms (food, logistics,
 - On launch, the GUI shows an ImGui start-year prompt before simulation begins.
   - Allowed range: `-20000` to configured `world.endYear`
   - Default input: configured `world.startYear` (now `-20000`)
+  - The same modal now also configures:
+    - world population mode (`fixed` or `range`)
+    - population value/range
+    - regional spawn mask toggle
+    - 5000 BCE regional start-tech preset toggle
 
 ### CLI build/run
 - Build target: `worldsim_cli`
@@ -30,6 +35,8 @@ The simulation now loads tuning values at runtime (no recompile needed).
 - `war`: supply model, exhaustion, objectives, cooldown and peace aftermath weights.
 - `polity`: region count and succession/elite-fragmentation sensitivities.
 - `tech`: capability thresholds, diffusion base, cultural friction, resource requirements.
+- `spawn`: regional spawn mask settings (`enabled`, `maskPath`, color tolerance, duplicate-color mode, optional `regions` list).
+- `startTech`: optional region-based starting tech presets for specific trigger years (defaults target `-5000`).
 - `economy`: elasticities/intensities and `useGPU` toggle.
 - `scoring`: checkpoint years and stylized-fact weights for evaluation harness.
 
@@ -55,11 +62,17 @@ Supported flags:
 - `--checkpointEveryYears N`
 - `--outDir path`
 - `--useGPU 0|1`
+- `--world-pop N`
+- `--world-pop-range MIN MAX`
+- `--spawn-mask path`
+- `--spawn-disable`
+- `--spawn-region-share KEY VALUE` (repeatable; `VALUE >= 1` is treated as percent, otherwise fraction)
 
 `--startYear` supports values down to `-20000` (20,000 BCE).
 
 Example:
 - `worldsim_cli --seed 7 --config data/sim_config.toml --startYear -20000 --endYear 2025 --checkpointEveryYears 50 --outDir out/cli_runs/seed_7 --useGPU 0`
+- `worldsim_cli --seed 7 --config data/sim_config.toml --world-pop-range 8000000 12000000 --spawn-region-share south_asia 28 --spawn-region-share east_asia 24 --outDir out/cli_runs/seed_7`
 
 ### CLI outputs
 Each run writes:

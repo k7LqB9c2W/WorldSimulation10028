@@ -6,6 +6,54 @@
 #include <vector>
 
 struct SimulationConfig {
+    struct SpawnRegionConfig {
+        std::string key;
+        std::string name;
+        int r = 0;
+        int g = 0;
+        int b = 0;
+        double worldShare = 0.0;
+        int groupId = 0;
+        double anchorX = -1.0;
+        double anchorY = -1.0;
+    };
+
+    struct RegionalStartTechPreset {
+        std::string regionKey;
+        std::vector<int> techIds;
+    };
+
+    struct WorldPopulationConfig {
+        enum class Mode {
+            Range,
+            Fixed
+        };
+        Mode mode = Mode::Range;
+        std::int64_t fixedValue = 0;
+        std::int64_t minValue = 5000000;
+        std::int64_t maxValue = 20000000;
+    };
+
+    struct SpawnConfig {
+        enum class DuplicateColorMode {
+            SplitConnectedComponents,
+            ErrorOnDuplicate
+        };
+        bool enabled = true;
+        std::string maskPath = "assets/images/spawn.png";
+        std::vector<SpawnRegionConfig> regions;
+        int colorTolerance = 15;
+        DuplicateColorMode dupMode = DuplicateColorMode::SplitConnectedComponents;
+    };
+
+    struct StartTechConfig {
+        bool enabled = true;
+        int triggerYear = -5000;
+        bool requireExactYear = true;
+        bool autoGrantPrereqs = true;
+        std::vector<RegionalStartTechPreset> presets;
+    };
+
     struct World {
         int yearsPerTick = 1;
         int startYear = -20000;
@@ -14,6 +62,7 @@ struct SimulationConfig {
         bool deterministicMode = true;
         // Expert override for Phase-7 overseas deterministic fallback: auto|on|off.
         std::string deterministicOverseasFallback = "auto";
+        WorldPopulationConfig population{};
     } world{};
 
     struct Food {
@@ -178,6 +227,12 @@ struct SimulationConfig {
         double weightVariancePenalty = 1.0;
         double weightBrittlenessPenalty = 1.0;
     } scoring{};
+
+    SpawnConfig spawn{};
+    StartTechConfig startTech{};
+
+    static std::vector<SpawnRegionConfig> defaultSpawnRegions();
+    static std::vector<RegionalStartTechPreset> defaultRegionalStartTechPresets();
 };
 
 struct SimulationContext {

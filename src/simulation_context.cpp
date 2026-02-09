@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <type_traits>
 
@@ -26,6 +28,10 @@ void readTomlValue(const toml::table& root,
             target = *v;
         } else if (const auto vi = view.value<std::int64_t>()) {
             target = static_cast<double>(*vi);
+        }
+    } else if constexpr (std::is_same_v<T, std::int64_t>) {
+        if (const auto v = view.value<std::int64_t>()) {
+            target = *v;
         }
     } else if constexpr (std::is_same_v<T, bool>) {
         if (const auto v = view.value<bool>()) {
@@ -54,6 +60,22 @@ std::string canonicalDetOverseasFallback(std::string value) {
         return "off";
     }
     return "auto";
+}
+
+SimulationConfig::WorldPopulationConfig::Mode parsePopulationMode(std::string value) {
+    value = toLowerAscii(std::move(value));
+    if (value == "fixed") {
+        return SimulationConfig::WorldPopulationConfig::Mode::Fixed;
+    }
+    return SimulationConfig::WorldPopulationConfig::Mode::Range;
+}
+
+SimulationConfig::SpawnConfig::DuplicateColorMode parseDuplicateColorMode(std::string value) {
+    value = toLowerAscii(std::move(value));
+    if (value == "erroronduplicate" || value == "error" || value == "strict") {
+        return SimulationConfig::SpawnConfig::DuplicateColorMode::ErrorOnDuplicate;
+    }
+    return SimulationConfig::SpawnConfig::DuplicateColorMode::SplitConnectedComponents;
 }
 
 } // namespace
@@ -106,6 +128,18 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "world", "deterministicOverseasFallback", config.world.deterministicOverseasFallback);
         config.world.deterministicOverseasFallback =
             canonicalDetOverseasFallback(config.world.deterministicOverseasFallback);
+        if (const auto mode = root["world"]["population"]["mode"].value<std::string>()) {
+            config.world.population.mode = parsePopulationMode(*mode);
+        }
+        if (const auto v = root["world"]["population"]["fixedValue"].value<std::int64_t>()) {
+            config.world.population.fixedValue = *v;
+        }
+        if (const auto v = root["world"]["population"]["minValue"].value<std::int64_t>()) {
+            config.world.population.minValue = *v;
+        }
+        if (const auto v = root["world"]["population"]["maxValue"].value<std::int64_t>()) {
+            config.world.population.maxValue = *v;
+        }
 
         readTomlValue(root, "food", "baseForaging", config.food.baseForaging);
         readTomlValue(root, "food", "baseFarming", config.food.baseFarming);
@@ -263,6 +297,98 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "scoring", "weightVariancePenalty", config.scoring.weightVariancePenalty);
         readTomlValue(root, "scoring", "weightBrittlenessPenalty", config.scoring.weightBrittlenessPenalty);
 
+        readTomlValue(root, "spawn", "enabled", config.spawn.enabled);
+        readTomlValue(root, "spawn", "maskPath", config.spawn.maskPath);
+        readTomlValue(root, "spawn", "colorTolerance", config.spawn.colorTolerance);
+        if (const auto mode = root["spawn"]["dupMode"].value<std::string>()) {
+            config.spawn.dupMode = parseDuplicateColorMode(*mode);
+        }
+        if (const toml::array* regions = root["spawn"]["regions"].as_array()) {
+            config.spawn.regions.clear();
+            config.spawn.regions.reserve(regions->size());
+            for (const auto& node : *regions) {
+                const toml::table* t = node.as_table();
+                if (!t) continue;
+                SimulationConfig::SpawnRegionConfig r{};
+                if (const auto v = (*t)["key"].value<std::string>()) r.key = *v;
+                if (const auto v = (*t)["name"].value<std::string>()) r.name = *v;
+                if (const auto v = (*t)["r"].value<std::int64_t>()) r.r = static_cast<int>(*v);
+                if (const auto v = (*t)["g"].value<std::int64_t>()) r.g = static_cast<int>(*v);
+                if (const auto v = (*t)["b"].value<std::int64_t>()) r.b = static_cast<int>(*v);
+                if (const auto v = (*t)["worldShare"].value<double>()) {
+                    r.worldShare = *v;
+                } else if (const auto vi = (*t)["worldShare"].value<std::int64_t>()) {
+                    r.worldShare = static_cast<double>(*vi);
+                }
+                if (const auto v = (*t)["groupId"].value<std::int64_t>()) r.groupId = static_cast<int>(*v);
+                if (const auto v = (*t)["anchorX"].value<double>()) r.anchorX = *v;
+                if (const auto v = (*t)["anchorY"].value<double>()) r.anchorY = *v;
+                if (r.key.empty()) continue;
+                if (r.name.empty()) r.name = r.key;
+                config.spawn.regions.push_back(std::move(r));
+            }
+        }
+        if (config.spawn.regions.empty()) {
+            config.spawn.regions = SimulationConfig::defaultSpawnRegions();
+        }
+
+        readTomlValue(root, "startTech", "enabled", config.startTech.enabled);
+        readTomlValue(root, "startTech", "triggerYear", config.startTech.triggerYear);
+        readTomlValue(root, "startTech", "requireExactYear", config.startTech.requireExactYear);
+        readTomlValue(root, "startTech", "autoGrantPrereqs", config.startTech.autoGrantPrereqs);
+        if (const toml::array* presets = root["startTech"]["presets"].as_array()) {
+            config.startTech.presets.clear();
+            config.startTech.presets.reserve(presets->size());
+            for (const auto& node : *presets) {
+                const toml::table* t = node.as_table();
+                if (!t) continue;
+                SimulationConfig::RegionalStartTechPreset preset{};
+                if (const auto v = (*t)["regionKey"].value<std::string>()) {
+                    preset.regionKey = *v;
+                }
+                if (const toml::array* techIds = (*t)["techIds"].as_array()) {
+                    for (const auto& techNode : *techIds) {
+                        if (const auto techId = techNode.value<std::int64_t>()) {
+                            preset.techIds.push_back(static_cast<int>(*techId));
+                        }
+                    }
+                }
+                if (!preset.regionKey.empty()) {
+                    config.startTech.presets.push_back(std::move(preset));
+                }
+            }
+        }
+        if (config.startTech.presets.empty()) {
+            config.startTech.presets = SimulationConfig::defaultRegionalStartTechPresets();
+        }
+
+        if (config.world.population.mode == SimulationConfig::WorldPopulationConfig::Mode::Fixed) {
+            if (config.world.population.fixedValue <= 0) {
+                config.world.population.fixedValue = 10'000'000;
+            }
+        } else {
+            if (config.world.population.minValue <= 0) {
+                config.world.population.minValue = 5'000'000;
+            }
+            if (config.world.population.maxValue < config.world.population.minValue) {
+                std::swap(config.world.population.maxValue, config.world.population.minValue);
+            }
+        }
+        config.spawn.colorTolerance = std::clamp(config.spawn.colorTolerance, 0, 255);
+        double shareSum = 0.0;
+        for (const auto& r : config.spawn.regions) {
+            if (r.worldShare > 0.0) shareSum += r.worldShare;
+        }
+        if (shareSum <= 0.0) {
+            config.spawn.regions = SimulationConfig::defaultSpawnRegions();
+            shareSum = 1.0;
+        } else if (std::abs(shareSum - 1.0) > 1.0e-6) {
+            for (auto& r : config.spawn.regions) {
+                if (r.worldShare < 0.0) r.worldShare = 0.0;
+                r.worldShare /= shareSum;
+            }
+        }
+
         configHash = hashFileFNV1a(path);
         return true;
     } catch (const toml::parse_error& err) {
@@ -324,4 +450,56 @@ double SimulationContext::u01FromU64(std::uint64_t x) {
     // Convert 53 random bits to [0,1).
     const std::uint64_t mantissa = (x >> 11);
     return static_cast<double>(mantissa) * (1.0 / 9007199254740992.0);
+}
+
+std::vector<SimulationConfig::SpawnRegionConfig> SimulationConfig::defaultSpawnRegions() {
+    return {
+        {"south_asia", "South Asia", 151, 255, 135, 0.30, 1, -1.0, -1.0},
+        {"east_asia", "East Asia", 255, 145, 145, 0.22, 1, -1.0, -1.0},
+        {"west_asia", "West Asia", 63, 210, 255, 0.16, 1, -1.0, -1.0},
+        {"se_asia", "Southeast Asia", 253, 255, 173, 0.05, 1, -1.0, -1.0},
+        {"cn_asia", "Central and North Asia", 187, 135, 255, 0.02, 1, -1.0, -1.0},
+        {"nile_ne_africa", "Nile Valley and Northeast Africa", 255, 135, 229, 0.05, 2, -1.0, -1.0},
+        {"north_africa", "North Africa", 173, 255, 255, 0.02, 2, -1.0, -1.0},
+        {"west_africa", "West Africa", 7, 255, 127, 0.02, 2, -1.0, -1.0},
+        {"east_africa", "East Africa", 33, 195, 255, 0.02, 2, -1.0, -1.0},
+        {"cs_africa", "Central and Southern Africa", 255, 53, 241, 0.01, 2, -1.0, -1.0},
+        {"se_europe", "Southeast Europe", 246, 255, 170, 0.03, 3, -1.0, -1.0},
+        {"med_europe", "Mediterranean Europe", 255, 106, 0, 0.02, 3, 0.52, 0.35},
+        {"central_europe", "Central Europe", 81, 124, 81, 0.02, 3, -1.0, -1.0},
+        {"wnw_europe", "Western and Northwestern Europe", 130, 255, 150, 0.015, 3, -1.0, -1.0},
+        {"north_europe", "Northern Europe", 255, 208, 147, 0.005, 3, -1.0, -1.0},
+        {"mesoamerica", "Mesoamerica", 255, 130, 165, 0.01, 4, -1.0, -1.0},
+        {"andes", "Andes", 60, 32, 124, 0.008, 4, -1.0, -1.0},
+        {"e_na", "Eastern North America", 124, 39, 72, 0.004, 4, -1.0, -1.0},
+        {"w_na", "Western North America", 255, 0, 220, 0.007, 4, -1.0, -1.0},
+        {"caribbean", "Caribbean", 109, 121, 255, 0.001, 4, -1.0, -1.0},
+        {"oceania", "Oceania", 255, 106, 0, 0.01, 5, 0.82, 0.76},
+    };
+}
+
+std::vector<SimulationConfig::RegionalStartTechPreset> SimulationConfig::defaultRegionalStartTechPresets() {
+    return {
+        {"west_asia", {20, 1, 2, 3, 4, 6, 8, 9, 10, 11, 12, 14, 16}},
+        {"nile_ne_africa", {20, 1, 2, 3, 4, 6, 8, 10, 16}},
+        {"south_asia", {20, 1, 2, 3, 4, 6, 8, 10, 16}},
+        {"east_asia", {20, 1, 2, 3, 4, 6, 8, 10, 16}},
+        {"se_asia", {20, 1, 3, 5, 6, 12, 16}},
+        {"cn_asia", {2, 3, 4, 6}},
+        {"se_europe", {20, 1, 2, 3, 4, 6, 8, 16}},
+        {"med_europe", {20, 1, 2, 3, 4, 5, 6, 8, 12, 16}},
+        {"central_europe", {20, 1, 2, 3, 4, 6, 16}},
+        {"wnw_europe", {20, 1, 3, 4, 6, 16}},
+        {"north_europe", {3, 4, 6}},
+        {"north_africa", {20, 1, 2, 3, 4, 6, 16}},
+        {"west_africa", {20, 1, 3, 4, 6, 16}},
+        {"east_africa", {20, 1, 3, 4, 6, 16}},
+        {"cs_africa", {1, 3, 4, 6}},
+        {"mesoamerica", {20, 1, 3, 6, 16}},
+        {"andes", {20, 1, 3, 4, 6, 16}},
+        {"e_na", {3, 4, 6}},
+        {"w_na", {3, 4, 6}},
+        {"caribbean", {5, 6, 12}},
+        {"oceania", {5, 6, 12}},
+    };
 }

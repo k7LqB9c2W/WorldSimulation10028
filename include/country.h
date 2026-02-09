@@ -457,6 +457,8 @@ public:
     const ResourceManager& getResourceManager() const;
     const std::string& getName() const;
     void setName(const std::string& name);
+    const std::string& getSpawnRegionKey() const { return m_spawnRegionKey; }
+    void setSpawnRegionKey(const std::string& key) { m_spawnRegionKey = key; }
     Type getType() const; // Add a getter for the country type
     bool canFoundCity() const;
     bool canFoundCity(const class TechnologyManager& technologyManager) const;
@@ -638,6 +640,7 @@ private:
 	    double m_populationGrowthRate;
     ResourceManager m_resourceManager;
     std::string m_name;
+    std::string m_spawnRegionKey;
 	    int m_nextWarCheckYear;
 	    std::vector<City> m_cities;
 	    double m_totalCityPopulation = 0.0;

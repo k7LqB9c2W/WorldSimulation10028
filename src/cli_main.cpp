@@ -55,6 +55,15 @@ struct RunOptions {
     std::string techUnlockLog; // optional path; when set, emits per-country tech unlock events
     bool techUnlockLogIncludeInitial = true;
     int stopOnTechId = -1; // optional: stop run early once any country unlocks this tech id
+    bool worldPopFixedSet = false;
+    std::int64_t worldPopFixedValue = 0;
+    bool worldPopRangeSet = false;
+    std::int64_t worldPopRangeMin = 0;
+    std::int64_t worldPopRangeMax = 0;
+    bool spawnMaskOverrideSet = false;
+    std::string spawnMaskPath;
+    bool spawnDisable = false;
+    std::vector<std::pair<std::string, double>> spawnRegionShareOverrides;
 };
 
 struct MetricsSnapshot {
@@ -164,6 +173,18 @@ bool parseInt(const std::string& s, int& out) {
     }
 }
 
+bool parseInt64(const std::string& s, std::int64_t& out) {
+    try {
+        size_t pos = 0;
+        const auto v = std::stoll(s, &pos);
+        if (pos != s.size()) return false;
+        out = static_cast<std::int64_t>(v);
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
 bool parseBool01(const std::string& s, bool& out) {
     if (s == "1" || s == "true" || s == "TRUE") {
         out = true;
@@ -184,6 +205,9 @@ void printUsage(const char* argv0) {
               << "       [--parityRole gui|cli] [--parityOut path]\n"
               << "       [--techUnlockLog path] [--techUnlockLogIncludeInitial 0|1]\n"
               << "       [--stopOnTechId N]\n"
+              << "       [--world-pop N] [--world-pop-range MIN MAX]\n"
+              << "       [--spawn-mask path] [--spawn-disable]\n"
+              << "       [--spawn-region-share KEY VALUE] (repeatable)\n"
               << "Notes: supported minimum start year is " << kEarliestSupportedStartYear << ".\n";
 }
 
@@ -194,6 +218,17 @@ bool parseArgs(int argc, char** argv, RunOptions& opt) {
             if (i + 1 >= argc) return false;
             out = argv[++i] ? std::string(argv[i]) : std::string();
             return true;
+        };
+        auto parseShareValue = [&](const std::string& s, double& out) -> bool {
+            try {
+                size_t pos = 0;
+                const double v = std::stod(s, &pos);
+                if (pos != s.size()) return false;
+                out = (v >= 1.0) ? (v / 100.0) : v;
+                return std::isfinite(out);
+            } catch (...) {
+                return false;
+            }
         };
 
         if (arg == "--help" || arg == "-h") {
@@ -272,6 +307,55 @@ bool parseArgs(int argc, char** argv, RunOptions& opt) {
             if (!requireValue(v) || !parseInt(v, opt.stopOnTechId)) return false;
         } else if (arg.rfind("--stopOnTechId=", 0) == 0) {
             if (!parseInt(arg.substr(15), opt.stopOnTechId)) return false;
+        } else if (arg == "--world-pop") {
+            std::string v;
+            if (!requireValue(v) || !parseInt64(v, opt.worldPopFixedValue)) return false;
+            opt.worldPopFixedSet = true;
+            opt.worldPopRangeSet = false;
+        } else if (arg.rfind("--world-pop=", 0) == 0) {
+            if (!parseInt64(arg.substr(12), opt.worldPopFixedValue)) return false;
+            opt.worldPopFixedSet = true;
+            opt.worldPopRangeSet = false;
+        } else if (arg == "--world-pop-range") {
+            std::string vMin;
+            std::string vMax;
+            if (!requireValue(vMin) || !requireValue(vMax)) return false;
+            if (!parseInt64(vMin, opt.worldPopRangeMin) || !parseInt64(vMax, opt.worldPopRangeMax)) return false;
+            opt.worldPopRangeSet = true;
+            opt.worldPopFixedSet = false;
+        } else if (arg.rfind("--world-pop-range=", 0) == 0) {
+            const std::string payload = arg.substr(18);
+            const size_t comma = payload.find(',');
+            if (comma == std::string::npos) return false;
+            const std::string vMin = payload.substr(0, comma);
+            const std::string vMax = payload.substr(comma + 1);
+            if (!parseInt64(vMin, opt.worldPopRangeMin) || !parseInt64(vMax, opt.worldPopRangeMax)) return false;
+            opt.worldPopRangeSet = true;
+            opt.worldPopFixedSet = false;
+        } else if (arg == "--spawn-mask") {
+            if (!requireValue(opt.spawnMaskPath)) return false;
+            opt.spawnMaskOverrideSet = true;
+        } else if (arg.rfind("--spawn-mask=", 0) == 0) {
+            opt.spawnMaskPath = arg.substr(13);
+            opt.spawnMaskOverrideSet = true;
+        } else if (arg == "--spawn-disable") {
+            opt.spawnDisable = true;
+        } else if (arg == "--spawn-region-share") {
+            std::string key;
+            std::string value;
+            if (!requireValue(key) || !requireValue(value)) return false;
+            double share = 0.0;
+            if (!parseShareValue(value, share)) return false;
+            opt.spawnRegionShareOverrides.emplace_back(key, share);
+        } else if (arg.rfind("--spawn-region-share=", 0) == 0) {
+            const std::string payload = arg.substr(21);
+            const size_t comma = payload.find(',');
+            if (comma == std::string::npos) return false;
+            const std::string key = payload.substr(0, comma);
+            const std::string value = payload.substr(comma + 1);
+            double share = 0.0;
+            if (!parseShareValue(value, share)) return false;
+            opt.spawnRegionShareOverrides.emplace_back(key, share);
         } else {
             std::cerr << "Unknown flag: " << arg << "\n";
             return false;
@@ -946,9 +1030,7 @@ bool initializeRuntime(CliRuntime& rt,
             }
             return false;
         }
-        if (opt.startYear < rt.ctx.config.world.startYear) {
-            rt.ctx.config.world.startYear = opt.startYear;
-        }
+        rt.ctx.config.world.startYear = opt.startYear;
     }
 
     if (rt.ctx.config.world.endYear < rt.ctx.config.world.startYear) {
@@ -960,6 +1042,42 @@ bool initializeRuntime(CliRuntime& rt,
 
     if (opt.useGPU >= 0) {
         rt.ctx.config.economy.useGPU = (opt.useGPU != 0);
+    }
+    if (opt.worldPopFixedSet) {
+        rt.ctx.config.world.population.mode = SimulationConfig::WorldPopulationConfig::Mode::Fixed;
+        rt.ctx.config.world.population.fixedValue = std::max<std::int64_t>(1, opt.worldPopFixedValue);
+    } else if (opt.worldPopRangeSet) {
+        rt.ctx.config.world.population.mode = SimulationConfig::WorldPopulationConfig::Mode::Range;
+        const std::int64_t lo = std::max<std::int64_t>(1, std::min(opt.worldPopRangeMin, opt.worldPopRangeMax));
+        const std::int64_t hi = std::max<std::int64_t>(lo, std::max(opt.worldPopRangeMin, opt.worldPopRangeMax));
+        rt.ctx.config.world.population.minValue = lo;
+        rt.ctx.config.world.population.maxValue = hi;
+    }
+    if (opt.spawnDisable) {
+        rt.ctx.config.spawn.enabled = false;
+    }
+    if (opt.spawnMaskOverrideSet) {
+        rt.ctx.config.spawn.maskPath = opt.spawnMaskPath;
+    }
+    if (!opt.spawnRegionShareOverrides.empty()) {
+        if (rt.ctx.config.spawn.regions.empty()) {
+            rt.ctx.config.spawn.regions = SimulationConfig::defaultSpawnRegions();
+        }
+        std::unordered_map<std::string, size_t> byKey;
+        byKey.reserve(rt.ctx.config.spawn.regions.size());
+        for (size_t i = 0; i < rt.ctx.config.spawn.regions.size(); ++i) {
+            byKey.emplace(rt.ctx.config.spawn.regions[i].key, i);
+        }
+        for (const auto& kv : opt.spawnRegionShareOverrides) {
+            const auto it = byKey.find(kv.first);
+            if (it == byKey.end()) {
+                if (errorOut) {
+                    *errorOut = "Unknown --spawn-region-share key: " + kv.first;
+                }
+                return false;
+            }
+            rt.ctx.config.spawn.regions[it->second].worldShare = std::max(0.0, kv.second);
+        }
     }
 
     if (!loadCommonImages(rt, errorOut)) {
@@ -985,11 +1103,20 @@ bool initializeRuntime(CliRuntime& rt,
     rt.countries.clear();
     rt.countries.reserve(maxCountries);
 
-    if (!rt.map->loadSpawnZones("assets/images/spawn.png")) {
-        if (errorOut) *errorOut = "Could not load spawn zones.";
+    if (rt.ctx.config.spawn.enabled) {
+        const std::string spawnMaskPath = rt.ctx.config.spawn.maskPath.empty()
+            ? std::string("assets/images/spawn.png")
+            : rt.ctx.config.spawn.maskPath;
+        if (!rt.map->loadSpawnZones(spawnMaskPath)) {
+            if (errorOut) *errorOut = "Could not load spawn zones: " + spawnMaskPath;
+            return false;
+        }
+    }
+    rt.map->initializeCountries(rt.countries, numCountries, &rt.technologyManager);
+    if (rt.countries.empty()) {
+        if (errorOut) *errorOut = "Country initialization produced zero countries.";
         return false;
     }
-    rt.map->initializeCountries(rt.countries, numCountries);
     return true;
 }
 

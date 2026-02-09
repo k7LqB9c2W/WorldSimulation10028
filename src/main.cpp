@@ -363,17 +363,15 @@ int main(int argc, char** argv) {
     Renderer tempRenderer(window, map, waterColor);
     tempRenderer.showLoadingScreen();
 
-    // Load spawn zones before initializing countries
-    if (!map.loadSpawnZones("assets/images/spawn.png")) {
-        return -1;
+    if (ctx.config.spawn.enabled) {
+        const std::string spawnMaskPath = ctx.config.spawn.maskPath.empty()
+            ? std::string("assets/images/spawn.png")
+            : ctx.config.spawn.maskPath;
+        if (!map.loadSpawnZones(spawnMaskPath)) {
+            std::cerr << "Error: Could not load spawn mask at " << spawnMaskPath << std::endl;
+            return -1;
+        }
     }
-
-    std::cout << "🚀 SPAWNING COUNTRIES..." << std::endl;
-    auto countryStart = std::chrono::high_resolution_clock::now();
-    map.initializeCountries(countries, numCountries);
-    auto countryEnd = std::chrono::high_resolution_clock::now();
-    auto countryDuration = std::chrono::duration_cast<std::chrono::milliseconds>(countryEnd - countryStart);
-    std::cout << "✅ " << countries.size() << " COUNTRIES SPAWNED in " << countryDuration.count() << " ms" << std::endl;
 
     // Initialize the TechnologyManager
     TechnologyManager technologyManager;
@@ -442,6 +440,17 @@ int main(int argc, char** argv) {
     int currentYear = configuredDefaultStartYear;
     std::string simulationStartYearInput = std::to_string(requestedStartupYear);
     std::string simulationStartYearInputError;
+    const bool configPopulationFixed =
+        (ctx.config.world.population.mode == SimulationConfig::WorldPopulationConfig::Mode::Fixed);
+    bool simulationStartupPopulationFixed = configPopulationFixed;
+    std::string simulationStartupPopulationFixedInput =
+        std::to_string(std::max<std::int64_t>(1, ctx.config.world.population.fixedValue));
+    std::string simulationStartupPopulationMinInput =
+        std::to_string(std::max<std::int64_t>(1, ctx.config.world.population.minValue));
+    std::string simulationStartupPopulationMaxInput =
+        std::to_string(std::max<std::int64_t>(1, ctx.config.world.population.maxValue));
+    bool simulationStartupUseRegionalSpawnMask = ctx.config.spawn.enabled;
+    bool simulationStartupStartTechPresetsEnabled = ctx.config.startTech.enabled;
     bool simulationStartYearPromptMode = true;
     bool simulationStartYearFocusInputNextFrame = true;
     int simulationStartYearInputSessionId = 0;
@@ -1726,10 +1735,10 @@ int main(int argc, char** argv) {
                         const ImVec2 center(static_cast<float>(window.getSize().x) * 0.5f,
                                             static_cast<float>(window.getSize().y) * 0.5f);
                         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-                        ImGui::SetNextWindowSize(ImVec2(540.0f, 0.0f), ImGuiCond_Appearing);
+                        ImGui::SetNextWindowSize(ImVec2(620.0f, 0.0f), ImGuiCond_Appearing);
                         ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
                         if (ImGui::Begin("Simulation Start Year", nullptr, flags)) {
-                            ImGui::TextUnformatted("Choose the year where the simulation begins.");
+                            ImGui::TextUnformatted("Choose startup settings before the simulation begins.");
                             ImGui::Text("Allowed range: %d to %d", kEarliestSupportedStartYear, ctx.config.world.endYear);
                             ImGui::Text("Default from config: %d", configuredDefaultStartYear);
                             if (simulationStartYearFocusInputNextFrame) {
@@ -1742,6 +1751,43 @@ int main(int argc, char** argv) {
                                 label.c_str(),
                                 &simulationStartYearInput,
                                 ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue);
+
+                            ImGui::Separator();
+                            ImGui::TextUnformatted("Initial World Population");
+                            if (ImGui::RadioButton("Fixed", simulationStartupPopulationFixed)) {
+                                simulationStartupPopulationFixed = true;
+                            }
+                            ImGui::SameLine();
+                            if (ImGui::RadioButton("Range", !simulationStartupPopulationFixed)) {
+                                simulationStartupPopulationFixed = false;
+                            }
+                            if (simulationStartupPopulationFixed) {
+                                ImGui::InputText("Fixed Population", &simulationStartupPopulationFixedInput);
+                            } else {
+                                ImGui::InputText("Population Min", &simulationStartupPopulationMinInput);
+                                ImGui::InputText("Population Max", &simulationStartupPopulationMaxInput);
+                            }
+
+                            ImGui::Separator();
+                            ImGui::Checkbox("Use regional spawn mask", &simulationStartupUseRegionalSpawnMask);
+
+                            bool yearPreviewValid = false;
+                            int yearPreview = 0;
+                            try {
+                                yearPreview = std::stoi(simulationStartYearInput);
+                                yearPreviewValid = true;
+                            } catch (...) {
+                                yearPreviewValid = false;
+                            }
+                            const bool presetsYearMatch = yearPreviewValid && (yearPreview == ctx.config.startTech.triggerYear);
+                            if (!presetsYearMatch) {
+                                ImGui::BeginDisabled();
+                            }
+                            ImGui::Checkbox("5000 BCE starting tech presets", &simulationStartupStartTechPresetsEnabled);
+                            if (!presetsYearMatch) {
+                                ImGui::EndDisabled();
+                                ImGui::TextDisabled("Presets apply only when Start Year == %d.", ctx.config.startTech.triggerYear);
+                            }
 
                             auto tryApplyStartYear = [&]() {
                                 if (simulationStartYearInput.empty()) {
@@ -1765,6 +1811,67 @@ int main(int argc, char** argv) {
                                     return;
                                 }
 
+                                ctx.config.world.startYear = requestedYear;
+                                if (simulationStartupPopulationFixed) {
+                                    long long fixedValue = 0;
+                                    try {
+                                        fixedValue = std::stoll(simulationStartupPopulationFixedInput);
+                                    } catch (...) {
+                                        simulationStartYearInputError = "Fixed population must be a positive integer.";
+                                        return;
+                                    }
+                                    if (fixedValue <= 0) {
+                                        simulationStartYearInputError = "Fixed population must be greater than 0.";
+                                        return;
+                                    }
+                                    ctx.config.world.population.mode = SimulationConfig::WorldPopulationConfig::Mode::Fixed;
+                                    ctx.config.world.population.fixedValue = static_cast<std::int64_t>(fixedValue);
+                                } else {
+                                    long long minValue = 0;
+                                    long long maxValue = 0;
+                                    try {
+                                        minValue = std::stoll(simulationStartupPopulationMinInput);
+                                        maxValue = std::stoll(simulationStartupPopulationMaxInput);
+                                    } catch (...) {
+                                        simulationStartYearInputError = "Population range min/max must be integers.";
+                                        return;
+                                    }
+                                    if (minValue <= 0 || maxValue <= 0 || maxValue < minValue) {
+                                        simulationStartYearInputError = "Population range must satisfy: min>0 and max>=min.";
+                                        return;
+                                    }
+                                    ctx.config.world.population.mode = SimulationConfig::WorldPopulationConfig::Mode::Range;
+                                    ctx.config.world.population.minValue = static_cast<std::int64_t>(minValue);
+                                    ctx.config.world.population.maxValue = static_cast<std::int64_t>(maxValue);
+                                }
+
+                                ctx.config.spawn.enabled = simulationStartupUseRegionalSpawnMask;
+                                ctx.config.startTech.enabled = simulationStartupStartTechPresetsEnabled;
+                                if (ctx.config.spawn.enabled) {
+                                    const std::string spawnMaskPath = ctx.config.spawn.maskPath.empty()
+                                        ? std::string("assets/images/spawn.png")
+                                        : ctx.config.spawn.maskPath;
+                                    if (!map.loadSpawnZones(spawnMaskPath)) {
+                                        simulationStartYearInputError = "Could not load spawn mask: " + spawnMaskPath;
+                                        return;
+                                    }
+                                }
+                                map.tickWeather(requestedYear, 1);
+
+                                std::cout << "🚀 SPAWNING COUNTRIES..." << std::endl;
+                                auto countryStart = std::chrono::high_resolution_clock::now();
+                                map.initializeCountries(countries, numCountries, &technologyManager);
+                                auto countryEnd = std::chrono::high_resolution_clock::now();
+                                auto countryDuration = std::chrono::duration_cast<std::chrono::milliseconds>(countryEnd - countryStart);
+                                if (countries.empty()) {
+                                    simulationStartYearInputError = "Country initialization failed (0 countries created).";
+                                    return;
+                                }
+                                std::cout << "✅ " << countries.size() << " COUNTRIES SPAWNED in "
+                                          << countryDuration.count() << " ms" << std::endl;
+                                economy.onTerritoryChanged(map);
+                                economy.onStaticResourcesChanged(map);
+
                                 currentYear = requestedYear;
                                 renderer.updateYearText(currentYear);
                                 simulationStartYearPromptMode = false;
@@ -1777,6 +1884,15 @@ int main(int argc, char** argv) {
                             ImGui::SameLine();
                             if (ImGui::Button("Use Default")) {
                                 simulationStartYearInput = std::to_string(configuredDefaultStartYear);
+                                simulationStartupPopulationFixed = configPopulationFixed;
+                                simulationStartupPopulationFixedInput =
+                                    std::to_string(std::max<std::int64_t>(1, ctx.config.world.population.fixedValue));
+                                simulationStartupPopulationMinInput =
+                                    std::to_string(std::max<std::int64_t>(1, ctx.config.world.population.minValue));
+                                simulationStartupPopulationMaxInput =
+                                    std::to_string(std::max<std::int64_t>(1, ctx.config.world.population.maxValue));
+                                simulationStartupUseRegionalSpawnMask = ctx.config.spawn.enabled;
+                                simulationStartupStartTechPresetsEnabled = ctx.config.startTech.enabled;
                                 simulationStartYearInputError.clear();
                                 simulationStartYearFocusInputNextFrame = true;
                                 simulationStartYearInputSessionId++;

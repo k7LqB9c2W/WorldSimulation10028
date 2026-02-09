@@ -12,6 +12,9 @@
 #include <iomanip>
 #include <limits>
 #include <queue>
+#include <deque>
+#include <map>
+#include <set>
 #include <unordered_set>
 #include <cmath>
 #include <algorithm>
@@ -138,6 +141,100 @@ double paleoPrecipOffset01(int year) {
         return -0.01 + t * (0.01); // -0.01 -> 0
     }
     return 0.0;
+}
+
+struct SpawnRgbKey {
+    int r = 0;
+    int g = 0;
+    int b = 0;
+
+    bool operator<(const SpawnRgbKey& other) const {
+        if (r != other.r) return r < other.r;
+        if (g != other.g) return g < other.g;
+        return b < other.b;
+    }
+};
+
+SpawnRgbKey makeSpawnRgbKey(const SimulationConfig::SpawnRegionConfig& cfg) {
+    return SpawnRgbKey{
+        std::clamp(cfg.r, 0, 255),
+        std::clamp(cfg.g, 0, 255),
+        std::clamp(cfg.b, 0, 255),
+    };
+}
+
+int colorDistanceSq(const sf::Color& a, const SpawnRgbKey& b) {
+    const int dr = static_cast<int>(a.r) - b.r;
+    const int dg = static_cast<int>(a.g) - b.g;
+    const int db = static_cast<int>(a.b) - b.b;
+    return dr * dr + dg * dg + db * db;
+}
+
+sf::Vector2f defaultAnchorForRegion(const SimulationConfig::SpawnRegionConfig& region) {
+    if (region.anchorX >= 0.0 && region.anchorY >= 0.0) {
+        return sf::Vector2f(static_cast<float>(std::clamp(region.anchorX, 0.0, 1.0)),
+                            static_cast<float>(std::clamp(region.anchorY, 0.0, 1.0)));
+    }
+    if (region.key == "med_europe") return sf::Vector2f(0.52f, 0.35f);
+    if (region.key == "oceania") return sf::Vector2f(0.82f, 0.76f);
+    return sf::Vector2f(0.5f, 0.5f);
+}
+
+std::vector<std::int64_t> allocateLargestRemainder(const std::vector<double>& rawShares, std::int64_t total) {
+    const int n = static_cast<int>(rawShares.size());
+    std::vector<std::int64_t> out(static_cast<size_t>(n), 0);
+    if (n <= 0 || total <= 0) {
+        return out;
+    }
+
+    std::vector<double> shares(static_cast<size_t>(n), 0.0);
+    double sum = 0.0;
+    for (int i = 0; i < n; ++i) {
+        const double v = std::max(0.0, rawShares[static_cast<size_t>(i)]);
+        shares[static_cast<size_t>(i)] = v;
+        sum += v;
+    }
+    if (sum <= 0.0) {
+        const std::int64_t base = total / static_cast<std::int64_t>(n);
+        const std::int64_t rem = total % static_cast<std::int64_t>(n);
+        for (int i = 0; i < n; ++i) {
+            out[static_cast<size_t>(i)] = base + ((i < rem) ? 1 : 0);
+        }
+        return out;
+    }
+
+    struct FractionalPart {
+        int idx = 0;
+        double frac = 0.0;
+    };
+    std::vector<FractionalPart> remainders;
+    remainders.reserve(static_cast<size_t>(n));
+
+    std::int64_t assigned = 0;
+    for (int i = 0; i < n; ++i) {
+        const double exact = static_cast<double>(total) * (shares[static_cast<size_t>(i)] / sum);
+        const std::int64_t base = static_cast<std::int64_t>(std::floor(exact));
+        out[static_cast<size_t>(i)] = base;
+        assigned += base;
+        remainders.push_back(FractionalPart{i, exact - static_cast<double>(base)});
+    }
+
+    std::sort(remainders.begin(), remainders.end(), [](const FractionalPart& a, const FractionalPart& b) {
+        if (a.frac != b.frac) return a.frac > b.frac;
+        return a.idx < b.idx;
+    });
+
+    const std::int64_t remaining = total - assigned;
+    for (std::int64_t i = 0; i < remaining && i < n; ++i) {
+        out[static_cast<size_t>(remainders[static_cast<size_t>(i)].idx)] += 1;
+    }
+    return out;
+}
+
+std::vector<int> stableUniqueSorted(std::vector<int> values) {
+    std::sort(values.begin(), values.end());
+    values.erase(std::unique(values.begin(), values.end()), values.end());
+    return values;
 }
 } // namespace
 
@@ -2290,13 +2387,39 @@ sf::Vector2i Map::getRandomCellInPreferredZones(std::mt19937_64& gen) {
     }
 }
 
-void Map::initializeCountries(std::vector<Country>& countries, int numCountries) {
+void Map::initializeCountries(std::vector<Country>& countries,
+                              int numCountries,
+                              TechnologyManager* technologyManager) {
     attachCountriesForOwnershipSync(&countries);
+
+    countries.clear();
+    {
+        std::lock_guard<std::mutex> lock(m_gridMutex);
+        for (auto& row : m_countryGrid) {
+            std::fill(row.begin(), row.end(), -1);
+        }
+    }
+    m_dirtyRegions.clear();
+    m_countryAdjacencySize = 0;
+    m_countryAdjacency.clear();
+    m_countryAdjacencyBits.clear();
+    m_countryBorderContactCounts.clear();
+    m_countryLandCellCount.clear();
+    m_countryFoodPotential.clear();
+    m_countryForagingPotential.clear();
+    m_countryFarmingPotential.clear();
+    m_countryOrePotential.clear();
+    m_countryEnergyPotential.clear();
+    m_countryConstructionPotential.clear();
+    m_countryNonFoodPotential.clear();
+    m_countryControlCache.clear();
+    m_localAutonomyByCenter.clear();
+    m_lastLocalAutonomyUpdateYear = -9999999;
+    m_lastPopulationUpdateYear = -9999999;
+
     std::mt19937_64& rng = m_ctx->worldRng;
     std::uniform_int_distribution<> colorDist(50, 255);
     std::uniform_real_distribution<> growthRateDist(0.0003, 0.001); // Legacy - not used in logistic system
-    std::uniform_real_distribution<> spawnDist(0.0, 1.0);
-
     std::uniform_int_distribution<> typeDist(0, 2);
     const int gridH = static_cast<int>(m_isLandGrid.size());
     const int gridW = (gridH > 0) ? static_cast<int>(m_isLandGrid[0].size()) : 0;
@@ -2304,14 +2427,8 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
         return;
     }
 
-    // Build deterministic, unique spawn pools (preferred-zone land + all land).
-    std::vector<int> preferredLandCells;
     std::vector<int> allLandCells;
-    preferredLandCells.reserve(static_cast<size_t>(gridW * gridH / 8));
     allLandCells.reserve(static_cast<size_t>(gridW * gridH / 2));
-    const bool spawnZoneMatchesGrid =
-        (static_cast<int>(m_spawnZoneImage.getSize().x) == gridW &&
-         static_cast<int>(m_spawnZoneImage.getSize().y) == gridH);
     for (int y = 0; y < gridH; ++y) {
         for (int x = 0; x < gridW; ++x) {
             if (!m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) {
@@ -2319,22 +2436,291 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
             }
             const int packed = y * gridW + x;
             allLandCells.push_back(packed);
-            if (spawnZoneMatchesGrid && m_spawnZoneImage.getPixel(static_cast<unsigned int>(x), static_cast<unsigned int>(y)) == m_spawnZoneColor) {
-                preferredLandCells.push_back(packed);
-            }
         }
     }
-    std::shuffle(preferredLandCells.begin(), preferredLandCells.end(), rng);
-    std::shuffle(allLandCells.begin(), allLandCells.end(), rng);
+    if (allLandCells.empty()) {
+        return;
+    }
+
+    const int targetCountries = std::max(0, std::min(numCountries, static_cast<int>(allLandCells.size())));
+    if (targetCountries < numCountries) {
+        std::cout << "[SpawnInit] Warning: requested " << numCountries << " countries but only " << targetCountries
+                  << " unique land cells are available." << std::endl;
+    }
+    if (targetCountries <= 0) {
+        return;
+    }
+
+    const SimulationConfig& cfg = m_ctx->config;
+
+    std::vector<SimulationConfig::SpawnRegionConfig> regions;
+    if (!cfg.spawn.enabled) {
+        regions.push_back(SimulationConfig::SpawnRegionConfig{
+            "global", "Global", 255, 255, 255, 1.0, 0, -1.0, -1.0
+        });
+    } else if (!cfg.spawn.regions.empty()) {
+        regions = cfg.spawn.regions;
+    } else {
+        regions = SimulationConfig::defaultSpawnRegions();
+    }
+    if (regions.empty()) {
+        regions.push_back(SimulationConfig::SpawnRegionConfig{
+            "global", "Global", 255, 255, 255, 1.0, 0, -1.0, -1.0
+        });
+    }
+
+    double regionShareSum = 0.0;
+    for (auto& region : regions) {
+        if (region.key.empty()) {
+            region.key = "region_" + std::to_string(&region - &regions[0]);
+        }
+        if (region.name.empty()) {
+            region.name = region.key;
+        }
+        if (region.worldShare < 0.0) {
+            std::cout << "[SpawnInit] Warning: negative share for region '" << region.key
+                      << "' clamped to 0.\n";
+            region.worldShare = 0.0;
+        }
+        regionShareSum += region.worldShare;
+    }
+    if (regionShareSum <= 0.0) {
+        const double uniform = 1.0 / static_cast<double>(regions.size());
+        for (auto& region : regions) {
+            region.worldShare = uniform;
+        }
+    } else if (std::abs(regionShareSum - 1.0) > 1.0e-6) {
+        std::cout << "[SpawnInit] Warning: spawn region shares sum to " << regionShareSum
+                  << "; renormalizing to 1.0.\n";
+        for (auto& region : regions) {
+            region.worldShare /= regionShareSum;
+        }
+    }
+
+    std::vector<SpawnRgbKey> regionColors;
+    regionColors.reserve(regions.size());
+    for (const auto& region : regions) {
+        regionColors.push_back(makeSpawnRgbKey(region));
+    }
+
+    std::map<SpawnRgbKey, std::vector<int>> rgbToRegionIndices;
+    for (int i = 0; i < static_cast<int>(regions.size()); ++i) {
+        rgbToRegionIndices[regionColors[static_cast<size_t>(i)]].push_back(i);
+    }
+    std::vector<SpawnRgbKey> duplicateColors;
+    for (const auto& kv : rgbToRegionIndices) {
+        if (kv.second.size() > 1u) {
+            duplicateColors.push_back(kv.first);
+        }
+    }
+    if (!duplicateColors.empty() &&
+        cfg.spawn.dupMode == SimulationConfig::SpawnConfig::DuplicateColorMode::ErrorOnDuplicate) {
+        std::cout << "[SpawnInit] Error: duplicate RGB keys detected in spawn.regions and dupMode=ErrorOnDuplicate.\n";
+        return;
+    }
+
     std::vector<uint8_t> spawnTaken(static_cast<size_t>(gridW) * static_cast<size_t>(gridH), 0u);
-    size_t prefCursor = 0;
-    size_t allCursor = 0;
-    auto claimFromPool = [&](const std::vector<int>& pool, size_t& cursor, sf::Vector2i& out) -> bool {
+    std::vector<sf::Color> sampledMaskColors(spawnTaken.size(), sf::Color(0, 0, 0, 255));
+    const bool spawnMaskUsable = cfg.spawn.enabled &&
+        m_spawnZoneImage.getSize().x > 0 &&
+        m_spawnZoneImage.getSize().y > 0;
+    const int imgW = spawnMaskUsable ? static_cast<int>(m_spawnZoneImage.getSize().x) : 0;
+    const int imgH = spawnMaskUsable ? static_cast<int>(m_spawnZoneImage.getSize().y) : 0;
+    auto sampleMaskAt = [&](int x, int y) -> sf::Color {
+        if (!spawnMaskUsable || imgW <= 0 || imgH <= 0) {
+            return sf::Color(0, 0, 0, 255);
+        }
+        const int sx = std::clamp((x * imgW) / std::max(1, gridW), 0, imgW - 1);
+        const int sy = std::clamp((y * imgH) / std::max(1, gridH), 0, imgH - 1);
+        return m_spawnZoneImage.getPixel(static_cast<unsigned int>(sx), static_cast<unsigned int>(sy));
+    };
+    if (spawnMaskUsable) {
+        for (int packed : allLandCells) {
+            const int x = packed % gridW;
+            const int y = packed / gridW;
+            sampledMaskColors[static_cast<size_t>(packed)] = sampleMaskAt(x, y);
+        }
+    }
+
+    std::vector<std::vector<int>> regionLandCells(regions.size());
+    std::vector<size_t> regionCursor(regions.size(), 0u);
+    std::vector<int> cellRegionHint(spawnTaken.size(), -1);
+    std::vector<int> duplicateOverride(spawnTaken.size(), -1);
+    const int tolerance = std::clamp(cfg.spawn.colorTolerance, 0, 255);
+    const int toleranceSq3 = tolerance * tolerance * 3;
+    std::vector<std::string> zeroLandRegionKeys;
+    std::map<std::string, int> spillCounters;
+
+    if (spawnMaskUsable) {
+        if (!duplicateColors.empty() &&
+            cfg.spawn.dupMode == SimulationConfig::SpawnConfig::DuplicateColorMode::SplitConnectedComponents) {
+            for (const SpawnRgbKey& rgb : duplicateColors) {
+                auto dupIt = rgbToRegionIndices.find(rgb);
+                if (dupIt == rgbToRegionIndices.end() || dupIt->second.empty()) {
+                    continue;
+                }
+                const auto& duplicateRegionIndices = dupIt->second;
+                std::vector<uint8_t> matches(spawnTaken.size(), 0u);
+                for (int packed : allLandCells) {
+                    const int distSq = colorDistanceSq(sampledMaskColors[static_cast<size_t>(packed)], rgb);
+                    if (distSq <= toleranceSq3) {
+                        matches[static_cast<size_t>(packed)] = 1u;
+                    }
+                }
+                std::vector<uint8_t> visited(spawnTaken.size(), 0u);
+                struct Component {
+                    std::vector<int> cells;
+                    double cx = 0.0;
+                    double cy = 0.0;
+                };
+                std::vector<Component> components;
+                components.reserve(8);
+                for (int packed : allLandCells) {
+                    const size_t idx = static_cast<size_t>(packed);
+                    if (!matches[idx] || visited[idx]) continue;
+                    std::deque<int> q;
+                    q.push_back(packed);
+                    visited[idx] = 1u;
+                    Component c{};
+                    while (!q.empty()) {
+                        const int cur = q.front();
+                        q.pop_front();
+                        c.cells.push_back(cur);
+                        const int x = cur % gridW;
+                        const int y = cur / gridW;
+                        c.cx += static_cast<double>(x);
+                        c.cy += static_cast<double>(y);
+                        for (int dy = -1; dy <= 1; ++dy) {
+                            for (int dx = -1; dx <= 1; ++dx) {
+                                if (dx == 0 && dy == 0) continue;
+                                const int nx = x + dx;
+                                const int ny = y + dy;
+                                if (nx < 0 || ny < 0 || nx >= gridW || ny >= gridH) continue;
+                                const int npacked = ny * gridW + nx;
+                                const size_t nidx = static_cast<size_t>(npacked);
+                                if (!matches[nidx] || visited[nidx]) continue;
+                                visited[nidx] = 1u;
+                                q.push_back(npacked);
+                            }
+                        }
+                    }
+                    if (!c.cells.empty()) {
+                        const double inv = 1.0 / static_cast<double>(c.cells.size());
+                        c.cx = (c.cx * inv) / static_cast<double>(std::max(1, gridW - 1));
+                        c.cy = (c.cy * inv) / static_cast<double>(std::max(1, gridH - 1));
+                        components.push_back(std::move(c));
+                    }
+                }
+                for (const Component& comp : components) {
+                    int bestRegion = duplicateRegionIndices.front();
+                    double bestDist = std::numeric_limits<double>::infinity();
+                    for (int regionIdx : duplicateRegionIndices) {
+                        const sf::Vector2f anchor = defaultAnchorForRegion(regions[static_cast<size_t>(regionIdx)]);
+                        const double dx = comp.cx - static_cast<double>(anchor.x);
+                        const double dy = comp.cy - static_cast<double>(anchor.y);
+                        const double d2 = dx * dx + dy * dy;
+                        if (d2 < bestDist) {
+                            bestDist = d2;
+                            bestRegion = regionIdx;
+                        }
+                    }
+                    for (int packed : comp.cells) {
+                        duplicateOverride[static_cast<size_t>(packed)] = bestRegion;
+                    }
+                }
+            }
+        }
+
+        for (int packed : allLandCells) {
+            int assignedRegion = duplicateOverride[static_cast<size_t>(packed)];
+            if (assignedRegion < 0) {
+                const sf::Color pixel = sampledMaskColors[static_cast<size_t>(packed)];
+                int exactRegion = -1;
+                for (int i = 0; i < static_cast<int>(regions.size()); ++i) {
+                    if (static_cast<int>(pixel.r) == regionColors[static_cast<size_t>(i)].r &&
+                        static_cast<int>(pixel.g) == regionColors[static_cast<size_t>(i)].g &&
+                        static_cast<int>(pixel.b) == regionColors[static_cast<size_t>(i)].b) {
+                        exactRegion = i;
+                        break;
+                    }
+                }
+                if (exactRegion >= 0) {
+                    assignedRegion = exactRegion;
+                } else {
+                    int bestDistSq = std::numeric_limits<int>::max();
+                    int bestRegion = -1;
+                    for (int i = 0; i < static_cast<int>(regions.size()); ++i) {
+                        const int distSq = colorDistanceSq(pixel, regionColors[static_cast<size_t>(i)]);
+                        if (distSq < bestDistSq) {
+                            bestDistSq = distSq;
+                            bestRegion = i;
+                        }
+                    }
+                    if (bestRegion >= 0 && bestDistSq <= toleranceSq3) {
+                        assignedRegion = bestRegion;
+                    }
+                }
+            }
+
+            if (assignedRegion >= 0 && assignedRegion < static_cast<int>(regions.size())) {
+                regionLandCells[static_cast<size_t>(assignedRegion)].push_back(packed);
+                cellRegionHint[static_cast<size_t>(packed)] = assignedRegion;
+            }
+        }
+    } else {
+        regionLandCells.front() = allLandCells;
+        for (int packed : allLandCells) {
+            cellRegionHint[static_cast<size_t>(packed)] = 0;
+        }
+        if (cfg.spawn.enabled) {
+            std::cout << "[SpawnInit] Warning: spawn mask is enabled but not loaded; falling back to non-regional spawning.\n";
+        }
+    }
+
+    bool anyRegionHasLand = false;
+    for (size_t r = 0; r < regionLandCells.size(); ++r) {
+        if (!regionLandCells[r].empty()) {
+            anyRegionHasLand = true;
+        } else {
+            zeroLandRegionKeys.push_back(regions[r].key);
+        }
+    }
+    if (!anyRegionHasLand) {
+        regionLandCells.front() = allLandCells;
+        std::fill(cellRegionHint.begin(), cellRegionHint.end(), -1);
+        for (int packed : allLandCells) {
+            cellRegionHint[static_cast<size_t>(packed)] = 0;
+        }
+        zeroLandRegionKeys.clear();
+    }
+
+    for (auto& pool : regionLandCells) {
+        std::shuffle(pool.begin(), pool.end(), rng);
+    }
+    std::shuffle(allLandCells.begin(), allLandCells.end(), rng);
+    size_t allCursor = 0u;
+
+    auto claimFromRegionPool = [&](int regionIndex, sf::Vector2i& out) -> bool {
+        if (regionIndex < 0 || regionIndex >= static_cast<int>(regionLandCells.size())) {
+            return false;
+        }
+        auto& pool = regionLandCells[static_cast<size_t>(regionIndex)];
+        size_t& cursor = regionCursor[static_cast<size_t>(regionIndex)];
         while (cursor < pool.size()) {
             const int packed = pool[cursor++];
-            if (packed < 0) continue;
             const size_t idx = static_cast<size_t>(packed);
-            if (idx >= spawnTaken.size()) continue;
+            if (spawnTaken[idx] != 0u) continue;
+            spawnTaken[idx] = 1u;
+            out.x = packed % gridW;
+            out.y = packed / gridW;
+            return true;
+        }
+        return false;
+    };
+    auto claimFromAllLand = [&](sf::Vector2i& out) -> bool {
+        while (allCursor < allLandCells.size()) {
+            const int packed = allLandCells[allCursor++];
+            const size_t idx = static_cast<size_t>(packed);
             if (spawnTaken[idx] != 0u) continue;
             spawnTaken[idx] = 1u;
             out.x = packed % gridW;
@@ -2344,79 +2730,206 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
         return false;
     };
 
-    // ============================================================
-    // Phase 0: realistic start-year global population (heavy tail)
-    // ============================================================
-    const long long worldPopMin = 5'000'000;
-    const long long worldPopMax = 20'000'000;
-    std::uniform_int_distribution<long long> worldPopDist(worldPopMin, worldPopMax);
-    const long long worldPopTarget = worldPopDist(rng);
-    std::cout << "World start population target: " << worldPopTarget << " (seed " << m_ctx->worldSeed << ")" << std::endl;
-
-    const long long minPop = 1'000;
-    const long long maxPop = 300'000;
-    const int nC = std::max(1, numCountries);
-
-    std::normal_distribution<double> normal01(0.0, 1.0);
-    std::vector<double> weights(static_cast<size_t>(nC), 1.0);
-    double sumW = 0.0;
-    for (int i = 0; i < nC; ++i) {
-        const double w = std::exp(normal01(rng)); // lognormal heavy tail
-        weights[static_cast<size_t>(i)] = w;
-        sumW += w;
+    std::int64_t worldPopTarget = 10'000'000;
+    if (cfg.world.population.mode == SimulationConfig::WorldPopulationConfig::Mode::Fixed) {
+        worldPopTarget = std::max<std::int64_t>(1, cfg.world.population.fixedValue);
+    } else {
+        const std::int64_t minPop = std::max<std::int64_t>(1, cfg.world.population.minValue);
+        const std::int64_t maxPop = std::max<std::int64_t>(minPop, cfg.world.population.maxValue);
+        std::uniform_int_distribution<std::int64_t> dist(minPop, maxPop);
+        worldPopTarget = dist(rng);
     }
-    if (sumW <= 1e-9) sumW = 1.0;
+    std::cout << "[SpawnInit] worldPopTarget=" << worldPopTarget
+              << " startYear=" << m_ctx->config.world.startYear << "\n";
 
-    std::vector<long long> startPop(static_cast<size_t>(nC), minPop);
-    long long assigned = 0;
-    for (int i = 0; i < nC; ++i) {
-        const double share = static_cast<double>(worldPopTarget) * (weights[static_cast<size_t>(i)] / sumW);
-        long long p = static_cast<long long>(std::llround(share));
-        p = std::max(minPop, std::min(maxPop, p));
-        startPop[static_cast<size_t>(i)] = p;
-        assigned += p;
+    std::vector<double> shares;
+    shares.reserve(regions.size());
+    for (const auto& region : regions) {
+        shares.push_back(std::max(0.0, region.worldShare));
     }
+    const std::vector<std::int64_t> regionPopTargets = allocateLargestRemainder(shares, worldPopTarget);
 
-    long long diff = worldPopTarget - assigned;
-    std::vector<int> order(static_cast<size_t>(nC), 0);
-    for (int i = 0; i < nC; ++i) order[static_cast<size_t>(i)] = i;
-    std::shuffle(order.begin(), order.end(), rng);
-    if (diff > 0) {
-        for (int idx : order) {
-            if (diff <= 0) break;
-            long long& p = startPop[static_cast<size_t>(idx)];
-            const long long room = maxPop - p;
-            if (room <= 0) continue;
-            const long long add = std::min(room, diff);
-            p += add;
-            diff -= add;
-        }
-    } else if (diff < 0) {
-        for (int idx : order) {
-            if (diff >= 0) break;
-            long long& p = startPop[static_cast<size_t>(idx)];
-            const long long room = p - minPop;
-            if (room <= 0) continue;
-            const long long sub = std::min(room, -diff);
-            p -= sub;
-            diff += sub;
+    std::vector<double> countryCountShares = shares;
+    for (size_t r = 0; r < countryCountShares.size(); ++r) {
+        if (regionLandCells[r].empty()) {
+            countryCountShares[r] = 0.0;
         }
     }
-    // Final safety: if any remainder persists (should be rare), resolve with small random nudges.
-    if (diff != 0) {
-        std::uniform_int_distribution<int> pick(0, nC - 1);
-        int guard = 0;
-        while (diff != 0 && guard++ < 5'000'000) {
-            const int idx = pick(rng);
-            long long& p = startPop[static_cast<size_t>(idx)];
-            if (diff > 0 && p < maxPop) {
-                p += 1;
-                diff -= 1;
-            } else if (diff < 0 && p > minPop) {
-                p -= 1;
-                diff += 1;
+    const std::vector<std::int64_t> regionCountryTarget64 =
+        allocateLargestRemainder(countryCountShares, static_cast<std::int64_t>(targetCountries));
+    std::vector<int> regionCountryTargets(regionCountryTarget64.size(), 0);
+    for (size_t i = 0; i < regionCountryTarget64.size(); ++i) {
+        regionCountryTargets[i] = static_cast<int>(std::max<std::int64_t>(0, regionCountryTarget64[i]));
+    }
+
+    struct SpawnPlacement {
+        sf::Vector2i cell{};
+        int requestedRegion = -1;
+        int actualRegion = -1;
+    };
+    std::vector<SpawnPlacement> placements;
+    placements.reserve(static_cast<size_t>(targetCountries));
+    auto noteSpill = [&](const std::string& stage, int from, int to) {
+        const std::string key = stage + "|" + std::to_string(from) + "|" + std::to_string(to);
+        spillCounters[key] += 1;
+    };
+
+    auto claimFromCandidateRegions = [&](const std::vector<int>& candidates,
+                                         int requestedRegion,
+                                         const char* spillStage,
+                                         sf::Vector2i& outCell,
+                                         int& outActualRegion) -> bool {
+        for (int regionIndex : candidates) {
+            if (claimFromRegionPool(regionIndex, outCell)) {
+                outActualRegion = regionIndex;
+                if (spillStage != nullptr) {
+                    noteSpill(spillStage, requestedRegion, regionIndex);
+                }
+                return true;
             }
         }
+        return false;
+    };
+
+    std::vector<int> anyRegionOrder(static_cast<int>(regions.size()), 0);
+    for (int i = 0; i < static_cast<int>(regions.size()); ++i) {
+        anyRegionOrder[static_cast<size_t>(i)] = i;
+    }
+
+    for (int requestedRegion = 0;
+         requestedRegion < static_cast<int>(regions.size()) &&
+         static_cast<int>(placements.size()) < targetCountries;
+         ++requestedRegion) {
+        const int targetCount = regionCountryTargets[static_cast<size_t>(requestedRegion)];
+        for (int c = 0; c < targetCount && static_cast<int>(placements.size()) < targetCountries; ++c) {
+            sf::Vector2i chosenCell;
+            int actualRegion = requestedRegion;
+            bool got = claimFromRegionPool(requestedRegion, chosenCell);
+            if (!got) {
+                std::vector<int> sameGroup;
+                sameGroup.reserve(regions.size());
+                for (int other = 0; other < static_cast<int>(regions.size()); ++other) {
+                    if (other == requestedRegion) continue;
+                    if (regions[static_cast<size_t>(other)].groupId == regions[static_cast<size_t>(requestedRegion)].groupId) {
+                        sameGroup.push_back(other);
+                    }
+                }
+                got = claimFromCandidateRegions(sameGroup, requestedRegion, "group_spill", chosenCell, actualRegion);
+            }
+            if (!got) {
+                got = claimFromCandidateRegions(anyRegionOrder, requestedRegion, "global_region_spill", chosenCell, actualRegion);
+            }
+            if (!got) {
+                got = claimFromAllLand(chosenCell);
+                if (got) {
+                    const int packed = chosenCell.y * gridW + chosenCell.x;
+                    const int hint = (packed >= 0 && packed < static_cast<int>(cellRegionHint.size()))
+                        ? cellRegionHint[static_cast<size_t>(packed)]
+                        : -1;
+                    actualRegion = (hint >= 0) ? hint : requestedRegion;
+                    noteSpill("all_land_spill", requestedRegion, actualRegion);
+                }
+            }
+            if (!got) {
+                std::cout << "[SpawnInit] Warning: could not place additional countries after "
+                          << placements.size() << " placements.\n";
+                break;
+            }
+            placements.push_back(SpawnPlacement{chosenCell, requestedRegion, actualRegion});
+        }
+    }
+    if (placements.empty()) {
+        return;
+    }
+
+    std::vector<std::vector<int>> requestedRegionCountryIndices(regions.size());
+    for (int i = 0; i < static_cast<int>(placements.size()); ++i) {
+        const int rr = std::clamp(placements[static_cast<size_t>(i)].requestedRegion, 0, static_cast<int>(regions.size()) - 1);
+        requestedRegionCountryIndices[static_cast<size_t>(rr)].push_back(i);
+    }
+
+    const std::int64_t minPop = 1'000;
+    const std::int64_t maxPop = 300'000;
+    std::normal_distribution<double> normal01(0.0, 1.0);
+    std::vector<std::int64_t> startPop(placements.size(), minPop);
+    for (size_t r = 0; r < requestedRegionCountryIndices.size(); ++r) {
+        const auto& indices = requestedRegionCountryIndices[r];
+        if (indices.empty()) continue;
+        const std::int64_t popTarget = regionPopTargets[r];
+        std::vector<double> weights(indices.size(), 1.0);
+        double sumWeights = 0.0;
+        for (size_t i = 0; i < indices.size(); ++i) {
+            const double w = std::exp(normal01(rng));
+            weights[i] = w;
+            sumWeights += w;
+        }
+        if (sumWeights <= 0.0) sumWeights = 1.0;
+        std::int64_t assigned = 0;
+        for (size_t i = 0; i < indices.size(); ++i) {
+            const double share = static_cast<double>(popTarget) * (weights[i] / sumWeights);
+            std::int64_t p = static_cast<std::int64_t>(std::llround(share));
+            p = std::clamp(p, minPop, maxPop);
+            startPop[static_cast<size_t>(indices[i])] = p;
+            assigned += p;
+        }
+        std::int64_t diff = popTarget - assigned;
+        std::vector<int> shuffledIndices = indices;
+        std::shuffle(shuffledIndices.begin(), shuffledIndices.end(), rng);
+        if (diff > 0) {
+            for (int idx : shuffledIndices) {
+                if (diff <= 0) break;
+                std::int64_t& p = startPop[static_cast<size_t>(idx)];
+                const std::int64_t room = maxPop - p;
+                if (room <= 0) continue;
+                const std::int64_t add = std::min(room, diff);
+                p += add;
+                diff -= add;
+            }
+        } else if (diff < 0) {
+            for (int idx : shuffledIndices) {
+                if (diff >= 0) break;
+                std::int64_t& p = startPop[static_cast<size_t>(idx)];
+                const std::int64_t room = p - minPop;
+                if (room <= 0) continue;
+                const std::int64_t sub = std::min(room, -diff);
+                p -= sub;
+                diff += sub;
+            }
+        }
+    }
+    std::int64_t assignedWorldPop = 0;
+    for (const std::int64_t p : startPop) {
+        assignedWorldPop += p;
+    }
+    std::int64_t worldDiff = worldPopTarget - assignedWorldPop;
+    std::vector<int> allIndices(static_cast<int>(startPop.size()), 0);
+    for (int i = 0; i < static_cast<int>(allIndices.size()); ++i) {
+        allIndices[static_cast<size_t>(i)] = i;
+    }
+    std::shuffle(allIndices.begin(), allIndices.end(), rng);
+    if (worldDiff > 0) {
+        for (int idx : allIndices) {
+            if (worldDiff <= 0) break;
+            std::int64_t& p = startPop[static_cast<size_t>(idx)];
+            const std::int64_t room = maxPop - p;
+            if (room <= 0) continue;
+            const std::int64_t add = std::min(room, worldDiff);
+            p += add;
+            worldDiff -= add;
+        }
+    } else if (worldDiff < 0) {
+        for (int idx : allIndices) {
+            if (worldDiff >= 0) break;
+            std::int64_t& p = startPop[static_cast<size_t>(idx)];
+            const std::int64_t room = p - minPop;
+            if (room <= 0) continue;
+            const std::int64_t sub = std::min(room, -worldDiff);
+            p -= sub;
+            worldDiff += sub;
+        }
+    }
+    if (worldDiff != 0) {
+        std::cout << "[SpawnInit] Warning: world population residual after clamps: " << worldDiff << "\n";
     }
 
     std::uniform_int_distribution<int> settlementSeedDist(2, 5);
@@ -2487,28 +3000,15 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
 
     const int regionsPerRow = (m_regionSize > 0) ? (gridW / m_regionSize) : 0;
 
-    const int targetCountries = std::min(numCountries, static_cast<int>(allLandCells.size()));
-    if (targetCountries < numCountries) {
-        std::cout << "Warning: requested " << numCountries << " countries but only " << targetCountries
-                  << " unique land cells are available for spawning." << std::endl;
-    }
+    std::vector<std::int64_t> regionActualPop(regions.size(), 0);
+    std::vector<int> regionActualCountries(regions.size(), 0);
+    std::vector<std::int64_t> regionTargetPop = regionPopTargets;
 
-    for (int i = 0; i < targetCountries; ++i) {
-        sf::Vector2i startCell;
-        double spawnRoll = spawnDist(rng);
-        bool gotCell = false;
-        if (spawnRoll < 0.75 && !preferredLandCells.empty()) {
-            gotCell = claimFromPool(preferredLandCells, prefCursor, startCell);
-        }
-        if (!gotCell) {
-            gotCell = claimFromPool(allLandCells, allCursor, startCell);
-        }
-        if (!gotCell) {
-            break;
-        }
+    for (int i = 0; i < static_cast<int>(placements.size()); ++i) {
+        const sf::Vector2i startCell = placements[static_cast<size_t>(i)].cell;
 
         sf::Color countryColor(colorDist(rng), colorDist(rng), colorDist(rng));
-        const long long initialPopulation = startPop[static_cast<size_t>(i)];
+        const long long initialPopulation = static_cast<long long>(startPop[static_cast<size_t>(i)]);
         double growthRate = growthRateDist(rng);
 
         std::string countryName = generate_country_name(rng);
@@ -2528,6 +3028,10 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
                                countryType,
                                m_ctx->seedForCountry(i),
                                m_ctx->config.world.startYear);
+        const int assignedRegion = std::clamp(placements[static_cast<size_t>(i)].actualRegion, 0, static_cast<int>(regions.size()) - 1);
+        countries.back().setSpawnRegionKey(regions[static_cast<size_t>(assignedRegion)].key);
+        regionActualPop[static_cast<size_t>(assignedRegion)] += initialPopulation;
+        regionActualCountries[static_cast<size_t>(assignedRegion)] += 1;
         {
             auto& epi = countries.back().getEpidemicStateMutable();
             const double i0 = std::clamp(m_ctx->config.disease.initialInfectedShare, 0.0, 0.25);
@@ -2736,6 +3240,73 @@ void Map::initializeCountries(std::vector<Country>& countries, int numCountries)
         } else {
             m_dirtyRegions.insert(0);
         }
+    }
+
+    if (technologyManager != nullptr) {
+        const bool yearMatch = cfg.startTech.requireExactYear
+            ? (m_ctx->config.world.startYear == cfg.startTech.triggerYear)
+            : (m_ctx->config.world.startYear <= cfg.startTech.triggerYear);
+        if (cfg.startTech.enabled && yearMatch) {
+            const auto presets = cfg.startTech.presets.empty()
+                ? SimulationConfig::defaultRegionalStartTechPresets()
+                : cfg.startTech.presets;
+            std::unordered_map<std::string, std::vector<int>> presetByRegion;
+            for (const auto& preset : presets) {
+                presetByRegion[preset.regionKey] = stableUniqueSorted(preset.techIds);
+            }
+            std::unordered_map<std::string, int> appliedByRegion;
+            int countriesWithPreset = 0;
+            for (Country& country : countries) {
+                const auto it = presetByRegion.find(country.getSpawnRegionKey());
+                if (it == presetByRegion.end() || it->second.empty()) continue;
+                technologyManager->setUnlockedTechnologiesForEditor(
+                    country,
+                    it->second,
+                    cfg.startTech.autoGrantPrereqs);
+                appliedByRegion[country.getSpawnRegionKey()] += 1;
+                countriesWithPreset += 1;
+            }
+            std::cout << "[StartTech] Applied regional presets at startYear=" << m_ctx->config.world.startYear
+                      << " countries=" << countriesWithPreset << "\n";
+            for (const auto& region : regions) {
+                const auto pit = presetByRegion.find(region.key);
+                if (pit == presetByRegion.end()) continue;
+                const int affected = appliedByRegion[region.key];
+                std::cout << "  - " << region.key << ": countries=" << affected
+                          << " techIds=";
+                for (size_t i = 0; i < pit->second.size(); ++i) {
+                    if (i > 0) std::cout << ",";
+                    std::cout << pit->second[i];
+                }
+                std::cout << "\n";
+            }
+        }
+    }
+
+    std::cout << "[SpawnInit] Region summary\n";
+    for (size_t r = 0; r < regions.size(); ++r) {
+        const double targetShare = std::max(0.0, regions[r].worldShare);
+        const double actualShare = (worldPopTarget > 0)
+            ? static_cast<double>(regionActualPop[r]) / static_cast<double>(worldPopTarget)
+            : 0.0;
+        const std::int64_t targetPop = (r < regionTargetPop.size()) ? regionTargetPop[r] : 0;
+        std::cout << "  - " << regions[r].key
+                  << " targetShare=" << targetShare
+                  << " actualShare=" << actualShare
+                  << " targetPop=" << targetPop
+                  << " actualPop=" << regionActualPop[r]
+                  << " countriesPlaced=" << regionActualCountries[r]
+                  << "\n";
+    }
+    if (!zeroLandRegionKeys.empty()) {
+        std::cout << "[SpawnInit] Regions with zero land cells:";
+        for (const auto& key : zeroLandRegionKeys) {
+            std::cout << " " << key;
+        }
+        std::cout << "\n";
+    }
+    for (const auto& kv : spillCounters) {
+        std::cout << "[SpawnInit] Spill " << kv.first << " count=" << kv.second << "\n";
     }
 
     // Build the initial adjacency/contact counts from the completed grid. From this point forward,

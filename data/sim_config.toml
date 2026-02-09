@@ -6,6 +6,24 @@ rngSeedMode = "provided"
 deterministicMode = true
 deterministicOverseasFallback = "auto"
 
+[world.population]
+mode = "range"
+fixedValue = 10000000
+minValue = 5000000
+maxValue = 20000000
+
+[spawn]
+enabled = true
+maskPath = "assets/images/spawn.png"
+colorTolerance = 15
+dupMode = "SplitConnectedComponents"
+
+[startTech]
+enabled = true
+triggerYear = -5000
+requireExactYear = true
+autoGrantPrereqs = true
+
 [food]
 baseForaging = 19.5
 baseFarming = 46

@@ -48,7 +48,9 @@ public:
         const sf::Color& waterColor,
         int regionSize,
         SimulationContext& ctx);
-    void initializeCountries(std::vector<Country>& countries, int numCountries);
+    void initializeCountries(std::vector<Country>& countries,
+                             int numCountries,
+                             class TechnologyManager* technologyManager = nullptr);
     void updateCountries(std::vector<Country>& countries, int currentYear, News& news, class TechnologyManager& technologyManager);
     // Phase 4 integration: run demography/migration + city updates as a separate step so
     // shortages computed by the macro economy can affect births/deaths in the same year.
