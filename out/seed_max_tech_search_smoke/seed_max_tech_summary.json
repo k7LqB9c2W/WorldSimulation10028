@@ -1,0 +1,38 @@
+{
+  "elapsed_sec": 2.982736825942993,
+  "total_seeds": 2,
+  "ok_runs": 2,
+  "failed_runs": 0,
+  "run_settings": {
+    "start_year": -5000,
+    "end_year": -4900,
+    "checkpoint_every_years": 50,
+    "use_gpu": false
+  },
+  "best_by_unlocked_count": {
+    "seed": 101,
+    "max_total_unlocked_techs": 22,
+    "detail": {
+      "year": -5000,
+      "tech_id": 100,
+      "tech_name": "Cordage and Knots",
+      "country_index": "58",
+      "country_name": "Old linromlor Tribe",
+      "event_type": "initial"
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_search_smoke/seed_101"
+  },
+  "best_by_tech_id": {
+    "seed": 101,
+    "detail": {
+      "year": -5000,
+      "tech_id": 119,
+      "tech_name": "Native Copper Working",
+      "country_index": "28",
+      "country_name": "Old romvialinia Tribe",
+      "event_type": "initial",
+      "total_unlocked_techs": 21
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_search_smoke/seed_101"
+  }
+}

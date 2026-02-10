@@ -122,7 +122,7 @@ void TechnologyManager::initializeTechnologies() {
     m_technologies.emplace(114, Technology{"Enclosures and Herd Management", 150, 114, {113}});
     m_technologies.emplace(115, Technology{"Counting Tokens and Tallies", 170, 115, {113, 106}});
     m_technologies.emplace(116, Technology{"Charcoal Firing", 180, 116, {111, 106}});
-    m_technologies.emplace(117, Technology{"Proto-writing and Administrative Notation", 220, 117, {115, 20}});
+    m_technologies.emplace(117, Technology{"Proto-writing and Administrative Notation", 220, 117, {115, 113}});
     m_technologies.emplace(118, Technology{"Numeracy and Measurement", 240, 118, {115, 117}});
     m_technologies.emplace(119, Technology{"Native Copper Working", 150, 119, {4, 116}});
     m_technologies.emplace(120, Technology{"Copper Smelting", 190, 120, {119, 116}});
@@ -138,7 +138,7 @@ void TechnologyManager::initializeTechnologies() {
     m_technologies.emplace(8, Technology{"Masonry", 140, 8, {4}});
     m_technologies.emplace(9, Technology{"Bronze Alloying", 220, 9, {120}});
     m_technologies.emplace(10, Technology{"Irrigation", 180, 10, {20}});
-    m_technologies.emplace(11, Technology{"Writing", 280, 11, {117, 20}});
+    m_technologies.emplace(11, Technology{"Writing", 250, 11, {117}});
     m_technologies.emplace(12, Technology{"Shipbuilding", 220, 12, {5}});
     m_technologies.emplace(13, Technology{"Iron Working", 250, 13, {9}});
     m_technologies.emplace(14, Technology{"Formal Mathematics", 340, 14, {118, 11}});
@@ -146,10 +146,10 @@ void TechnologyManager::initializeTechnologies() {
     m_technologies.emplace(16, Technology{"Construction", 350, 16, {8}});
     m_technologies.emplace(17, Technology{"Roads", 380, 17, {7}});
     m_technologies.emplace(18, Technology{"Horseback Riding", 420, 18, {2, 7}});
-    m_technologies.emplace(19, Technology{"Alphabet", 450, 19, {11}});
+    m_technologies.emplace(19, Technology{"Alphabet", 420, 19, {11}});
     m_technologies.emplace(20, Technology{"Agriculture", 500, 20, {112, 113}});
     m_technologies.emplace(21, Technology{"Drama and Poetry", 550, 21, {19}});
-    m_technologies.emplace(22, Technology{"Philosophy", 600, 22, {19}});
+    m_technologies.emplace(22, Technology{"Philosophy", 540, 22, {19}});
     m_technologies.emplace(23, Technology{"Engineering", 700, 23, {16, 17}});
     m_technologies.emplace(24, Technology{"Optics", 750, 24, {14}});
     m_technologies.emplace(25, Technology{"Metal Casting", 800, 25, {13}});
@@ -157,7 +157,7 @@ void TechnologyManager::initializeTechnologies() {
     m_technologies.emplace(27, Technology{"Democracy", 1000, 27, {22}});
     m_technologies.emplace(28, Technology{"Steel", 1100, 28, {25}});
     m_technologies.emplace(29, Technology{"Machinery", 1200, 29, {23}});
-    m_technologies.emplace(30, Technology{"Education", 1300, 30, {22}});
+    m_technologies.emplace(30, Technology{"Education", 1150, 30, {22}});
     m_technologies.emplace(31, Technology{"Acoustics", 1400, 31, {21, 24}});
     m_technologies.emplace(32, Technology{"Civil Service", 1500, 32, {15, 30}});
     m_technologies.emplace(33, Technology{"Paper", 1600, 33, {19}});
@@ -166,7 +166,7 @@ void TechnologyManager::initializeTechnologies() {
     m_technologies.emplace(36, Technology{"Printing", 1800, 36, {33}});
     m_technologies.emplace(37, Technology{"Gunpowder", 2000, 37, {28}});
     m_technologies.emplace(38, Technology{"Mechanical Clock", 2200, 38, {29}});
-    m_technologies.emplace(39, Technology{"Universities", 2400, 39, {30}});
+    m_technologies.emplace(39, Technology{"Universities", 2100, 39, {30}});
     m_technologies.emplace(40, Technology{"Astronomy", 2600, 40, {24, 39}});
     m_technologies.emplace(41, Technology{"Chemistry", 2800, 41, {40}});
     m_technologies.emplace(42, Technology{"Metallurgy", 3000, 42, {28, 4, 116}});
@@ -318,12 +318,12 @@ void TechnologyManager::initializeTechnologies() {
     gate(1, false, false, 0.50, 0.0, 0.0, 0.0, 0.08, 0.08, 0.04, 0.02, 0.0, 0.0);
     gate(4, false, false, 0.0, 0.0, 0.0, 0.20, 0.08, 0.0, 0.02, 0.01, 0.0, 0.0);
     gate(9, false, false, 0.0, 0.0, 0.0, 0.30, 0.22, 0.12, 0.08, 0.05, 0.0, 0.0);
-    gate(117, false, false, 0.54, 120.0, 0.0, 0.0, 0.0, 0.04, 0.10, 0.06, 0.0, 0.0);
-    gate(118, false, false, 0.55, 140.0, 0.0, 0.0, 0.0, 0.06, 0.12, 0.08, 0.0, 0.0);
+    gate(117, false, false, 0.50, 80.0, 0.0, 0.0, 0.0, 0.02, 0.07, 0.04, 0.0, 0.0);
+    gate(118, false, false, 0.50, 100.0, 0.0, 0.0, 0.0, 0.03, 0.09, 0.05, 0.0, 0.0);
     gate(119, false, false, 0.0, 0.0, 0.0, 0.22, 0.12, 0.08, 0.04, 0.02, 0.0, 0.0);
     gate(120, false, false, 0.0, 0.0, 0.0, 0.26, 0.18, 0.10, 0.06, 0.03, 0.0, 0.0);
     gate(42, false, false, 0.0, 0.0, 0.0, 0.36, 0.34, 0.18, 0.12, 0.08, 0.0, 0.0);
-    gate(11, false, false, 0.60, 220.0, 0.0, 0.0, 0.0, 0.08, 0.22, 0.12, 0.0, 0.0);
+    gate(11, false, false, 0.53, 120.0, 0.0, 0.0, 0.0, 0.05, 0.14, 0.07, 0.0, 0.0);
     gate(43, true, false, 0.0, 0.0, 0.0, 0.0, 0.12, 0.0, 0.20, 0.06, 0.0, 0.0);
 }
 

@@ -1,0 +1,55 @@
+{
+  "run_count": 4,
+  "weights": {
+    "food_stability": 1.0,
+    "innovation_urban": 1.0,
+    "empire_logistics": 1.0,
+    "disease_transition": 1.0,
+    "trade_inequality": 1.0,
+    "variance_penalty": 1.0,
+    "brittleness_penalty": 1.0
+  },
+  "median_run_score": 0.0,
+  "stdev_run_score": 0.0,
+  "variance_penalty": 0.0,
+  "brittleness_penalty": 1.0,
+  "aggregate_score": 0.0,
+  "runs": [
+    {
+      "run": "out/investigate_tech_legit/full2025/seed_101",
+      "food_stability": 0.0,
+      "innovation_urban": 0.0,
+      "empire_logistics": 0.0,
+      "disease_transition": 0.0,
+      "trade_inequality": 0.0,
+      "run_score": 0.0
+    },
+    {
+      "run": "out/investigate_tech_legit/full2025/seed_202",
+      "food_stability": 0.0,
+      "innovation_urban": 0.0,
+      "empire_logistics": 0.0,
+      "disease_transition": 0.0,
+      "trade_inequality": 0.0,
+      "run_score": 0.0
+    },
+    {
+      "run": "out/investigate_tech_legit/full2025/seed_303",
+      "food_stability": 0.0,
+      "innovation_urban": 0.0,
+      "empire_logistics": 0.0,
+      "disease_transition": 0.0,
+      "trade_inequality": 0.0,
+      "run_score": 0.0
+    },
+    {
+      "run": "out/investigate_tech_legit/full2025/seed_404",
+      "food_stability": 0.0,
+      "innovation_urban": 0.0,
+      "empire_logistics": 0.0,
+      "disease_transition": 0.0,
+      "trade_inequality": 0.0,
+      "run_score": 0.0
+    }
+  ]
+}
