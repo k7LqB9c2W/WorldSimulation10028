@@ -1,0 +1,554 @@
+🏪 Trade & Economic Exchange Framework initialized!
+🚀 INITIALIZING RESOURCES (Optimized)...
+✅ RESOURCES INITIALIZED in 120 ms
+   Resource ingestion: coal=18834, copper=30078, tin=14335, clay=18632, riverland-cells=18632
+[SpawnInit] worldPopTarget=12943862 startYear=-5000
+[StartTech] Applied regional presets at startYear=-5000 countries=100
+  - south_asia: countries=30 techIds=1,2,3,4,6,8,10,16,20
+  - east_asia: countries=22 techIds=1,2,3,4,6,8,10,16,20
+  - west_asia: countries=16 techIds=1,2,3,4,6,8,9,10,11,12,14,16,20
+  - se_asia: countries=5 techIds=1,3,5,6,12,16,20
+  - cn_asia: countries=2 techIds=2,3,4,6
+  - nile_ne_africa: countries=5 techIds=1,2,3,4,6,8,10,16,20
+  - north_africa: countries=2 techIds=1,2,3,4,6,16,20
+  - west_africa: countries=2 techIds=1,3,4,6,16,20
+  - east_africa: countries=2 techIds=1,3,4,6,16,20
+  - cs_africa: countries=1 techIds=1,3,4,6
+  - se_europe: countries=3 techIds=1,2,3,4,6,8,16,20
+  - med_europe: countries=2 techIds=1,2,3,4,5,6,8,12,16,20
+  - central_europe: countries=2 techIds=1,2,3,4,6,16,20
+  - wnw_europe: countries=1 techIds=1,3,4,6,16,20
+  - north_europe: countries=1 techIds=3,4,6
+  - mesoamerica: countries=1 techIds=1,3,6,16,20
+  - andes: countries=1 techIds=1,3,4,6,16,20
+  - e_na: countries=0 techIds=3,4,6
+  - w_na: countries=1 techIds=3,4,6
+  - caribbean: countries=0 techIds=5,6,12
+  - oceania: countries=1 techIds=5,6,12
+[SpawnInit] Region summary
+  - south_asia targetShare=0.3 actualShare=0.305 targetPop=3883159 actualPop=3947878 countriesPlaced=30
+  - east_asia targetShare=0.22 actualShare=0.22 targetPop=2847650 actualPop=2847650 countriesPlaced=22
+  - west_asia targetShare=0.16 actualShare=0.16 targetPop=2071018 actualPop=2071018 countriesPlaced=16
+  - se_asia targetShare=0.05 actualShare=0.05 targetPop=647193 actualPop=647193 countriesPlaced=5
+  - cn_asia targetShare=0.02 actualShare=0.02 targetPop=258877 actualPop=258877 countriesPlaced=2
+  - nile_ne_africa targetShare=0.05 actualShare=0.05 targetPop=647193 actualPop=647193 countriesPlaced=5
+  - north_africa targetShare=0.02 actualShare=0.02 targetPop=258877 actualPop=258877 countriesPlaced=2
+  - west_africa targetShare=0.02 actualShare=0.02 targetPop=258877 actualPop=258877 countriesPlaced=2
+  - east_africa targetShare=0.02 actualShare=0.02 targetPop=258877 actualPop=258877 countriesPlaced=2
+  - cs_africa targetShare=0.01 actualShare=0.01 targetPop=129439 actualPop=129439 countriesPlaced=1
+  - se_europe targetShare=0.03 actualShare=0.03 targetPop=388316 actualPop=388316 countriesPlaced=3
+  - med_europe targetShare=0.02 actualShare=0.02 targetPop=258877 actualPop=258877 countriesPlaced=2
+  - central_europe targetShare=0.02 actualShare=0.02 targetPop=258877 actualPop=258877 countriesPlaced=2
+  - wnw_europe targetShare=0.015 actualShare=0.015 targetPop=194158 actualPop=194158 countriesPlaced=1
+  - north_europe targetShare=0.005 actualShare=0.00499998 targetPop=64719 actualPop=64719 countriesPlaced=1
+  - mesoamerica targetShare=0.01 actualShare=0.01 targetPop=129439 actualPop=129439 countriesPlaced=1
+  - andes targetShare=0.008 actualShare=0.00800001 targetPop=103551 actualPop=103551 countriesPlaced=1
+  - e_na targetShare=0.004 actualShare=0 targetPop=51775 actualPop=0 countriesPlaced=0
+  - w_na targetShare=0.007 actualShare=0.007 targetPop=90607 actualPop=90607 countriesPlaced=1
+  - caribbean targetShare=0.001 actualShare=0 targetPop=12944 actualPop=0 countriesPlaced=0
+  - oceania targetShare=0.01 actualShare=0.01 targetPop=129439 actualPop=129439 countriesPlaced=1
+worldsim_cli seed=111 config=out/fine_tuning_struct_step15/best_sim_config.toml hash=7c62f6e32eb2f9de start=-5000 end=2025 gpu=1
+🏛️ Great nanagrad Tribe changed from Tribal to Chiefdom
+🏛️ New marnaquigrad Tribe changed from Tribal to Chiefdom
+🏛️ North lorkin Tribe changed from Tribal to Chiefdom
+🏛️ New dusterbelia Tribe changed from Tribal to Chiefdom
+🏛️ North garrommarland Tribe changed from Tribal to Chiefdom
+🏛️ New zenlorromgrad Tribe changed from Tribal to Chiefdom
+🏛️ Great lorrom Tribe changed from Tribal to Chiefdom
+🏛️ New tervialand Tribe changed from Tribal to Chiefdom
+🏛️ New lorquistan Tribe changed from Tribal to Chiefdom
+🏛️ South garteria Tribe changed from Tribal to Chiefdom
+🏛️ South quidusland Tribe changed from Tribal to Chiefdom
+🏛️ Great viateria Tribe changed from Tribal to Chiefdom
+🏛️ Romsolranstan Tribe changed from Tribal to Chiefdom
+🏛️ Great kinkingrad Tribe changed from Tribal to Chiefdom
+🏛️ North terviaquiland Tribe changed from Tribal to Chiefdom
+🏛️ North duskingrad Tribe changed from Tribal to Chiefdom
+🏛️ South terduslorgrad Tribe changed from Tribal to Chiefdom
+🏛️ South marquiland Tribe changed from Tribal to Chiefdom
+🏛️ New ranquikinland Tribe changed from Tribal to Chiefdom
+🏛️ Old romna Tribe changed from Tribal to Chiefdom
+🏛️ Old linnagrad Tribe changed from Tribal to Chiefdom
+🏛️ Old markinzenia Tribe changed from Tribal to Chiefdom
+🏛️ North linmardusland Tribe changed from Tribal to Chiefdom
+🏛️ South garzennastan Tribe changed from Tribal to Chiefdom
+🏛️ North viaranland Tribe changed from Tribal to Chiefdom
+🏛️ New romranzenia Tribe changed from Tribal to Chiefdom
+🏛️ North kinter Tribe changed from Tribal to Chiefdom
+🏛️ Old kinsolquiia Tribe changed from Tribal to Chiefdom
+🏛️ New kinrannaland Tribe changed from Tribal to Chiefdom
+🏛️ South dussollinstan Tribe changed from Tribal to Chiefdom
+🏛️ Old terviaia Tribe changed from Tribal to Chiefdom
+🏛️ North marrania Tribe changed from Tribal to Chiefdom
+🏛️ North belterromia Tribe changed from Tribal to Chiefdom
+🏛️ North nakinstan Tribe changed from Tribal to Chiefdom
+🏛️ New duslorgrad Tribe changed from Tribal to Chiefdom
+🏛️ South kinsolia Tribe changed from Tribal to Chiefdom
+🏛️ Romquina Tribe changed from Tribal to Chiefdom
+🏛️ North kinbelia Tribe changed from Tribal to Chiefdom
+🏛️ Garzenkingrad Tribe changed from Tribal to Chiefdom
+🏛️ South kinlinlorgrad Tribe changed from Tribal to Chiefdom
+🏛️ Kinbelrangrad Tribe changed from Tribal to Chiefdom
+🏛️ South zengarstan Tribe changed from Tribal to Chiefdom
+🏛️ Old mardusland Tribe changed from Tribal to Chiefdom
+🏛️ New marlinia Tribe changed from Tribal to Chiefdom
+🏛️ Old vialinland Tribe changed from Tribal to Chiefdom
+🏛️ North romlorlinstan Tribe changed from Tribal to Chiefdom
+🏛️ South terzen Tribe changed from Tribal to Chiefdom
+🏛️ South zenkin Tribe changed from Tribal to Chiefdom
+🏛️ North kinranloria Tribe changed from Tribal to Chiefdom
+🏛️ Naranlinstan Tribe changed from Tribal to Chiefdom
+🏛️ North lorkin Tribe changed from Chiefdom to Kingdom
+🏛️ Old zenlindusgrad Tribe changed from Tribal to Chiefdom
+🏛️ New dusterbelia Tribe changed from Chiefdom to Kingdom
+🏛️ Duslorland Tribe changed from Tribal to Chiefdom
+🏛️ Great randusia Tribe changed from Tribal to Chiefdom
+🏛️ New zenlorromgrad Tribe changed from Chiefdom to Kingdom
+🏛️ South belmargar Tribe changed from Tribal to Chiefdom
+🏛️ Great natergrad Tribe changed from Tribal to Chiefdom
+🏛️ New tervialand Tribe changed from Chiefdom to Kingdom
+🏛️ New lorquistan Tribe changed from Chiefdom to Kingdom
+🏛️ Romsolranstan Tribe changed from Chiefdom to Kingdom
+🏛️ Great kinkingrad Tribe changed from Chiefdom to Kingdom
+🏛️ North terviaquiland Tribe changed from Chiefdom to Kingdom
+🏛️ North duskingrad Tribe changed from Chiefdom to Kingdom
+🏛️ South terduslorgrad Tribe changed from Chiefdom to Kingdom
+🏛️ Rannasolstan Tribe changed from Tribal to Chiefdom
+🏛️ South marquiland Tribe changed from Chiefdom to Kingdom
+🏛️ Old romna Tribe changed from Chiefdom to Kingdom
+🏛️ Old linnagrad Tribe changed from Chiefdom to Kingdom
+🏛️ South lorgarland Tribe changed from Tribal to Chiefdom
+🏛️ Great dusmarstan Tribe changed from Tribal to Chiefdom
+🏛️ Old markinzenia Tribe changed from Chiefdom to Kingdom
+🏛️ Old garquistan Tribe changed from Tribal to Chiefdom
+🏛️ New romranzenia Tribe changed from Chiefdom to Kingdom
+🏛️ North linterquiia Tribe changed from Tribal to Chiefdom
+🏛️ South tersolloria Tribe changed from Tribal to Chiefdom
+🏛️ South quiduslinia Tribe changed from Tribal to Chiefdom
+🏛️ New duslorgrad Tribe changed from Chiefdom to Kingdom
+🏛️ South kinsolia Tribe changed from Chiefdom to Kingdom
+🏛️ South kinlinlorgrad Kingdom changed from Kingdom to Dictatorship
+🏛️ Old mardusland Tribe changed from Chiefdom to Kingdom
+🏛️ Great lorrannaia Tribe changed from Tribal to Chiefdom
+🏛️ South lorkinia Tribe changed from Tribal to Chiefdom
+🏛️ Old viagarland Tribe changed from Tribal to Chiefdom
+🏛️ South terduskingrad Tribe changed from Tribal to Chiefdom
+🏛️ Great mardusland Tribe changed from Tribal to Chiefdom
+🏛️ South zenkin Tribe changed from Chiefdom to Kingdom
+🏛️ South kingar Tribe changed from Tribal to Chiefdom
+🏛️ South marzenbelgrad Tribe changed from Tribal to Chiefdom
+🏛️ Old kinranland Tribe changed from Tribal to Chiefdom
+🏛️ North terquibelia Tribe changed from Tribal to Chiefdom
+🏛️ South terromzenstan Tribe changed from Tribal to Chiefdom
+🏛️ Naranlinstan Tribe changed from Chiefdom to Kingdom
+🏛️ Belromzenia Tribe changed from Tribal to Chiefdom
+🏛️ New dusterbelia Kingdom changed from Kingdom to Dictatorship
+🏛️ Great randusia Tribe changed from Chiefdom to Kingdom
+🏛️ New zenlorromgrad Tribe changed from Kingdom to Dictatorship
+🏛️ Great lorrom Tribe changed from Chiefdom to Kingdom
+🏛️ Great natergrad Tribe changed from Chiefdom to Kingdom
+🏛️ Great viateria Tribe changed from Chiefdom to Kingdom
+🏛️ Romsolranstan Tribe changed from Kingdom to Dictatorship
+🏛️ Romkinviaia Tribe changed from Tribal to Chiefdom
+🏛️ Rannasolstan Tribe changed from Chiefdom to Kingdom
+🏛️ South marquiland Tribe changed from Kingdom to Dictatorship
+🏛️ New ranquikinland Tribe changed from Chiefdom to Kingdom
+🏛️ Old linnagrad Tribe changed from Kingdom to Dictatorship
+🏛️ Great dusmarstan Tribe changed from Chiefdom to Kingdom
+🏛️ North linmardusland Tribe changed from Chiefdom to Kingdom
+🏛️ South garzennastan Kingdom changed from Kingdom to Dictatorship
+🏛️ North gargar Tribe changed from Tribal to Chiefdom
+🏛️ North kinter Tribe changed from Chiefdom to Kingdom
+🏛️ New kinrannaland Tribe changed from Chiefdom to Kingdom
+🏛️ South tersolloria Tribe changed from Chiefdom to Kingdom
+🏛️ Old terviaia Tribe changed from Chiefdom to Kingdom
+🏛️ North marrania Tribe changed from Chiefdom to Kingdom
+🏛️ North nakinstan Tribe changed from Chiefdom to Kingdom
+🏛️ North kinbelia Tribe changed from Chiefdom to Kingdom
+🏛️ Kinbelrangrad Tribe changed from Chiefdom to Kingdom
+🏛️ South zengarstan Tribe changed from Chiefdom to Kingdom
+🏛️ South lorkinia Tribe changed from Chiefdom to Kingdom
+🏛️ Old lorsol Tribe changed from Tribal to Chiefdom
+🏛️ Great mardusland Tribe changed from Chiefdom to Kingdom
+🏛️ South kingar Tribe changed from Chiefdom to Kingdom
+🏛️ South marzenbelgrad Tribe changed from Chiefdom to Kingdom
+🏛️ South terromzenstan Tribe changed from Chiefdom to Kingdom
+🏛️ New marnaquigrad Tribe changed from Chiefdom to Kingdom
+🏛️ Belromzenia Tribe changed from Chiefdom to Kingdom
+🏛️ Old zenlindusgrad Tribe changed from Chiefdom to Kingdom
+🏛️ New dusterbelia Kingdom changed from Dictatorship to Democracy
+🏛️ Great linzengrad Kingdom changed from Kingdom to Dictatorship
+🏛️ Great natergrad Tribe changed from Kingdom to Dictatorship
+🏛️ New tervialand Kingdom changed from Kingdom to Dictatorship
+🏛️ South quidusland Tribe changed from Chiefdom to Kingdom
+🏛️ South lorgarland Tribe changed from Chiefdom to Kingdom
+🏛️ South kingargrad Tribe changed from Tribal to Chiefdom
+🏛️ North linmardusland Tribe changed from Kingdom to Dictatorship
+🏛️ South garzennastan Kingdom changed from Dictatorship to Democracy
+🏛️ North kinter Tribe changed from Kingdom to Dictatorship
+🏛️ New garromdusia Tribe changed from Tribal to Chiefdom
+🏛️ Romquina Tribe changed from Chiefdom to Kingdom
+🏛️ Garzenkingrad Tribe changed from Chiefdom to Kingdom
+🏛️ South kinlinlorgrad Kingdom changed from Dictatorship to Democracy
+🏛️ Kinbelrangrad Kingdom changed from Kingdom to Dictatorship
+🏛️ Great lorrannaia Tribe changed from Chiefdom to Kingdom
+🏛️ South lorkinia Tribe changed from Kingdom to Dictatorship
+🏛️ Old lorsol Tribe changed from Chiefdom to Kingdom
+🏛️ North romlorlinstan Tribe changed from Chiefdom to Kingdom
+🛣️ North lorkin Kingdom built roads to South viaromgrad Tribe (72 pixels)
+🏛️ North kinranloria Kingdom changed from Kingdom to Dictatorship
+🏛️ New marnaquigrad Tribe changed from Kingdom to Dictatorship
+🏛️ New dusterbelia Kingdom changed from Democracy to Dictatorship
+🏛️ North garrommarland Tribe changed from Chiefdom to Kingdom
+🏛️ South quidusland Tribe changed from Kingdom to Dictatorship
+🏛️ Romkinviaia Tribe changed from Chiefdom to Kingdom
+🏛️ Old linnagrad Tribe changed from Dictatorship to Democracy
+🏛️ South kingargrad Tribe changed from Chiefdom to Kingdom
+🏛️ North linmardusland Tribe changed from Dictatorship to Democracy
+🏛️ North kinter Tribe changed from Dictatorship to Democracy
+🏛️ North linterquiia Kingdom changed from Kingdom to Dictatorship
+🏛️ South quina Tribe changed from Tribal to Chiefdom
+🏛️ Terquigrad Tribe changed from Tribal to Chiefdom
+🏛️ North belterromia Kingdom changed from Kingdom to Dictatorship
+🏛️ North linvialinstan Tribe changed from Tribal to Chiefdom
+🏛️ North kinlorstan Tribe changed from Tribal to Chiefdom
+🏛️ South kinlinlorgrad Kingdom changed from Democracy to Federation
+🏛️ New marlinia Tribe changed from Chiefdom to Kingdom
+🏛️ South lorkinia Tribe changed from Dictatorship to Democracy
+🏛️ Lornadusia Tribe changed from Tribal to Chiefdom
+🏛️ Old lorsol Tribe changed from Kingdom to Dictatorship
+🏛️ New marnaquigrad Tribe changed from Dictatorship to Democracy
+🏛️ Old zenlindusgrad Tribe changed from Kingdom to Dictatorship
+🏛️ New dusterbelia Kingdom changed from Dictatorship to Democracy
+🏛️ Great linzengrad Kingdom changed from Dictatorship to Democracy
+🏛️ Duslorland Tribe changed from Chiefdom to Kingdom
+🏛️ South lorduszenland Tribe changed from Tribal to Chiefdom
+🏛️ New zenlorromgrad Tribe changed from Dictatorship to Democracy
+🏛️ New tervialand Kingdom changed from Dictatorship to Democracy
+🏛️ South quidusland Tribe changed from Dictatorship to Democracy
+🏛️ Romsolranstan Tribe changed from Dictatorship to Democracy
+🏛️ Romkinviaia Tribe changed from Kingdom to Dictatorship
+🏛️ South marquiland Tribe changed from Dictatorship to Democracy
+🏛️ Old linnagrad Tribe changed from Democracy to Federation
+🏛️ North linmardusland Tribe changed from Democracy to Federation
+🏛️ South garzennastan Kingdom changed from Democracy to Dictatorship
+🏛️ North kinter Tribe changed from Democracy to Federation
+🏛️ Old kinsolquiia Tribe changed from Chiefdom to Kingdom
+🏛️ North linterquiia Kingdom changed from Dictatorship to Democracy
+🏛️ North belterromia Kingdom changed from Dictatorship to Democracy
+🏛️ Romquina Kingdom changed from Kingdom to Dictatorship
+🏛️ Kinbelrangrad Kingdom changed from Dictatorship to Democracy
+🏛️ South lorkinia Tribe changed from Democracy to Dictatorship
+🏛️ Old viagarland Tribe changed from Chiefdom to Kingdom
+🏛️ Old vialinland Tribe changed from Chiefdom to Kingdom
+🏛️ South terzen Tribe changed from Chiefdom to Kingdom
+🏛️ Marquiland Tribe changed from Kingdom to Dictatorship
+🏛️ New marnaquigrad Tribe changed from Democracy to Dictatorship
+🏛️ Great linzengrad Kingdom changed from Democracy to Dictatorship
+🏛️ New zenlorromgrad Tribe changed from Democracy to Dictatorship
+🏛️ Great lorrom Tribe changed from Kingdom to Dictatorship
+🏛️ New tervialand Kingdom changed from Democracy to Federation
+🏛️ South quidusland Tribe changed from Democracy to Federation
+🏛️ Romsolranstan Tribe changed from Democracy to Dictatorship
+🏛️ Romkinviaia Tribe changed from Dictatorship to Democracy
+🏛️ South marquiland Tribe changed from Democracy to Federation
+🏛️ South lorgarland Tribe changed from Kingdom to Dictatorship
+🏛️ Old kinsolquiia Tribe changed from Kingdom to Dictatorship
+🏛️ North linterquiia Kingdom changed from Democracy to Dictatorship
+🏛️ South quina Tribe changed from Chiefdom to Kingdom
+🏛️ North marrania Tribe changed from Kingdom to Dictatorship
+🏛️ North belterromia Kingdom changed from Democracy to Federation
+🏛️ Kinbelrangrad Kingdom changed from Democracy to Federation
+🏛️ Old lorsol Tribe changed from Dictatorship to Democracy
+🏛️ Old viagarland Tribe changed from Kingdom to Dictatorship
+🏛️ Old vialinland Tribe changed from Kingdom to Dictatorship
+🏛️ South terzen Tribe changed from Kingdom to Dictatorship
+🏛️ Marquiland Tribe changed from Dictatorship to Democracy
+🛣️ North lorkin Kingdom built roads to New dusterbelia Kingdom (36 pixels)
+🛣️ South belmargar Kingdom built roads to North lorkin Kingdom (36 pixels)
+🛣️ North viabelstan Tribe built roads to South belmargar Kingdom (30 pixels)
+🛣️ South zenkin Kingdom built roads to Old garterdusia Kingdom (27 pixels)
+🛣️ Old duskin Kingdom built roads to North lorkin Kingdom (151 pixels)
+🏛️ North kinranloria Kingdom changed from Dictatorship to Democracy
+🏛️ New marnaquigrad Tribe changed from Dictatorship to Democracy
+🏛️ New dusterbelia Kingdom changed from Democracy to Federation
+🏛️ Duslorland Tribe changed from Kingdom to Dictatorship
+🏛️ South lorduszenland Tribe changed from Chiefdom to Kingdom
+🏛️ New zenlorromgrad Tribe changed from Dictatorship to Democracy
+🏛️ Great lorrom Tribe changed from Dictatorship to Democracy
+🏛️ Romsolranstan Tribe changed from Dictatorship to Democracy
+🏛️ Romkinviaia Tribe changed from Democracy to Federation
+🏛️ Old kinsolquiia Tribe changed from Dictatorship to Democracy
+🏛️ North linterquiia Kingdom changed from Dictatorship to Democracy
+🏛️ South quina Tribe changed from Kingdom to Dictatorship
+🏛️ North marrania Tribe changed from Dictatorship to Democracy
+🏛️ Old vialinland Tribe changed from Dictatorship to Democracy
+🏛️ North terter Kingdom changed from Kingdom to Dictatorship
+🛣️ North garquiland Kingdom built roads to New dusterbelia Kingdom (76 pixels)
+🛣️ New dusterbelia Kingdom built roads to South belmargar Kingdom (48 pixels)
+🏛️ Old zenlindusgrad Tribe changed from Dictatorship to Democracy
+🏛️ South lorduszenland Tribe changed from Kingdom to Dictatorship
+🏛️ New zenlorromgrad Tribe changed from Democracy to Federation
+🏛️ Great lorrom Tribe changed from Democracy to Federation
+🏛️ Romsolranstan Tribe changed from Democracy to Dictatorship
+🏛️ South lorgarland Tribe changed from Dictatorship to Democracy
+🏛️ Old kinsolquiia Tribe changed from Democracy to Dictatorship
+🏛️ North linterquiia Kingdom changed from Democracy to Dictatorship
+🏛️ North marrania Tribe changed from Democracy to Federation
+🏛️ Old viagarland Tribe changed from Dictatorship to Democracy
+🏛️ Old vialinland Tribe changed from Democracy to Dictatorship
+🏛️ Marquiland Tribe changed from Democracy to Federation
+🏛️ North terter Kingdom changed from Dictatorship to Democracy
+🏛️ North ranranlorstan Tribe changed from Dictatorship to Democracy
+🛣️ North linterquiia Kingdom built roads to Romquina Kingdom (85 pixels)
+🛣️ Great solterland Kingdom built roads to New kinbelia Tribe (20 pixels)
+🛣️ New dusterbelia Kingdom built roads to North namargrad Kingdom (54 pixels)
+🛣️ South belteria Tribe built roads to Old duskin Kingdom (21 pixels)
+🏛️ North kinranloria Kingdom changed from Democracy to Dictatorship
+🏛️ New marnaquigrad Tribe changed from Democracy to Federation
+🏛️ Duslorland Tribe changed from Dictatorship to Democracy
+🏛️ South lorgarland Tribe changed from Democracy to Federation
+🏛️ North linmardusland Kingdom changed from Kingdom to Dictatorship
+🏛️ North linterquiia Kingdom changed from Dictatorship to Democracy
+🏛️ South lorkinia Tribe changed from Dictatorship to Democracy
+🏛️ Lornadusia Tribe changed from Chiefdom to Kingdom
+🏛️ Old viagarland Tribe changed from Democracy to Federation
+🏛️ Old vialinland Tribe changed from Dictatorship to Democracy
+🏛️ South terzen Tribe changed from Dictatorship to Democracy
+🏛️ North terter Kingdom changed from Democracy to Dictatorship
+🏛️ North ranranlorstan Tribe changed from Democracy to Dictatorship
+🛣️ North linterquiia Kingdom built roads to North ranranlorstan Tribe (29 pixels)
+🛣️ North namargrad Kingdom built roads to North garquiland Kingdom (26 pixels)
+🏛️ Old zenlindusgrad Tribe changed from Democracy to Federation
+🏛️ South lorduszenland Tribe changed from Dictatorship to Democracy
+🏛️ Great natergrad Tribe changed from Dictatorship to Democracy
+🛣️ North garquiland Kingdom built roads to North terter Kingdom (58 pixels)
+🏛️ Old kinsolquiia Tribe changed from Dictatorship to Democracy
+🏛️ North linterquiia Kingdom changed from Democracy to Dictatorship
+🏛️ South quina Tribe changed from Dictatorship to Democracy
+🏛️ North linvialinstan Tribe changed from Chiefdom to Kingdom
+🏛️ North terter Kingdom changed from Dictatorship to Democracy
+🏛️ North ranranlorstan Tribe changed from Dictatorship to Democracy
+🛣️ North terter Kingdom built roads to New dusterbelia Kingdom (18 pixels)
+🛣️ North namargrad Kingdom built roads to North terter Kingdom (36 pixels)
+🏛️ North kinranloria Kingdom changed from Dictatorship to Democracy
+🏛️ Duslorland Tribe changed from Democracy to Federation
+🏛️ South lorduszenland Tribe changed from Democracy to Dictatorship
+🏛️ Old kinsolquiia Tribe changed from Democracy to Federation
+🏛️ South quina Tribe changed from Democracy to Dictatorship
+🏛️ Old lorsol Tribe changed from Democracy to Federation
+🏛️ Old vialinland Tribe changed from Democracy to Dictatorship
+🏛️ South terzen Tribe changed from Democracy to Dictatorship
+🛣️ South tersolloria Kingdom built roads to Romnagrad Kingdom (11 pixels)
+🏛️ North kinranloria Kingdom changed from Democracy to Federation
+🏛️ Great linzengrad Kingdom changed from Dictatorship to Democracy
+🏛️ Great natergrad Tribe changed from Democracy to Dictatorship
+🏛️ Romsolranstan Kingdom changed from Kingdom to Dictatorship
+🏛️ North linmardusland Kingdom changed from Dictatorship to Democracy
+🏛️ North linterquiia Kingdom changed from Dictatorship to Democracy
+🏛️ South quina Tribe changed from Dictatorship to Democracy
+🏛️ North kinlorstan Kingdom changed from Kingdom to Dictatorship
+🏛️ Romquina Kingdom changed from Dictatorship to Democracy
+🏛️ South lorkinia Tribe changed from Democracy to Dictatorship
+🏛️ Old vialinland Tribe changed from Dictatorship to Democracy
+🏛️ South terzen Tribe changed from Dictatorship to Democracy
+🏛️ North terter Kingdom changed from Democracy to Federation
+🏛️ North ranranlorstan Tribe changed from Democracy to Dictatorship
+🏛️ Great linzengrad Kingdom changed from Democracy to Federation
+🏛️ South lorduszenland Tribe changed from Dictatorship to Democracy
+🏛️ South quidusland Kingdom changed from Kingdom to Dictatorship
+🏛️ Romsolranstan Kingdom changed from Dictatorship to Democracy
+🏛️ North linmardusland Kingdom changed from Democracy to Dictatorship
+🏛️ Romquina Kingdom changed from Democracy to Federation
+🏛️ Old vialinland Tribe changed from Democracy to Federation
+🏛️ South terzen Tribe changed from Democracy to Federation
+🏛️ Marquiland Kingdom changed from Kingdom to Dictatorship
+🏛️ North ranranlorstan Tribe changed from Dictatorship to Democracy
+🛣️ North lorkin Kingdom built roads to North viazenstan Kingdom (84 pixels)
+🏛️ South lorduszenland Tribe changed from Democracy to Federation
+🏛️ Great natergrad Tribe changed from Dictatorship to Democracy
+🏛️ South quidusland Kingdom changed from Dictatorship to Democracy
+🏛️ Romsolranstan Kingdom changed from Democracy to Dictatorship
+🏛️ North linterquiia Kingdom changed from Democracy to Dictatorship
+🏛️ South quina Tribe changed from Democracy to Dictatorship
+🏛️ North kinlorstan Kingdom changed from Dictatorship to Democracy
+🏛️ South lorkinia Tribe changed from Dictatorship to Democracy
+🏛️ North ranranlorstan Tribe changed from Democracy to Dictatorship
+🏛️ Viabelquigrad Tribe changed from Democracy to Dictatorship
+🏛️ Great natergrad Tribe changed from Democracy to Dictatorship
+🏛️ South quidusland Kingdom changed from Democracy to Federation
+🏛️ Romsolranstan Kingdom changed from Dictatorship to Democracy
+🏛️ North linmardusland Kingdom changed from Dictatorship to Democracy
+🏛️ South quina Tribe changed from Dictatorship to Democracy
+🏛️ Marquiland Kingdom changed from Dictatorship to Democracy
+🏛️ North ranranlorstan Tribe changed from Dictatorship to Democracy
+🏛️ Viabelquigrad Tribe changed from Dictatorship to Democracy
+🏛️ Romsolranstan Kingdom changed from Democracy to Federation
+🏛️ North linmardusland Kingdom changed from Democracy to Dictatorship
+🏛️ South quina Tribe changed from Democracy to Federation
+🏛️ North kinlorstan Kingdom changed from Democracy to Federation
+🏛️ Marquiland Kingdom changed from Democracy to Dictatorship
+🏛️ North ranranlorstan Tribe changed from Democracy to Dictatorship
+🏛️ Viabelquigrad Tribe changed from Democracy to Federation
+🛣️ South zenkin Kingdom built roads to Old garterdusia Kingdom (27 pixels)
+🛣️ Old belviastan Kingdom built roads to South zenkin Kingdom (26 pixels)
+🏛️ New marnaquigrad Kingdom changed from Kingdom to Dictatorship
+🏛️ Great natergrad Tribe changed from Dictatorship to Democracy
+🏛️ North linmardusland Kingdom changed from Dictatorship to Democracy
+🏛️ North linterquiia Kingdom changed from Dictatorship to Democracy
+🏛️ New marnaquigrad Kingdom changed from Dictatorship to Democracy
+🏛️ North linmardusland Kingdom changed from Democracy to Dictatorship
+🏛️ North linterquiia Kingdom changed from Democracy to Federation
+🏛️ Viabelquigrad Kingdom changed from Kingdom to Dictatorship
+🏛️ North linmardusland Kingdom changed from Dictatorship to Democracy
+🏛️ South lorkinia Tribe changed from Democracy to Federation
+🏛️ North ranranlorstan Tribe changed from Dictatorship to Democracy
+🏛️ Viabelquigrad Kingdom changed from Dictatorship to Democracy
+🏛️ Great natergrad Tribe changed from Democracy to Dictatorship
+🏛️ North linmardusland Kingdom changed from Democracy to Federation
+🏛️ North ranranlorstan Tribe changed from Democracy to Dictatorship
+🏛️ Viabelquigrad Kingdom changed from Democracy to Federation
+🏛️ New marnaquigrad Kingdom changed from Democracy to Federation
+🏛️ Great natergrad Tribe changed from Dictatorship to Democracy
+🏛️ Marquiland Kingdom changed from Dictatorship to Democracy
+🏛️ North ranranlorstan Tribe changed from Dictatorship to Democracy
+🏛️ Old romkingrad Tribe changed from Democracy to Dictatorship
+🛣️ North lorkin Kingdom built roads to New gardusland Kingdom (103 pixels)
+🏛️ Great natergrad Tribe changed from Democracy to Federation
+🏛️ Old romkingrad Tribe changed from Dictatorship to Democracy
+🏛️ Great dusbelromia Kingdom changed from Democracy to Dictatorship
+🏛️ North ranranlorstan Tribe changed from Democracy to Dictatorship
+🏛️ Great dusbelromia Kingdom changed from Dictatorship to Democracy
+🏛️ Marquiland Kingdom changed from Democracy to Dictatorship
+🏛️ North ranranlorstan Kingdom changed from Kingdom to Dictatorship
+🏛️ Old romkingrad Kingdom changed from Kingdom to Dictatorship
+🏛️ Great dusbelromia Kingdom changed from Democracy to Dictatorship
+🛣️ Margarzen Kingdom built roads to South zenkin Kingdom (20 pixels)
+🏛️ Marquiland Kingdom changed from Dictatorship to Democracy
+🏛️ North ranranlorstan Kingdom changed from Dictatorship to Democracy
+🏛️ Old romkingrad Kingdom changed from Dictatorship to Democracy
+🏛️ Terquigrad Tribe changed from Chiefdom to Kingdom
+🏛️ Marquiland Kingdom changed from Democracy to Dictatorship
+🏛️ North ranranlorstan Kingdom changed from Democracy to Federation
+🛣️ Old belviastan Kingdom built roads to Margarzen Kingdom (12 pixels)
+🛣️ South zenkin Kingdom built roads to Old garterdusia Kingdom (27 pixels)
+🏛️ Great dusbelromia Kingdom changed from Dictatorship to Democracy
+🏛️ Marquiland Kingdom changed from Dictatorship to Democracy
+🏛️ Old romkingrad Kingdom changed from Democracy to Dictatorship
+🏛️ Great dusbelromia Kingdom changed from Democracy to Federation
+🏛️ Marquiland Kingdom changed from Democracy to Federation
+🛣️ South zenkin Kingdom built roads to Old belviastan Kingdom (36 pixels)
+🏛️ Old romkingrad Kingdom changed from Dictatorship to Democracy
+🏛️ Old romkingrad Kingdom changed from Democracy to Dictatorship
+🛣️ Old garterdusia Kingdom built roads to Bellingarland Kingdom (24 pixels)
+🏛️ South linkin Kingdom changed from Kingdom to Dictatorship
+🏛️ Old romkingrad Kingdom changed from Dictatorship to Democracy
+🏛️ South linkin Kingdom changed from Dictatorship to Democracy
+🏛️ Old romkingrad Kingdom changed from Democracy to Dictatorship
+🛣️ South zenkin Kingdom built roads to Old belviastan Kingdom (36 pixels)
+🛣️ Old belviastan Kingdom built roads to Bellingarland Kingdom (36 pixels)
+🏛️ South linkin Kingdom changed from Democracy to Dictatorship
+🏛️ Old romkingrad Kingdom changed from Dictatorship to Democracy
+🛣️ South zenkin Kingdom built roads to Margarzen Kingdom (23 pixels)
+🏛️ South linkin Kingdom changed from Dictatorship to Democracy
+🏛️ Old romkingrad Kingdom changed from Democracy to Federation
+🏛️ South linkin Kingdom changed from Democracy to Dictatorship
+🏛️ New zenlorromgrad Kingdom changed from Kingdom to Dictatorship
+🏛️ South linkin Kingdom changed from Dictatorship to Democracy
+🏛️ New zenlorromgrad Kingdom changed from Dictatorship to Democracy
+🛣️ South zenkin Kingdom built roads to Bellingarland Kingdom (24 pixels)
+🏛️ New zenlorromgrad Kingdom changed from Democracy to Dictatorship
+🏛️ South linkin Kingdom changed from Democracy to Federation
+🏛️ New zenlorromgrad Kingdom changed from Dictatorship to Democracy
+🛣️ North viabelstan Kingdom built roads to North lorkin Kingdom (66 pixels)
+🏛️ New zenlorromgrad Kingdom changed from Democracy to Dictatorship
+🛣️ South tersolloria Kingdom built roads to New kinrannaland Kingdom (35 pixels)
+🏛️ New zenlorromgrad Kingdom changed from Dictatorship to Democracy
+🏛️ New zenlorromgrad Kingdom changed from Democracy to Dictatorship
+🏛️ New zenlorromgrad Kingdom changed from Dictatorship to Democracy
+🏛️ New zenlorromgrad Kingdom changed from Democracy to Dictatorship
+🏛️ New zenlorromgrad Kingdom changed from Dictatorship to Democracy
+🏛️ New zenlorromgrad Kingdom changed from Democracy to Dictatorship
+🏛️ New zenlorromgrad Kingdom changed from Dictatorship to Democracy
+🏛️ New zenlorromgrad Kingdom changed from Democracy to Dictatorship
+🏛️ New zenlorromgrad Kingdom changed from Dictatorship to Democracy
+🏛️ New zenlorromgrad Kingdom changed from Democracy to Dictatorship
+🏛️ New zenlorromgrad Kingdom changed from Dictatorship to Democracy
+🏛️ New zenlorromgrad Kingdom changed from Democracy to Federation
+🏛️ Garzenkingrad Tribe changed from Kingdom to Empire
+🏛️ Garzenkingrad Tribe changed from Empire to Dictatorship
+🏛️ Garzenkingrad Tribe changed from Dictatorship to Democracy
+🏛️ New marlinia Tribe changed from Kingdom to Empire
+🛣️ Duslorland Tribe built roads to New marnaquigrad Kingdom (81 pixels)
+🏛️ Garzenkingrad Tribe changed from Democracy to Federation
+🛣️ North terter Kingdom built roads to North viabelstan Kingdom (36 pixels)
+🏛️ New marlinia Tribe changed from Empire to Dictatorship
+🏛️ New marlinia Tribe changed from Dictatorship to Democracy
+🛣️ Duslorland Tribe built roads to Great randusia Kingdom (67 pixels)
+🏛️ New marlinia Tribe changed from Democracy to Federation
+🏛️ North linvialinstan Tribe changed from Kingdom to Empire
+🏛️ North linvialinstan Tribe changed from Empire to Dictatorship
+🛣️ Duslorland Tribe built roads to Linlin Kingdom (107 pixels)
+🏛️ North linvialinstan Tribe changed from Dictatorship to Democracy
+🏛️ North linvialinstan Tribe changed from Democracy to Federation
+🏛️ South kingar Tribe changed from Kingdom to Empire
+🏛️ South kingar Tribe changed from Empire to Dictatorship
+🏛️ South kingar Tribe changed from Dictatorship to Democracy
+🏛️ South kingar Tribe changed from Democracy to Federation
+🏛️ North nakinstan Tribe changed from Kingdom to Empire
+🏛️ North nakinstan Tribe changed from Empire to Dictatorship
+🏛️ North nakinstan Tribe changed from Dictatorship to Democracy
+🏛️ North nakinstan Tribe changed from Democracy to Federation
+🏛️ Great lorrannaia Tribe changed from Kingdom to Empire
+🏛️ Great lorrannaia Tribe changed from Empire to Dictatorship
+🏛️ Great lorrannaia Tribe changed from Dictatorship to Democracy
+🛣️ South solloria Kingdom built roads to North kinbelia Kingdom (53 pixels)
+🛣️ Great quinagarstan Tribe built roads to North nakinstan Tribe (40 pixels)
+🏛️ Great lorrannaia Tribe changed from Democracy to Federation
+🛣️ South solloria Kingdom built roads to Great lintermarland Kingdom (34 pixels)
+🛣️ Linlin Kingdom built roads to Great randusia Kingdom (21 pixels)
+🏛️ Old linnagrad Kingdom changed from Kingdom to Dictatorship
+🏛️ Old linnagrad Kingdom changed from Dictatorship to Democracy
+🏛️ Old linnagrad Kingdom changed from Democracy to Dictatorship
+🏛️ Old nagar Tribe changed from Democracy to Federation
+🏛️ Old nagar Kingdom changed from Kingdom to Dictatorship
+🏛️ Old linnagrad Kingdom changed from Dictatorship to Democracy
+🏛️ Old nagar Kingdom changed from Dictatorship to Democracy
+🏛️ Old linnagrad Kingdom changed from Democracy to Federation
+🏛️ Old nagar Kingdom changed from Democracy to Federation
+🛣️ North nakinstan Kingdom built roads to Great quinagarstan Tribe (74 pixels)
+🛣️ Great quinagarstan Tribe built roads to New nakingrad Kingdom (35 pixels)
+🛣️ New nakingrad Kingdom built roads to North nakinstan Kingdom (21 pixels)
+🛣️ New nakingrad Kingdom built roads to South romquiia Kingdom (21 pixels)
+🛣️ South romquiia Kingdom built roads to North nakinstan Kingdom (9 pixels)
+🛣️ North nakinstan Kingdom built roads to Great quinagarstan Tribe (74 pixels)
+🛣️ Great lintermarland Kingdom built roads to North kinbelia Kingdom (41 pixels)
+🏛️ Old zenlindusgrad Kingdom changed from Kingdom to Dictatorship
+🏛️ South ranlinquiia Tribe changed from Dictatorship to Democracy
+🏛️ Old zenlindusgrad Kingdom changed from Dictatorship to Democracy
+🏛️ South ranlinquiia Kingdom changed from Kingdom to Dictatorship
+🏛️ Old zenlindusgrad Kingdom changed from Democracy to Dictatorship
+🏛️ South ranlinquiia Kingdom changed from Dictatorship to Democracy
+🏛️ South ranlinquiia Kingdom changed from Democracy to Federation
+🏛️ Old zenlindusgrad Kingdom changed from Dictatorship to Democracy
+🏛️ Old zenlindusgrad Kingdom changed from Democracy to Federation
+🏛️ Garzenkingrad Kingdom changed from Kingdom to Empire
+🏛️ Garzenkingrad Kingdom changed from Empire to Dictatorship
+🏛️ Garzenkingrad Kingdom changed from Dictatorship to Democracy
+🏛️ Garzenkingrad Kingdom changed from Democracy to Federation
+🏛️ South quina Kingdom changed from Kingdom to Dictatorship
+🏛️ South quina Kingdom changed from Dictatorship to Democracy
+🏛️ South quina Kingdom changed from Democracy to Federation
+🏛️ New lordusgrad Kingdom changed from Kingdom to Empire
+🏛️ New lordusgrad Kingdom changed from Empire to Dictatorship
+🏛️ Great viateria Tribe changed from Kingdom to Empire
+🏛️ New lordusgrad Kingdom changed from Dictatorship to Democracy
+🏛️ Great viateria Tribe changed from Empire to Dictatorship
+🏛️ New lordusgrad Kingdom changed from Democracy to Federation
+🏛️ Great viateria Tribe changed from Dictatorship to Democracy
+🏛️ Great viateria Tribe changed from Democracy to Federation
+🛣️ New marnaquigrad Kingdom built roads to South quidusland Kingdom (36 pixels)
+🛣️ New marnaquigrad Kingdom built roads to Old romkingrad Kingdom (30 pixels)
+🛣️ New marnaquigrad Kingdom built roads to New dusrannaland Kingdom (48 pixels)
+Wrote out/isolation_investigation2/seed_111\run_summary.json, out/isolation_investigation2/seed_111\timeseries.csv, out/isolation_investigation2/seed_111\run_meta.json, out/isolation_investigation2/seed_111\violations.json
+125.03

@@ -122,6 +122,10 @@ void TechnologyManager::initializeTechnologies() {
     m_technologies.emplace(114, Technology{"Enclosures and Herd Management", 150, 114, {113}});
     m_technologies.emplace(115, Technology{"Counting Tokens and Tallies", 170, 115, {113, 106}});
     m_technologies.emplace(116, Technology{"Charcoal Firing", 180, 116, {111, 106}});
+    m_technologies.emplace(117, Technology{"Proto-writing and Administrative Notation", 220, 117, {115, 20}});
+    m_technologies.emplace(118, Technology{"Numeracy and Measurement", 240, 118, {115, 117}});
+    m_technologies.emplace(119, Technology{"Native Copper Working", 150, 119, {4, 116}});
+    m_technologies.emplace(120, Technology{"Copper Smelting", 190, 120, {119, 116}});
 
     // Existing tree with prerequisite rewires for realistic deep-start pacing.
     m_technologies.emplace(1, Technology{"Pottery", 50, 1, {106, 113, 116}});
@@ -132,13 +136,13 @@ void TechnologyManager::initializeTechnologies() {
     m_technologies.emplace(6, Technology{"Calendar", 100, 6, {113}});
     m_technologies.emplace(7, Technology{"Wheel", 120, 7, {113, 114}});
     m_technologies.emplace(8, Technology{"Masonry", 140, 8, {4}});
-    m_technologies.emplace(9, Technology{"Bronze Working", 160, 9, {4, 116}});
+    m_technologies.emplace(9, Technology{"Bronze Alloying", 220, 9, {120}});
     m_technologies.emplace(10, Technology{"Irrigation", 180, 10, {20}});
-    m_technologies.emplace(11, Technology{"Writing", 200, 11, {115, 20, 113}});
+    m_technologies.emplace(11, Technology{"Writing", 280, 11, {117, 20}});
     m_technologies.emplace(12, Technology{"Shipbuilding", 220, 12, {5}});
     m_technologies.emplace(13, Technology{"Iron Working", 250, 13, {9}});
-    m_technologies.emplace(14, Technology{"Mathematics", 280, 14, {11}});
-    m_technologies.emplace(15, Technology{"Currency", 320, 15, {14, 115}});
+    m_technologies.emplace(14, Technology{"Formal Mathematics", 340, 14, {118, 11}});
+    m_technologies.emplace(15, Technology{"Currency", 380, 15, {118, 115}});
     m_technologies.emplace(16, Technology{"Construction", 350, 16, {8}});
     m_technologies.emplace(17, Technology{"Roads", 380, 17, {7}});
     m_technologies.emplace(18, Technology{"Horseback Riding", 420, 18, {2, 7}});
@@ -247,13 +251,17 @@ void TechnologyManager::initializeTechnologies() {
     mark(114, 155, 1.0, false);
     mark(115, 160, 1.0, true);
     mark(116, 165, 1.1, true);
+    mark(117, 175, 1.2, true);
+    mark(118, 190, 1.3, true);
+    mark(119, 185, 1.25, true);
+    mark(120, 205, 1.4, true);
 
     // Re-anchor core early historical transitions.
-    mark(1, 175, 1.1, true);   // Pottery
-    mark(2, 180, 1.2, true);   // Animal husbandry
-    mark(4, 190, 1.2, true);   // Mining
-    mark(20, 210, 1.35, true); // Agriculture
-    mark(11, 250, 1.6, true);  // Writing
+    mark(1, 180, 1.1, true);   // Pottery
+    mark(2, 195, 1.2, true);   // Animal husbandry
+    mark(4, 200, 1.2, true);   // Mining
+    mark(20, 220, 1.35, true); // Agriculture
+    mark(11, 275, 1.7, true);  // Writing
     mark(42, 560, 2.2, true);  // Metallurgy
 
     for (auto& kv : m_technologies) {
@@ -309,9 +317,13 @@ void TechnologyManager::initializeTechnologies() {
     gate(2, false, false, 0.48, 0.0, 140.0, 0.0, 0.0, 0.0, 0.04, 0.02, 0.0, 0.35);
     gate(1, false, false, 0.50, 0.0, 0.0, 0.0, 0.08, 0.08, 0.04, 0.02, 0.0, 0.0);
     gate(4, false, false, 0.0, 0.0, 0.0, 0.20, 0.08, 0.0, 0.02, 0.01, 0.0, 0.0);
-    gate(9, false, false, 0.0, 0.0, 0.0, 0.24, 0.18, 0.10, 0.05, 0.03, 0.0, 0.0);
+    gate(9, false, false, 0.0, 0.0, 0.0, 0.30, 0.22, 0.12, 0.08, 0.05, 0.0, 0.0);
+    gate(117, false, false, 0.54, 120.0, 0.0, 0.0, 0.0, 0.04, 0.10, 0.06, 0.0, 0.0);
+    gate(118, false, false, 0.55, 140.0, 0.0, 0.0, 0.0, 0.06, 0.12, 0.08, 0.0, 0.0);
+    gate(119, false, false, 0.0, 0.0, 0.0, 0.22, 0.12, 0.08, 0.04, 0.02, 0.0, 0.0);
+    gate(120, false, false, 0.0, 0.0, 0.0, 0.26, 0.18, 0.10, 0.06, 0.03, 0.0, 0.0);
     gate(42, false, false, 0.0, 0.0, 0.0, 0.36, 0.34, 0.18, 0.12, 0.08, 0.0, 0.0);
-    gate(11, false, false, 0.58, 180.0, 0.0, 0.0, 0.0, 0.06, 0.18, 0.10, 0.0, 0.0);
+    gate(11, false, false, 0.60, 220.0, 0.0, 0.0, 0.0, 0.08, 0.22, 0.12, 0.0, 0.0);
     gate(43, true, false, 0.0, 0.0, 0.0, 0.0, 0.12, 0.0, 0.20, 0.06, 0.0, 0.0);
 }
 

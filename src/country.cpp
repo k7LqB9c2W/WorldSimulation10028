@@ -156,26 +156,53 @@ Country::Country(int countryIndex,
 	        }
 	    }
 
-	    // Phase 1 polity initialization (type is flavor only; budgets and constraints drive behavior).
-	    m_polity.legitimacy = 0.70;
-	    m_polity.adminCapacity = 0.07;
-	    m_polity.fiscalCapacity = 0.10;
-	    m_polity.logisticsReach = 0.10;
-	    m_polity.taxRate = 0.08;
-	    m_polity.treasurySpendRate = 1.05;
+	    // Phase 1 polity initialization: low-capability starts vary strongly by era and local path.
+	    auto eraCapability = [](int year) {
+	        if (year <= -20000) return 0.0;
+	        if (year <= -5000) {
+	            return 0.10 + 0.30 * static_cast<double>(year + 20000) / 15000.0;
+	        }
+	        if (year <= 0) {
+	            return 0.40 + 0.25 * static_cast<double>(year + 5000) / 5000.0;
+	        }
+	        if (year >= 2025) return 1.0;
+	        return 0.65 + 0.35 * static_cast<double>(year) / 2025.0;
+	    };
+	    std::uniform_real_distribution<double> jitter(-0.06, 0.06);
+	    const double era = std::clamp(eraCapability(foundingYear), 0.0, 1.0);
+	    const double jLegit = jitter(m_rng);
+	    const double jAdmin = jitter(m_rng);
+	    const double jFiscal = jitter(m_rng);
+	    const double jLog = jitter(m_rng);
+	    const double jTax = jitter(m_rng);
+	    m_polity.legitimacy = std::clamp(0.50 + 0.26 * era + jLegit, 0.20, 0.95);
+	    m_polity.adminCapacity = std::clamp(0.03 + 0.10 * era + jAdmin, 0.01, 0.65);
+	    m_polity.fiscalCapacity = std::clamp(0.03 + 0.12 * era + jFiscal, 0.01, 0.75);
+	    m_polity.logisticsReach = std::clamp(0.03 + 0.12 * era + jLog, 0.01, 0.75);
+	    m_polity.taxRate = std::clamp(0.04 + 0.08 * era + 0.015 * jTax, 0.02, 0.30);
+	    m_polity.treasurySpendRate = std::clamp(0.90 + 0.20 * era + 0.08 * jitter(m_rng), 0.55, 1.40);
 	    m_polity.debt = 0.0;
 	    if (m_type == Type::Warmonger) {
-	        m_polity.militarySpendingShare = 0.44;
-	        m_polity.adminSpendingShare = 0.28;
-	        m_polity.infraSpendingShare = 0.28;
+	        m_polity.militarySpendingShare = std::max(0.05, 0.40 + 0.04 * jitter(m_rng));
+	        m_polity.adminSpendingShare = std::max(0.05, 0.31 + 0.04 * jitter(m_rng));
+	        m_polity.infraSpendingShare = std::max(0.05, 0.29 + 0.04 * jitter(m_rng));
 	    } else if (m_type == Type::Trader) {
-	        m_polity.militarySpendingShare = 0.26;
-	        m_polity.adminSpendingShare = 0.30;
-	        m_polity.infraSpendingShare = 0.44;
+	        m_polity.militarySpendingShare = std::max(0.05, 0.22 + 0.04 * jitter(m_rng));
+	        m_polity.adminSpendingShare = std::max(0.05, 0.33 + 0.04 * jitter(m_rng));
+	        m_polity.infraSpendingShare = std::max(0.05, 0.45 + 0.04 * jitter(m_rng));
 	    } else {
-	        m_polity.militarySpendingShare = 0.24;
-	        m_polity.adminSpendingShare = 0.34;
-	        m_polity.infraSpendingShare = 0.42;
+	        m_polity.militarySpendingShare = std::max(0.05, 0.20 + 0.04 * jitter(m_rng));
+	        m_polity.adminSpendingShare = std::max(0.05, 0.36 + 0.04 * jitter(m_rng));
+	        m_polity.infraSpendingShare = std::max(0.05, 0.44 + 0.04 * jitter(m_rng));
+	    }
+	    const double shareSum =
+	        m_polity.militarySpendingShare +
+	        m_polity.adminSpendingShare +
+	        m_polity.infraSpendingShare;
+	    if (shareSum > 1e-9) {
+	        m_polity.militarySpendingShare /= shareSum;
+	        m_polity.adminSpendingShare /= shareSum;
+	        m_polity.infraSpendingShare /= shareSum;
 	    }
 	    std::uniform_int_distribution<int> policyOffset(0, 4);
 	    m_polity.lastPolicyYear = foundingYear + policyOffset(m_rng);
@@ -607,6 +634,17 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
     const double faminePressure = clamp01(m_macro.famineSeverity + std::max(0.0, 0.92 - m_macro.foodSecurity));
     const double warPressure = m_isAtWar ? 1.0 : 0.0;
     const double opportunityPressure = clamp01(0.5 * clamp01(m_macro.marketAccess) + 0.5 * connectivity);
+    const double pop = static_cast<double>(std::max<long long>(1, m_population));
+    const double urbanShare = clamp01(m_totalCityPopulation / pop);
+    const double capabilityIndex = clamp01(
+        0.34 * clamp01(m_polity.adminCapacity) +
+        0.24 * control +
+        0.18 * institutionCapacity +
+        0.14 * clamp01(m_macro.marketAccess) +
+        0.10 * urbanShare);
+    const double t = clamp01((capabilityIndex - 0.22) / 0.36);
+    const double fiscalCoupling = t * t * (3.0 - 2.0 * t);
+    const double fiscalPressure = 0.30 + 0.70 * fiscalCoupling;
 
     double desiredSpendFactor = std::clamp(m_polity.treasurySpendRate, 0.35, 2.20);
     desiredSpendFactor +=
@@ -721,20 +759,26 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
     };
 
     // Financing shortfalls feed directly into state quality (without scripted policy rules).
-    m_polity.adminCapacity = clamp01(m_polity.adminCapacity - yearsD * 0.012 * shortfallStress);
+    m_polity.adminCapacity = clamp01(m_polity.adminCapacity - yearsD * 0.012 * shortfallStress * fiscalPressure);
     m_militaryStrength = std::max(0.0, m_militaryStrength * (1.0 - std::min(0.30, 0.10 * shortfallStress * yearsD)));
-    ldbg.dbg_legit_budget_shortfall_direct = -(yearsD * 0.012 * shortfallStress);
+    ldbg.dbg_legit_budget_shortfall_direct = -(yearsD * 0.012 * shortfallStress * fiscalPressure);
     applyBudgetLegitimacyDelta(ldbg.dbg_legit_budget_shortfall_direct);
 
     // Replace binary "negative gold crisis" with burden-scaled penalties.
     if (serviceToIncome > 0.25 || debtToIncome > debtThreshold) {
         const double before = m_stability;
-        m_stability = clamp01(m_stability - yearsD * (0.012 * debtStress + 0.030 * serviceStress + 0.012 * shortfallStress));
+        m_stability = clamp01(
+            m_stability - yearsD * fiscalPressure *
+            (0.012 * debtStress + 0.030 * serviceStress + 0.012 * shortfallStress));
         sdbg.dbg_delta_debt_crisis += (m_stability - before);
         ldbg.dbg_legit_budget_burden_penalty =
-            -(yearsD * (0.010 * debtStress + 0.026 * serviceStress + 0.010 * shortfallStress));
+            -(yearsD * fiscalPressure *
+            (0.010 * debtStress + 0.026 * serviceStress + 0.010 * shortfallStress));
         applyBudgetLegitimacyDelta(ldbg.dbg_legit_budget_burden_penalty);
-        m_macro.leakageRate = std::clamp(m_macro.leakageRate + yearsD * (0.015 * burdenStress + 0.020 * shortfallStress), 0.02, 0.95);
+        m_macro.leakageRate = std::clamp(
+            m_macro.leakageRate + yearsD * fiscalPressure * (0.015 * burdenStress + 0.020 * shortfallStress),
+            0.02,
+            0.95);
     } else {
         ldbg.dbg_legit_budget_burden_penalty = 0.0;
     }
@@ -784,11 +828,11 @@ void Country::applyBudgetFromEconomy(double taxBaseAnnual,
         const double taxPain = clamp01(0.60 * (1.0 - legitimacyNow) + 0.40 * (1.0 - complianceNow));
         const double taxPenaltySlope = 0.014 + 0.026 * taxPain;
         ldbg.dbg_legit_budget_drift_stability = +0.002 * (stability - 0.5) * yearsD;
-        ldbg.dbg_legit_budget_drift_tax = -std::max(0.0, taxRate - 0.12) * taxPenaltySlope * yearsD;
+        ldbg.dbg_legit_budget_drift_tax = -std::max(0.0, taxRate - 0.12) * taxPenaltySlope * yearsD * fiscalPressure;
         ldbg.dbg_legit_budget_drift_control = -(1.0 - control) * 0.010 * yearsD;
-        ldbg.dbg_legit_budget_drift_debt = -0.008 * debtStress * yearsD;
-        ldbg.dbg_legit_budget_drift_service = -0.012 * serviceStress * yearsD;
-        ldbg.dbg_legit_budget_drift_shortfall = -0.010 * shortfallStress * yearsD;
+        ldbg.dbg_legit_budget_drift_debt = -0.008 * debtStress * yearsD * fiscalPressure;
+        ldbg.dbg_legit_budget_drift_service = -0.012 * serviceStress * yearsD * fiscalPressure;
+        ldbg.dbg_legit_budget_drift_shortfall = -0.010 * shortfallStress * yearsD * fiscalPressure;
         ldbg.dbg_legit_budget_drift_plague = plagueAffected ? (-0.02 * yearsD) : 0.0;
         ldbg.dbg_legit_budget_drift_war = m_isAtWar ? (-0.01 * yearsD) : 0.0;
         ldbg.dbg_legit_budget_drift_total =
@@ -2913,60 +2957,98 @@ void Country::checkIdeologyChange(int currentYear, News& news, const TechnologyM
     const double control = std::clamp(getAvgControl(), 0.0, 1.0);
     const double stability = std::clamp(getStability(), 0.0, 1.0);
     const double legit = std::clamp(getLegitimacy(), 0.0, 1.0);
+    const double capability = std::clamp(
+        0.30 * admin + 0.25 * control + 0.20 * legit + 0.15 * stability + 0.10 * urban,
+        0.0, 1.0);
+    const bool hasProtoWriting = TechnologyManager::hasTech(techManager, *this, TechId::PROTO_WRITING);
+    const bool hasNumeracy = TechnologyManager::hasTech(techManager, *this, TechId::NUMERACY_MEASUREMENT);
+    const bool hasWriting = TechnologyManager::hasTech(techManager, *this, TechId::WRITING);
+    const bool hasPaper = TechnologyManager::hasTech(techManager, *this, 33);
+    const bool hasPrinting = TechnologyManager::hasTech(techManager, *this, 36);
+    const bool hasEducation = TechnologyManager::hasTech(techManager, *this, TechId::EDUCATION);
+    const bool hasCivilService = TechnologyManager::hasTech(techManager, *this, TechId::CIVIL_SERVICE);
+    const bool hasBanking = TechnologyManager::hasTech(techManager, *this, TechId::BANKING);
     
     // Determine possible ideology transitions based on current ideology
     switch(m_ideology) {
         case Ideology::Tribal:
             if (m_population > 10000) possibleIdeologies.push_back(Ideology::Chiefdom);
-            if (m_hasCity) possibleIdeologies.push_back(Ideology::CityState);
+            if (m_hasCity && capability > 0.10) possibleIdeologies.push_back(Ideology::CityState);
             break;
         case Ideology::Chiefdom:
-            if (m_population > 25000) possibleIdeologies.push_back(Ideology::Kingdom);
-            // Republican institutions require literacy + administrative capacity.
-            if (TechnologyManager::hasTech(techManager, *this, TechId::WRITING) &&
-                admin > 0.08 && control > 0.28 && urban > 0.06) {
+            if (m_population > 25000 && capability > 0.15) possibleIdeologies.push_back(Ideology::Kingdom);
+            if (hasProtoWriting && hasNumeracy &&
+                admin > 0.12 && control > 0.35 && urban > 0.08 &&
+                stability > 0.50 && legit > 0.50 &&
+                currentYear >= -1500) {
                 possibleIdeologies.push_back(Ideology::Republic);
             }
             break;
         case Ideology::Kingdom:
-            if (m_boundaryPixels.size() > 1200 && admin > 0.10) possibleIdeologies.push_back(Ideology::Empire);
-            // Democracy is gated by education + state capacity, not a points currency.
-            if (TechnologyManager::hasTech(techManager, *this, TechId::EDUCATION) &&
-                TechnologyManager::hasTech(techManager, *this, TechId::CIVIL_SERVICE) &&
-                admin > 0.14 && control > 0.35 && urban > 0.12 && stability > 0.55 && legit > 0.55) {
+            if (m_boundaryPixels.size() > 1200 && admin > 0.16 && capability > 0.22) {
+                possibleIdeologies.push_back(Ideology::Empire);
+            }
+            if (hasEducation && hasCivilService && hasWriting && hasPaper && hasPrinting &&
+                admin > 0.26 && control > 0.50 && urban > 0.22 &&
+                stability > 0.65 && legit > 0.62 &&
+                currentYear >= 1200) {
                 possibleIdeologies.push_back(Ideology::Democracy);
             }
-            if (m_type == Type::Warmonger) possibleIdeologies.push_back(Ideology::Dictatorship);
+            if (m_type == Type::Warmonger && hasWriting &&
+                admin > 0.18 && control > 0.44 && stability > 0.45 && capability > 0.24 &&
+                currentYear >= -500) {
+                possibleIdeologies.push_back(Ideology::Dictatorship);
+            }
             break;
         case Ideology::Empire:
-            if (TechnologyManager::hasTech(techManager, *this, TechId::EDUCATION) &&
-                TechnologyManager::hasTech(techManager, *this, TechId::CIVIL_SERVICE) &&
-                admin > 0.18 && control > 0.40 && urban > 0.14 && stability > 0.60 && legit > 0.60) {
+            if (hasEducation && hasCivilService && hasWriting && hasPaper && hasPrinting &&
+                admin > 0.30 && control > 0.54 && urban > 0.24 &&
+                stability > 0.66 && legit > 0.64 &&
+                currentYear >= 1200) {
                 possibleIdeologies.push_back(Ideology::Democracy);
             }
-            possibleIdeologies.push_back(Ideology::Dictatorship);
+            if (hasWriting && admin > 0.22 && control > 0.48 && capability > 0.28 && currentYear >= -500) {
+                possibleIdeologies.push_back(Ideology::Dictatorship);
+            }
             if (m_boundaryPixels.size() > 5200 &&
-                TechnologyManager::hasTech(techManager, *this, TechId::CIVIL_SERVICE) &&
-                admin > 0.22 && control > 0.45 && stability > 0.55) {
+                hasCivilService && hasBanking &&
+                admin > 0.30 && control > 0.52 && stability > 0.62 &&
+                currentYear >= 1000) {
                 possibleIdeologies.push_back(Ideology::Federation);
             }
             break;
         case Ideology::Republic:
-            if (TechnologyManager::hasTech(techManager, *this, TechId::EDUCATION) &&
-                admin > 0.12 && control > 0.34 && urban > 0.10 && stability > 0.55 && legit > 0.55) {
+            if (hasEducation && hasCivilService && hasPrinting &&
+                admin > 0.24 && control > 0.50 && urban > 0.20 &&
+                stability > 0.65 && legit > 0.62 &&
+                currentYear >= 1200) {
                 possibleIdeologies.push_back(Ideology::Democracy);
             }
-            possibleIdeologies.push_back(Ideology::Dictatorship);
-            if (m_population > 100000) possibleIdeologies.push_back(Ideology::Empire);
+            if (hasWriting && capability > 0.28 && currentYear >= -500) {
+                possibleIdeologies.push_back(Ideology::Dictatorship);
+            }
+            if (m_population > 100000 && admin > 0.20 && control > 0.44) {
+                possibleIdeologies.push_back(Ideology::Empire);
+            }
             break;
         // Modern ideologies can transition between each other
         case Ideology::Democracy:
-            possibleIdeologies.push_back(Ideology::Federation);
-            if (m_type == Type::Warmonger) possibleIdeologies.push_back(Ideology::Dictatorship);
+            if (hasCivilService && hasBanking && capability > 0.62 && currentYear >= 1200) {
+                possibleIdeologies.push_back(Ideology::Federation);
+            }
+            if (m_type == Type::Warmonger && capability > 0.56 && currentYear >= 1200) {
+                possibleIdeologies.push_back(Ideology::Dictatorship);
+            }
             break;
         case Ideology::Dictatorship:
-            possibleIdeologies.push_back(Ideology::Democracy);
-            if (m_boundaryPixels.size() > 3000) possibleIdeologies.push_back(Ideology::Empire);
+            if (hasEducation && hasCivilService &&
+                admin > 0.28 && control > 0.55 && stability > 0.62 && legit > 0.58 &&
+                currentYear >= 1200) {
+                possibleIdeologies.push_back(Ideology::Democracy);
+            }
+            if (m_boundaryPixels.size() > 3000 && admin > 0.24 && control > 0.48) {
+                possibleIdeologies.push_back(Ideology::Empire);
+            }
             break;
         default:
             break;
@@ -2976,14 +3058,14 @@ void Country::checkIdeologyChange(int currentYear, News& news, const TechnologyM
         std::uniform_int_distribution<> changeChance(1, 100);
         int roll = changeChance(gen);
         
-        // Base 50% chance, modified by country type
-        int baseChance = 50;
+        // Keep regime changes relatively rare and path-dependent.
+        int baseChance = 22;
         
         // Warmongers more likely to become empires/dictatorships
         if (m_type == Type::Warmonger) {
             for (Ideology ideology : possibleIdeologies) {
                 if (ideology == Ideology::Empire || ideology == Ideology::Dictatorship) {
-                    baseChance = 70; // 70% chance for warmongers
+                    baseChance = 34;
                     break;
                 }
             }

@@ -364,14 +364,17 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
 
         if (config.world.population.mode == SimulationConfig::WorldPopulationConfig::Mode::Fixed) {
             if (config.world.population.fixedValue <= 0) {
-                config.world.population.fixedValue = 10'000'000;
+                config.world.population.fixedValue = 19'000'000;
             }
         } else {
             if (config.world.population.minValue <= 0) {
-                config.world.population.minValue = 5'000'000;
+                config.world.population.minValue = 12'000'000;
             }
             if (config.world.population.maxValue < config.world.population.minValue) {
                 std::swap(config.world.population.maxValue, config.world.population.minValue);
+            }
+            if (config.world.population.maxValue < 12'000'000) {
+                config.world.population.maxValue = 30'000'000;
             }
         }
         config.spawn.colorTolerance = std::clamp(config.spawn.colorTolerance, 0, 255);
@@ -454,52 +457,52 @@ double SimulationContext::u01FromU64(std::uint64_t x) {
 
 std::vector<SimulationConfig::SpawnRegionConfig> SimulationConfig::defaultSpawnRegions() {
     return {
-        {"south_asia", "South Asia", 151, 255, 135, 0.30, 1, -1.0, -1.0},
-        {"east_asia", "East Asia", 255, 145, 145, 0.22, 1, -1.0, -1.0},
-        {"west_asia", "West Asia", 63, 210, 255, 0.16, 1, -1.0, -1.0},
-        {"se_asia", "Southeast Asia", 253, 255, 173, 0.05, 1, -1.0, -1.0},
-        {"cn_asia", "Central and North Asia", 187, 135, 255, 0.02, 1, -1.0, -1.0},
-        {"nile_ne_africa", "Nile Valley and Northeast Africa", 255, 135, 229, 0.05, 2, -1.0, -1.0},
-        {"north_africa", "North Africa", 173, 255, 255, 0.02, 2, -1.0, -1.0},
-        {"west_africa", "West Africa", 7, 255, 127, 0.02, 2, -1.0, -1.0},
-        {"east_africa", "East Africa", 33, 195, 255, 0.02, 2, -1.0, -1.0},
-        {"cs_africa", "Central and Southern Africa", 255, 53, 241, 0.01, 2, -1.0, -1.0},
-        {"se_europe", "Southeast Europe", 246, 255, 170, 0.03, 3, -1.0, -1.0},
-        {"med_europe", "Mediterranean Europe", 255, 106, 0, 0.02, 3, 0.52, 0.35},
-        {"central_europe", "Central Europe", 81, 124, 81, 0.02, 3, -1.0, -1.0},
-        {"wnw_europe", "Western and Northwestern Europe", 130, 255, 150, 0.015, 3, -1.0, -1.0},
-        {"north_europe", "Northern Europe", 255, 208, 147, 0.005, 3, -1.0, -1.0},
-        {"mesoamerica", "Mesoamerica", 255, 130, 165, 0.01, 4, -1.0, -1.0},
-        {"andes", "Andes", 60, 32, 124, 0.008, 4, -1.0, -1.0},
-        {"e_na", "Eastern North America", 124, 39, 72, 0.004, 4, -1.0, -1.0},
-        {"w_na", "Western North America", 255, 0, 220, 0.007, 4, -1.0, -1.0},
-        {"caribbean", "Caribbean", 109, 121, 255, 0.001, 4, -1.0, -1.0},
-        {"oceania", "Oceania", 255, 106, 0, 0.01, 5, 0.82, 0.76},
+        {"south_asia", "South Asia", 151, 255, 135, 0.145, 1, -1.0, -1.0},
+        {"east_asia", "East Asia", 255, 145, 145, 0.145, 1, -1.0, -1.0},
+        {"west_asia", "West Asia", 63, 210, 255, 0.110, 1, -1.0, -1.0},
+        {"se_asia", "Southeast Asia", 253, 255, 173, 0.060, 1, -1.0, -1.0},
+        {"cn_asia", "Central and North Asia", 187, 135, 255, 0.033, 1, -1.0, -1.0},
+        {"nile_ne_africa", "Nile Valley and Northeast Africa", 255, 135, 229, 0.020, 2, -1.0, -1.0},
+        {"north_africa", "North Africa", 173, 255, 255, 0.013, 2, -1.0, -1.0},
+        {"west_africa", "West Africa", 7, 255, 127, 0.016, 2, -1.0, -1.0},
+        {"east_africa", "East Africa", 33, 195, 255, 0.017, 2, -1.0, -1.0},
+        {"cs_africa", "Central and Southern Africa", 255, 53, 241, 0.010, 2, -1.0, -1.0},
+        {"se_europe", "Southeast Europe", 246, 255, 170, 0.020, 3, -1.0, -1.0},
+        {"med_europe", "Mediterranean Europe", 255, 106, 0, 0.018, 3, 0.52, 0.35},
+        {"central_europe", "Central Europe", 81, 124, 81, 0.020, 3, -1.0, -1.0},
+        {"wnw_europe", "Western and Northwestern Europe", 130, 255, 150, 0.018, 3, -1.0, -1.0},
+        {"north_europe", "Northern Europe", 255, 208, 147, 0.008, 3, -1.0, -1.0},
+        {"mesoamerica", "Mesoamerica", 255, 130, 165, 0.100, 4, -1.0, -1.0},
+        {"andes", "Andes", 60, 32, 124, 0.065, 4, -1.0, -1.0},
+        {"e_na", "Eastern North America", 124, 39, 72, 0.070, 4, -1.0, -1.0},
+        {"w_na", "Western North America", 255, 0, 220, 0.078, 4, -1.0, -1.0},
+        {"caribbean", "Caribbean", 109, 121, 255, 0.013, 4, -1.0, -1.0},
+        {"oceania", "Oceania", 255, 106, 0, 0.021, 5, 0.82, 0.76},
     };
 }
 
 std::vector<SimulationConfig::RegionalStartTechPreset> SimulationConfig::defaultRegionalStartTechPresets() {
     return {
-        {"west_asia", {20, 1, 2, 3, 4, 6, 8, 9, 10, 11, 12, 14, 16}},
-        {"nile_ne_africa", {20, 1, 2, 3, 4, 6, 8, 10, 16}},
-        {"south_asia", {20, 1, 2, 3, 4, 6, 8, 10, 16}},
-        {"east_asia", {20, 1, 2, 3, 4, 6, 8, 10, 16}},
-        {"se_asia", {20, 1, 3, 5, 6, 12, 16}},
+        {"west_asia", {20, 1, 2, 3, 4, 6, 10, 115, 119}},
+        {"nile_ne_africa", {20, 1, 2, 3, 6, 10, 115}},
+        {"south_asia", {20, 1, 2, 3, 4, 6, 115}},
+        {"east_asia", {20, 1, 2, 3, 4, 6, 115}},
+        {"se_asia", {20, 1, 2, 3, 5, 6}},
         {"cn_asia", {2, 3, 4, 6}},
-        {"se_europe", {20, 1, 2, 3, 4, 6, 8, 16}},
-        {"med_europe", {20, 1, 2, 3, 4, 5, 6, 8, 12, 16}},
-        {"central_europe", {20, 1, 2, 3, 4, 6, 16}},
-        {"wnw_europe", {20, 1, 3, 4, 6, 16}},
+        {"se_europe", {20, 1, 2, 3, 4, 6, 115, 119}},
+        {"med_europe", {20, 1, 2, 3, 4, 5, 6, 115}},
+        {"central_europe", {20, 1, 2, 3, 4, 6}},
+        {"wnw_europe", {20, 1, 3, 4, 6}},
         {"north_europe", {3, 4, 6}},
-        {"north_africa", {20, 1, 2, 3, 4, 6, 16}},
-        {"west_africa", {20, 1, 3, 4, 6, 16}},
-        {"east_africa", {20, 1, 3, 4, 6, 16}},
+        {"north_africa", {20, 1, 2, 3, 4, 6, 115}},
+        {"west_africa", {20, 1, 3, 4, 6}},
+        {"east_africa", {20, 1, 3, 4, 6}},
         {"cs_africa", {1, 3, 4, 6}},
-        {"mesoamerica", {20, 1, 3, 6, 16}},
-        {"andes", {20, 1, 3, 4, 6, 16}},
+        {"mesoamerica", {20, 1, 3, 6}},
+        {"andes", {20, 1, 3, 4, 6}},
         {"e_na", {3, 4, 6}},
         {"w_na", {3, 4, 6}},
-        {"caribbean", {5, 6, 12}},
-        {"oceania", {5, 6, 12}},
+        {"caribbean", {3, 5, 6}},
+        {"oceania", {3, 5, 6}},
     };
 }

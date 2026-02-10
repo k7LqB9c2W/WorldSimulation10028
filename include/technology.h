@@ -36,6 +36,11 @@ struct Technology {
 // Authoritative technology ID constants.
 // Keep these aligned with TechnologyManager::initializeTechnologies().
 namespace TechId {
+    constexpr int PROTO_WRITING = 117;
+    constexpr int NUMERACY_MEASUREMENT = 118;
+    constexpr int NATIVE_COPPER_WORKING = 119;
+    constexpr int COPPER_SMELTING = 120;
+
     constexpr int WRITING = 11;
     constexpr int CONSTRUCTION = 16;
     constexpr int CURRENCY = 15;

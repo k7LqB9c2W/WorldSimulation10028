@@ -30,8 +30,8 @@ struct SimulationConfig {
         };
         Mode mode = Mode::Range;
         std::int64_t fixedValue = 0;
-        std::int64_t minValue = 5000000;
-        std::int64_t maxValue = 20000000;
+        std::int64_t minValue = 12000000;
+        std::int64_t maxValue = 30000000;
     };
 
     struct SpawnConfig {
@@ -56,7 +56,7 @@ struct SimulationConfig {
 
     struct World {
         int yearsPerTick = 1;
-        int startYear = -20000;
+        int startYear = -5000;
         int endYear = 2025;
         std::string rngSeedMode = "provided";
         bool deterministicMode = true;
@@ -146,13 +146,13 @@ struct SimulationConfig {
         double objectiveTributeWeight = 0.15;
         double objectiveVassalWeight = 0.12;
         double objectiveRegimeWeight = 0.10;
-        double objectiveAnnihilationWeight = 0.13;
+        double objectiveAnnihilationWeight = 0.08;
         int cooldownMinYears = 6;
         int cooldownMaxYears = 40;
         double peaceReparationsWeight = 0.20;
         double peaceTributeWeight = 0.25;
         double peaceReconstructionDrag = 0.15;
-        double earlyAnnihilationBias = 0.30;
+        double earlyAnnihilationBias = 0.15;
         double highInstitutionAnnihilationDamp = 0.65;
     } war{};
 
@@ -218,7 +218,7 @@ struct SimulationConfig {
     } economy{};
 
     struct Scoring {
-        std::vector<int> checkpointsYears = {-20000, -15000, -12000, -8000, -5000, -3000, -1000, 0, 1000, 1500, 2025};
+        std::vector<int> checkpointsYears = {-5000, -3000, -1000, 0, 1000, 1500, 2025};
         double weightFoodSecurityStability = 1.0;
         double weightInnovationUrbanization = 1.0;
         double weightEmpireLogisticsConstraint = 1.0;

@@ -180,6 +180,73 @@ sf::Vector2f defaultAnchorForRegion(const SimulationConfig::SpawnRegionConfig& r
     return sf::Vector2f(0.5f, 0.5f);
 }
 
+double clamp01Unit(double v) {
+    return std::max(0.0, std::min(1.0, v));
+}
+
+double computePlagueOutbreakHazard(const SimulationConfig& cfg, const std::vector<Country>& countries) {
+    if (countries.empty()) return 0.0;
+
+    double popSum = 0.0;
+    double urbanWeighted = 0.0;
+    double marketWeighted = 0.0;
+    double controlWeighted = 0.0;
+    double institutionWeighted = 0.0;
+    double warPop = 0.0;
+
+    for (const Country& c : countries) {
+        if (c.getPopulation() <= 0) continue;
+        const double pop = static_cast<double>(c.getPopulation());
+        const double urban = clamp01Unit(c.getTotalCityPopulation() / std::max(1.0, pop));
+        const double market = clamp01Unit(c.getMarketAccess());
+        const double control = clamp01Unit(c.getAvgControl());
+        const double institution = clamp01Unit(c.getInstitutionCapacity());
+
+        popSum += pop;
+        urbanWeighted += urban * pop;
+        marketWeighted += market * pop;
+        controlWeighted += control * pop;
+        institutionWeighted += institution * pop;
+        if (c.isAtWar()) warPop += pop;
+    }
+
+    if (popSum <= 1.0) return 0.0;
+
+    const double urban = urbanWeighted / popSum;
+    const double market = marketWeighted / popSum;
+    const double control = controlWeighted / popSum;
+    const double institution = institutionWeighted / popSum;
+    const double warShare = warPop / popSum;
+
+    double hazard = 0.0;
+    hazard += std::max(0.0004, cfg.disease.endemicBase * 0.45 + cfg.disease.zoonoticBase * 0.60);
+    hazard += std::max(0.0, cfg.disease.spilloverShockChance) * 0.35;
+    hazard += 0.018 * urban;
+    hazard += 0.010 * market * std::clamp(cfg.disease.tradeImportWeight, 0.0, 1.5);
+    hazard += 0.010 * warShare * std::clamp(cfg.disease.warAmplifier, 0.0, 1.5);
+    hazard += 0.006 * std::max(0.0, 0.55 - control);
+    hazard += 0.006 * std::max(0.0, 0.50 - institution);
+    hazard -= 0.010 * std::clamp(cfg.disease.endemicInstitutionMitigation, 0.0, 1.0) * institution;
+    return std::clamp(hazard, 0.0, 0.16);
+}
+
+bool shouldTriggerPlagueThisYear(const SimulationContext& ctx,
+                                 int currentYear,
+                                 int earliestYear,
+                                 const std::vector<Country>& countries) {
+    if (currentYear < earliestYear) return false;
+    const double hazard = computePlagueOutbreakHazard(ctx.config, countries);
+    if (hazard <= 1e-12) return false;
+
+    const std::uint64_t yearToken = static_cast<std::uint64_t>(static_cast<std::int64_t>(currentYear) + 30000);
+    const std::uint64_t roll = SimulationContext::mix64(
+        ctx.worldSeed ^
+        0x504C414755455452ULL ^
+        (yearToken * 0x9E3779B97F4A7C15ULL));
+    const double u = SimulationContext::u01FromU64(roll);
+    return u < hazard;
+}
+
 std::vector<std::int64_t> allocateLargestRemainder(const std::vector<double>& rawShares, std::int64_t total) {
     const int n = static_cast<int>(rawShares.size());
     std::vector<std::int64_t> out(static_cast<size_t>(n), 0);
@@ -296,10 +363,9 @@ Map::Map(const sf::Image& baseImage,
 	        initializeClimateBaseline();
 	        tickWeather(m_ctx->config.world.startYear, 1);
 	        buildCoastalLandCandidates();
-        const std::uint64_t plagueRoll = SimulationContext::mix64(m_ctx->worldSeed ^ 0x504C41475545494EULL);
-        m_plagueInterval = 600 + static_cast<int>(plagueRoll % 101ULL);
-        m_nextPlagueYear = m_ctx->config.world.startYear + m_plagueInterval; // First plague year
-		}
+        m_plagueInterval = 4; // Active plague duration in years; recalculated at startPlague.
+        m_nextPlagueYear = m_ctx->config.world.startYear + 80; // Earliest year a stochastic outbreak can trigger.
+			}
 
 // 🔥 NUCLEAR OPTIMIZATION: Lightning-fast resource grid initialization
 void Map::initializeResourceGrid() {
@@ -2420,7 +2486,6 @@ void Map::initializeCountries(std::vector<Country>& countries,
     std::mt19937_64& rng = m_ctx->worldRng;
     std::uniform_int_distribution<> colorDist(50, 255);
     std::uniform_real_distribution<> growthRateDist(0.0003, 0.001); // Legacy - not used in logistic system
-    std::uniform_int_distribution<> typeDist(0, 2);
     const int gridH = static_cast<int>(m_isLandGrid.size());
     const int gridW = (gridH > 0) ? static_cast<int>(m_isLandGrid[0].size()) : 0;
     if (gridW <= 0 || gridH <= 0) {
@@ -3018,7 +3083,33 @@ void Map::initializeCountries(std::vector<Country>& countries,
 
         countryName += " Tribe";
 
-        Country::Type countryType = static_cast<Country::Type>(typeDist(rng));
+        int waterAdj = 0;
+        int nAdj = 0;
+        for (int dy = -1; dy <= 1; ++dy) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                if (dx == 0 && dy == 0) continue;
+                const int nx = startCell.x + dx;
+                const int ny = startCell.y + dy;
+                ++nAdj;
+                if (nx < 0 || ny < 0 || nx >= gridW || ny >= gridH ||
+                    !m_isLandGrid[static_cast<size_t>(ny)][static_cast<size_t>(nx)]) {
+                    waterAdj++;
+                }
+            }
+        }
+        const double coastRatio = (nAdj > 0) ? (static_cast<double>(waterAdj) / static_cast<double>(nAdj)) : 0.0;
+        const double foodLocal = getFoodAtCell(startCell.x, startCell.y);
+        const double climateYield = getFieldYieldAtCell(startCell.x, startCell.y);
+        const double foodScore = std::clamp((foodLocal * climateYield) / 140.0, 0.0, 1.4);
+        const double scarcity = std::clamp((0.75 - foodScore) / 0.75, 0.0, 1.0);
+        const double mobilityHint = std::clamp((foodLocal - 45.0) / 70.0, 0.0, 1.0);
+        std::array<double, 3> typeWeights = {
+            0.14 + 0.20 * scarcity + 0.08 * (1.0 - coastRatio),            // Warmonger
+            0.95 + 0.30 * foodScore,                                         // Pacifist
+            0.20 + 0.55 * coastRatio + 0.20 * mobilityHint + 0.12 * foodScore // Trader
+        };
+        std::discrete_distribution<int> typePicker(typeWeights.begin(), typeWeights.end());
+        Country::Type countryType = static_cast<Country::Type>(typePicker(rng));
         countries.emplace_back(i,
                                countryColor,
                                startCell,
@@ -3336,8 +3427,7 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
     attachCountriesForOwnershipSync(&countries);
     m_dirtyRegions.clear();
 
-    // Trigger the plague in the year 4950
-    if (currentYear == m_nextPlagueYear) {
+    if (!m_plagueActive && shouldTriggerPlagueThisYear(*m_ctx, currentYear, m_nextPlagueYear, countries)) {
         startPlague(currentYear, news);
         initializePlagueCluster(countries); // Initialize geographic cluster
     }
@@ -3346,8 +3436,8 @@ void Map::updateCountries(std::vector<Country>& countries, int currentYear, News
         updatePlagueSpread(countries);
     }
 
-    // Check if the plague should end
-    if (m_plagueActive && (currentYear == m_plagueStartYear + 3)) {
+    // End date is dynamic per outbreak (not fixed periodic cadence).
+    if (m_plagueActive && currentYear >= (m_plagueStartYear + std::max(1, m_plagueInterval))) {
         endPlague(news);
     }
 
@@ -4745,6 +4835,16 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
             const double control = clamp01(c.getAvgControl());
             const double legit = clamp01(c.getLegitimacy());
             if (control < 0.55 || legit > 0.18) continue;
+            const double pop = static_cast<double>(std::max<long long>(1, c.getPopulation()));
+            const double urban = clamp01(c.getTotalCityPopulation() / pop);
+            const double admin = clamp01(c.getAdminCapacity());
+            const double stability = clamp01(c.getStability());
+            const double capability = clamp01(
+                0.30 * admin + 0.25 * control + 0.20 * legit + 0.15 * stability + 0.10 * urban);
+            const bool hasProtoWriting = TechnologyManager::hasTech(techManager, c, TechId::PROTO_WRITING);
+            const bool hasNumeracy = TechnologyManager::hasTech(techManager, c, TechId::NUMERACY_MEASUREMENT);
+            const bool hasWriting = TechnologyManager::hasTech(techManager, c, TechId::WRITING);
+            if (currentYear < -2000 || capability < 0.18 || !hasProtoWriting) continue;
 
             std::string base = c.getName();
             base = stripSuffix(base, " Tribe");
@@ -4752,7 +4852,12 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
             base = stripSuffix(base, " Empire");
             base = stripSuffix(base, " Republic");
 
-            const std::string suffix = (c.getCities().size() >= 2) ? " Republic" : " Kingdom";
+            const bool canRepublic = currentYear >= -500 &&
+                                     hasWriting &&
+                                     hasNumeracy &&
+                                     c.getCities().size() >= 3 &&
+                                     capability >= 0.34;
+            const std::string suffix = canRepublic ? " Republic" : " Kingdom";
             const std::string next = base + suffix;
             if (next == c.getName()) continue;
             if (isNameTaken(countries, next)) continue;
@@ -5686,19 +5791,24 @@ void Map::startPlague(int year, News& news) {
     m_plagueAffectedCountries.clear(); // Clear previous plague
     
     news.addEvent("The Great Plague of " + std::to_string(year) + " has started!");
-
-    // Determine the next plague year deterministically from seed/year.
-    const std::uint64_t plagueRoll = SimulationContext::mix64(
+    // Duration is stochastic per outbreak, not a fixed global cadence.
+    const std::uint64_t durationRoll = SimulationContext::mix64(
         m_ctx->worldSeed ^
-        0x504C414755455945ULL ^
-        (static_cast<std::uint64_t>(year + 12000) * 0x9E3779B97F4A7C15ULL));
-    m_plagueInterval = 600 + static_cast<int>(plagueRoll % 101ULL);
-    m_nextPlagueYear = year + m_plagueInterval;
+        0x504C414755454455ULL ^
+        (static_cast<std::uint64_t>(year + 30000) * 0x9E3779B97F4A7C15ULL));
+    m_plagueInterval = 3 + static_cast<int>(durationRoll % 5ULL); // 3..7 years
 }
 
 void Map::endPlague(News& news) {
     m_plagueActive = false;
     m_plagueAffectedCountries.clear(); // Clear affected countries
+    // Enforce a cooldown floor before another outbreak can trigger.
+    const std::uint64_t cooldownRoll = SimulationContext::mix64(
+        m_ctx->worldSeed ^
+        0x504C41475545434FULL ^
+        (static_cast<std::uint64_t>(m_plagueStartYear + 30000) * 0xBF58476D1CE4E5B9ULL));
+    const int cooldownYears = 40 + static_cast<int>(cooldownRoll % 221ULL); // 40..260
+    m_nextPlagueYear = std::max(m_nextPlagueYear, m_plagueStartYear + std::max(1, m_plagueInterval) + cooldownYears);
     news.addEvent("The Great Plague has ended. Total deaths: " + std::to_string(m_plagueDeathToll));
 }
 
@@ -7474,14 +7584,7 @@ std::unordered_set<int>& Map::getDirtyRegions() {
 
 void Map::triggerPlague(int year, News& news) {
     startPlague(year, news); // Reuse the existing startPlague logic
-
-    // Immediately reset the next plague year for "spamming"
-    const std::uint64_t plagueRoll = SimulationContext::mix64(
-        m_ctx->worldSeed ^
-        0x504C414755455350ULL ^
-        (static_cast<std::uint64_t>(year + 12000) * 0x9E3779B97F4A7C15ULL));
-    m_plagueInterval = 600 + static_cast<int>(plagueRoll % 101ULL);
-    m_nextPlagueYear = year + m_plagueInterval;
+    m_nextPlagueYear = std::max(m_nextPlagueYear, year + 40);
 }
 
 // FAST FORWARD MODE: Optimized simulation for 100 years in 2 seconds
@@ -7502,12 +7605,11 @@ void Map::fastForwardSimulation(std::vector<Country>& countries, int& currentYea
         currentYear++;
         if (currentYear == 0) currentYear = 1;
         
-        // Randomized plague logic - every 600-700 years (same as normal mode)
-        if (currentYear == m_nextPlagueYear && !m_plagueActive) {
+        if (!m_plagueActive && shouldTriggerPlagueThisYear(*m_ctx, currentYear, m_nextPlagueYear, countries)) {
             startPlague(currentYear, news);
             initializePlagueCluster(countries); // Initialize geographic cluster
         }
-        if (m_plagueActive && (currentYear == m_plagueStartYear + 3)) {
+        if (m_plagueActive && currentYear >= (m_plagueStartYear + std::max(1, m_plagueInterval))) {
             endPlague(news);
         }
         
