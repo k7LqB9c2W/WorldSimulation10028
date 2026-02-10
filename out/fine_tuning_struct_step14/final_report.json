@@ -1,0 +1,153 @@
+{
+  "stop_condition": "MAX_ITERATIONS",
+  "best_objective": 89.95426194868979,
+  "best_objective_inner": 88.57301711870826,
+  "best_objective_medium": 89.09586472998657,
+  "best_holdout_objective": 90.06206020394322,
+  "best_holdout_objective_inner": 89.00305783674521,
+  "best_holdout_objective_medium": 89.15731463669812,
+  "best_top3_violations": [
+    "DEPLETION_IGNORED"
+  ],
+  "best_config": "/mnt/c/WS/WorldSimulation10028/out/fine_tuning_struct_step14/best_sim_config.toml",
+  "best_config_hash16": "62be78b2205646c3",
+  "best_eval": {
+    "tuning": {
+      "score_median": 89.95426194868979,
+      "stddev": 0.6540758858002023,
+      "hardfail_rate": 0.0,
+      "variance_penalty": 0.0,
+      "hardfail_penalty": 0.0,
+      "objective": 89.95426194868979
+    },
+    "holdout": {
+      "score_median": 90.06206020394322,
+      "stddev": 0.10292934562735212,
+      "hardfail_rate": 0.0,
+      "variance_penalty": 0.0,
+      "hardfail_penalty": 0.0,
+      "objective": 90.06206020394322
+    },
+    "horizons": {
+      "inner": {
+        "tuning": {
+          "score_median": 88.57301711870826,
+          "stddev": 1.2210618734823544,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 88.57301711870826
+        },
+        "holdout": {
+          "score_median": 89.00305783674521,
+          "stddev": 0.10522857050925438,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 89.00305783674521
+        },
+        "top3": [],
+        "end_year": -1000
+      },
+      "medium": {
+        "tuning": {
+          "score_median": 89.09586472998657,
+          "stddev": 0.8253492452172801,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 89.09586472998657
+        },
+        "holdout": {
+          "score_median": 89.15731463669812,
+          "stddev": 0.3010304930070973,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 89.15731463669812
+        },
+        "top3": [],
+        "end_year": 1
+      },
+      "long": {
+        "tuning": {
+          "score_median": 89.95426194868979,
+          "stddev": 0.6540758858002023,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 89.95426194868979
+        },
+        "holdout": {
+          "score_median": 90.06206020394322,
+          "stddev": 0.10292934562735212,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 90.06206020394322
+        },
+        "top3": [
+          "DEPLETION_IGNORED"
+        ],
+        "end_year": 2025
+      }
+    }
+  },
+  "curriculum": {
+    "enabled": true,
+    "inner_end_year": -1000,
+    "medium_end_year": 1,
+    "long_end_year": 2025,
+    "medium_check_every_iterations": 6,
+    "medium_check_every_accepted": 2
+  },
+  "optimization_accelerators": {
+    "common_random_numbers": {
+      "enabled": true
+    },
+    "adaptive_racing": {
+      "enabled": true,
+      "stage_seed_counts": [
+        2,
+        4
+      ],
+      "early_reject_margin": 0.75
+    },
+    "paired_acceptance": {
+      "enabled": true,
+      "confidence_z": 1.96,
+      "min_inner_lcb_delta": 0.0,
+      "min_long_lcb_delta": 0.0,
+      "min_holdout_lcb_delta": -1.0
+    },
+    "run_cache": {
+      "enabled": true,
+      "cache_root": "/mnt/c/WS/WorldSimulation10028/out/fine_tuning_struct_step14/run_cache",
+      "reuse_existing_seed_dirs": true,
+      "materialize_from_cache": false
+    },
+    "io": {
+      "write_eval_artifacts_for_inner": false,
+      "write_eval_artifacts_for_holdout": true,
+      "prune_rejected_iterations": true,
+      "keep_candidate_if_rejected": false
+    },
+    "search": {
+      "two_lane_enabled": true,
+      "ucb_explore_coeff": 0.75,
+      "random_seed": 1337
+    },
+    "runtime_hygiene": {
+      "seed_jobs": 15,
+      "cpu_count": 16,
+      "reserve_cpu_cores": 1,
+      "runtime_env": {
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1"
+      }
+    }
+  },
+  "iterations_completed": 0
+}

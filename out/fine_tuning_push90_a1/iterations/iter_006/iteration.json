@@ -1,0 +1,150 @@
+{
+  "iteration": 6,
+  "subsystem_group": "disease",
+  "selected_lane": "explore",
+  "lane_scout": [
+    {
+      "lane": "exploit",
+      "group": "food",
+      "path": "food.baseForaging",
+      "old": 19.5,
+      "new": 21.0,
+      "scout_objective": 85.68248910445716,
+      "scout_delta_vs_incumbent": -0.6370162618563882,
+      "scout_paired": {
+        "n": 2,
+        "mean_diff": -0.6370162618563882,
+        "std_diff": 0.1804053786440818,
+        "stderr": 0.12756586660175698,
+        "z": 1.96,
+        "lcb": -0.8870453603958318,
+        "ucb": -0.3869871633169445
+      }
+    },
+    {
+      "lane": "explore",
+      "group": "disease",
+      "path": "disease.endemicBase",
+      "old": 0.002,
+      "new": 0.0018,
+      "scout_objective": 86.17465192073334,
+      "scout_delta_vs_incumbent": -0.1448534455802104,
+      "scout_paired": {
+        "n": 2,
+        "mean_diff": -0.1448534455802175,
+        "std_diff": 0.2581759469520435,
+        "stderr": 0.1825579628290483,
+        "z": 1.96,
+        "lcb": -0.5026670527251522,
+        "ucb": 0.21296016156471714
+      }
+    }
+  ],
+  "parameter_edits": [
+    {
+      "path": "disease.endemicBase",
+      "old": 0.002,
+      "new": 0.0018,
+      "recommended_step": 0.0002,
+      "direction": -1
+    }
+  ],
+  "top_violations_before": [],
+  "top_violations_after": [],
+  "top_violations_after_long": null,
+  "objective_tuning": 85.45688475997916,
+  "objective_tuning_inner": 85.45688475997916,
+  "objective_tuning_medium": null,
+  "objective_tuning_long": null,
+  "score_delta": -0.9423516624988935,
+  "score_delta_inner": -0.9423516624988935,
+  "score_delta_medium": null,
+  "racing": {
+    "enabled": true,
+    "stages": [
+      {
+        "stage_seed_count": 2,
+        "candidate_objective": 86.17465192073334,
+        "incumbent_objective": 86.31950536631355,
+        "objective_delta": -0.1448534455802104,
+        "paired": {
+          "n": 2,
+          "mean_diff": -0.1448534455802175,
+          "std_diff": 0.2581759469520435,
+          "stderr": 0.1825579628290483,
+          "z": 1.96,
+          "lcb": -0.5026670527251522,
+          "ucb": 0.21296016156471714
+        }
+      },
+      {
+        "stage_seed_count": 4,
+        "candidate_objective": 85.45688475997916,
+        "incumbent_objective": 86.39923642247805,
+        "objective_delta": -0.9423516624988935,
+        "paired": {
+          "n": 4,
+          "mean_diff": -0.8583343507168699,
+          "std_diff": 0.8812258978717528,
+          "stderr": 0.4406129489358764,
+          "z": 1.96,
+          "lcb": -1.7219357306311878,
+          "ucb": 0.0052670291974478145
+        }
+      }
+    ],
+    "early_reject": false,
+    "early_reject_reason": ""
+  },
+  "paired_stats": {
+    "inner": {
+      "n": 4,
+      "mean_diff": -0.8583343507168699,
+      "std_diff": 0.8812258978717528,
+      "stderr": 0.4406129489358764,
+      "z": 1.96,
+      "lcb": -1.7219357306311878,
+      "ucb": 0.0052670291974478145
+    },
+    "long": {
+      "n": 0,
+      "lcb": 0.0,
+      "ucb": 0.0
+    },
+    "holdout": {
+      "n": 0,
+      "lcb": 0.0,
+      "ucb": 0.0
+    }
+  },
+  "gates": {
+    "metric_availability": true,
+    "canary_pass": false,
+    "backend_parity_pass": false,
+    "medium_required": true,
+    "medium_pass": true,
+    "long_ran": false,
+    "holdout_pass": false,
+    "tuning_hardfails": [],
+    "medium_hardfails": [],
+    "medium_holdout_hardfails": [],
+    "long_hardfails": [],
+    "holdout_hardfails": []
+  },
+  "holdout_objective": null,
+  "accepted": false,
+  "best_so_far": {
+    "objective": 87.36521186671388,
+    "holdout_objective": 87.14443218568486,
+    "config_path": "/mnt/c/WS/WorldSimulation10028/out/fine_tuning_push90_a1/best_sim_config.toml",
+    "config_hash16": "62be78b2205646c3"
+  },
+  "canary_detail": [],
+  "parity_detail": [],
+  "curriculum": {
+    "enabled": true,
+    "inner_end_year": -1000,
+    "medium_end_year": 1,
+    "long_end_year": 2025
+  }
+}

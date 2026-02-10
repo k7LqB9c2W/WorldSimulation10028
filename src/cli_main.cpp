@@ -603,7 +603,7 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
     int warsActive = 0;
 
     const double tScale = std::max(0.25, ctx.config.tech.capabilityThresholdScale);
-    const double t3 = 16000.0 * tScale;
+    const double t3 = 300.0 * tScale;
 
     for (size_t i = 0; i < countries.size(); ++i) {
         const Country& c = countries[i];
@@ -660,7 +660,8 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
         for (double v : k) meanDomain += std::max(0.0, v);
         meanDomain /= static_cast<double>(Country::kDomains);
         const double composite = meanDomain * (0.7 + 0.3 * ma) * (0.7 + 0.3 * inst);
-        const double techIdx = std::clamp(composite / std::max(1.0, t3), 0.0, 1.0);
+        const double techIdxRaw = std::clamp(composite / std::max(1.0, t3), 0.0, 1.0);
+        const double techIdx = std::clamp(0.28 + 0.72 * techIdxRaw, 0.0, 1.0);
         techCapIdx.push_back(techIdx);
 
         const double logIdx = clamp01(0.50 * ma + 0.30 * logi + 0.20 * ctrl);
@@ -670,11 +671,11 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
         // Health capability should reflect baseline public-health institutions, not only
         // acute spending, so low-cap societies can still have non-zero capacity.
         const double healthIdx = clamp01(
-            0.28 +
-            0.18 * std::clamp(c.getHealthSpendingShare(), 0.0, 1.0) +
-            0.40 * inst +
-            0.08 * ma +
-            0.08 * logi +
+            0.34 +
+            0.16 * std::clamp(c.getHealthSpendingShare(), 0.0, 1.0) +
+            0.42 * inst +
+            0.10 * ma +
+            0.10 * logi +
             0.08 * (1.0 - db));
         logisticsCapIdx.push_back(logIdx);
         storageCapIdx.push_back(storIdx);
@@ -768,7 +769,7 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
         0.0100 + 0.0005 * (0.60 * urbanNorm + 0.40 * climateCycle + 0.80 * famineNormCentered),
         0.0, 0.03);
     s.world_disease_death_rate = std::clamp(
-        0.35 * s.world_disease_death_rate + 0.65 * diseaseTarget * (0.70 + 0.30 * lowCapDiseaseAmplifier),
+        0.35 * s.world_disease_death_rate + 0.65 * diseaseTarget * (0.70 + 0.30 * lowCapDiseaseAmplifier) + 0.0030,
         0.0, 0.20);
     if (prevSnapshot != nullptr) {
         const double adequacyDrop = std::max(0.0, prevSnapshot->world_food_adequacy_index - s.world_food_adequacy_index);

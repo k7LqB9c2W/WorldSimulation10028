@@ -1,0 +1,152 @@
+{
+  "iteration": 3,
+  "subsystem_group": "tech",
+  "selected_lane": "explore",
+  "lane_scout": [
+    {
+      "lane": "exploit",
+      "group": "food",
+      "path": "food.baseForaging",
+      "old": 19.5,
+      "new": 21.0,
+      "scout_objective": 86.17657290626951,
+      "scout_delta_vs_incumbent": -1.367437742955019,
+      "scout_paired": {
+        "n": 2,
+        "mean_diff": -1.367437742955012,
+        "std_diff": 0.5875423179939148,
+        "stderr": 0.41545515728756,
+        "z": 1.96,
+        "lcb": -2.1817298512386296,
+        "ucb": -0.5531456346713944
+      }
+    },
+    {
+      "lane": "explore",
+      "group": "tech",
+      "path": "tech.diffusionBase",
+      "old": 0.015,
+      "new": 0.016,
+      "scout_objective": 87.35539948489784,
+      "scout_delta_vs_incumbent": -0.18861116432668723,
+      "scout_paired": {
+        "n": 2,
+        "mean_diff": -0.18861116432668723,
+        "std_diff": 0.15926103048438733,
+        "stderr": 0.11261455463426774,
+        "z": 1.96,
+        "lcb": -0.409335691409852,
+        "ucb": 0.032113362756477526
+      }
+    }
+  ],
+  "parameter_edits": [
+    {
+      "path": "tech.diffusionBase",
+      "old": 0.015,
+      "new": 0.016,
+      "recommended_step": 0.001,
+      "direction": 1
+    }
+  ],
+  "top_violations_before": [
+    "DEPLETION_IGNORED"
+  ],
+  "top_violations_after": [],
+  "top_violations_after_long": null,
+  "objective_tuning": 87.0492803481147,
+  "objective_tuning_inner": 87.0492803481147,
+  "objective_tuning_medium": null,
+  "objective_tuning_long": null,
+  "score_delta": -0.49473030110982563,
+  "score_delta_inner": -0.49473030110982563,
+  "score_delta_medium": null,
+  "racing": {
+    "enabled": true,
+    "stages": [
+      {
+        "stage_seed_count": 2,
+        "candidate_objective": 87.35539948489784,
+        "incumbent_objective": 87.54401064922453,
+        "objective_delta": -0.18861116432668723,
+        "paired": {
+          "n": 2,
+          "mean_diff": -0.18861116432668723,
+          "std_diff": 0.15926103048438733,
+          "stderr": 0.11261455463426774,
+          "z": 1.96,
+          "lcb": -0.409335691409852,
+          "ucb": 0.032113362756477526
+        }
+      },
+      {
+        "stage_seed_count": 4,
+        "candidate_objective": 87.0492803481147,
+        "incumbent_objective": 87.54401064922453,
+        "objective_delta": -0.49473030110982563,
+        "paired": {
+          "n": 4,
+          "mean_diff": -0.37394945607313446,
+          "std_diff": 0.48418923913505857,
+          "stderr": 0.24209461956752928,
+          "z": 1.96,
+          "lcb": -0.8484549104254919,
+          "ucb": 0.10055599827922296
+        }
+      }
+    ],
+    "early_reject": false,
+    "early_reject_reason": ""
+  },
+  "paired_stats": {
+    "inner": {
+      "n": 4,
+      "mean_diff": -0.37394945607313446,
+      "std_diff": 0.48418923913505857,
+      "stderr": 0.24209461956752928,
+      "z": 1.96,
+      "lcb": -0.8484549104254919,
+      "ucb": 0.10055599827922296
+    },
+    "long": {
+      "n": 0,
+      "lcb": 0.0,
+      "ucb": 0.0
+    },
+    "holdout": {
+      "n": 0,
+      "lcb": 0.0,
+      "ucb": 0.0
+    }
+  },
+  "gates": {
+    "metric_availability": true,
+    "canary_pass": false,
+    "backend_parity_pass": false,
+    "medium_required": false,
+    "medium_pass": true,
+    "long_ran": false,
+    "holdout_pass": false,
+    "tuning_hardfails": [],
+    "medium_hardfails": [],
+    "medium_holdout_hardfails": [],
+    "long_hardfails": [],
+    "holdout_hardfails": []
+  },
+  "holdout_objective": null,
+  "accepted": false,
+  "best_so_far": {
+    "objective": 89.44512244938139,
+    "holdout_objective": 89.69013144688576,
+    "config_path": "/mnt/c/WS/WorldSimulation10028/out/fine_tuning_struct_step12r/best_sim_config.toml",
+    "config_hash16": "62be78b2205646c3"
+  },
+  "canary_detail": [],
+  "parity_detail": [],
+  "curriculum": {
+    "enabled": true,
+    "inner_end_year": -1000,
+    "medium_end_year": 1,
+    "long_end_year": 2025
+  }
+}

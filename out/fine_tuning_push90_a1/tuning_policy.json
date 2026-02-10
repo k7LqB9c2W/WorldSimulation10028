@@ -1,0 +1,75 @@
+{
+  "tuning_year_window": {
+    "policy_start_year": -5000,
+    "policy_max_end_year": 2025,
+    "enforce_start_year": true,
+    "allow_shorter_end_year": true,
+    "effective_start_year": -5000,
+    "effective_end_year": 2025
+  },
+  "frozen_scenario": {
+    "enabled": true,
+    "required_paths": {
+      "world.startYear": -5000,
+      "world.endYear": 2025,
+      "world.population.mode": "range",
+      "world.population.minValue": 5000000,
+      "world.population.maxValue": 20000000,
+      "spawn.enabled": true,
+      "spawn.maskPath": "assets/images/spawn.png",
+      "startTech.enabled": true,
+      "startTech.triggerYear": -5000,
+      "startTech.requireExactYear": true,
+      "startTech.autoGrantPrereqs": true
+    },
+    "applied_overrides": []
+  },
+  "accelerators": {
+    "common_random_numbers": {
+      "enabled": true
+    },
+    "adaptive_racing": {
+      "enabled": true,
+      "stage_seed_counts": [
+        2,
+        4
+      ],
+      "early_reject_margin": 0.75
+    },
+    "paired_acceptance": {
+      "enabled": true,
+      "confidence_z": 1.96,
+      "min_inner_lcb_delta": 0.0,
+      "min_long_lcb_delta": 0.0,
+      "min_holdout_lcb_delta": -1.0
+    },
+    "run_cache": {
+      "enabled": true,
+      "cache_root": "/mnt/c/WS/WorldSimulation10028/out/fine_tuning_push90_a1/run_cache",
+      "reuse_existing_seed_dirs": true,
+      "materialize_from_cache": false
+    },
+    "io": {
+      "write_eval_artifacts_for_inner": false,
+      "write_eval_artifacts_for_holdout": true,
+      "prune_rejected_iterations": true,
+      "keep_candidate_if_rejected": false
+    },
+    "search": {
+      "two_lane_enabled": true,
+      "ucb_explore_coeff": 0.75,
+      "random_seed": 1337
+    },
+    "runtime_hygiene": {
+      "auto_seed_jobs_from_cpu": true,
+      "reserve_cpu_cores": 1,
+      "pin_single_thread_env": true,
+      "runtime_env": {
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1"
+      }
+    }
+  }
+}

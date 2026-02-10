@@ -1,0 +1,149 @@
+{
+  "stop_condition": "STRUCTURAL_CHANGE_SIGNAL",
+  "best_objective": 88.21915773715077,
+  "best_objective_inner": 86.83512260817349,
+  "best_objective_medium": 87.1598639083812,
+  "best_holdout_objective": 88.6152345856278,
+  "best_holdout_objective_inner": 87.3385715119149,
+  "best_holdout_objective_medium": 87.49067118782585,
+  "best_top3_violations": [],
+  "best_config": "/mnt/c/WS/WorldSimulation10028/out/fine_tuning_struct_step11/best_sim_config.toml",
+  "best_config_hash16": "62be78b2205646c3",
+  "best_eval": {
+    "tuning": {
+      "score_median": 88.21915773715077,
+      "stddev": 0.9049206350628608,
+      "hardfail_rate": 0.0,
+      "variance_penalty": 0.0,
+      "hardfail_penalty": 0.0,
+      "objective": 88.21915773715077
+    },
+    "holdout": {
+      "score_median": 88.6152345856278,
+      "stddev": 0.17151593682022082,
+      "hardfail_rate": 0.0,
+      "variance_penalty": 0.0,
+      "hardfail_penalty": 0.0,
+      "objective": 88.6152345856278
+    },
+    "horizons": {
+      "inner": {
+        "tuning": {
+          "score_median": 86.83512260817349,
+          "stddev": 1.491682060317519,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 86.83512260817349
+        },
+        "holdout": {
+          "score_median": 87.3385715119149,
+          "stddev": 0.02203728284585793,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 87.3385715119149
+        },
+        "top3": [],
+        "end_year": -1000
+      },
+      "medium": {
+        "tuning": {
+          "score_median": 87.1598639083812,
+          "stddev": 1.1474520141094677,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 87.1598639083812
+        },
+        "holdout": {
+          "score_median": 87.49067118782585,
+          "stddev": 0.394518190781433,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 87.49067118782585
+        },
+        "top3": [],
+        "end_year": 1
+      },
+      "long": {
+        "tuning": {
+          "score_median": 88.21915773715077,
+          "stddev": 0.9049206350628608,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 88.21915773715077
+        },
+        "holdout": {
+          "score_median": 88.6152345856278,
+          "stddev": 0.17151593682022082,
+          "hardfail_rate": 0.0,
+          "variance_penalty": 0.0,
+          "hardfail_penalty": 0.0,
+          "objective": 88.6152345856278
+        },
+        "top3": [],
+        "end_year": 2025
+      }
+    }
+  },
+  "curriculum": {
+    "enabled": true,
+    "inner_end_year": -1000,
+    "medium_end_year": 1,
+    "long_end_year": 2025,
+    "medium_check_every_iterations": 6,
+    "medium_check_every_accepted": 2
+  },
+  "optimization_accelerators": {
+    "common_random_numbers": {
+      "enabled": true
+    },
+    "adaptive_racing": {
+      "enabled": true,
+      "stage_seed_counts": [
+        2,
+        4
+      ],
+      "early_reject_margin": 0.75
+    },
+    "paired_acceptance": {
+      "enabled": true,
+      "confidence_z": 1.96,
+      "min_inner_lcb_delta": 0.0,
+      "min_long_lcb_delta": 0.0,
+      "min_holdout_lcb_delta": -1.0
+    },
+    "run_cache": {
+      "enabled": true,
+      "cache_root": "/mnt/c/WS/WorldSimulation10028/out/fine_tuning_struct_step11/run_cache",
+      "reuse_existing_seed_dirs": true,
+      "materialize_from_cache": false
+    },
+    "io": {
+      "write_eval_artifacts_for_inner": false,
+      "write_eval_artifacts_for_holdout": true,
+      "prune_rejected_iterations": true,
+      "keep_candidate_if_rejected": false
+    },
+    "search": {
+      "two_lane_enabled": true,
+      "ucb_explore_coeff": 0.75,
+      "random_seed": 1337
+    },
+    "runtime_hygiene": {
+      "seed_jobs": 15,
+      "cpu_count": 16,
+      "reserve_cpu_cores": 1,
+      "runtime_env": {
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1"
+      }
+    }
+  },
+  "iterations_completed": 8
+}

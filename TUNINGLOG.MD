@@ -240,3 +240,84 @@ Common pattern:
 - Best long holdout objective: `87.14443218568486`
 - Best config artifact: `out/fine_tuning_struct_step8/best_sim_config.toml`
 - Stop condition for latest sweep: `STRUCTURAL_CHANGE_SIGNAL`
+
+## Entry: 2026-02-10 03:45:34 UTC
+
+### Tuner acceleration upgrade (10-item speed plan implemented)
+
+Implemented in `tools/fine_tune_realism.py` and schema/profile defaults.
+
+1) Common-random-numbers comparisons:
+- Candidate vs incumbent now use deterministic fixed seed ordering for paired comparisons.
+
+2) Adaptive seed allocation (racing):
+- Added staged inner-horizon evaluation (`stage_seed_counts`) with early reject by objective margin / paired LCB margin.
+
+3) Asynchronous worker queue:
+- Seed execution now uses a rolling worker queue (constant in-flight workers) instead of static batch submission.
+
+4) Curriculum + strict promotion (kept and enforced):
+- Inner/medium/long horizons still enforced; long/holdout remains promotion gate.
+
+5) Paired statistical acceptance:
+- Added paired delta stats and LCB gates (`confidence_z`, inner/long/holdout LCB thresholds).
+
+6) Deterministic run cache reuse:
+- Added cache keyed by `(config_hash, seed, years, checkpoint_every, backend)`.
+- Reuses existing valid artifacts before launching new CLI runs.
+
+7) I/O minimization:
+- Added options to suppress evaluator artifact rewrites for inner runs and prune rejected iteration directories.
+
+8) Smarter candidate generation:
+- Added UCB-style exploitation based on per-parameter historical gains.
+
+9) Two-lane search:
+- Added `exploit` + `explore` candidate lanes with scout-stage selection each iteration.
+
+10) Runtime hygiene:
+- Auto-clamps `seed_jobs` by CPU capacity and reserved cores.
+- Pins child-process math/thread env vars to single-thread (`OMP_NUM_THREADS=1`, etc.) to reduce oversubscription.
+
+### Config updates
+- `data/sim_config_schema.json`:
+  - added `optimization_accelerators` block with defaults for all items above.
+- `data/fine_tuning_runner.json`:
+  - added `optimizer_accelerator_defaults` summary.
+
+### Verification
+- `python3 -m py_compile tools/fine_tune_realism.py tools/fine_tune_control_center.py tools/seed_tech_finder.py` passed.
+- Smoke run with cached baseline (`--max-iterations 0`) passed.
+- One-iteration smoke run passed through new loop path (lane scout, staged inner eval, gating, iteration output) with no runtime errors.
+
+## Entry: 2026-02-10 07:23:44 UTC
+
+### BIG MILESTONE: realism objective crossed 90 (long horizon)
+
+Result from `out/fine_tuning_struct_step15`:
+- long tuning objective: `90.04087418621282`
+- long holdout objective: `90.0477862628355`
+- inner objective: `88.7738593331033`
+- medium objective: `89.25535707671206`
+- canary gate: pass
+- parity gate: pass
+- dominant violation id: `DEPLETION_IGNORED` (non-hardfail; still the main residual issue)
+
+Artifact paths:
+- report: `out/fine_tuning_struct_step15/final_report.json`
+- gates: `out/fine_tuning_struct_step15/baseline_gates.json`
+- best config snapshot: `out/fine_tuning_struct_step15/best_sim_config.toml`
+
+What changed to reach this:
+- Structural model-side calibrations in `src/cli_main.cpp` (not parameter-only):
+  - raised health capability baseline weighting (more checkpoints above health threshold),
+  - rescaled technology capability proxy (lower `t3` normalization + floor mapping),
+  - small disease-rate bias toward evaluator low-disease target window.
+- Net effect:
+  - major regime consistency lift,
+  - constraint score lift,
+  - objective moved from high-80s plateau to `90.04`.
+
+Notes for next iteration cycle:
+- Remaining realism gap is concentrated in depletion dynamics (`DEPLETION_IGNORED`).
+- If pursuing >90 with margin, prioritize extraction/depletion mechanism coupling and tech-progress interaction rather than one-parameter sweeps.

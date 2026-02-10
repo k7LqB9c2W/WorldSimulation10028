@@ -22,6 +22,15 @@
     "medium_check_every_accepted": 2,
     "notes": "Inner loop runs short horizon; medium checks run periodically; promotion/final acceptance runs long horizon."
   },
+  "optimizer_accelerator_defaults": {
+    "common_random_numbers": "enabled",
+    "adaptive_racing": "enabled (stage_seed_counts from schema)",
+    "paired_acceptance": "enabled (LCB gate)",
+    "run_cache": "enabled",
+    "search": "two_lane_enabled",
+    "runtime_hygiene": "pin single-thread env + CPU-aware seed_jobs",
+    "io": "prune rejected iteration artifacts"
+  },
   "tuning_year_window_defaults": {
     "start_year": -5000,
     "max_end_year": 2025,

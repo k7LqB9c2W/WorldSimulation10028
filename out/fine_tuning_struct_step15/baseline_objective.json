@@ -1,0 +1,85 @@
+{
+  "horizons": {
+    "inner": {
+      "end_year": -1000,
+      "tuning": {
+        "score_median": 88.7738593331033,
+        "stddev": 1.289800499851803,
+        "hardfail_rate": 0.0,
+        "variance_penalty": 0.0,
+        "hardfail_penalty": 0.0,
+        "objective": 88.7738593331033
+      },
+      "holdout": {
+        "score_median": 88.97803438443293,
+        "stddev": 0.12005886609244953,
+        "hardfail_rate": 0.0,
+        "variance_penalty": 0.0,
+        "hardfail_penalty": 0.0,
+        "objective": 88.97803438443293
+      },
+      "top3": []
+    },
+    "medium": {
+      "end_year": 1,
+      "tuning": {
+        "score_median": 89.25535707671206,
+        "stddev": 0.8818593148934741,
+        "hardfail_rate": 0.0,
+        "variance_penalty": 0.0,
+        "hardfail_penalty": 0.0,
+        "objective": 89.25535707671206
+      },
+      "holdout": {
+        "score_median": 89.1374430716266,
+        "stddev": 0.31280749244079686,
+        "hardfail_rate": 0.0,
+        "variance_penalty": 0.0,
+        "hardfail_penalty": 0.0,
+        "objective": 89.1374430716266
+      },
+      "top3": []
+    },
+    "long": {
+      "end_year": 2025,
+      "tuning": {
+        "score_median": 90.04087418621282,
+        "stddev": 0.6746956616311358,
+        "hardfail_rate": 0.0,
+        "variance_penalty": 0.0,
+        "hardfail_penalty": 0.0,
+        "objective": 90.04087418621282
+      },
+      "holdout": {
+        "score_median": 90.0477862628355,
+        "stddev": 0.11138888043184636,
+        "hardfail_rate": 0.0,
+        "variance_penalty": 0.0,
+        "hardfail_penalty": 0.0,
+        "objective": 90.0477862628355
+      },
+      "top3": [
+        "DEPLETION_IGNORED"
+      ]
+    }
+  },
+  "tuning": {
+    "score_median": 90.04087418621282,
+    "stddev": 0.6746956616311358,
+    "hardfail_rate": 0.0,
+    "variance_penalty": 0.0,
+    "hardfail_penalty": 0.0,
+    "objective": 90.04087418621282
+  },
+  "holdout": {
+    "score_median": 90.0477862628355,
+    "stddev": 0.11138888043184636,
+    "hardfail_rate": 0.0,
+    "variance_penalty": 0.0,
+    "hardfail_penalty": 0.0,
+    "objective": 90.0477862628355
+  },
+  "top3": [
+    "DEPLETION_IGNORED"
+  ]
+}

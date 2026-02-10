@@ -1,0 +1,135 @@
+{
+  "iteration": 2,
+  "subsystem_group": "economy",
+  "selected_lane": "explore",
+  "lane_scout": [
+    {
+      "lane": "exploit",
+      "group": "food",
+      "path": "food.baseForaging",
+      "old": 19.5,
+      "new": 21.0,
+      "scout_objective": 85.42987738815991,
+      "scout_delta_vs_incumbent": -1.0393527729954286,
+      "scout_paired": {
+        "n": 2,
+        "mean_diff": -1.0393527729954286,
+        "std_diff": 0.10424621130299272,
+        "stderr": 0.07371320292535187,
+        "z": 1.96,
+        "lcb": -1.1838306507291183,
+        "ucb": -0.8948748952617389
+      }
+    },
+    {
+      "lane": "explore",
+      "group": "economy",
+      "path": "economy.tradeIntensityScale",
+      "old": 18,
+      "new": 18.75,
+      "scout_objective": 85.74142656495656,
+      "scout_delta_vs_incumbent": -0.7278035961987825,
+      "scout_paired": {
+        "n": 2,
+        "mean_diff": -0.7278035961987896,
+        "std_diff": 0.3782396696446497,
+        "stderr": 0.26745583531949135,
+        "z": 1.96,
+        "lcb": -1.2520170334249927,
+        "ucb": -0.2035901589725866
+      }
+    }
+  ],
+  "parameter_edits": [
+    {
+      "path": "economy.tradeIntensityScale",
+      "old": 18,
+      "new": 18.75,
+      "recommended_step": 0.75,
+      "direction": 1
+    }
+  ],
+  "top_violations_before": [],
+  "top_violations_after": [],
+  "top_violations_after_long": null,
+  "objective_tuning": 85.74142656495656,
+  "objective_tuning_inner": 85.74142656495656,
+  "objective_tuning_medium": null,
+  "objective_tuning_long": null,
+  "score_delta": -0.7278035961987825,
+  "score_delta_inner": -0.7278035961987825,
+  "score_delta_medium": null,
+  "racing": {
+    "enabled": true,
+    "stages": [
+      {
+        "stage_seed_count": 2,
+        "candidate_objective": 85.74142656495656,
+        "incumbent_objective": 86.46923016115534,
+        "objective_delta": -0.7278035961987825,
+        "paired": {
+          "n": 2,
+          "mean_diff": -0.7278035961987896,
+          "std_diff": 0.3782396696446497,
+          "stderr": 0.26745583531949135,
+          "z": 1.96,
+          "lcb": -1.2520170334249927,
+          "ucb": -0.2035901589725866
+        }
+      }
+    ],
+    "early_reject": true,
+    "early_reject_reason": "OBJECTIVE_MARGIN"
+  },
+  "paired_stats": {
+    "inner": {
+      "n": 2,
+      "mean_diff": -0.7278035961987896,
+      "std_diff": 0.3782396696446497,
+      "stderr": 0.26745583531949135,
+      "z": 1.96,
+      "lcb": -1.2520170334249927,
+      "ucb": -0.2035901589725866
+    },
+    "long": {
+      "n": 0,
+      "lcb": 0.0,
+      "ucb": 0.0
+    },
+    "holdout": {
+      "n": 0,
+      "lcb": 0.0,
+      "ucb": 0.0
+    }
+  },
+  "gates": {
+    "metric_availability": true,
+    "canary_pass": false,
+    "backend_parity_pass": false,
+    "medium_required": false,
+    "medium_pass": true,
+    "long_ran": false,
+    "holdout_pass": false,
+    "tuning_hardfails": [],
+    "medium_hardfails": [],
+    "medium_holdout_hardfails": [],
+    "long_hardfails": [],
+    "holdout_hardfails": []
+  },
+  "holdout_objective": null,
+  "accepted": false,
+  "best_so_far": {
+    "objective": 88.21915773715077,
+    "holdout_objective": 88.6152345856278,
+    "config_path": "/mnt/c/WS/WorldSimulation10028/out/fine_tuning_struct_step11/best_sim_config.toml",
+    "config_hash16": "62be78b2205646c3"
+  },
+  "canary_detail": [],
+  "parity_detail": [],
+  "curriculum": {
+    "enabled": true,
+    "inner_end_year": -1000,
+    "medium_end_year": 1,
+    "long_end_year": 2025
+  }
+}

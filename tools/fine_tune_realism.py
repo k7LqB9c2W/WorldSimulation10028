@@ -9,12 +9,13 @@ import hashlib
 import json
 import math
 import os
+import random
 import shutil
 import statistics
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     import tomli as toml_reader  # preferred explicit dependency
@@ -29,6 +30,7 @@ except Exception:
 
 
 TINY = 1e-12
+REQUIRED_RUN_ARTIFACTS = ("run_meta.json", "run_summary.json", "timeseries.csv", "violations.json")
 
 
 def clamp01(x: float) -> float:
@@ -342,6 +344,7 @@ def evaluate_seed_run(
     seed: int,
     out_dir: Path,
     defs: Dict[str, Any],
+    write_eval_artifacts: bool = True,
 ) -> SeedEval:
     t = defs["thresholds"]
     hardfail_ids = set(defs["hard_fails"])
@@ -620,16 +623,17 @@ def evaluate_seed_run(
         "checkpoints": rs_raw.get("checkpoints", []),
     }
 
-    write_json(out_dir / "violations.json", {"violations": violations})
-    write_json(out_dir / "run_summary.json", summary)
-    meta_path = out_dir / "run_meta.json"
-    meta = load_json(meta_path) if meta_path.exists() else {}
-    meta["goals_version"] = defs.get("goals_version", "realism-envelope-v7")
-    meta["evaluator_version"] = defs.get("evaluator_version", "v7")
-    meta["definitions_version"] = defs.get("definitions_version", "v7")
-    meta["scoring_version"] = defs.get("scoring_version", "v7")
-    meta["definitions_values"] = defs.get("thresholds", {})
-    write_json(meta_path, meta)
+    if write_eval_artifacts:
+        write_json(out_dir / "violations.json", {"violations": violations})
+        write_json(out_dir / "run_summary.json", summary)
+        meta_path = out_dir / "run_meta.json"
+        meta = load_json(meta_path) if meta_path.exists() else {}
+        meta["goals_version"] = defs.get("goals_version", "realism-envelope-v7")
+        meta["evaluator_version"] = defs.get("evaluator_version", "v7")
+        meta["definitions_version"] = defs.get("definitions_version", "v7")
+        meta["scoring_version"] = defs.get("scoring_version", "v7")
+        meta["definitions_values"] = defs.get("thresholds", {})
+        write_json(meta_path, meta)
     return SeedEval(
         seed=seed,
         total_score_seed=total_score_seed,
@@ -679,6 +683,46 @@ def compare_metric_series(
     return ok, details
 
 
+def run_dir_has_required_artifacts(run_dir: Path) -> bool:
+    for name in REQUIRED_RUN_ARTIFACTS:
+        p = run_dir / name
+        if (not p.exists()) or p.stat().st_size <= 0:
+            return False
+    return True
+
+
+def run_meta_matches(
+    run_dir: Path,
+    seed: int,
+    config_hash16: str,
+    start_year: int,
+    end_year: int,
+    use_gpu: bool,
+) -> bool:
+    meta_path = run_dir / "run_meta.json"
+    if not meta_path.exists():
+        return False
+    try:
+        meta = load_json(meta_path)
+    except Exception:
+        return False
+    backend = str(meta.get("backend", "")).strip().lower()
+    expected_backend = "gpu" if use_gpu else "cpu"
+    return (
+        int(meta.get("seed", -1)) == int(seed)
+        and str(meta.get("config_hash", "")) == str(config_hash16)
+        and int(meta.get("start_year", 0)) == int(start_year)
+        and int(meta.get("end_year", 0)) == int(end_year)
+        and backend == expected_backend
+    )
+
+
+def copy_run_artifacts(src_dir: Path, dst_dir: Path) -> None:
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    for name in REQUIRED_RUN_ARTIFACTS:
+        shutil.copy2(src_dir / name, dst_dir / name)
+
+
 def run_cli(
     exe_dir: Path,
     seed: int,
@@ -688,6 +732,7 @@ def run_cli(
     end_year: int,
     checkpoint_every: int,
     use_gpu: bool,
+    runtime_env: Optional[Dict[str, str]] = None,
 ) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     exe_win = win_path(exe_dir)
@@ -708,10 +753,14 @@ def run_cli(
     else:
         wsl_cmd = Path("/mnt/c/Windows/System32/cmd.exe")
         cmd_exe = str(wsl_cmd) if wsl_cmd.exists() else "cmd.exe"
+    env = os.environ.copy()
+    if runtime_env:
+        env.update({k: str(v) for k, v in runtime_env.items()})
     p = subprocess.run(
         [cmd_exe, "/c", cmd],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        env=env,
         check=False,
     )
     if p.returncode != 0:
@@ -748,7 +797,83 @@ def top3_violations(seed_evals: List[SeedEval]) -> List[str]:
     return [k for k, _ in sorted(agg.items(), key=lambda kv: kv[1], reverse=True)[:3]]
 
 
+def eval_map_by_seed(seed_evals: List[SeedEval]) -> Dict[int, SeedEval]:
+    return {int(s.seed): s for s in seed_evals}
+
+
+def paired_delta_stats(
+    candidate_by_seed: Dict[int, SeedEval],
+    incumbent_by_seed: Dict[int, SeedEval],
+    seeds: List[int],
+    z_value: float,
+) -> Dict[str, Any]:
+    diffs: List[float] = []
+    for seed in seeds:
+        if seed in candidate_by_seed and seed in incumbent_by_seed:
+            diffs.append(
+                float(candidate_by_seed[seed].total_score_seed)
+                - float(incumbent_by_seed[seed].total_score_seed)
+            )
+    n = len(diffs)
+    mean_diff = safe_mean(diffs)
+    std_diff = safe_std(diffs)
+    stderr = (std_diff / math.sqrt(float(n))) if n > 1 else 0.0
+    lcb = mean_diff - float(z_value) * stderr
+    ucb = mean_diff + float(z_value) * stderr
+    return {
+        "n": n,
+        "mean_diff": mean_diff,
+        "std_diff": std_diff,
+        "stderr": stderr,
+        "z": float(z_value),
+        "lcb": lcb,
+        "ucb": ucb,
+    }
+
+
+def normalized_stage_counts(stage_counts: List[int], total_seeds: int) -> List[int]:
+    out: List[int] = []
+    for n in stage_counts:
+        try:
+            v = int(n)
+        except Exception:
+            continue
+        if v <= 0:
+            continue
+        v = max(1, min(total_seeds, v))
+        if (not out) or out[-1] != v:
+            out.append(v)
+    if not out:
+        out = [total_seeds]
+    if out[-1] != total_seeds:
+        out.append(total_seeds)
+    return out
+
+
+def make_candidate(
+    lane: str,
+    pdef: Dict[str, Any],
+    old_val: Any,
+    new_val: Any,
+    direction: int,
+) -> Dict[str, Any]:
+    return {
+        "lane": lane,
+        "group": pdef["group"],
+        "path": pdef["path"],
+        "pdef": pdef,
+        "old_val": old_val,
+        "new_val": new_val,
+        "direction": direction,
+    }
+
+
 def choose_direction(path: str, top_viol: List[str], old_val: Any, pdef: Dict[str, Any], iteration: int) -> int:
+    if "DEPLETION_IGNORED" in top_viol:
+        if path in {"tech.diffusionBase", "food.baseForaging", "food.baseFarming"}:
+            return +1
+        if path == "tech.capabilityThresholdScale":
+            return -1
     if "EXTINCTION_PERSISTENT" in top_viol:
         if path in {"food.baseForaging", "food.baseFarming", "food.storageBase"}:
             return +1
@@ -776,6 +901,76 @@ def apply_step(old_val: Any, pdef: Dict[str, Any], direction: int) -> Any:
     return float(nvf)
 
 
+def init_param_stats(pdefs: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    stats: Dict[str, Dict[str, Any]] = {}
+    for p in pdefs:
+        stats[str(p["path"])] = {
+            "attempts": 0,
+            "accepts": 0,
+            "sum_inner_delta": 0.0,
+            "sum_long_delta": 0.0,
+            "dir_gain": {"+1": 0.0, "-1": 0.0},
+            "last_direction": 1,
+        }
+    return stats
+
+
+def propose_exploit_candidate(
+    best_cfg: Dict[str, Any],
+    pdefs: List[Dict[str, Any]],
+    param_stats: Dict[str, Dict[str, Any]],
+    total_attempts: int,
+    top3: List[str],
+    iteration: int,
+    ucb_c: float,
+) -> Dict[str, Any]:
+    best_idx = 0
+    best_score = -1e18
+    for i, pdef in enumerate(pdefs):
+        st = param_stats[str(pdef["path"])]
+        attempts = int(st["attempts"])
+        mean_gain = float(st["sum_inner_delta"]) / float(max(1, attempts))
+        bonus = float(ucb_c) * math.sqrt(math.log(float(total_attempts + 2)) / float(attempts + 1))
+        score = mean_gain + bonus
+        if score > best_score:
+            best_score = score
+            best_idx = i
+    pdef = pdefs[best_idx]
+    path = str(pdef["path"])
+    old_val = get_param(best_cfg, path)
+    direction = choose_direction(path, top3, old_val, pdef, iteration)
+    # Bias direction toward historically better sign if data exists.
+    st = param_stats[path]
+    pos_gain = float(st["dir_gain"].get("+1", 0.0))
+    neg_gain = float(st["dir_gain"].get("-1", 0.0))
+    if abs(pos_gain - neg_gain) > 1e-9:
+        direction = +1 if pos_gain >= neg_gain else -1
+    new_val = apply_step(old_val, pdef, direction)
+    return make_candidate("exploit", pdef, old_val, new_val, direction)
+
+
+def propose_explore_candidate(
+    best_cfg: Dict[str, Any],
+    pdefs: List[Dict[str, Any]],
+    top3: List[str],
+    iteration: int,
+    rng: random.Random,
+    avoid_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    choices = [p for p in pdefs if str(p["path"]) != str(avoid_path)] if avoid_path else list(pdefs)
+    if not choices:
+        choices = list(pdefs)
+    pdef = rng.choice(choices)
+    path = str(pdef["path"])
+    old_val = get_param(best_cfg, path)
+    direction = choose_direction(path, top3, old_val, pdef, iteration + 1)
+    # Exploration uses random sign half the time to avoid local lock-in.
+    if rng.random() < 0.5:
+        direction = -direction
+    new_val = apply_step(old_val, pdef, direction)
+    return make_candidate("explore", pdef, old_val, new_val, direction)
+
+
 def run_seed_set(
     seeds: List[int],
     exe_dir: Path,
@@ -788,14 +983,56 @@ def run_seed_set(
     defs: Dict[str, Any],
     jobs: int = 1,
     label: str = "",
+    run_cache: Optional[Dict[str, Any]] = None,
+    runtime_env: Optional[Dict[str, str]] = None,
+    write_eval_artifacts: bool = True,
 ) -> List[SeedEval]:
     out_dir.mkdir(parents=True, exist_ok=True)
     n_jobs = max(1, min(int(jobs), len(seeds)))
+    cfg_hash16 = hash16(config_path)
+    cache_enabled = bool((run_cache or {}).get("enabled", False))
+    cache_root = Path((run_cache or {}).get("cache_root", out_dir / "_cache")).resolve()
+    reuse_existing = bool((run_cache or {}).get("reuse_existing_seed_dirs", True))
+    materialize_from_cache = bool((run_cache or {}).get("materialize_from_cache", False))
+    if cache_enabled:
+        cache_root.mkdir(parents=True, exist_ok=True)
 
     def run_one(seed: int) -> SeedEval:
         sd = out_dir / f"seed_{seed}"
-        run_cli(exe_dir, seed, config_path, sd, start_year, end_year, checkpoint_every, use_gpu)
-        return evaluate_seed_run(seed, sd, defs)
+        run_dir_for_eval = sd
+
+        if reuse_existing and run_dir_has_required_artifacts(sd) and run_meta_matches(sd, seed, cfg_hash16, start_year, end_year, use_gpu):
+            run_dir_for_eval = sd
+        else:
+            used_cache = False
+            cache_sd = cache_root / f"{cfg_hash16}_{seed}_{start_year}_{end_year}_{checkpoint_every}_{'gpu' if use_gpu else 'cpu'}"
+            if cache_enabled and run_dir_has_required_artifacts(cache_sd) and run_meta_matches(cache_sd, seed, cfg_hash16, start_year, end_year, use_gpu):
+                used_cache = True
+                if materialize_from_cache:
+                    copy_run_artifacts(cache_sd, sd)
+                    run_dir_for_eval = sd
+                else:
+                    run_dir_for_eval = cache_sd
+
+            if not used_cache:
+                run_cli(
+                    exe_dir,
+                    seed,
+                    config_path,
+                    sd,
+                    start_year,
+                    end_year,
+                    checkpoint_every,
+                    use_gpu,
+                    runtime_env=runtime_env,
+                )
+                run_dir_for_eval = sd
+                if cache_enabled:
+                    try:
+                        copy_run_artifacts(sd, cache_sd)
+                    except Exception:
+                        pass
+        return evaluate_seed_run(seed, run_dir_for_eval, defs, write_eval_artifacts=write_eval_artifacts)
 
     def p(msg: str) -> None:
         if label:
@@ -813,15 +1050,43 @@ def run_seed_set(
 
     by_seed: Dict[int, SeedEval] = {}
     with ThreadPoolExecutor(max_workers=n_jobs) as pool:
-        futures = {pool.submit(run_one, seed): seed for seed in seeds}
-        p("all workers launched")
+        seed_iter = iter(seeds)
+        active: Dict[Any, int] = {}
+        for _ in range(n_jobs):
+            try:
+                s = next(seed_iter)
+            except StopIteration:
+                break
+            active[pool.submit(run_one, s)] = s
+        p("workers launched")
         done_n = 0
-        for fut in as_completed(futures):
-            seed = futures[fut]
-            by_seed[seed] = fut.result()
-            done_n += 1
-            p(f"seed {seed} ({done_n}/{len(seeds)}) done")
+        while active:
+            for fut in as_completed(list(active.keys()), timeout=None):
+                seed = active.pop(fut)
+                by_seed[seed] = fut.result()
+                done_n += 1
+                p(f"seed {seed} ({done_n}/{len(seeds)}) done")
+                try:
+                    s = next(seed_iter)
+                    active[pool.submit(run_one, s)] = s
+                except StopIteration:
+                    pass
+                break
     return [by_seed[seed] for seed in seeds]
+
+
+def load_seed_set_from_existing(
+    seeds: List[int],
+    seed_root: Path,
+    defs: Dict[str, Any],
+) -> Optional[List[SeedEval]]:
+    out: List[SeedEval] = []
+    for seed in seeds:
+        sd = seed_root / f"seed_{seed}"
+        if not run_dir_has_required_artifacts(sd):
+            return None
+        out.append(evaluate_seed_run(seed, sd, defs, write_eval_artifacts=False))
+    return out
 
 
 def main() -> int:
@@ -892,7 +1157,66 @@ def main() -> int:
     set_param(cfg0, "world.endYear", int(policy_max_end))
 
     checkpoint_every = int(schema.get("checkpoint_every_years", 50))
+    accel = schema.get("optimization_accelerators", {}) if isinstance(schema.get("optimization_accelerators", {}), dict) else {}
+    crn_cfg = accel.get("common_random_numbers", {}) if isinstance(accel.get("common_random_numbers", {}), dict) else {}
+    racing_cfg = accel.get("adaptive_racing", {}) if isinstance(accel.get("adaptive_racing", {}), dict) else {}
+    paired_cfg = accel.get("paired_acceptance", {}) if isinstance(accel.get("paired_acceptance", {}), dict) else {}
+    cache_cfg = accel.get("run_cache", {}) if isinstance(accel.get("run_cache", {}), dict) else {}
+    io_cfg = accel.get("io", {}) if isinstance(accel.get("io", {}), dict) else {}
+    search_cfg = accel.get("search", {}) if isinstance(accel.get("search", {}), dict) else {}
+    rt_cfg = accel.get("runtime_hygiene", {}) if isinstance(accel.get("runtime_hygiene", {}), dict) else {}
+
+    # (1) Common random numbers: fixed deterministic seed ordering for candidate-vs-incumbent comparisons.
+    crn_enabled = bool(crn_cfg.get("enabled", True))
+    # (2) Adaptive racing: stage-wise evaluation with early reject.
+    racing_enabled = bool(racing_cfg.get("enabled", True))
+    early_reject_margin = float(racing_cfg.get("early_reject_margin", 0.75))
+    # (5) Paired statistical accept rule (additional to objective gates).
+    paired_enabled = bool(paired_cfg.get("enabled", True))
+    paired_z = float(paired_cfg.get("confidence_z", 1.96))
+    paired_min_inner_lcb_delta = float(paired_cfg.get("min_inner_lcb_delta", 0.0))
+    paired_min_long_lcb_delta = float(paired_cfg.get("min_long_lcb_delta", 0.0))
+    paired_min_holdout_lcb_delta = float(paired_cfg.get("min_holdout_lcb_delta", -1.0))
+
+    # (10) Runtime hygiene: avoid oversubscription and pin child process math libs to 1 thread.
     seed_jobs = max(1, int(args.seed_jobs))
+    cpu_count = os.cpu_count() or 1
+    reserve_cpu_cores = max(0, int(rt_cfg.get("reserve_cpu_cores", 1)))
+    auto_seed_jobs = bool(rt_cfg.get("auto_seed_jobs_from_cpu", True))
+    if auto_seed_jobs:
+        seed_jobs = max(1, min(seed_jobs, max(1, cpu_count - reserve_cpu_cores)))
+    runtime_env: Dict[str, str] = {}
+    if bool(rt_cfg.get("pin_single_thread_env", True)):
+        runtime_env.update(
+            {
+                "OMP_NUM_THREADS": "1",
+                "OPENBLAS_NUM_THREADS": "1",
+                "MKL_NUM_THREADS": "1",
+                "NUMEXPR_NUM_THREADS": "1",
+            }
+        )
+
+    # (6) Run-cache reuse for deterministic runs.
+    run_cache_enabled = bool(cache_cfg.get("enabled", True))
+    run_cache = {
+        "enabled": run_cache_enabled,
+        "cache_root": str((out_root / str(cache_cfg.get("cache_subdir", "run_cache"))).resolve()),
+        "reuse_existing_seed_dirs": bool(cache_cfg.get("reuse_existing_seed_dirs", True)),
+        "materialize_from_cache": bool(cache_cfg.get("materialize_from_cache", False)),
+    }
+
+    # (7) I/O minimization policy.
+    write_eval_inner = bool(io_cfg.get("write_eval_artifacts_for_inner", False))
+    write_eval_holdout = bool(io_cfg.get("write_eval_artifacts_for_holdout", True))
+    prune_rejected = bool(io_cfg.get("prune_rejected_iterations", True))
+    keep_candidate_if_rejected = bool(io_cfg.get("keep_candidate_if_rejected", False))
+
+    # (8) Smarter proposals and (9) two-lane search.
+    two_lane = bool(search_cfg.get("two_lane_enabled", True))
+    ucb_explore_coeff = float(search_cfg.get("ucb_explore_coeff", 0.75))
+    search_random_seed = int(search_cfg.get("random_seed", 1337))
+    rng = random.Random(search_random_seed)
+
     curriculum = schema.get("tuning_curriculum", {}) if isinstance(schema.get("tuning_curriculum", {}), dict) else {}
     curriculum_enabled = bool(curriculum.get("enabled", False))
     long_end_year = int(end_year if curriculum.get("long_end_year", None) is None else curriculum.get("long_end_year", end_year))
@@ -906,6 +1230,13 @@ def main() -> int:
     medium_enabled = curriculum_enabled and (medium_end_year > inner_end_year) and ((medium_check_every_iterations > 0) or (medium_check_every_accepted > 0))
     tuning_seeds = [int(x) for x in schema["tuning_seeds"]]
     holdout_seeds = [int(x) for x in schema["holdout_seeds"]]
+    if crn_enabled:
+        tuning_seeds = sorted(tuning_seeds)
+        holdout_seeds = sorted(holdout_seeds)
+    stage_counts = normalized_stage_counts(
+        [int(x) for x in racing_cfg.get("stage_seed_counts", [2, len(tuning_seeds)])],
+        len(tuning_seeds),
+    )
     pdefs = [p for p in schema["parameters"] if bool(p.get("safe_to_auto_tune", False))]
     groups = []
     seen_g = set()
@@ -944,6 +1275,10 @@ def main() -> int:
         f"[startup] horizons inner={inner_end_year} medium={medium_end_year if medium_enabled else 'disabled'} long={long_end_year}",
         flush=True,
     )
+    print(
+        f"[startup] accelerators crn={crn_enabled} racing={racing_enabled} stages={stage_counts} paired={paired_enabled} two_lane={two_lane} cache={run_cache_enabled}",
+        flush=True,
+    )
     write_json(
         out_root / "tuning_policy.json",
         {
@@ -960,6 +1295,39 @@ def main() -> int:
                 "required_paths": frozen_scenario.get("required_paths", {}),
                 "applied_overrides": frozen_changes,
             },
+            "accelerators": {
+                "common_random_numbers": {"enabled": crn_enabled},
+                "adaptive_racing": {
+                    "enabled": racing_enabled,
+                    "stage_seed_counts": stage_counts,
+                    "early_reject_margin": early_reject_margin,
+                },
+                "paired_acceptance": {
+                    "enabled": paired_enabled,
+                    "confidence_z": paired_z,
+                    "min_inner_lcb_delta": paired_min_inner_lcb_delta,
+                    "min_long_lcb_delta": paired_min_long_lcb_delta,
+                    "min_holdout_lcb_delta": paired_min_holdout_lcb_delta,
+                },
+                "run_cache": run_cache,
+                "io": {
+                    "write_eval_artifacts_for_inner": write_eval_inner,
+                    "write_eval_artifacts_for_holdout": write_eval_holdout,
+                    "prune_rejected_iterations": prune_rejected,
+                    "keep_candidate_if_rejected": keep_candidate_if_rejected,
+                },
+                "search": {
+                    "two_lane_enabled": two_lane,
+                    "ucb_explore_coeff": ucb_explore_coeff,
+                    "random_seed": search_random_seed,
+                },
+                "runtime_hygiene": {
+                    "auto_seed_jobs_from_cpu": auto_seed_jobs,
+                    "reserve_cpu_cores": reserve_cpu_cores,
+                    "pin_single_thread_env": bool(rt_cfg.get("pin_single_thread_env", True)),
+                    "runtime_env": runtime_env,
+                },
+            },
         },
     )
     base_inner_agg: Dict[str, Any]
@@ -971,6 +1339,9 @@ def main() -> int:
     base_agg: Dict[str, Any]
     base_holdout_agg: Dict[str, Any]
     base_top3: List[str]
+    baseline_inner_tune: List[SeedEval]
+    baseline_long_tune: List[SeedEval]
+    baseline_long_holdout: List[SeedEval]
 
     use_cached = False
     if (not args.force_rebaseline) and baseline_obj_path.exists() and baseline_gate_path.exists():
@@ -1018,7 +1389,21 @@ def main() -> int:
         parity_ok = bool(bg.get("parity_pass", False))
         canary_det = list(bg.get("canary", []))
         parity_det = list(bg.get("parity", []))
-    else:
+        baseline_inner_tune_loaded = load_seed_set_from_existing(tuning_seeds, baseline_dir / "inner" / "tuning", defs)
+        baseline_long_tune_loaded = load_seed_set_from_existing(tuning_seeds, baseline_dir / "long" / "tuning", defs)
+        baseline_long_holdout_loaded = load_seed_set_from_existing(holdout_seeds, baseline_dir / "long" / "holdout", defs)
+        if (
+            baseline_inner_tune_loaded is None
+            or baseline_long_tune_loaded is None
+            or baseline_long_holdout_loaded is None
+        ):
+            print("[baseline] cached objective exists but seed artifacts are incomplete; recomputing baseline", flush=True)
+            use_cached = False
+        else:
+            baseline_inner_tune = baseline_inner_tune_loaded
+            baseline_long_tune = baseline_long_tune_loaded
+            baseline_long_holdout = baseline_long_holdout_loaded
+    if not use_cached:
         print(f"[baseline] running baseline inner horizon (end={inner_end_year})", flush=True)
         baseline_inner_tune = run_seed_set(
             tuning_seeds,
@@ -1032,6 +1417,9 @@ def main() -> int:
             defs,
             jobs=seed_jobs,
             label="baseline:inner:tuning",
+            run_cache=run_cache,
+            runtime_env=runtime_env,
+            write_eval_artifacts=True,
         )
         base_inner_agg = aggregate_objective(baseline_inner_tune, defs)
         base_inner_top3 = top3_violations(baseline_inner_tune)
@@ -1047,6 +1435,9 @@ def main() -> int:
             defs,
             jobs=seed_jobs,
             label="baseline:inner:holdout",
+            run_cache=run_cache,
+            runtime_env=runtime_env,
+            write_eval_artifacts=True,
         )
         base_inner_holdout_agg = aggregate_objective(baseline_inner_holdout, defs)
         print(
@@ -1068,6 +1459,9 @@ def main() -> int:
                 defs,
                 jobs=seed_jobs,
                 label="baseline:medium:tuning",
+                run_cache=run_cache,
+                runtime_env=runtime_env,
+                write_eval_artifacts=True,
             )
             base_medium_agg = aggregate_objective(baseline_medium_tune, defs)
             base_medium_top3 = top3_violations(baseline_medium_tune)
@@ -1083,6 +1477,9 @@ def main() -> int:
                 defs,
                 jobs=seed_jobs,
                 label="baseline:medium:holdout",
+                run_cache=run_cache,
+                runtime_env=runtime_env,
+                write_eval_artifacts=True,
             )
             base_medium_holdout_agg = aggregate_objective(baseline_medium_holdout, defs)
             print(
@@ -1107,6 +1504,9 @@ def main() -> int:
             defs,
             jobs=seed_jobs,
             label="baseline:long:tuning",
+            run_cache=run_cache,
+            runtime_env=runtime_env,
+            write_eval_artifacts=True,
         )
         base_agg = aggregate_objective(baseline_long_tune, defs)
         base_top3 = top3_violations(baseline_long_tune)
@@ -1122,6 +1522,9 @@ def main() -> int:
             defs,
             jobs=seed_jobs,
             label="baseline:long:holdout",
+            run_cache=run_cache,
+            runtime_env=runtime_env,
+            write_eval_artifacts=True,
         )
         base_holdout_agg = aggregate_objective(baseline_long_holdout, defs)
         print(
@@ -1147,14 +1550,70 @@ def main() -> int:
         # Canary/parity baseline uses inner horizon for fast deterministic safety checks.
         print("[baseline] running canary checks (inner horizon)", flush=True)
         canary_dir = baseline_dir / "canary"
-        canary_a = run_seed_set([tuning_seeds[0]], exe_dir, config_path, canary_dir / "a", start_year, inner_end_year, checkpoint_every, bool(cfg0["economy"]["useGPU"]), defs, label="baseline:canary:a")[0]
-        canary_b = run_seed_set([tuning_seeds[0]], exe_dir, config_path, canary_dir / "b", start_year, inner_end_year, checkpoint_every, bool(cfg0["economy"]["useGPU"]), defs, label="baseline:canary:b")[0]
+        canary_a = run_seed_set(
+            [tuning_seeds[0]],
+            exe_dir,
+            config_path,
+            canary_dir / "a",
+            start_year,
+            inner_end_year,
+            checkpoint_every,
+            bool(cfg0["economy"]["useGPU"]),
+            defs,
+            label="baseline:canary:a",
+            run_cache=run_cache,
+            runtime_env=runtime_env,
+            write_eval_artifacts=True,
+        )[0]
+        canary_b = run_seed_set(
+            [tuning_seeds[0]],
+            exe_dir,
+            config_path,
+            canary_dir / "b",
+            start_year,
+            inner_end_year,
+            checkpoint_every,
+            bool(cfg0["economy"]["useGPU"]),
+            defs,
+            label="baseline:canary:b",
+            run_cache=run_cache,
+            runtime_env=runtime_env,
+            write_eval_artifacts=True,
+        )[0]
         canary_ok, canary_det = compare_metric_series(canary_a, canary_b, defs["canary_eps"])
         print(f"[baseline] canary_pass={canary_ok}", flush=True)
         print("[baseline] running parity checks (inner horizon)", flush=True)
         parity_dir = baseline_dir / "parity"
-        parity_gpu = run_seed_set([tuning_seeds[0]], exe_dir, config_path, parity_dir / "gpu", start_year, inner_end_year, checkpoint_every, True, defs, label="baseline:parity:gpu")[0]
-        parity_cpu = run_seed_set([tuning_seeds[0]], exe_dir, config_path, parity_dir / "cpu", start_year, inner_end_year, checkpoint_every, False, defs, label="baseline:parity:cpu")[0]
+        parity_gpu = run_seed_set(
+            [tuning_seeds[0]],
+            exe_dir,
+            config_path,
+            parity_dir / "gpu",
+            start_year,
+            inner_end_year,
+            checkpoint_every,
+            True,
+            defs,
+            label="baseline:parity:gpu",
+            run_cache=run_cache,
+            runtime_env=runtime_env,
+            write_eval_artifacts=True,
+        )[0]
+        parity_cpu = run_seed_set(
+            [tuning_seeds[0]],
+            exe_dir,
+            config_path,
+            parity_dir / "cpu",
+            start_year,
+            inner_end_year,
+            checkpoint_every,
+            False,
+            defs,
+            label="baseline:parity:cpu",
+            run_cache=run_cache,
+            runtime_env=runtime_env,
+            write_eval_artifacts=True,
+        )[0]
         parity_ok, parity_det = compare_metric_series(parity_gpu, parity_cpu, defs["parity_eps"])
         print(f"[baseline] parity_pass={parity_ok}", flush=True)
         write_json(
@@ -1190,76 +1649,279 @@ def main() -> int:
     )
 
     # Iterative loop.
-    group_idx = 0
-    per_group_param_idx: Dict[str, int] = {g: 0 for g in groups}
-    prev_top3 = base_inner_top3
+    best_inner_seed_evals = list(baseline_inner_tune)
+    best_long_seed_evals = list(baseline_long_tune)
+    best_holdout_seed_evals = list(baseline_long_holdout)
+    best_inner_by_seed = eval_map_by_seed(best_inner_seed_evals)
+    best_long_by_seed = eval_map_by_seed(best_long_seed_evals)
+    best_holdout_by_seed = eval_map_by_seed(best_holdout_seed_evals)
+    param_stats = init_param_stats(pdefs)
+    total_param_attempts = 0
+    prev_top3_inner = list(base_inner_top3)
+    proposal_top3 = list(base_top3) if base_top3 else list(base_inner_top3)
+    min_delta = float(defs["thresholds"]["min_delta"])
+    holdout_delta_req = float(defs["thresholds"]["holdout_objective_min_delta"])
+
     for it in range(1, args.max_iterations + 1):
         if stop_flag is not None and stop_flag.exists():
             stop_reason = "MANUAL_STOP"
             break
         it_dir = it_root / f"iter_{it:03d}"
         it_dir.mkdir(parents=True, exist_ok=True)
+        top3_before = list(proposal_top3)
 
-        group = groups[group_idx % max(1, len(groups))]
-        plist = by_group[group]
-        pi = per_group_param_idx[group] % max(1, len(plist))
-        pdef = plist[pi]
-        per_group_param_idx[group] += 1
-        group_idx += 1
-        path = pdef["path"]
-        old_val = get_param(best_cfg, path)
-        direction = choose_direction(path, prev_top3, old_val, pdef, it)
-        new_val = apply_step(old_val, pdef, direction)
-        cand_cfg = copy.deepcopy(best_cfg)
-        set_param(cand_cfg, path, new_val)
-        cand_cfg_path = it_dir / "candidate_sim_config.toml"
-        dump_toml(cand_cfg, cand_cfg_path)
+        lane_candidates: List[Dict[str, Any]] = []
+        cand_exploit = propose_exploit_candidate(
+            best_cfg,
+            pdefs,
+            param_stats,
+            total_param_attempts,
+            proposal_top3,
+            it,
+            ucb_explore_coeff,
+        )
+        lane_candidates.append(cand_exploit)
+        if two_lane and len(pdefs) > 1:
+            cand_explore = propose_explore_candidate(
+                best_cfg,
+                pdefs,
+                proposal_top3,
+                it,
+                rng,
+                avoid_path=str(cand_exploit["path"]),
+            )
+            lane_candidates.append(cand_explore)
+
+        scout_n = min(stage_counts[0], len(tuning_seeds))
+        scout_seeds = tuning_seeds[:scout_n]
+        lane_scout_rows: List[Dict[str, Any]] = []
+        selected_lane = lane_candidates[0]
+        best_scout_delta = -1e18
+        selected_cfg: Dict[str, Any] = {}
+        selected_cfg_path = it_dir / "candidate_sim_config.toml"
+        selected_scout_by_seed: Dict[int, SeedEval] = {}
+        selected_scout_evals: List[SeedEval] = []
+
+        for lane in lane_candidates:
+            lane_name = str(lane["lane"])
+            path = str(lane["path"])
+            lane_cfg = copy.deepcopy(best_cfg)
+            set_param(lane_cfg, path, lane["new_val"])
+            lane_cfg_path = it_dir / f"candidate_{lane_name}.toml"
+            dump_toml(lane_cfg, lane_cfg_path)
+            lane_scout = run_seed_set(
+                scout_seeds,
+                exe_dir,
+                lane_cfg_path,
+                it_dir / "lanes" / lane_name / "scout",
+                start_year,
+                inner_end_year,
+                checkpoint_every,
+                bool(lane_cfg["economy"]["useGPU"]),
+                defs,
+                jobs=seed_jobs,
+                label=f"iter {it:03d}:{lane_name}:scout",
+                run_cache=run_cache,
+                runtime_env=runtime_env,
+                write_eval_artifacts=write_eval_inner,
+            )
+            lane_scout_agg = aggregate_objective(lane_scout, defs)
+            inc_scout = [best_inner_by_seed[s] for s in scout_seeds if s in best_inner_by_seed]
+            inc_scout_agg = aggregate_objective(inc_scout, defs) if inc_scout else {"objective": best_inner_obj}
+            scout_delta = float(lane_scout_agg["objective"]) - float(inc_scout_agg["objective"])
+            scout_pair = (
+                paired_delta_stats(eval_map_by_seed(lane_scout), best_inner_by_seed, scout_seeds, paired_z)
+                if paired_enabled
+                else {"n": 0, "lcb": 0.0, "ucb": 0.0}
+            )
+            lane_scout_rows.append(
+                {
+                    "lane": lane_name,
+                    "group": lane["group"],
+                    "path": path,
+                    "old": lane["old_val"],
+                    "new": lane["new_val"],
+                    "scout_objective": lane_scout_agg["objective"],
+                    "scout_delta_vs_incumbent": scout_delta,
+                    "scout_paired": scout_pair,
+                }
+            )
+            print(
+                f"[iter {it:03d}] lane={lane_name} scout group={lane['group']} param={path} old={lane['old_val']} new={lane['new_val']} delta={scout_delta:.6f}",
+                flush=True,
+            )
+            if scout_delta > best_scout_delta:
+                best_scout_delta = scout_delta
+                selected_lane = lane
+                selected_cfg = lane_cfg
+                selected_cfg_path = lane_cfg_path
+                selected_scout_evals = lane_scout
+                selected_scout_by_seed = eval_map_by_seed(lane_scout)
+
+        if selected_cfg:
+            dump_toml(selected_cfg, selected_cfg_path)
+
+        group = str(selected_lane["group"])
+        path = str(selected_lane["path"])
+        pdef = selected_lane["pdef"]
+        old_val = selected_lane["old_val"]
+        new_val = selected_lane["new_val"]
+        direction = int(selected_lane["direction"])
         print(
-            f"[iter {it:03d}] testing group={group} param={path} old={old_val} new={new_val}",
+            f"[iter {it:03d}] selected lane={selected_lane['lane']} group={group} param={path} old={old_val} new={new_val}",
             flush=True,
         )
 
-        top3_before = list(prev_top3)
-        cand_inner = run_seed_set(
-            tuning_seeds,
-            exe_dir,
-            cand_cfg_path,
-            it_dir / "inner" / "tuning",
-            start_year,
-            inner_end_year,
-            checkpoint_every,
-            bool(cand_cfg["economy"]["useGPU"]),
-            defs,
-            jobs=seed_jobs,
-            label=f"iter {it:03d}:inner:tuning",
-        )
+        cand_inner_by_seed = dict(selected_scout_by_seed)
+        stage_records: List[Dict[str, Any]] = []
+        early_reject = False
+        early_reject_reason = ""
+        for stage_n in stage_counts:
+            stage_seed_subset = tuning_seeds[:stage_n]
+            need = [s for s in stage_seed_subset if s not in cand_inner_by_seed]
+            if need:
+                stage_eval = run_seed_set(
+                    need,
+                    exe_dir,
+                    selected_cfg_path,
+                    it_dir / "inner" / f"tuning_stage_{stage_n}",
+                    start_year,
+                    inner_end_year,
+                    checkpoint_every,
+                    bool(selected_cfg["economy"]["useGPU"]),
+                    defs,
+                    jobs=seed_jobs,
+                    label=f"iter {it:03d}:inner:stage{stage_n}",
+                    run_cache=run_cache,
+                    runtime_env=runtime_env,
+                    write_eval_artifacts=write_eval_inner,
+                )
+                for s in stage_eval:
+                    cand_inner_by_seed[int(s.seed)] = s
+
+            cand_stage = [cand_inner_by_seed[s] for s in stage_seed_subset if s in cand_inner_by_seed]
+            inc_stage = [best_inner_by_seed[s] for s in stage_seed_subset if s in best_inner_by_seed]
+            cand_stage_agg = aggregate_objective(cand_stage, defs)
+            inc_stage_agg = aggregate_objective(inc_stage, defs) if inc_stage else {"objective": best_inner_obj}
+            stage_delta = float(cand_stage_agg["objective"]) - float(inc_stage_agg["objective"])
+            stage_pair = (
+                paired_delta_stats(cand_inner_by_seed, best_inner_by_seed, stage_seed_subset, paired_z)
+                if paired_enabled
+                else {"n": 0, "lcb": 0.0, "ucb": 0.0}
+            )
+            stage_records.append(
+                {
+                    "stage_seed_count": stage_n,
+                    "candidate_objective": cand_stage_agg["objective"],
+                    "incumbent_objective": inc_stage_agg["objective"],
+                    "objective_delta": stage_delta,
+                    "paired": stage_pair,
+                }
+            )
+            if racing_enabled and stage_n < len(tuning_seeds):
+                reject_obj = stage_delta < (min_delta - early_reject_margin)
+                reject_pair = paired_enabled and (stage_pair.get("n", 0) >= 2) and (float(stage_pair.get("lcb", 0.0)) < (paired_min_inner_lcb_delta - early_reject_margin))
+                if reject_obj or reject_pair:
+                    early_reject = True
+                    early_reject_reason = "OBJECTIVE_MARGIN" if reject_obj else "PAIRED_LCB_MARGIN"
+                    print(
+                        f"[iter {it:03d}] early reject at stage={stage_n} reason={early_reject_reason}",
+                        flush=True,
+                    )
+                    break
+
+        evaluated_inner_seeds = [s for s in tuning_seeds if s in cand_inner_by_seed]
+        cand_inner = [cand_inner_by_seed[s] for s in evaluated_inner_seeds]
         cand_inner_agg = aggregate_objective(cand_inner, defs)
         cand_inner_top3 = top3_violations(cand_inner)
         tune_hardfails = sorted({hf for s in cand_inner for hf in s.hardfails})
-        inner_delta = float(cand_inner_agg["objective"]) - float(best_inner_obj)
+        inner_incumbent = [best_inner_by_seed[s] for s in evaluated_inner_seeds if s in best_inner_by_seed]
+        inner_incumbent_agg = aggregate_objective(inner_incumbent, defs) if inner_incumbent else {"objective": best_inner_obj}
+        inner_delta = float(cand_inner_agg["objective"]) - float(inner_incumbent_agg["objective"])
+        inner_pair = (
+            paired_delta_stats(cand_inner_by_seed, best_inner_by_seed, evaluated_inner_seeds, paired_z)
+            if paired_enabled
+            else {"n": 0, "lcb": 0.0, "ucb": 0.0}
+        )
         objective_delta = inner_delta
         cand_agg = cand_inner_agg
         cand_top3 = cand_inner_top3
 
-        # Run expensive canary/parity checks only for candidates that clear basic improvement gates.
         canary_pass = False
         parity_pass = False
         canary_detail: List[Dict[str, Any]] = []
         parity_detail: List[Dict[str, Any]] = []
-        if (len(tune_hardfails) == 0) and (inner_delta >= float(defs["thresholds"]["min_delta"])):
-            print(f"[iter {it:03d}] running canary checks", flush=True)
-            cand_canary_a = run_seed_set([tuning_seeds[0]], exe_dir, cand_cfg_path, it_dir / "canary" / "a", start_year, inner_end_year, checkpoint_every, bool(cand_cfg["economy"]["useGPU"]), defs, label=f"iter {it:03d}:canary:a")[0]
-            cand_canary_b = run_seed_set([tuning_seeds[0]], exe_dir, cand_cfg_path, it_dir / "canary" / "b", start_year, inner_end_year, checkpoint_every, bool(cand_cfg["economy"]["useGPU"]), defs, label=f"iter {it:03d}:canary:b")[0]
+        no_hardfail_tuning = len(tune_hardfails) == 0
+        improve_ok = (inner_delta >= min_delta) and ((not paired_enabled) or (float(inner_pair.get("lcb", -1e18)) >= paired_min_inner_lcb_delta))
+        checks_executed = no_hardfail_tuning and improve_ok and (not early_reject)
+        if checks_executed:
+            print(f"[iter {it:03d}] running canary/parity checks", flush=True)
+            cand_canary_a = run_seed_set(
+                [tuning_seeds[0]],
+                exe_dir,
+                selected_cfg_path,
+                it_dir / "canary" / "a",
+                start_year,
+                inner_end_year,
+                checkpoint_every,
+                bool(selected_cfg["economy"]["useGPU"]),
+                defs,
+                label=f"iter {it:03d}:canary:a",
+                run_cache=run_cache,
+                runtime_env=runtime_env,
+                write_eval_artifacts=write_eval_inner,
+            )[0]
+            cand_canary_b = run_seed_set(
+                [tuning_seeds[0]],
+                exe_dir,
+                selected_cfg_path,
+                it_dir / "canary" / "b",
+                start_year,
+                inner_end_year,
+                checkpoint_every,
+                bool(selected_cfg["economy"]["useGPU"]),
+                defs,
+                label=f"iter {it:03d}:canary:b",
+                run_cache=run_cache,
+                runtime_env=runtime_env,
+                write_eval_artifacts=write_eval_inner,
+            )[0]
             canary_pass, canary_detail = compare_metric_series(cand_canary_a, cand_canary_b, defs["canary_eps"])
-
-            print(f"[iter {it:03d}] canary_pass={canary_pass}; running parity checks", flush=True)
-            cand_parity_gpu = run_seed_set([tuning_seeds[0]], exe_dir, cand_cfg_path, it_dir / "parity" / "gpu", start_year, inner_end_year, checkpoint_every, True, defs, label=f"iter {it:03d}:parity:gpu")[0]
-            cand_parity_cpu = run_seed_set([tuning_seeds[0]], exe_dir, cand_cfg_path, it_dir / "parity" / "cpu", start_year, inner_end_year, checkpoint_every, False, defs, label=f"iter {it:03d}:parity:cpu")[0]
+            cand_parity_gpu = run_seed_set(
+                [tuning_seeds[0]],
+                exe_dir,
+                selected_cfg_path,
+                it_dir / "parity" / "gpu",
+                start_year,
+                inner_end_year,
+                checkpoint_every,
+                True,
+                defs,
+                label=f"iter {it:03d}:parity:gpu",
+                run_cache=run_cache,
+                runtime_env=runtime_env,
+                write_eval_artifacts=write_eval_inner,
+            )[0]
+            cand_parity_cpu = run_seed_set(
+                [tuning_seeds[0]],
+                exe_dir,
+                selected_cfg_path,
+                it_dir / "parity" / "cpu",
+                start_year,
+                inner_end_year,
+                checkpoint_every,
+                False,
+                defs,
+                label=f"iter {it:03d}:parity:cpu",
+                run_cache=run_cache,
+                runtime_env=runtime_env,
+                write_eval_artifacts=write_eval_inner,
+            )[0]
             parity_pass, parity_detail = compare_metric_series(cand_parity_gpu, cand_parity_cpu, defs["parity_eps"])
-            print(f"[iter {it:03d}] parity_pass={parity_pass}", flush=True)
+            print(f"[iter {it:03d}] canary_pass={canary_pass} parity_pass={parity_pass}", flush=True)
         else:
             print(
-                f"[iter {it:03d}] skipping canary/parity (hardfails={len(tune_hardfails)} inner_delta={inner_delta:.6f})",
+                f"[iter {it:03d}] skipping canary/parity (hardfails={len(tune_hardfails)} improve={improve_ok} early_reject={early_reject})",
                 flush=True,
             )
 
@@ -1271,37 +1933,39 @@ def main() -> int:
         medium_ran = False
         medium_hardfails: List[str] = []
         medium_holdout_hardfails: List[str] = []
-        medium_agg = {}
-        medium_holdout_agg = {}
+        medium_agg: Dict[str, Any] = {}
+        medium_holdout_agg: Dict[str, Any] = {}
         medium_delta = 0.0
 
         holdout_ok = False
-        holdout_agg = {}
+        holdout_agg: Dict[str, Any] = {}
         holdout_hardfails: List[str] = []
         cand_hold: List[SeedEval] = []
+        holdout_pair: Dict[str, Any] = {"n": 0, "lcb": 0.0, "ucb": 0.0}
+        long_pair: Dict[str, Any] = {"n": 0, "lcb": 0.0, "ucb": 0.0}
         long_ran = False
         long_hardfails: List[str] = []
         cand_long: List[SeedEval] = []
 
-        # Provisional acceptance gate from fast inner horizon.
-        no_hardfail_tuning = len(tune_hardfails) == 0
-        improve_ok = inner_delta >= float(defs["thresholds"]["min_delta"])
-        if no_hardfail_tuning and improve_ok and canary_pass and parity_pass:
+        if no_hardfail_tuning and improve_ok and canary_pass and parity_pass and (not early_reject):
             if medium_required:
                 medium_ran = True
                 print(f"[iter {it:03d}] running medium horizon checks (end={medium_end_year})", flush=True)
                 cand_medium = run_seed_set(
                     tuning_seeds,
                     exe_dir,
-                    cand_cfg_path,
+                    selected_cfg_path,
                     it_dir / "medium" / "tuning",
                     start_year,
                     medium_end_year,
                     checkpoint_every,
-                    bool(cand_cfg["economy"]["useGPU"]),
+                    bool(selected_cfg["economy"]["useGPU"]),
                     defs,
                     jobs=seed_jobs,
                     label=f"iter {it:03d}:medium:tuning",
+                    run_cache=run_cache,
+                    runtime_env=runtime_env,
+                    write_eval_artifacts=write_eval_inner,
                 )
                 medium_agg = aggregate_objective(cand_medium, defs)
                 medium_hardfails = sorted({hf for s in cand_medium for hf in s.hardfails})
@@ -1309,27 +1973,28 @@ def main() -> int:
                 cand_medium_hold = run_seed_set(
                     holdout_seeds,
                     exe_dir,
-                    cand_cfg_path,
+                    selected_cfg_path,
                     it_dir / "medium" / "holdout",
                     start_year,
                     medium_end_year,
                     checkpoint_every,
-                    bool(cand_cfg["economy"]["useGPU"]),
+                    bool(selected_cfg["economy"]["useGPU"]),
                     defs,
                     jobs=seed_jobs,
                     label=f"iter {it:03d}:medium:holdout",
+                    run_cache=run_cache,
+                    runtime_env=runtime_env,
+                    write_eval_artifacts=write_eval_holdout,
                 )
                 medium_holdout_agg = aggregate_objective(cand_medium_hold, defs)
                 medium_holdout_hardfails = sorted({hf for s in cand_medium_hold for hf in s.hardfails})
-                holdout_delta_req = float(defs["thresholds"]["holdout_objective_min_delta"])
                 medium_pass = (
                     len(medium_hardfails) == 0
                     and len(medium_holdout_hardfails) <= int(defs["thresholds"]["holdout_hardfail_max"])
                     and float(medium_holdout_agg["objective"]) >= float(best_medium_holdout_obj) + holdout_delta_req
                 )
                 print(
-                    f"[iter {it:03d}] medium_obj={float(medium_agg['objective']):.6f} medium_delta={medium_delta:.6f} "
-                    f"medium_holdout={float(medium_holdout_agg['objective']):.6f} medium_pass={medium_pass}",
+                    f"[iter {it:03d}] medium_obj={float(medium_agg['objective']):.6f} medium_delta={medium_delta:.6f} medium_holdout={float(medium_holdout_agg['objective']):.6f} medium_pass={medium_pass}",
                     flush=True,
                 )
             if medium_pass:
@@ -1338,46 +2003,61 @@ def main() -> int:
                 cand_long = run_seed_set(
                     tuning_seeds,
                     exe_dir,
-                    cand_cfg_path,
+                    selected_cfg_path,
                     it_dir / "long" / "tuning",
                     start_year,
                     long_end_year,
                     checkpoint_every,
-                    bool(cand_cfg["economy"]["useGPU"]),
+                    bool(selected_cfg["economy"]["useGPU"]),
                     defs,
                     jobs=seed_jobs,
                     label=f"iter {it:03d}:long:tuning",
+                    run_cache=run_cache,
+                    runtime_env=runtime_env,
+                    write_eval_artifacts=write_eval_holdout,
                 )
                 cand_agg = aggregate_objective(cand_long, defs)
                 cand_top3 = top3_violations(cand_long)
                 long_hardfails = sorted({hf for s in cand_long for hf in s.hardfails})
                 objective_delta = float(cand_agg["objective"]) - float(best_obj)
-                long_improve_ok = objective_delta >= float(defs["thresholds"]["min_delta"])
+                long_pair = (
+                    paired_delta_stats(eval_map_by_seed(cand_long), best_long_by_seed, tuning_seeds, paired_z)
+                    if paired_enabled
+                    else {"n": 0, "lcb": 0.0, "ucb": 0.0}
+                )
+                long_improve_ok = (objective_delta >= min_delta) and ((not paired_enabled) or (float(long_pair.get("lcb", -1e18)) >= paired_min_long_lcb_delta))
                 if len(long_hardfails) == 0 and long_improve_ok:
                     print(f"[iter {it:03d}] running long holdout validation", flush=True)
                     cand_hold = run_seed_set(
                         holdout_seeds,
                         exe_dir,
-                        cand_cfg_path,
+                        selected_cfg_path,
                         it_dir / "long" / "holdout",
                         start_year,
                         long_end_year,
                         checkpoint_every,
-                        bool(cand_cfg["economy"]["useGPU"]),
+                        bool(selected_cfg["economy"]["useGPU"]),
                         defs,
                         jobs=seed_jobs,
                         label=f"iter {it:03d}:long:holdout",
+                        run_cache=run_cache,
+                        runtime_env=runtime_env,
+                        write_eval_artifacts=write_eval_holdout,
                     )
                     holdout_agg = aggregate_objective(cand_hold, defs)
                     holdout_hardfails = sorted({hf for s in cand_hold for hf in s.hardfails})
-                    holdout_delta_req = float(defs["thresholds"]["holdout_objective_min_delta"])
+                    holdout_pair = (
+                        paired_delta_stats(eval_map_by_seed(cand_hold), best_holdout_by_seed, holdout_seeds, paired_z)
+                        if paired_enabled
+                        else {"n": 0, "lcb": 0.0, "ucb": 0.0}
+                    )
                     holdout_ok = (
                         len(holdout_hardfails) <= int(defs["thresholds"]["holdout_hardfail_max"])
                         and float(holdout_agg["objective"]) >= float(best_holdout_obj) + holdout_delta_req
+                        and ((not paired_enabled) or (float(holdout_pair.get("lcb", -1e18)) >= paired_min_holdout_lcb_delta))
                     )
                     print(
-                        f"[iter {it:03d}] long_obj={float(cand_agg['objective']):.6f} long_delta={objective_delta:.6f} "
-                        f"holdout_obj={float(holdout_agg['objective']):.6f} holdout_ok={holdout_ok}",
+                        f"[iter {it:03d}] long_obj={float(cand_agg['objective']):.6f} long_delta={objective_delta:.6f} holdout_obj={float(holdout_agg['objective']):.6f} holdout_ok={holdout_ok}",
                         flush=True,
                     )
                 else:
@@ -1389,7 +2069,7 @@ def main() -> int:
                 print(f"[iter {it:03d}] medium gate failed, skipping long promotion check", flush=True)
         else:
             print(
-                f"[iter {it:03d}] promotion checks skipped (no_hardfail={no_hardfail_tuning} improve_ok={improve_ok} canary={canary_pass} parity={parity_pass})",
+                f"[iter {it:03d}] promotion checks skipped (no_hardfail={no_hardfail_tuning} improve_ok={improve_ok} canary={canary_pass} parity={parity_pass} early_reject={early_reject})",
                 flush=True,
             )
 
@@ -1402,14 +2082,32 @@ def main() -> int:
             and long_ran
             and holdout_ok
         )
+
+        st = param_stats[path]
+        st["attempts"] = int(st["attempts"]) + 1
+        st["sum_inner_delta"] = float(st["sum_inner_delta"]) + float(inner_delta)
+        st["sum_long_delta"] = float(st["sum_long_delta"]) + float(objective_delta if long_ran else 0.0)
+        st["last_direction"] = direction
+        dir_key = "+1" if direction > 0 else "-1"
+        st["dir_gain"][dir_key] = float(st["dir_gain"].get(dir_key, 0.0)) + float(inner_delta)
         if accepted:
-            best_cfg = cand_cfg
+            st["accepts"] = int(st["accepts"]) + 1
+        total_param_attempts += 1
+
+        if accepted:
+            best_cfg = selected_cfg
             best_inner_obj = float(cand_inner_agg["objective"])
+            best_inner_seed_evals = [cand_inner_by_seed[s] for s in tuning_seeds if s in cand_inner_by_seed]
+            best_inner_by_seed = eval_map_by_seed(best_inner_seed_evals)
             if medium_ran:
                 best_medium_obj = float(medium_agg["objective"])
                 best_medium_holdout_obj = float(medium_holdout_agg["objective"])
             best_obj = float(cand_agg["objective"])
             best_holdout_obj = float(holdout_agg["objective"])
+            best_long_seed_evals = list(cand_long)
+            best_long_by_seed = eval_map_by_seed(best_long_seed_evals)
+            best_holdout_seed_evals = list(cand_hold)
+            best_holdout_by_seed = eval_map_by_seed(best_holdout_seed_evals)
             best_eval = {
                 "tuning": cand_agg,
                 "holdout": holdout_agg,
@@ -1427,31 +2125,36 @@ def main() -> int:
             accepted_since_improve += 1
 
         gate_failed = False
-        checks_executed = no_hardfail_tuning and improve_ok
         if "MISSING_METRIC" in tune_hardfails:
             gate_failed = True
-        # Count canary/parity only when those checks are actually executed.
         if checks_executed and (not canary_pass):
             gate_failed = True
         if checks_executed and (not parity_pass):
             gate_failed = True
         consecutive_gate_fail = (consecutive_gate_fail + 1) if gate_failed else 0
 
-        if cand_inner_top3 == prev_top3 and inner_delta < float(defs["thresholds"]["min_delta"]):
+        if cand_inner_top3 == prev_top3_inner and inner_delta < min_delta:
             plateau_same_top3 += 1
         else:
             plateau_same_top3 = 0
-        prev_top3 = cand_inner_top3
+        prev_top3_inner = list(cand_inner_top3)
+        if long_ran and cand_top3:
+            proposal_top3 = list(cand_top3)
+        elif cand_inner_top3:
+            proposal_top3 = list(cand_inner_top3)
 
         iter_json = {
             "iteration": it,
             "subsystem_group": group,
+            "selected_lane": selected_lane["lane"],
+            "lane_scout": lane_scout_rows,
             "parameter_edits": [
                 {
                     "path": path,
                     "old": old_val,
                     "new": new_val,
                     "recommended_step": pdef["recommended_step"],
+                    "direction": direction,
                 }
             ],
             "top_violations_before": top3_before,
@@ -1464,6 +2167,17 @@ def main() -> int:
             "score_delta": objective_delta,
             "score_delta_inner": inner_delta,
             "score_delta_medium": medium_delta if medium_ran else None,
+            "racing": {
+                "enabled": racing_enabled,
+                "stages": stage_records,
+                "early_reject": early_reject,
+                "early_reject_reason": early_reject_reason,
+            },
+            "paired_stats": {
+                "inner": inner_pair,
+                "long": long_pair,
+                "holdout": holdout_pair,
+            },
             "gates": {
                 "metric_availability": "MISSING_METRIC" not in tune_hardfails,
                 "canary_pass": canary_pass,
@@ -1497,16 +2211,25 @@ def main() -> int:
         }
         write_json(it_dir / "iteration.json", iter_json)
         print(
-            f"[iter {it:03d}] group={group} param={path} old={old_val} new={new_val} "
-            f"inner_obj={cand_inner_agg['objective']:.6f} inner_delta={inner_delta:.6f} "
-            f"promoted_obj={cand_agg['objective']:.6f} promoted_delta={objective_delta:.6f} accepted={accepted}",
+            f"[iter {it:03d}] group={group} param={path} old={old_val} new={new_val} inner_obj={cand_inner_agg['objective']:.6f} inner_delta={inner_delta:.6f} promoted_obj={cand_agg['objective']:.6f} promoted_delta={objective_delta:.6f} accepted={accepted}",
             flush=True,
         )
+
+        if (not accepted) and prune_rejected:
+            for child in ("inner", "medium", "long", "canary", "parity", "lanes"):
+                cdir = it_dir / child
+                if cdir.exists():
+                    shutil.rmtree(cdir, ignore_errors=True)
+            if (not keep_candidate_if_rejected) and selected_cfg_path.exists():
+                try:
+                    selected_cfg_path.unlink()
+                except Exception:
+                    pass
+
         if stop_flag is not None and stop_flag.exists():
             stop_reason = "MANUAL_STOP"
             break
 
-        # Stop conditions (first triggered wins).
         if (
             accepted_iters >= int(schema.get("convergence_iterations", 50))
             and accepted_since_improve >= int(schema.get("convergence_iterations", 50))
@@ -1550,6 +2273,26 @@ def main() -> int:
             "long_end_year": long_end_year,
             "medium_check_every_iterations": medium_check_every_iterations,
             "medium_check_every_accepted": medium_check_every_accepted,
+        },
+        "optimization_accelerators": {
+            "common_random_numbers": {"enabled": crn_enabled},
+            "adaptive_racing": {"enabled": racing_enabled, "stage_seed_counts": stage_counts, "early_reject_margin": early_reject_margin},
+            "paired_acceptance": {
+                "enabled": paired_enabled,
+                "confidence_z": paired_z,
+                "min_inner_lcb_delta": paired_min_inner_lcb_delta,
+                "min_long_lcb_delta": paired_min_long_lcb_delta,
+                "min_holdout_lcb_delta": paired_min_holdout_lcb_delta,
+            },
+            "run_cache": run_cache,
+            "io": {
+                "write_eval_artifacts_for_inner": write_eval_inner,
+                "write_eval_artifacts_for_holdout": write_eval_holdout,
+                "prune_rejected_iterations": prune_rejected,
+                "keep_candidate_if_rejected": keep_candidate_if_rejected,
+            },
+            "search": {"two_lane_enabled": two_lane, "ucb_explore_coeff": ucb_explore_coeff, "random_seed": search_random_seed},
+            "runtime_hygiene": {"seed_jobs": seed_jobs, "cpu_count": cpu_count, "reserve_cpu_cores": reserve_cpu_cores, "runtime_env": runtime_env},
         },
         "iterations_completed": len(list(it_root.glob("iter_*"))),
     }
