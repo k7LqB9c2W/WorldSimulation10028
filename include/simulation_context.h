@@ -233,6 +233,9 @@ struct SimulationConfig {
         double europeInnovationBoost = 0.22;
         double europeAdoptionBoost = 0.16;
         double europeReadinessThreshold = 0.42;
+        double trajectoryVarianceStrength = 0.65;
+        int trajectoryCycleYears = 90;
+        double trajectoryCycleAmplitude = 0.28;
     } tech{};
 
     struct Economy {

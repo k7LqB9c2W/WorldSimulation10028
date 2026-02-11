@@ -296,6 +296,9 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "tech", "europeInnovationBoost", config.tech.europeInnovationBoost);
         readTomlValue(root, "tech", "europeAdoptionBoost", config.tech.europeAdoptionBoost);
         readTomlValue(root, "tech", "europeReadinessThreshold", config.tech.europeReadinessThreshold);
+        readTomlValue(root, "tech", "trajectoryVarianceStrength", config.tech.trajectoryVarianceStrength);
+        readTomlValue(root, "tech", "trajectoryCycleYears", config.tech.trajectoryCycleYears);
+        readTomlValue(root, "tech", "trajectoryCycleAmplitude", config.tech.trajectoryCycleAmplitude);
 
         readTomlValue(root, "economy", "foodLaborElasticity", config.economy.foodLaborElasticity);
         readTomlValue(root, "economy", "goodsLaborElasticity", config.economy.goodsLaborElasticity);

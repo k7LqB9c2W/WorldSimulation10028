@@ -162,5 +162,8 @@ private:
     std::unordered_map<int, int> m_techIdToDense;
     std::unordered_map<std::uint64_t, int> m_firstKnownYear;
     std::unordered_map<std::uint64_t, int> m_firstAdoptionYear;
+    double m_worldInnovationMomentum = 1.0;
+    double m_worldAdoptionMomentum = 1.0;
+    double m_worldDiffusionMomentum = 1.0;
     static bool s_debugMode; // Debug mode flag
 };

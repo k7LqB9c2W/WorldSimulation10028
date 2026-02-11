@@ -455,3 +455,52 @@ Notes for next iteration cycle:
 ### Notes
 - Coarse endpoint tech spread remains diverse and non-uniform (not a single fixed endpoint), while empire-size variability remains high.
 - Relative to the pre-update baseline (`out/seed_max_tech_baseline16`), largest-empire scale and conflict incidence remain substantially elevated.
+
+## Entry: 2026-02-11 22:44:47 UTC (seed-driven realism clarification + tech-variance root-cause pass)
+
+### User concern addressed
+- Clarified and enforced that progression should be rules/endogenous-state driven, not arbitrary per-seed global buffs.
+- Removed the prior seed-only global innovation/adoption/diffusion climate path and replaced it with world-state momentum terms derived from institutions, connectivity, market access, openness, war share, famine pressure, legitimacy, inequality, and urbanization.
+
+### Code/config updates in this cycle
+- `src/technology.cpp`:
+  - Discovery pass changed to candidate-evaluation + ranked selection (instead of strict-order early break), with higher dynamic cap (`<=12`) under high frontier capacity.
+  - Added endogenous world-tech regime multipliers (`globalInnovationBias`, `globalAdoptionBias`, `globalDiffusionBias`, `worldTechClimate`) driven by current world conditions.
+  - Rewired and retuned bridge prerequisites/costs to reduce deadlocks:
+    - `Metallurgy (42)` prereq to `{13,4,120}`.
+    - `Steam Engine (51)` prereq to `{23,42}`.
+    - Additional cost rescaling for bridge/mid-tree technologies (`23,24,29,30,31,34,35,39,40,41,42,43,45,...`).
+  - Relaxed discovery readiness gate (domain factor) to reduce chronic frontier stalling.
+  - Added domain-allocation compounding from realized capabilities (construction/roads -> engineering domain, mining/iron/smelting -> materials domain, etc.).
+- `include/simulation_context.h`, `src/simulation_context.cpp`, `data/sim_config.toml`:
+  - Added trajectory controls for endogenous momentum (`trajectoryVarianceStrength`, `trajectoryCycleYears`, `trajectoryCycleAmplitude`).
+  - Updated tech pacing values:
+    - `discoveryBase=0.034`, `maxDiscoveriesPerYear=4`, `discoverySeedAdoption=0.03`, `adoptionBaseSpeed=0.12`.
+
+### Validation sweeps (all `-5000 -> 2025`, 16 seeds, 16 workers, CPU)
+- `out/seed_max_tech_post16_realism_v9` (reference before latest rewiring):
+  - `max_unlocked` unique: `[26,28,32,33,40,42]`, mean/min/max `31.5625 / 26 / 42`.
+- `out/seed_max_tech_post16_realism_v10`:
+  - Numerically identical endpoint distribution to v9 (confirmed no effective frontier shift).
+- `out/seed_max_tech_post16_realism_v11`:
+  - `max_unlocked` unique: `[28,30,37,40,43,44,45]`, mean/min/max `33.0 / 28 / 45`.
+  - First successful increase beyond prior cap (`45`).
+- `out/seed_max_tech_post16_realism_v12` (selected final state for this cycle):
+  - `max_unlocked` unique: `[26,28,31,32,33,37,42,43,44,45]`.
+  - mean/min/max `33.375 / 26 / 45`.
+  - Maintains low/medium/high spread while improving upper-tail reach vs v9/v10.
+- `out/seed_max_tech_post16_realism_v13`:
+  - Experimental key-transition boost was tested and rejected (lower mean and weaker chain activation), then reverted.
+
+### Frontier-chain diagnostics
+- Diagnostic files produced:
+  - `out/seed_max_tech_post16_realism_v10/unlock_chain_diagnostics.json`
+  - `out/seed_max_tech_post16_realism_v11/unlock_chain_diagnostics.json`
+  - `out/seed_max_tech_post16_realism_v12/unlock_chain_diagnostics.json`
+  - `out/seed_max_tech_post16_realism_v13/unlock_chain_diagnostics.json`
+- Persistent issue identified:
+  - Despite improved spread and higher maxima, deep industrial chain activation is still limited (e.g., low/no unlock frequency for `23/29/42/49/51/52/54/60` in this seed window).
+
+### Selection decision for live code at end of this entry
+- Keep **v12-equivalent code path** (v13-only transition boost reverted).
+- This preserves the best combined outcome in this cycle: broader endpoint diversity and higher max unlocked tech without seed-only global bonuses.

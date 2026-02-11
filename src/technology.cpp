@@ -198,27 +198,27 @@ void TechnologyManager::initializeTechnologies() {
     m_technologies.emplace(37, Technology{"Gunpowder", 2000, 37, {28}});
     m_technologies.emplace(38, Technology{"Mechanical Clock", 2200, 38, {29}});
     m_technologies.emplace(39, Technology{"Universities", 2100, 39, {30}});
-    m_technologies.emplace(40, Technology{"Astronomy", 2600, 40, {24, 39}});
-    m_technologies.emplace(41, Technology{"Chemistry", 2800, 41, {40}});
-    m_technologies.emplace(42, Technology{"Metallurgy", 3000, 42, {28, 4, 116}});
+    m_technologies.emplace(40, Technology{"Astronomy", 2600, 40, {24, 14}});
+    m_technologies.emplace(41, Technology{"Chemistry", 2800, 41, {42, 49}});
+    m_technologies.emplace(42, Technology{"Metallurgy", 3000, 42, {13, 4, 120}});
     m_technologies.emplace(43, Technology{"Navigation", 3200, 43, {26, 40}});
     m_technologies.emplace(44, Technology{"Architecture", 3400, 44, {23, 31}});
     m_technologies.emplace(45, Technology{"Economics", 3600, 45, {34}});
     m_technologies.emplace(46, Technology{"Printing Press", 3800, 46, {36}});
     m_technologies.emplace(47, Technology{"Firearms", 4000, 47, {37, 42}});
-    m_technologies.emplace(48, Technology{"Physics", 4200, 48, {40}});
-    m_technologies.emplace(49, Technology{"Scientific Method", 4500, 49, {48}});
+    m_technologies.emplace(48, Technology{"Physics", 4200, 48, {40, 49}});
+    m_technologies.emplace(49, Technology{"Scientific Method", 4500, 49, {36, 39, 14}});
     m_technologies.emplace(50, Technology{"Rifling", 4800, 50, {47}});
-    m_technologies.emplace(51, Technology{"Steam Engine", 5000, 51, {48}});
+    m_technologies.emplace(51, Technology{"Steam Engine", 5000, 51, {23, 42}});
     m_technologies.emplace(52, Technology{"Industrialization", 5500, 52, {42, 51}});
-    m_technologies.emplace(53, Technology{"Vaccination", 6500, 53, {40}});
-    m_technologies.emplace(54, Technology{"Electricity", 7000, 54, {48}});
+    m_technologies.emplace(53, Technology{"Vaccination", 6500, 53, {41}});
+    m_technologies.emplace(54, Technology{"Electricity", 7000, 54, {48, 41}});
     m_technologies.emplace(55, Technology{"Railroad", 7500, 55, {50, 51}});
-    m_technologies.emplace(56, Technology{"Dynamite", 8000, 56, {40}});
+    m_technologies.emplace(56, Technology{"Dynamite", 8000, 56, {41}});
     m_technologies.emplace(57, Technology{"Replaceable Parts", 8500, 57, {51}});
     m_technologies.emplace(58, Technology{"Telegraph", 9000, 58, {54}});
     m_technologies.emplace(59, Technology{"Telephone", 9500, 59, {54}});
-    m_technologies.emplace(60, Technology{"Combustion", 10000, 60, {50}});
+    m_technologies.emplace(60, Technology{"Combustion", 10000, 60, {50, 41}});
     m_technologies.emplace(61, Technology{"Flight", 11000, 61, {60}});
     m_technologies.emplace(62, Technology{"Radio", 12000, 62, {58}});
     m_technologies.emplace(63, Technology{"Mass Production", 13000, 63, {57}});
@@ -255,6 +255,52 @@ void TechnologyManager::initializeTechnologies() {
     m_technologies.emplace(94, Technology{"Augmented Reality", 140000, 94, {80}});
     m_technologies.emplace(95, Technology{"Virtual Reality", 150000, 95, {80}});
     m_technologies.emplace(96, Technology{"Sanitation", 6000, 96, {40}});
+
+    // Keep frontier reachable by 2025 in exceptional trajectories while
+    // preserving slow/fragmented worlds at lower levels.
+    auto rescaleCost = [&](int id, double mult) {
+        auto it = m_technologies.find(id);
+        if (it == m_technologies.end()) return;
+        const int base = std::max(20, it->second.cost);
+        it->second.cost = std::max(20, static_cast<int>(std::lround(base * std::max(0.10, mult))));
+    };
+    rescaleCost(23, 0.74); // Engineering
+    rescaleCost(24, 0.84); // Optics
+    rescaleCost(29, 0.74); // Machinery
+    rescaleCost(30, 0.80); // Education
+    rescaleCost(31, 0.82); // Acoustics
+    rescaleCost(34, 0.80); // Banking
+    rescaleCost(35, 0.82); // Markets
+    rescaleCost(39, 0.70); // Universities
+    rescaleCost(40, 0.72); // Astronomy
+    rescaleCost(41, 0.75); // Chemistry
+    rescaleCost(42, 0.70); // Metallurgy
+    rescaleCost(43, 0.82); // Navigation
+    rescaleCost(45, 0.82); // Economics
+    rescaleCost(46, 0.82); // Printing Press
+    rescaleCost(47, 0.82); // Firearms
+    rescaleCost(48, 0.75); // Physics
+    rescaleCost(49, 0.70); // Scientific Method
+    rescaleCost(50, 0.80); // Rifling
+    rescaleCost(51, 0.74); // Steam Engine
+    rescaleCost(52, 0.76); // Industrialization
+    rescaleCost(53, 0.82); // Vaccination
+    rescaleCost(54, 0.80); // Electricity
+    rescaleCost(55, 0.82); // Railroad
+    rescaleCost(56, 0.85); // Dynamite
+    rescaleCost(57, 0.84); // Replaceable Parts
+    rescaleCost(58, 0.84); // Telegraph
+    rescaleCost(59, 0.86); // Telephone
+    rescaleCost(60, 0.84); // Combustion
+    rescaleCost(61, 0.86); // Flight
+    rescaleCost(62, 0.88); // Radio
+    rescaleCost(63, 0.84); // Mass Production
+    rescaleCost(64, 0.88); // Electronics
+    rescaleCost(65, 0.90); // Penicillin
+    rescaleCost(66, 0.90); // Plastics
+    rescaleCost(67, 0.90); // Rocketry
+    rescaleCost(69, 0.90); // Computers
+    rescaleCost(70, 0.92); // Transistors
 
     auto mark = [&](int id, int order, double difficulty, bool keyTransition) {
         auto it = m_technologies.find(id);
@@ -293,7 +339,17 @@ void TechnologyManager::initializeTechnologies() {
     mark(4, 200, 1.2, true);   // Mining
     mark(20, 220, 1.35, true); // Agriculture
     mark(11, 275, 1.7, true);  // Writing
+    mark(23, 520, 1.8, true);  // Engineering
+    mark(29, 650, 2.0, true);  // Machinery
+    mark(34, 700, 2.0, true);  // Banking
+    mark(35, 730, 2.0, true);  // Markets
     mark(42, 560, 2.2, true);  // Metallurgy
+    mark(39, 760, 1.9, true);  // Universities
+    mark(40, 820, 2.0, true);  // Astronomy
+    mark(49, 980, 2.2, true);  // Scientific Method
+    mark(51, 1060, 2.3, true); // Steam Engine
+    mark(52, 1110, 2.4, true); // Industrialization
+    mark(54, 1180, 2.5, true); // Electricity
 
     for (auto& kv : m_technologies) {
         Technology& t = kv.second;
@@ -348,14 +404,14 @@ void TechnologyManager::initializeTechnologies() {
     gate(2, false, false, 0.48, 0.0, 140.0, 0.0, 0.0, 0.0, 0.04, 0.02, 0.0, 0.35);
     gate(1, false, false, 0.50, 0.0, 0.0, 0.0, 0.08, 0.08, 0.04, 0.02, 0.0, 0.0);
     gate(4, false, false, 0.0, 0.0, 0.0, 0.20, 0.08, 0.0, 0.02, 0.01, 0.0, 0.0);
-    gate(9, false, false, 0.0, 0.0, 0.0, 0.30, 0.22, 0.12, 0.08, 0.05, 0.0, 0.0);
+    gate(9, false, false, 0.0, 0.0, 0.0, 0.24, 0.16, 0.08, 0.06, 0.03, 0.0, 0.0);
     gate(117, false, false, 0.50, 80.0, 0.0, 0.0, 0.0, 0.02, 0.07, 0.04, 0.0, 0.0);
     gate(118, false, false, 0.50, 100.0, 0.0, 0.0, 0.0, 0.03, 0.09, 0.05, 0.0, 0.0);
     gate(119, false, false, 0.0, 0.0, 0.0, 0.22, 0.12, 0.08, 0.04, 0.02, 0.0, 0.0);
     gate(120, false, false, 0.0, 0.0, 0.0, 0.26, 0.18, 0.10, 0.06, 0.03, 0.0, 0.0);
-    gate(42, false, false, 0.0, 0.0, 0.0, 0.36, 0.34, 0.18, 0.12, 0.08, 0.0, 0.0);
-    gate(11, false, false, 0.53, 120.0, 0.0, 0.0, 0.0, 0.05, 0.14, 0.07, 0.0, 0.0);
-    gate(43, true, false, 0.0, 0.0, 0.0, 0.0, 0.12, 0.0, 0.20, 0.06, 0.0, 0.0);
+    gate(42, false, false, 0.0, 0.0, 0.0, 0.30, 0.24, 0.12, 0.10, 0.06, 0.0, 0.0);
+    gate(11, false, false, 0.53, 90.0, 0.0, 0.0, 0.0, 0.05, 0.10, 0.05, 0.0, 0.0);
+    gate(43, true, false, 0.0, 0.0, 0.0, 0.0, 0.12, 0.0, 0.16, 0.06, 0.0, 0.0);
 }
 
 double TechnologyManager::smooth01(double x) {
@@ -608,9 +664,130 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
     const double europeInnovationBoost = std::clamp(cfg.tech.europeInnovationBoost, 0.0, 1.5);
     const double europeAdoptionBoost = std::clamp(cfg.tech.europeAdoptionBoost, 0.0, 1.5);
     const double europeReadinessThreshold = std::clamp(cfg.tech.europeReadinessThreshold, 0.0, 0.95);
+    const double trajectoryVariance = std::clamp(cfg.tech.trajectoryVarianceStrength, 0.0, 1.8);
+    const int trajectoryCycleYears = std::max(20, cfg.tech.trajectoryCycleYears);
+    const double trajectoryCycleAmplitude = std::clamp(cfg.tech.trajectoryCycleAmplitude, 0.0, 0.75);
     const std::uint64_t worldSeed = map.getWorldSeed();
 
     auto clamp01 = [](double v) { return std::clamp(v, 0.0, 1.0); };
+    // Endogenous world-level innovation/adoption regimes (no seed-only boosts).
+    double alive = 0.0;
+    double popTotal = 0.0;
+    double urbanPop = 0.0;
+    double instSum = 0.0;
+    double connSum = 0.0;
+    double marketSum = 0.0;
+    double ideaSum = 0.0;
+    double compSum = 0.0;
+    double mediaSum = 0.0;
+    double merchantSum = 0.0;
+    double opennessSum = 0.0;
+    double legitimacySum = 0.0;
+    double ineqSum = 0.0;
+    double famineSum = 0.0;
+    double warSum = 0.0;
+    for (const Country& c : countries) {
+        if (c.getPopulation() <= 0) continue;
+        const double pop = static_cast<double>(std::max<long long>(1, c.getPopulation()));
+        const double urban = clamp01(c.getTotalCityPopulation() / pop);
+        const auto& m = c.getMacroEconomy();
+        alive += 1.0;
+        popTotal += pop;
+        urbanPop += pop * urban;
+        instSum += clamp01(c.getInstitutionCapacity());
+        connSum += clamp01(c.getConnectivityIndex());
+        marketSum += clamp01(c.getMarketAccess());
+        ideaSum += clamp01(c.getIdeaMarketIntegrationIndex());
+        compSum += clamp01(c.getCompetitionFragmentationIndex());
+        mediaSum += clamp01(c.getMediaThroughputIndex());
+        merchantSum += clamp01(c.getMerchantPowerIndex());
+        opennessSum += clamp01(c.getTraits()[5]);
+        legitimacySum += clamp01(c.getLegitimacy());
+        ineqSum += clamp01(c.getInequality());
+        famineSum += clamp01(m.famineSeverity);
+        warSum += c.isAtWar() ? 1.0 : 0.0;
+    }
+    const double invAlive = 1.0 / std::max(1.0, alive);
+    const double urbanMean = (popTotal > 1.0) ? clamp01(urbanPop / popTotal) : 0.0;
+    const double instMean = instSum * invAlive;
+    const double connMean = connSum * invAlive;
+    const double marketMean = marketSum * invAlive;
+    const double ideaMean = ideaSum * invAlive;
+    const double compMean = compSum * invAlive;
+    const double mediaMean = mediaSum * invAlive;
+    const double merchantMean = merchantSum * invAlive;
+    const double opennessMean = opennessSum * invAlive;
+    const double legitimacyMean = legitimacySum * invAlive;
+    const double ineqMean = ineqSum * invAlive;
+    const double famineMean = famineSum * invAlive;
+    const double warShare = warSum * invAlive;
+
+    const double structuralReadiness = clamp01(
+        0.24 * instMean +
+        0.22 * connMean +
+        0.18 * marketMean +
+        0.14 * ideaMean +
+        0.10 * urbanMean +
+        0.06 * mediaMean +
+        0.06 * opennessMean);
+    const double disruptionLoad = clamp01(
+        0.42 * warShare +
+        0.30 * famineMean +
+        0.16 * ineqMean +
+        0.12 * std::max(0.0, 0.55 - legitimacyMean));
+    const double innovationTarget = std::clamp(
+        0.58 + 1.05 * structuralReadiness - 0.82 * disruptionLoad +
+            0.25 * (compMean - 0.45),
+        0.40,
+        2.30);
+    const double adoptionTarget = std::clamp(
+        0.56 +
+            0.95 * (0.36 * marketMean + 0.34 * connMean + 0.18 * instMean + 0.12 * mediaMean) -
+            0.60 * (0.60 * warShare + 0.40 * famineMean) -
+            0.18 * ineqMean,
+        0.40,
+        2.10);
+    const double diffusionTarget = std::clamp(
+        0.54 +
+            0.98 * (0.40 * connMean + 0.28 * marketMean + 0.18 * opennessMean + 0.14 * merchantMean) -
+            0.55 * (0.65 * warShare + 0.35 * famineMean),
+        0.35,
+        2.00);
+
+    const double memoryYears = static_cast<double>(std::max(20, trajectoryCycleYears));
+    const double alpha = std::clamp(yearsD / memoryYears, 0.01, 0.30);
+    m_worldInnovationMomentum = std::clamp(
+        (1.0 - alpha) * m_worldInnovationMomentum + alpha * innovationTarget,
+        0.40,
+        2.30);
+    m_worldAdoptionMomentum = std::clamp(
+        (1.0 - alpha) * m_worldAdoptionMomentum + alpha * adoptionTarget,
+        0.40,
+        2.10);
+    m_worldDiffusionMomentum = std::clamp(
+        (1.0 - alpha) * m_worldDiffusionMomentum + alpha * diffusionTarget,
+        0.35,
+        2.00);
+
+    const double globalInnovationBias = std::clamp(
+        1.0 + trajectoryVariance * (m_worldInnovationMomentum - 1.0),
+        0.40,
+        2.30);
+    const double globalAdoptionBias = std::clamp(
+        1.0 + trajectoryVariance * (m_worldAdoptionMomentum - 1.0),
+        0.40,
+        2.10);
+    const double globalDiffusionBias = std::clamp(
+        1.0 + trajectoryVariance * (m_worldDiffusionMomentum - 1.0),
+        0.35,
+        2.00);
+    const double systemicOpportunity = clamp01(0.45 * ideaMean + 0.30 * urbanMean + 0.25 * instMean);
+    const double systemicStress = clamp01(0.45 * warShare + 0.35 * famineMean + 0.20 * ineqMean);
+    const double worldTechClimate = std::clamp(
+        1.0 + trajectoryCycleAmplitude * (0.70 * systemicOpportunity - 0.85 * systemicStress),
+        0.55,
+        1.65);
+
     auto traitDistance = [](const Country& a, const Country& b) {
         double sumSq = 0.0;
         for (int k = 0; k < Country::kTraits; ++k) {
@@ -704,13 +881,26 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
 
             const double eduTerm = 0.05 + 0.95 * eduShare;
             double inst = 1.0;
-            if (TechnologyManager::hasTech(*this, c, TechId::WRITING)) inst += 0.25;
-            if (TechnologyManager::hasTech(*this, c, TechId::EDUCATION)) inst += 0.35;
-            if (TechnologyManager::hasTech(*this, c, TechId::UNIVERSITIES)) inst += 0.25;
-            if (TechnologyManager::hasTech(*this, c, TechId::SCIENTIFIC_METHOD)) inst += 0.45;
-            if (TechnologyManager::hasTech(*this, c, 54)) inst += 0.20;
-            if (TechnologyManager::hasTech(*this, c, 69)) inst += 0.18;
-            if (TechnologyManager::hasTech(*this, c, 79)) inst += 0.12;
+            const bool hasWriting = TechnologyManager::hasTech(*this, c, TechId::WRITING);
+            const bool hasEducation = TechnologyManager::hasTech(*this, c, TechId::EDUCATION);
+            const bool hasUniversities = TechnologyManager::hasTech(*this, c, TechId::UNIVERSITIES);
+            const bool hasScientificMethod = TechnologyManager::hasTech(*this, c, TechId::SCIENTIFIC_METHOD);
+            const bool hasPrintingPress = TechnologyManager::hasTech(*this, c, 46);
+            const bool hasBanking = TechnologyManager::hasTech(*this, c, TechId::BANKING);
+            const bool hasMarkets = TechnologyManager::hasTech(*this, c, 35);
+            const bool hasElectricity = TechnologyManager::hasTech(*this, c, 54);
+            const bool hasComputers = TechnologyManager::hasTech(*this, c, 69);
+            const bool hasInternet = TechnologyManager::hasTech(*this, c, 79);
+            if (hasWriting) inst += 0.25;
+            if (hasEducation) inst += 0.35;
+            if (hasUniversities) inst += 0.25;
+            if (hasScientificMethod) inst += 0.45;
+            if (hasElectricity) inst += 0.20;
+            if (hasComputers) inst += 0.18;
+            if (hasInternet) inst += 0.12;
+            if (hasUniversities && hasPrintingPress) inst += 0.55;
+            if (hasScientificMethod && hasPrintingPress) inst += 0.70;
+            if (hasBanking && hasMarkets) inst += 0.25;
 
             const double infraUp =
                 18.0 * eduTerm *
@@ -783,7 +973,9 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                      (baselineCraft + std::max(0.0, adv)) *
                          regimeShock *
                          std::max(0.15, governanceFactor) *
-                         regionalInnovationMultiplier);
+                         regionalInnovationMultiplier *
+                         globalInnovationBias *
+                         worldTechClimate);
         c.setInnovationRate(totalInnovPerYear);
 
         double w[Country::kDomains] = {1, 1, 1, 1, 1, 1, 1, 1};
@@ -793,6 +985,20 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         w[4] += 0.6 * clamp01(c.getAdminSpendingShare());
         w[6] += 1.8 * eduShare;
         w[5] += 1.2 * healthShare;
+        if (TechnologyManager::hasTech(*this, c, 16) || TechnologyManager::hasTech(*this, c, 17)) {
+            w[2] += 1.3; // Existing construction + roads create practical engineering demand.
+        }
+        if (TechnologyManager::hasTech(*this, c, 4) ||
+            TechnologyManager::hasTech(*this, c, 13) ||
+            TechnologyManager::hasTech(*this, c, 120)) {
+            w[1] += 1.1; // Mining/metalworking deepens materials knowledge accumulation.
+        }
+        if (TechnologyManager::hasTech(*this, c, 34) || TechnologyManager::hasTech(*this, c, 35)) {
+            w[4] += 0.8;
+        }
+        if (TechnologyManager::hasTech(*this, c, 36) || TechnologyManager::hasTech(*this, c, 39)) {
+            w[6] += 0.8;
+        }
 
         double sumW = 0.0;
         for (double wd : w) sumW += wd;
@@ -815,7 +1021,7 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         const double contact = std::clamp(w, 0.0, 1.0);
         const double absorbA = 0.20 + 0.80 * clamp01(ca.getInstitutionCapacity());
         const double absorbB = 0.20 + 0.80 * clamp01(cb.getInstitutionCapacity());
-        const double r = base * rate * contact * friction * yearsD;
+        const double r = base * rate * contact * friction * yearsD * globalDiffusionBias * worldTechClimate;
         if (r <= 0.0) return;
         const Country::KnowledgeVec& ka = ca.getKnowledge();
         const Country::KnowledgeVec& kb = cb.getKnowledge();
@@ -1120,20 +1326,31 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         if (c.getPopulation() <= 0) continue;
 
         const CountryTechSignals& s = signals[static_cast<size_t>(i)];
-        int discoveredThisYear = 0;
         const double discoveryCadence =
             std::clamp(
                 0.55 + 0.60 * s.leaderReformism + 0.25 * s.leaderCompetence -
                 0.25 * s.autonomyPressure - 0.20 * s.eliteDefectionPressure,
                 0.20, 1.75);
+        const double frontierCapacity = smooth01(
+            (s.ideaMarketIntegration + s.competitionFragmentation + s.mediaThroughput - 0.90) / 1.40);
+        const double worldTailPush = std::clamp((globalInnovationBias * worldTechClimate - 1.0) * 2.0, 0.0, 2.0);
         int maxDiscoveries = std::max(
             1,
-            std::min(6, cfg.tech.maxDiscoveriesPerYear +
+            std::min(12, cfg.tech.maxDiscoveriesPerYear +
                         (s.specialization > 0.10 ? 1 : 0) +
-                        static_cast<int>(std::floor(discoveryCadence))));
+                        static_cast<int>(std::floor(discoveryCadence)) +
+                        static_cast<int>(std::floor(2.0 * frontierCapacity + worldTailPush))));
+
+        struct DiscoveryHit {
+            int id = -1;
+            int dense = -1;
+            double domainFactor = 0.0;
+            double score = 0.0;
+        };
+        std::vector<DiscoveryHit> hits;
+        hits.reserve(static_cast<size_t>(std::max(8, maxDiscoveries * 2)));
 
         for (int id : m_sortedIds) {
-            if (discoveredThisYear >= maxDiscoveries) break;
             const Technology& t = m_technologies.at(id);
             const int dense = getTechDenseIndex(id);
             if (dense < 0) continue;
@@ -1142,7 +1359,7 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
             if (!isFeasible(c, t, s)) continue;
 
             const double domainK = c.getKnowledgeDomain(t.domainId);
-            const double domainFactor = smooth01((domainK - 0.45 * t.threshold) / std::max(1.0, 0.90 * t.threshold));
+            const double domainFactor = smooth01((domainK - 0.30 * t.threshold) / std::max(1.0, 0.75 * t.threshold));
             if (domainFactor <= 0.0) continue;
 
             const double popFactor = std::clamp(0.35 + 0.20 * std::log1p(s.pop / 25000.0), 0.20, 2.4);
@@ -1164,6 +1381,10 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
             const double discoveryWave =
                 2.0 * deterministicUnit(worldSeed, currentYear / 10, i, dense, 0x5445434844495343ull) - 1.0;
             const double regimeShock = std::clamp(1.0 + volatility * discoveryWave, 0.40, 1.90);
+            const double frontierPull =
+                0.88 + 0.60 *
+                smooth01((static_cast<double>(t.order) - 500.0) / 2800.0) *
+                (0.40 + 0.60 * s.ideaMarketIntegration);
             const double leadershipBoost =
                 0.65 + std::clamp(cfg.tech.leadershipInnovationWeight, 0.0, 1.5) *
                 (0.55 * s.leaderCompetence + 0.45 * s.leaderReformism);
@@ -1174,18 +1395,38 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                 std::max(0.0, cfg.tech.discoveryBase) *
                 popFactor * orgFactor * domainFactor *
                 mechanismBoost * inducedBias * regimeShock * leadershipBoost *
-                regionalDiscoveryMultiplier[static_cast<size_t>(i)] /
+                regionalDiscoveryMultiplier[static_cast<size_t>(i)] *
+                globalInnovationBias *
+                worldTechClimate *
+                frontierPull /
                 std::max(0.2, difficultyDen * inertia);
-            const double p = 1.0 - std::exp(-hazard * yearsD);
+            const double p = std::clamp(1.0 - std::exp(-hazard * yearsD), 0.0, 0.92);
             const double u = deterministicUnit(worldSeed, currentYear, i, dense, 0x444953434f564552ull);
             if (u >= p) continue;
 
-            c.setKnownTechDense(dense, true);
-            const float seed = static_cast<float>(std::clamp(cfg.tech.discoverySeedAdoption * (0.6 + 0.8 * domainFactor), 0.0, 0.35));
-            c.setAdoptionDense(dense, std::max(c.adoptionDense(dense), seed));
-            c.setLowAdoptionYearsDense(dense, 0);
-            ++discoveredThisYear;
-            maybeRecordMilestoneEvents(c, t, dense, true, false, currentYear);
+            const double surprise = (p - u) / std::max(1e-6, p);
+            const double priorityJitter =
+                0.85 + 0.30 * deterministicUnit(worldSeed, currentYear, i, dense, 0x444953435052494full);
+            const double noveltyBonus = 0.92 + 0.16 * smooth01((static_cast<double>(t.order) - 600.0) / 2600.0);
+            hits.push_back(DiscoveryHit{id, dense, domainFactor, surprise * priorityJitter * noveltyBonus});
+        }
+
+        if (hits.empty()) continue;
+        std::stable_sort(hits.begin(), hits.end(), [](const DiscoveryHit& a, const DiscoveryHit& b) {
+            return a.score > b.score;
+        });
+        if (static_cast<int>(hits.size()) > maxDiscoveries) {
+            hits.resize(static_cast<size_t>(maxDiscoveries));
+        }
+
+        for (const DiscoveryHit& h : hits) {
+            const Technology& t = m_technologies.at(h.id);
+            c.setKnownTechDense(h.dense, true);
+            const float seed = static_cast<float>(
+                std::clamp(cfg.tech.discoverySeedAdoption * (0.6 + 0.8 * h.domainFactor), 0.0, 0.42));
+            c.setAdoptionDense(h.dense, std::max(c.adoptionDense(h.dense), seed));
+            c.setLowAdoptionYearsDense(h.dense, 0);
+            maybeRecordMilestoneEvents(c, t, h.dense, true, false, currentYear);
         }
     }
 
@@ -1251,6 +1492,8 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                 (0.35 + 0.65 * sf.connectivity) *
                 (0.25 + 0.75 * st.openness) *
                 (1.0 - 0.25 * st.eliteDefectionPressure) *
+                globalDiffusionBias *
+                worldTechClimate *
                 yearsD,
                 0.0,
                 0.85);
@@ -1271,6 +1514,8 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                     (0.30 + 0.70 * st.connectivity) *
                     (0.30 + 0.70 * st.leaderReformism) *
                     (1.0 - 0.30 * st.autonomyPressure) *
+                    globalDiffusionBias *
+                    worldTechClimate *
                     yearsD,
                     0.0,
                     0.60);
@@ -1348,6 +1593,7 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                 if (s.atWar) speed *= 0.88;
                 speed *= (1.0 - 0.35 * s.famineSeverity);
                 speed *= regionalAdoptionMultiplier[static_cast<size_t>(i)];
+                speed *= globalAdoptionBias * worldTechClimate;
                 const double dA = speed * (1.0 - A) * yearsD;
                 A += dA;
             } else {
@@ -1364,6 +1610,7 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                     collapse += 0.8;
                 }
                 decay *= collapse * std::max(1.0, cfg.tech.collapseDecayMultiplier);
+                decay *= (0.85 + 0.45 / std::max(0.35, globalAdoptionBias * worldTechClimate));
                 const double dA = decay * A * yearsD;
                 A -= dA;
             }
