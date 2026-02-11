@@ -295,6 +295,7 @@ Country::Country(int countryIndex,
         resetEliteBlocsForEra(foundingYear);
         m_lastNameChangeYear = foundingYear;
         initializePopulationCohorts();
+        scheduleNextElection(foundingYear);
 	}
 
 void Country::initializeLeaderForEra(int foundingYear) {
@@ -320,6 +321,23 @@ void Country::initializeLeaderForEra(int foundingYear) {
     m_leader.eliteAffinity = std::clamp(0.45 + 0.15 * (m_type == Type::Warmonger ? 1.0 : 0.0) + jitter(m_rng), 0.05, 0.95);
     m_leader.commonerAffinity = std::clamp(0.45 + 0.15 * (m_type == Type::Pacifist ? 1.0 : 0.0) + jitter(m_rng), 0.05, 0.95);
     m_leader.ambition = std::clamp(0.45 + 0.20 * (m_type == Type::Warmonger ? 1.0 : 0.0) + jitter(m_rng), 0.05, 0.95);
+
+    // Archetypal variation to avoid near-identical leadership across seeds.
+    std::uniform_real_distribution<double> u01(0.0, 1.0);
+    const double draw = u01(m_rng);
+    if (draw < 0.12) { // conquering founder
+        m_leader.ambition = std::clamp(m_leader.ambition + 0.22 + 0.10 * u01(m_rng), 0.05, 0.98);
+        m_leader.coercion = std::clamp(m_leader.coercion + 0.08 + 0.08 * u01(m_rng), 0.05, 0.98);
+        m_leader.diplomacy = std::clamp(m_leader.diplomacy - 0.04, 0.05, 0.95);
+    } else if (draw < 0.24) { // reform administrator
+        m_leader.competence = std::clamp(m_leader.competence + 0.12 + 0.08 * u01(m_rng), 0.10, 0.98);
+        m_leader.reformism = std::clamp(m_leader.reformism + 0.12 + 0.08 * u01(m_rng), 0.05, 0.98);
+        m_leader.coercion = std::clamp(m_leader.coercion - 0.06, 0.05, 0.98);
+    } else if (draw < 0.34) { // court-balancer
+        m_leader.diplomacy = std::clamp(m_leader.diplomacy + 0.10 + 0.10 * u01(m_rng), 0.05, 0.98);
+        m_leader.eliteAffinity = std::clamp(m_leader.eliteAffinity + 0.08, 0.05, 0.98);
+        m_leader.ambition = std::clamp(m_leader.ambition - 0.05, 0.05, 0.98);
+    }
 }
 
 void Country::resetEliteBlocsForEra(int foundingYear) {
@@ -374,6 +392,78 @@ void Country::transitionLeader(int currentYear, bool crisis, News& news) {
     if (!oldName.empty() && oldName != m_leader.name) {
         news.addEvent(m_name + " installs a new leadership figure: " + m_leader.name + ".");
     }
+}
+
+void Country::scheduleNextElection(int currentYear) {
+    if (m_ideology == Ideology::Democracy) {
+        std::uniform_int_distribution<int> term(4, 6);
+        m_nextElectionYear = currentYear + term(m_rng);
+    } else if (m_ideology == Ideology::Republic || m_ideology == Ideology::Federation) {
+        std::uniform_int_distribution<int> term(5, 8);
+        m_nextElectionYear = currentYear + term(m_rng);
+    } else {
+        m_nextElectionYear = std::numeric_limits<int>::min();
+    }
+}
+
+void Country::maybeRunElection(int currentYear, News& news) {
+    auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+    const bool electoralRegime =
+        (m_ideology == Ideology::Republic) ||
+        (m_ideology == Ideology::Democracy) ||
+        (m_ideology == Ideology::Federation);
+    if (!electoralRegime) {
+        m_nextElectionYear = std::numeric_limits<int>::min();
+        return;
+    }
+    if (m_nextElectionYear == std::numeric_limits<int>::min()) {
+        scheduleNextElection(currentYear);
+        return;
+    }
+    if (currentYear < m_nextElectionYear) {
+        return;
+    }
+
+    const double economySignal = clamp01(
+        0.45 * clamp01(m_macro.foodSecurity) +
+        0.30 * clamp01(m_macro.realWage / 2.0) +
+        0.25 * clamp01(m_macro.marketAccess));
+    const double governanceSignal = clamp01(
+        0.35 * clamp01(m_polity.legitimacy) +
+        0.30 * clamp01(m_stability) +
+        0.20 * clamp01(m_avgControl) +
+        0.15 * clamp01(m_polity.adminCapacity));
+    const double incumbencyStrength = clamp01(
+        0.35 * m_leader.competence +
+        0.20 * m_leader.diplomacy +
+        0.20 * m_leader.commonerAffinity +
+        0.10 * (1.0 - m_leader.coercion) +
+        0.15 * (1.0 - m_commonerPressure));
+    const double warPenalty = isAtWar() ? 0.22 : 0.0;
+    const double retainProb = clamp01(
+        0.22 +
+        0.34 * economySignal +
+        0.28 * governanceSignal +
+        0.16 * incumbencyStrength -
+        warPenalty);
+
+    std::uniform_real_distribution<double> u01(0.0, 1.0);
+    const bool incumbentWins = (u01(m_rng) < retainProb);
+    m_lastElectionYear = currentYear;
+
+    if (incumbentWins) {
+        m_polity.legitimacy = clamp01(m_polity.legitimacy + 0.01 + 0.02 * retainProb);
+        m_stability = clamp01(m_stability + 0.004 + 0.010 * retainProb);
+        news.addEvent("Election in " + m_name + ": incumbent leadership is returned to office.");
+    } else {
+        transitionLeader(currentYear, false, news);
+        m_polity.legitimacy = clamp01(m_polity.legitimacy + 0.02);
+        m_stability = clamp01(m_stability - 0.01 + 0.03 * governanceSignal);
+        m_polity.taxRate = std::clamp(m_polity.taxRate - 0.01 * (0.4 + 0.6 * m_leader.commonerAffinity), 0.02, 0.45);
+        news.addEvent("Election in " + m_name + ": opposition leadership wins and forms a new government.");
+    }
+
+    scheduleNextElection(currentYear);
 }
 
 void Country::tickAgenticSociety(int currentYear,
@@ -515,6 +605,8 @@ void Country::tickAgenticSociety(int currentYear,
         0.010 * combinedPressure;
     m_stability = clamp01(m_stability + leaderStabilityDelta);
 
+    maybeRunElection(currentYear, news);
+
     const double driftRate =
         0.0010 * (1.0 - clamp01(m_macro.connectivityIndex)) +
         0.0006 * m_commonerPressure +
@@ -631,59 +723,84 @@ bool Country::hasAdoptedTechId(const TechnologyManager& technologyManager, int t
 
 // Check if the country can declare war
 bool Country::canDeclareWar() const {
-    // Check if the country is at peace and not already at war with the maximum number of countries
-    return m_peaceDuration == 0 && m_enemies.size() < 3;
+    if (m_population <= 0) return false;
+    if (m_peaceDuration > 0) return false;
+    if (m_stability < 0.18) return false;
+    if (m_polity.legitimacy < 0.12) return false;
+    return m_enemies.size() < 5u;
 }
 
 // Start a war with a target country
 void Country::startWar(Country& target, News& news) {
-    // Check if the target is already an enemy
-    if (std::find(m_enemies.begin(), m_enemies.end(), &target) == m_enemies.end()) {
-        // Target is NOT already an enemy
+    if (&target == this) return;
+    if (target.getPopulation() <= 0 || m_population <= 0) return;
 
-        m_isAtWar = true;
-        m_warExhaustion = 0.0;
-        
-        // Phase 1: deterministic war duration (pressure will end wars early via budgets/legitimacy).
-        const double ourPower = getMilitaryStrength() * std::sqrt(std::max(1.0, static_cast<double>(m_population) / 10000.0));
-        const double theirPower = target.getMilitaryStrength() * std::sqrt(std::max(1.0, static_cast<double>(target.getPopulation()) / 10000.0));
-        const double ratio = (theirPower > 1e-6) ? (ourPower / theirPower) : 2.0;
-        const double logistic = std::clamp(0.5 * getLogisticsReach() + 0.5 * getMarketAccess(), 0.0, 1.0);
-        const int baseWarDuration = std::clamp(8 + static_cast<int>(std::round(10.0 / std::max(0.6, ratio))) +
-                                               static_cast<int>(std::round(8.0 * (1.0 - logistic))), 6, 36);
-        const double durationReduction = getWarDurationReduction();
-        m_warDuration = std::max(3, static_cast<int>(std::round(static_cast<double>(baseWarDuration) * (1.0 - durationReduction))));
-        
-        m_preWarPopulation = m_population;
-
-        m_activeWarGoal = m_pendingWarGoal;
-        m_isWarofAnnihilation = (m_activeWarGoal == WarGoal::Annihilation);
-        m_isWarofConquest = (m_activeWarGoal == WarGoal::BorderShift || m_activeWarGoal == WarGoal::Vassalization);
-
-        auto warGoalLabel = [&](WarGoal goal) -> const char* {
-            switch (goal) {
-                case WarGoal::Raid: return "raid";
-                case WarGoal::BorderShift: return "border";
-                case WarGoal::Tribute: return "tribute";
-                case WarGoal::Vassalization: return "vassalization";
-                case WarGoal::RegimeChange: return "regime-change";
-                case WarGoal::Annihilation: return "annihilation";
-                default: return "war";
-            }
-        };
-        news.addEvent(m_name + " has declared war on " + target.getName() + " (" + warGoalLabel(m_activeWarGoal) + ").");
-
-        // Add target to the list of enemies
-        addEnemy(&target);
+    if (std::find(m_enemies.begin(), m_enemies.end(), &target) != m_enemies.end()) {
+        return;
     }
-    else {
-        // Target is ALREADY an enemy (do nothing, or maybe add a debug message)
-        std::cout << m_name << " is already at war with " << target.getName() << "!" << std::endl;
+
+    m_isAtWar = true;
+    m_warExhaustion = 0.0;
+    m_peaceDuration = 0;
+    m_preWarPopulation = m_population;
+
+    const double ourPower = getMilitaryStrength() * std::sqrt(std::max(1.0, static_cast<double>(m_population) / 10000.0));
+    const double theirPower = target.getMilitaryStrength() * std::sqrt(std::max(1.0, static_cast<double>(target.getPopulation()) / 10000.0));
+    const double ratio = (theirPower > 1e-6) ? (ourPower / theirPower) : 2.0;
+    const double logistic = std::clamp(0.5 * getLogisticsReach() + 0.5 * getMarketAccess(), 0.0, 1.0);
+    const int baseWarDuration = std::clamp(
+        8 + static_cast<int>(std::round(10.0 / std::max(0.6, ratio))) +
+        static_cast<int>(std::round(8.0 * (1.0 - logistic))),
+        6, 36);
+    const double durationReduction = getWarDurationReduction();
+    m_warDuration = std::max(4, static_cast<int>(std::round(static_cast<double>(baseWarDuration) * (1.0 - durationReduction))));
+
+    m_activeWarGoal = m_pendingWarGoal;
+    m_isWarofAnnihilation = (m_activeWarGoal == WarGoal::Annihilation);
+    m_isWarofConquest = (m_activeWarGoal == WarGoal::BorderShift || m_activeWarGoal == WarGoal::Vassalization);
+
+    addEnemy(&target);
+
+    // Symmetric war state so both polities actually fight and wars can persist across years.
+    target.m_isAtWar = true;
+    target.m_warExhaustion = std::min(target.m_warExhaustion, 0.2);
+    target.m_peaceDuration = 0;
+    target.m_preWarPopulation = target.m_population;
+    if (target.m_warDuration <= 0) {
+        const double backRatio = (ourPower > 1e-6) ? (theirPower / ourPower) : 0.5;
+        const double backLogistics = std::clamp(0.5 * target.getLogisticsReach() + 0.5 * target.getMarketAccess(), 0.0, 1.0);
+        const int backDuration = std::clamp(
+            8 + static_cast<int>(std::round(10.0 / std::max(0.6, backRatio))) +
+            static_cast<int>(std::round(8.0 * (1.0 - backLogistics))),
+            6, 36);
+        target.m_warDuration = std::max(4, backDuration);
     }
+    if (target.m_activeWarGoal == WarGoal::BorderShift) {
+        const double fragility = std::clamp((1.0 - target.getStability()) * 0.6 + (1.0 - target.getLegitimacy()) * 0.4, 0.0, 1.0);
+        target.m_activeWarGoal = (fragility > 0.60) ? WarGoal::Raid : WarGoal::BorderShift;
+    }
+    target.addEnemy(this);
+
+    auto warGoalLabel = [&](WarGoal goal) -> const char* {
+        switch (goal) {
+            case WarGoal::Raid: return "raid";
+            case WarGoal::BorderShift: return "border";
+            case WarGoal::Tribute: return "tribute";
+            case WarGoal::Vassalization: return "vassalization";
+            case WarGoal::RegimeChange: return "regime-change";
+            case WarGoal::Annihilation: return "annihilation";
+            default: return "war";
+        }
+    };
+    news.addEvent(m_name + " has declared war on " + target.getName() + " (" + warGoalLabel(m_activeWarGoal) + ").");
 }
 
 // End the current war
 void Country::endWar(int currentYear) {
+    const int durationBefore = std::max(0, m_warDuration);
+    const double exhaustionBefore = std::clamp(m_warExhaustion, 0.0, 1.0);
+    const std::vector<Country*> enemies = m_enemies;
+
     m_isAtWar = false;
     m_warDuration = 0;
     m_isWarofAnnihilation = false;
@@ -692,18 +809,34 @@ void Country::endWar(int currentYear) {
     m_warExhaustion = 0.0;
     m_warSupplyCapacity = 0.0;
     m_peaceDuration = std::clamp(10 + static_cast<int>(std::round(30.0 * (1.0 - m_stability))), 8, 40);
-    
-    // Record war end time for technology sharing history
-    for (Country* enemy : m_enemies) {
+
+    // Record war end time and clear bilateral enemy links.
+    for (Country* enemy : enemies) {
+        if (!enemy) continue;
         recordWarEnd(enemy->getCountryIndex(), currentYear);
         enemy->recordWarEnd(m_countryIndex, currentYear);
+        enemy->removeEnemy(this);
+        if (enemy->getEnemies().empty()) {
+            enemy->m_isAtWar = false;
+            enemy->m_warDuration = 0;
+            enemy->m_isWarofAnnihilation = false;
+            enemy->m_isWarofConquest = false;
+            enemy->m_activeWarGoal = WarGoal::BorderShift;
+            enemy->m_warSupplyCapacity = 0.0;
+            enemy->m_warExhaustion = std::max(0.0, enemy->m_warExhaustion * 0.35);
+        }
+        enemy->m_peaceDuration = std::max(enemy->m_peaceDuration, std::clamp(6 + static_cast<int>(std::round(24.0 * (1.0 - enemy->m_stability))), 6, 36));
     }
-    
-    clearEnemies(); // Clear the list of enemies when the war ends
-    // Reduce population by 10% for the losing country
+
+    clearEnemies();
+
+    // War deaths scale with duration and exhaustion, instead of a flat 10% cut.
     if (m_population > 0) {
-        m_population = static_cast<long long>(m_population * 0.9);
+        const double deathFrac = std::clamp(0.01 + 0.0015 * static_cast<double>(durationBefore) + 0.08 * exhaustionBefore, 0.0, 0.20);
+        const long long deaths = static_cast<long long>(std::llround(static_cast<double>(m_population) * deathFrac));
+        m_population = std::max(0LL, m_population - deaths);
     }
+    m_conquestMomentum *= 0.55;
 }
 
 void Country::clearWarState() {
@@ -715,6 +848,7 @@ void Country::clearWarState() {
     m_warExhaustion = 0.0;
     m_warSupplyCapacity = 0.0;
     m_peaceDuration = 0;
+    m_conquestMomentum = 0.0;
     clearEnemies();
 }
 
@@ -1663,22 +1797,25 @@ bool Country::isNeighbor(const Country& other) const {
 	        const double threatRatio = (ourPower > 1e-6) ? (nPower / ourPower) : 1.0;
 	        worstThreatRatio = std::max(worstThreatRatio, threatRatio);
 
-	        const double oppRatio = (nPower > 1e-6) ? (ourPower / nPower) : 2.0;
-	        if (oppRatio > 1.15) {
-	            const double preyFragility = clamp01(
-	                0.55 * (1.0 - clamp01(n.getStability())) +
-	                0.45 * (1.0 - clamp01(n.getLegitimacy())));
+        const double oppRatio = (nPower > 1e-6) ? (ourPower / nPower) : 2.0;
+        const double preyFragility = clamp01(
+            0.55 * (1.0 - clamp01(n.getStability())) +
+            0.45 * (1.0 - clamp01(n.getLegitimacy())));
+        const bool viableTarget =
+            (oppRatio > 1.08) ||
+            ((oppRatio > 0.92) && (preyFragility > 0.62));
+        if (viableTarget) {
                 const double affinity = computeCulturalAffinity(n);
                 const double culturalDistance = 1.0 - affinity;
-	            const double score =
-	                std::min(2.0, oppRatio) *
-	                (0.35 + 0.65 * preyFragility) *
-	                (0.55 + 0.45 * attackerReadiness) *
+            const double score =
+                std::min(2.2, std::max(0.65, oppRatio)) *
+                (0.30 + 0.70 * preyFragility) *
+                (0.45 + 0.55 * attackerReadiness) *
                     (0.50 + 0.80 * culturalDistance);
-	            if (score > bestTargetScore) {
-	                bestTargetScore = score;
-	                bestTarget = neighborIndex;
-	            }
+            if (score > bestTargetScore) {
+                bestTargetScore = score;
+                bestTarget = neighborIndex;
+            }
 	        }
 	    }
 
@@ -1715,7 +1852,17 @@ bool Country::isNeighbor(const Country& other) const {
 	        }
 	        frontierScore = std::min(1.0, frontierScore / (samples * 120.0));
 	    }
-	    pressures.opportunity = clamp01(frontierScore * 0.65 + std::min(1.0, bestTargetScore / 2.0) * 0.35);
+    pressures.opportunity = clamp01(frontierScore * 0.65 + std::min(1.0, bestTargetScore / 2.0) * 0.35);
+
+    const double leadershipCampaignDrive = clamp01(
+        0.46 * m_leader.ambition +
+        0.18 * m_leader.coercion +
+        0.14 * m_leader.competence +
+        0.22 * (1.0 - m_commonerPressure));
+    const double weakStatePredation = clamp01(
+        0.55 * (bestTargetScore > 0.0 ? std::min(1.0, bestTargetScore / 2.0) : 0.0) +
+        0.25 * pressures.legitimacy +
+        0.20 * pressures.opportunity);
 
 	    const int cadence = (techCount < 25) ? 5 : 2;
 	    if (currentYear - m_polity.lastPolicyYear >= cadence) {
@@ -1750,8 +1897,33 @@ bool Country::isNeighbor(const Country& other) const {
 	                m_warDuration = std::min(m_warDuration, 2);
 	            }
 	        } else {
-	            m_expansionBudgetCells = 3 + static_cast<int>(std::round(12.0 * pressures.opportunity));
-	            if (!m_isAtWar && bestTarget >= 0 && pressures.opportunity > 0.75 && m_gold > income * 0.5 && canDeclareWar()) {
+            const double expansionScale =
+                (0.45 + 0.90 * leadershipCampaignDrive) *
+                (0.55 + 0.70 * clamp01(m_polity.logisticsReach)) *
+                (0.55 + 0.55 * clamp01(m_avgControl));
+            m_expansionBudgetCells = std::clamp(
+                static_cast<int>(std::llround((4.0 + 28.0 * pressures.opportunity) * expansionScale)),
+                0, 60);
+
+            const int maxWars = std::max(1, simCfg.war.maxConcurrentWars);
+            const double warThreshold =
+                std::clamp(
+                    simCfg.war.opportunisticWarThreshold -
+                    simCfg.war.leaderAmbitionWarWeight * (leadershipCampaignDrive - 0.5) -
+                    simCfg.war.weakStatePredationWeight * (weakStatePredation - 0.5),
+                    0.25, 0.90);
+            const bool canOpenNewWar =
+                !m_isAtWar &&
+                bestTarget >= 0 &&
+                static_cast<int>(m_enemies.size()) < maxWars &&
+                canDeclareWar();
+            const bool diversionaryWar =
+                (pressures.legitimacy > 0.62) &&
+                (attackerReadiness > 0.46) &&
+                (weakStatePredation > 0.40);
+            if (canOpenNewWar &&
+                (pressures.opportunity > warThreshold || diversionaryWar) &&
+                (m_gold > std::max(6.0, 0.10 * income))) {
                     const Country& target = allCountries[static_cast<size_t>(bestTarget)];
                     const double ourPowerLocal = militaryPower(*this);
                     const double theirPowerLocal = militaryPower(target);
@@ -1764,14 +1936,19 @@ bool Country::isNeighbor(const Country& other) const {
                         WarGoal goal;
                         double weight;
                     };
+                    const double targetWeakness = clamp01(
+                        0.55 * (1.0 - target.getStability()) +
+                        0.45 * (1.0 - target.getLegitimacy()));
                     std::vector<GoalWeight> goals = {
-                        {WarGoal::Raid,          std::max(0.05, simCfg.war.objectiveRaidWeight + 0.35 * scarcity + 0.20 * tribal)},
-                        {WarGoal::BorderShift,   std::max(0.05, simCfg.war.objectiveBorderWeight + 0.20 * institutional)},
-                        {WarGoal::Tribute,       std::max(0.01, simCfg.war.objectiveTributeWeight + 0.18 * institutional + 0.10 * scarcity)},
-                        {WarGoal::Vassalization, std::max(0.01, simCfg.war.objectiveVassalWeight + 0.15 * std::max(0.0, powerRatio - 1.0))},
-                        {WarGoal::RegimeChange,  std::max(0.01, simCfg.war.objectiveRegimeWeight + 0.10 * (1.0 - target.getLegitimacy()))},
+                        {WarGoal::Raid,          std::max(0.05, simCfg.war.objectiveRaidWeight + 0.35 * scarcity + 0.25 * tribal)},
+                        {WarGoal::BorderShift,   std::max(0.05, simCfg.war.objectiveBorderWeight + 0.20 * institutional + 0.22 * leadershipCampaignDrive)},
+                        {WarGoal::Tribute,       std::max(0.01, simCfg.war.objectiveTributeWeight + 0.18 * institutional + 0.10 * scarcity + 0.08 * targetWeakness)},
+                        {WarGoal::Vassalization, std::max(0.01, simCfg.war.objectiveVassalWeight + 0.20 * std::max(0.0, powerRatio - 1.0) + 0.12 * targetWeakness)},
+                        {WarGoal::RegimeChange,  std::max(0.01, simCfg.war.objectiveRegimeWeight + 0.14 * (1.0 - target.getLegitimacy()) + 0.08 * pressures.legitimacy)},
                         {WarGoal::Annihilation,  std::max(0.01, simCfg.war.objectiveAnnihilationWeight +
-                                                               simCfg.war.earlyAnnihilationBias * tribal -
+                                                               simCfg.war.earlyAnnihilationBias * tribal +
+                                                               0.14 * std::max(0.0, powerRatio - 1.25) +
+                                                               0.12 * targetWeakness * leadershipCampaignDrive -
                                                                simCfg.war.highInstitutionAnnihilationDamp * institutional)}
                     };
                     std::vector<double> ws;
@@ -1779,24 +1956,55 @@ bool Country::isNeighbor(const Country& other) const {
                     for (const GoalWeight& g : goals) ws.push_back(std::max(0.0, g.weight));
                     std::discrete_distribution<int> pickGoal(ws.begin(), ws.end());
                     m_pendingWarGoal = goals[static_cast<size_t>(pickGoal(gen))].goal;
-	                startWar(allCountries[static_cast<size_t>(bestTarget)], news);
-	            }
-	            m_polity.infraSpendingShare += 0.02;
-	            m_polity.adminSpendingShare += 0.02;
-	            m_polity.militarySpendingShare -= 0.04;
-	        }
+                    startWar(allCountries[static_cast<size_t>(bestTarget)], news);
+                    m_conquestMomentum = std::min(1.0, m_conquestMomentum + 0.20);
+                }
+            m_polity.infraSpendingShare += 0.01;
+            m_polity.adminSpendingShare += 0.02;
+            m_polity.militarySpendingShare += 0.01;
+        }
 
-	        normalizeBudgetShares();
-	        m_polity.taxRate = std::clamp(m_polity.taxRate, 0.02, 0.45);
-	    }
+        normalizeBudgetShares();
+        m_polity.taxRate = std::clamp(m_polity.taxRate, 0.02, 0.45);
+
+        const int maxWars = std::max(1, simCfg.war.maxConcurrentWars);
+        const bool canOpenNewWar =
+            !m_isAtWar &&
+            bestTarget >= 0 &&
+            static_cast<int>(m_enemies.size()) < maxWars &&
+            canDeclareWar();
+        if (canOpenNewWar) {
+            const double emergencyWarDrive = clamp01(
+                0.38 * pressures.survival +
+                0.34 * pressures.legitimacy +
+                0.18 * weakStatePredation +
+                0.10 * leadershipCampaignDrive);
+            if (emergencyWarDrive > 0.72 &&
+                m_gold > std::max(6.0, 0.05 * income)) {
+                m_pendingWarGoal = (pressures.survival > pressures.legitimacy)
+                    ? WarGoal::BorderShift
+                    : WarGoal::RegimeChange;
+                startWar(allCountries[static_cast<size_t>(bestTarget)], news);
+                m_conquestMomentum = std::min(1.0, m_conquestMomentum + 0.15);
+            }
+        }
+    }
 
 	    // Phase 1: Replace the type-driven expansion contentment system and burst rails.
 	    m_isContentWithSize = false;
 	    m_contentmentDuration = 0;
-	    const bool doBurstExpansion = false;
+    const double burstDrive = clamp01(
+        0.40 * leadershipCampaignDrive +
+        0.26 * pressures.opportunity +
+        0.18 * clamp01(m_polity.logisticsReach) +
+        0.16 * m_conquestMomentum);
+    const bool doBurstExpansion =
+        (burstDrive > 0.60) &&
+        (techCount >= 20) &&
+        (currentYear % std::max(4, 16 - std::min(10, techCount / 4)) == m_expansionStaggerOffset % std::max(4, 16 - std::min(10, techCount / 4)));
 
 		    // AI expansion budget (replaces random growth as the primary engine).
-		    int growth = std::clamp(m_expansionBudgetCells, 0, 25);
+    int growth = std::clamp(m_expansionBudgetCells, 0, 60);
 
 		    // Military readiness responds to spending and logistics (cheap, self-limiting).
 		    {
@@ -1810,18 +2018,49 @@ bool Country::isNeighbor(const Country& other) const {
         // Phase 5: science/culture point currencies removed. Innovation is modeled as knowledge rates,
         // and culture as traits + institution adoption (handled in TechnologyManager/CultureManager).
 
-    // Phase 0/1: Replace the year-based expansion rail with an admin/logistics cap.
-    const int maxExpansionPixels = std::max(20,
-                                           static_cast<int>(60 +
-                                                            5000.0 * m_polity.adminCapacity +
-                                                            120.0 * static_cast<double>(m_cities.size()) +
-                                                            10.0 * static_cast<double>(techCount)));
+    // Phase 1: soft overload expansion model (no hard territory clamp).
+    // Capacity is still capability-driven, but load above capacity degrades growth smoothly instead of hard-stopping.
+    const double nominalCapacity =
+        std::max(24.0,
+                 60.0 +
+                 5000.0 * clamp01(m_polity.adminCapacity) +
+                 120.0 * static_cast<double>(m_cities.size()) +
+                 10.0 * static_cast<double>(std::max(0, techCount)));
+    const int nominalCapacityPixels = std::max(24, static_cast<int>(std::llround(nominalCapacity)));
+    const double logistics = clamp01(m_polity.logisticsReach);
+    const double institutionCapSoft = clamp01(m_macro.institutionCapacity);
+    const double connectivity = clamp01(m_macro.connectivityIndex);
+    const double capabilityBlend = clamp01(0.45 * logistics + 0.35 * institutionCapSoft + 0.20 * connectivity);
+    const size_t countrySize = m_boundaryPixels.size();
+    const double countrySizeD = static_cast<double>(countrySize);
+    const double governanceLoad =
+        countrySizeD *
+        (1.0 +
+         0.35 * (1.0 - clamp01(m_avgControl)) +
+         0.25 * clamp01(m_autonomyPressure) +
+         0.20 * (m_isAtWar ? 1.0 : 0.0));
+    const double loadRatio = governanceLoad / std::max(1.0, nominalCapacity);
+    const double overload = std::max(0.0, loadRatio - 1.0);
+    double growthSoftMultiplier = 1.0;
+    if (overload > 0.0) {
+        const double overloadDrag = 0.65 + 0.35 * (1.0 - capabilityBlend);
+        growthSoftMultiplier = std::exp(-1.35 * overload * overloadDrag);
+    } else {
+        const double slack = std::max(0.0, 1.0 - loadRatio);
+        growthSoftMultiplier = std::min(1.20, 1.0 + 0.08 * slack * (0.50 + 0.50 * capabilityBlend));
+    }
+    growth = std::clamp(static_cast<int>(std::llround(static_cast<double>(growth) * growthSoftMultiplier)), 0, 40);
 
-    // 🚀 NUCLEAR OPTIMIZATION: Use cached boundary pixels count instead of scanning entire grid
-    size_t countrySize = m_boundaryPixels.size();
-
-    if (countrySize + growth > static_cast<size_t>(maxExpansionPixels)) {
-        growth = std::max(0, static_cast<int>(static_cast<long long>(maxExpansionPixels) - static_cast<long long>(countrySize)));
+    if (overload > 0.0) {
+        const double overloadStress = overload * (0.40 + 0.60 * (1.0 - capabilityBlend));
+        m_avgControl = clamp01(m_avgControl - 0.010 * overloadStress);
+        m_polity.legitimacy = clamp01(m_polity.legitimacy - 0.008 * overloadStress);
+        m_autonomyPressure = clamp01(m_autonomyPressure + 0.015 * overloadStress);
+    } else {
+        const double slack = std::max(0.0, 1.0 - loadRatio);
+        const double recovery = std::min(0.01, 0.003 * slack * (0.40 + 0.60 * capabilityBlend));
+        m_avgControl = clamp01(m_avgControl + recovery);
+        m_autonomyPressure = clamp01(m_autonomyPressure - 0.50 * recovery);
     }
 
     std::vector<sf::Vector2i> newBoundaryPixels;
@@ -1844,7 +2083,11 @@ bool Country::isNeighbor(const Country& other) const {
         int warBurstRadius = getWarBurstConquestRadius();
         int warBurstFreq = getWarBurstConquestFrequency();
         
-	        if (false && warBurstFreq > 0 && currentYear % warBurstFreq == 0 && warBurstRadius > 1) {
+	        if (warBurstFreq > 0 &&
+                currentYear % warBurstFreq == 0 &&
+                warBurstRadius > 1 &&
+                m_activeWarGoal != WarGoal::Raid &&
+                m_conquestMomentum > 0.22) {
 	            doWarBurstConquest = true;
 	            std::cout << "💥 " << m_name << " launches WAR BURST CONQUEST (radius " << warBurstRadius << ")!" << std::endl;
 	        }
@@ -1965,6 +2208,7 @@ bool Country::isNeighbor(const Country& other) const {
             }
 
             if (!captured.empty()) {
+                m_conquestMomentum = std::min(1.0, m_conquestMomentum + 0.10 + 0.0004 * static_cast<double>(captured.size()));
                 int citiesCaptured = 0;
                 std::unordered_set<sf::Vector2i> capturedSet(captured.begin(), captured.end());
                 for (auto itCity = primaryEnemy->m_cities.begin(); itCity != primaryEnemy->m_cities.end();) {
@@ -1993,10 +2237,17 @@ bool Country::isNeighbor(const Country& other) const {
                 if (doWarBurstConquest) {
                     std::cout << "   💥 " << m_name << " breakthrough captures " << captured.size() << " cells!" << std::endl;
                 }
+                if (m_activeWarGoal == WarGoal::Annihilation && canAnnihilateCountry(*primaryEnemy)) {
+                    absorbCountry(*primaryEnemy, map, news);
+                    m_conquestMomentum = std::min(1.0, m_conquestMomentum + 0.30);
+                }
+            } else {
+                m_conquestMomentum = std::max(0.0, m_conquestMomentum - 0.02);
             }
         }
     }
     else {
+        m_conquestMomentum = std::max(0.0, m_conquestMomentum - 0.015);
         // Peacetime expansion (normal expansion for all countries)
         // 🎯 RESPECT EXPANSION CONTENTMENT - Content countries don't expand
         int actualGrowth = m_isContentWithSize ? 0 : growth;
@@ -2044,11 +2295,11 @@ bool Country::isNeighbor(const Country& other) const {
 
 
     // WARMONGER TERRITORIAL SURGE - occasional large-scale grabs beyond immediate border
-	    if (false && m_type == Type::Warmonger && !m_isContentWithSize && !m_boundaryPixels.empty()) {
+	    if ((m_type == Type::Warmonger || burstDrive > 0.78) && !m_isContentWithSize && !m_boundaryPixels.empty()) {
 	        std::uniform_real_distribution<> blobChance(0.0, 1.0);
 	        if (blobChance(gen) < 0.5) {
 	            int currentApproxSize = static_cast<int>(m_boundaryPixels.size());
-	            int remainingCapacity = std::max(0, maxExpansionPixels - currentApproxSize);
+	            int remainingCapacity = std::max(0, nominalCapacityPixels - currentApproxSize);
 
             int blobRadius = 5 + static_cast<int>(std::min(5.0, getMaxSizeMultiplier()));
             if (m_flatMaxSizeBonus >= 2000) blobRadius += 3;
@@ -2921,50 +3172,80 @@ void Country::fastForwardGrowth(int yearIndex, int currentYear, const std::vecto
         int growth = growthDist(gen);
         growth += getExpansionRateBonus(); // Apply all technology bonuses!
         
+        const auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
         const int techCount = static_cast<int>(technologyManager.getUnlockedTechnologies(*this).size());
-        const int maxExpansionPixels = std::max(20,
-                                               static_cast<int>(60 +
-                                                                5000.0 * m_polity.adminCapacity +
-                                                                120.0 * static_cast<double>(m_cities.size()) +
-                                                                10.0 * static_cast<double>(techCount)));
-        int currentPixels = m_boundaryPixels.size();
-        
-        if (currentPixels < maxExpansionPixels) {
-            // Apply growth limit
-            if (currentPixels + growth > maxExpansionPixels) {
-                growth = std::max(0, maxExpansionPixels - currentPixels);
-            }
-            
+        const double nominalCapacity =
+            std::max(24.0,
+                     60.0 +
+                     5000.0 * clamp01(m_polity.adminCapacity) +
+                     120.0 * static_cast<double>(m_cities.size()) +
+                     10.0 * static_cast<double>(std::max(0, techCount)));
+        const double logistics = clamp01(m_polity.logisticsReach);
+        const double institution = clamp01(m_macro.institutionCapacity);
+        const double connectivity = clamp01(m_macro.connectivityIndex);
+        const double capabilityBlend = clamp01(0.45 * logistics + 0.35 * institution + 0.20 * connectivity);
+        const double countrySize = static_cast<double>(m_boundaryPixels.size());
+        const double governanceLoad =
+            countrySize *
+            (1.0 +
+             0.35 * (1.0 - clamp01(m_avgControl)) +
+             0.25 * clamp01(m_autonomyPressure) +
+             0.20 * (m_isAtWar ? 1.0 : 0.0));
+        const double loadRatio = governanceLoad / std::max(1.0, nominalCapacity);
+        const double overload = std::max(0.0, loadRatio - 1.0);
+        double growthSoftMultiplier = 1.0;
+        if (overload > 0.0) {
+            const double overloadDrag = 0.65 + 0.35 * (1.0 - capabilityBlend);
+            growthSoftMultiplier = std::exp(-1.35 * overload * overloadDrag);
+        } else {
+            const double slack = std::max(0.0, 1.0 - loadRatio);
+            growthSoftMultiplier = std::min(1.20, 1.0 + 0.08 * slack * (0.50 + 0.50 * capabilityBlend));
+        }
+        growth = std::clamp(static_cast<int>(std::llround(static_cast<double>(growth) * growthSoftMultiplier)), 0, 45);
+
+        if (overload > 0.0) {
+            const double overloadStress = overload * (0.40 + 0.60 * (1.0 - capabilityBlend));
+            m_avgControl = clamp01(m_avgControl - 0.010 * overloadStress);
+            m_polity.legitimacy = clamp01(m_polity.legitimacy - 0.008 * overloadStress);
+            m_autonomyPressure = clamp01(m_autonomyPressure + 0.015 * overloadStress);
+        } else {
+            const double slack = std::max(0.0, 1.0 - loadRatio);
+            const double recovery = std::min(0.01, 0.003 * slack * (0.40 + 0.60 * capabilityBlend));
+            m_avgControl = clamp01(m_avgControl + recovery);
+            m_autonomyPressure = clamp01(m_autonomyPressure - 0.50 * recovery);
+        }
+
+        if (growth > 0) {
             // Normal expansion with technology bonuses
             std::vector<sf::Vector2i> currentBoundary = m_territoryVec;
             for (int i = 0; i < growth; ++i) {
                 if (currentBoundary.empty()) break;
-                
+
                 std::uniform_int_distribution<size_t> boundaryDist(0, currentBoundary.size() - 1);
                 size_t boundaryIndex = boundaryDist(gen);
                 sf::Vector2i currentCell = currentBoundary[boundaryIndex];
                 currentBoundary.erase(currentBoundary.begin() + boundaryIndex);
-                
+
                 std::uniform_int_distribution<> dirDist(-1, 1);
                 int dx = dirDist(gen);
                 int dy = dirDist(gen);
                 if (dx == 0 && dy == 0) continue;
-                
+
                 sf::Vector2i newCell = currentCell + sf::Vector2i(dx, dy);
-                
-                if (newCell.x >= 0 && newCell.x < static_cast<int>(isLandGrid[0].size()) && 
+
+                if (newCell.x >= 0 && newCell.x < static_cast<int>(isLandGrid[0].size()) &&
                     newCell.y >= 0 && newCell.y < isLandGrid.size() &&
                     isLandGrid[newCell.y][newCell.x] && countryGrid[newCell.y][newCell.x] == -1) {
-                    
+
                     map.setCountryOwner(newCell.x, newCell.y, m_countryIndex);
-                    
+
                     // 🔥 CRITICAL FIX: Mark region as dirty for visual update!
                     int regionSize = map.getRegionSize();
                     int regionIndex = static_cast<int>((newCell.y / regionSize) * (isLandGrid[0].size() / regionSize) + (newCell.x / regionSize));
                     map.insertDirtyRegion(regionIndex);
                 }
             }
-            
+
             // ⚡🚀 SUPER OPTIMIZED FAST FORWARD BURST - Lightning fast! 🚀⚡
             int burstRadius = getBurstExpansionRadius();
             int burstFreq = getBurstExpansionFrequency();
@@ -3490,6 +3771,7 @@ void Country::checkIdeologyChange(int currentYear, News& news, const TechnologyM
     const double capability = std::clamp(
         0.30 * admin + 0.25 * control + 0.20 * legit + 0.15 * stability + 0.10 * urban,
         0.0, 1.0);
+    const double ambition = std::clamp(m_leader.ambition, 0.0, 1.0);
     const bool hasProtoWriting = TechnologyManager::hasTech(techManager, *this, TechId::PROTO_WRITING);
     const bool hasNumeracy = TechnologyManager::hasTech(techManager, *this, TechId::NUMERACY_MEASUREMENT);
     const bool hasWriting = TechnologyManager::hasTech(techManager, *this, TechId::WRITING);
@@ -3515,7 +3797,9 @@ void Country::checkIdeologyChange(int currentYear, News& news, const TechnologyM
             }
             break;
         case Ideology::Kingdom:
-            if (m_boundaryPixels.size() > 1200 && admin > 0.16 && capability > 0.22) {
+            if (m_boundaryPixels.size() > static_cast<size_t>(std::max(700, 1200 - static_cast<int>(320.0 * ambition))) &&
+                admin > 0.14 && capability > 0.20 &&
+                (ambition > 0.52 || m_type == Type::Warmonger)) {
                 possibleIdeologies.push_back(Ideology::Empire);
             }
             if (hasEducation && hasCivilService && hasWriting && hasPaper && hasPrinting &&
@@ -3557,7 +3841,8 @@ void Country::checkIdeologyChange(int currentYear, News& news, const TechnologyM
             if (hasWriting && capability > 0.28 && currentYear >= -500) {
                 possibleIdeologies.push_back(Ideology::Dictatorship);
             }
-            if (m_population > 100000 && admin > 0.20 && control > 0.44) {
+            if (m_population > 80000 && admin > 0.18 && control > 0.42 &&
+                (ambition > 0.58 || m_type == Type::Warmonger)) {
                 possibleIdeologies.push_back(Ideology::Empire);
             }
             break;
@@ -3608,6 +3893,14 @@ void Country::checkIdeologyChange(int currentYear, News& news, const TechnologyM
             std::string oldIdeologyStr = getIdeologyString();
             m_ideology = newIdeology;
             std::string newIdeologyStr = getIdeologyString();
+
+            if (m_ideology == Ideology::Republic ||
+                m_ideology == Ideology::Democracy ||
+                m_ideology == Ideology::Federation) {
+                scheduleNextElection(currentYear);
+            } else {
+                m_nextElectionYear = std::numeric_limits<int>::min();
+            }
             
             news.addEvent("🏛️ POLITICAL REVOLUTION: " + m_name + " transforms from " + 
                          oldIdeologyStr + " to " + newIdeologyStr + "!");
@@ -3617,31 +3910,33 @@ void Country::checkIdeologyChange(int currentYear, News& news, const TechnologyM
     }
 }
 
+void Country::forceLeaderTransition(int currentYear, bool crisis, News& news) {
+    transitionLeader(currentYear, crisis, news);
+}
+
 // 🗡️ CONQUEST ANNIHILATION SYSTEM - Advanced civs can absorb primitive ones
 bool Country::canAnnihilateCountry(const Country& target) const {
-    // Must be a warmonger to annihilate
-    if (m_type != Type::Warmonger) return false;
-    
-    // Must be at war with the target
     if (!isAtWar()) return false;
-    
-    // Check if this country is significantly more advanced
-    double myMilitaryPower = getMilitaryStrength();
-    double targetMilitaryPower = target.getMilitaryStrength();
-    
-    // Must have overwhelming military superiority (3x stronger)
-    if (myMilitaryPower < targetMilitaryPower * 3.0) return false;
-    
-    // Must have significantly larger population (2x larger)
-    if (m_population < target.getPopulation() * 2) return false;
-    
-    // Must have more territory (1.5x larger)
-    if (m_boundaryPixels.size() < target.getBoundaryPixels().size() * 1.5) return false;
-    
-    // Additional check: Target must be small enough to absorb (less than 50k population)
-    if (target.getPopulation() > 50000) return false;
-    
-    return true;
+    if (target.getPopulation() <= 0) return false;
+
+    const double myMilitaryPower = getMilitaryStrength() * std::sqrt(std::max(1.0, static_cast<double>(m_population) / 10000.0));
+    const double targetMilitaryPower = target.getMilitaryStrength() * std::sqrt(std::max(1.0, static_cast<double>(target.getPopulation()) / 10000.0));
+    const double powerRatio = (targetMilitaryPower > 1e-6) ? (myMilitaryPower / targetMilitaryPower) : 2.5;
+    const double fragility = std::clamp(
+        0.55 * (1.0 - target.getStability()) +
+        0.45 * (1.0 - target.getLegitimacy()),
+        0.0, 1.0);
+
+    const bool canByScale =
+        (m_population >= target.getPopulation() * 1.55) &&
+        (m_boundaryPixels.size() >= target.getBoundaryPixels().size() * 1.30) &&
+        (target.getPopulation() <= 280000);
+    const bool canByCollapse =
+        (fragility > 0.70) &&
+        (powerRatio > 1.30) &&
+        (target.getPopulation() <= 420000);
+
+    return (powerRatio > 1.60) && (canByScale || canByCollapse);
 }
 
 void Country::absorbCountry(Country& target, Map& map, News& news) {
@@ -3683,6 +3978,16 @@ void Country::absorbCountry(Country& target, Map& map, News& news) {
                   " and absorbs " + std::to_string(gained) + " people!");
     
     // Mark the target polity as dead (population will be recomputed from the grid next tick if enabled).
+    {
+        const std::vector<Country*> enemyLinks = target.getEnemies();
+        for (Country* enemy : enemyLinks) {
+            if (!enemy) continue;
+            enemy->removeEnemy(&target);
+            if (enemy->getEnemies().empty()) {
+                enemy->clearWarState();
+            }
+        }
+    }
     target.setPopulation(0);
     target.setTerritory(std::unordered_set<sf::Vector2i>{});
     target.setCities(std::vector<City>{});

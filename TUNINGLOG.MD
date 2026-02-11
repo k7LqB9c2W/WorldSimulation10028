@@ -321,3 +321,137 @@ What changed to reach this:
 Notes for next iteration cycle:
 - Remaining realism gap is concentrated in depletion dynamics (`DEPLETION_IGNORED`).
 - If pursuing >90 with margin, prioritize extraction/depletion mechanism coupling and tech-progress interaction rather than one-parameter sweeps.
+
+## Entry: 2026-02-11 09:38:00 UTC
+
+### Scope
+- Massive realism pass focused on:
+  - stronger leader/state agency,
+  - realistic collapse/turnover pressure (succession stress, elite defection, autonomy),
+  - larger-empire formation potential,
+  - richer war/opportunistic conquest dynamics,
+  - reduced empty-land persistence by 2025,
+  - country-POV map mode with fog-of-war,
+  - tech-outcome diversity across seeds.
+
+### Code/Model Changes
+- Added new config controls for turnover pressure in polity:
+  - `stateTurnoverBaseChance`, `stateTurnoverStressWeight`, `stateTurnoverAgeWeight`,
+  - `successionCrisisSplitWeight`, `institutionalContinuityShield`, `stateTurnoverMinAgeYears`.
+- Implemented state-turnover/refoundation pass in `Map::processPoliticalEvents`:
+  - risk from legitimacy/stability/control/autonomy/elite-defection/famine/war + leader fragility,
+  - split-prioritized succession crises,
+  - dynastic/state refoundation with leader transition + founding-year reset,
+  - continuity shield keeps high-capability states occasionally long-lived.
+- Updated civil-war parent continuity logic:
+  - stressed parent states can re-found (reset founding year) after major fracture.
+- Added founding-year mutation API and external leader transition trigger:
+  - `Country::setFoundingYear(...)`
+  - `Country::forceLeaderTransition(...)`
+- Added Country POV fog mode in renderer/UI:
+  - toggle via Tools checkbox and hotkey `P`,
+  - known-state mask from borders + wars + active trade routes + communication/era reach,
+  - unknown states/territory covered by fog; known geography partially revealed.
+- Added CLI metrics for continuity realism:
+  - `founder_state_count`, `founder_state_share`, `median_state_age_years`, `p90_state_age_years` in `timeseries.csv` + run summary checkpoints,
+  - added founding columns to `state_diagnostics_countries.csv`.
+
+### Validation Runs (5000 BCE -> 2025 CE, 16 seeds, 16 workers)
+- Baseline reference:
+  - `out/seed_max_tech_baseline16/baseline_metrics.json`
+- Post-change profile v2 (selected final profile):
+  - run dir: `out/seed_max_tech_post16_realism_v2`
+  - summary: `out/seed_max_tech_post16_realism_v2/seed_max_tech_summary.json`
+  - metrics: `out/seed_max_tech_post16_realism_v2/post_metrics.json`
+- Post-change profile v3 (rejected after comparison):
+  - run dir: `out/seed_max_tech_post16_realism_v3`
+  - metrics: `out/seed_max_tech_post16_realism_v3/post_metrics.json`
+
+### Key Results (baseline -> selected v2)
+- `max_unlocked` mean: `38.56 -> 33.25` (range now `26..42`, unique values `[26,28,29,31,37,40,41,42]`; no single repeated endpoint).
+- `country_area_top1_share` max-over-run mean: `0.0276 -> 0.0604` (+118.8%)
+- `wars_active_max` mean: `0.0 -> 3.69`
+- `major_wars_final` mean: `0.00864 -> 0.04003`
+- `habitable_cell_share_pop_gt_0` final mean: `0.3378 -> 0.4501`
+- `habitable_cell_share_pop_gt_small` final mean: `0.1769 -> 0.3295`
+- continuity/turnover (new metrics, v2):
+  - `founder_state_share_final` mean: `0.0299` (about 3.0% of surviving states founded at/earlier than 5000 BCE),
+  - `founder_count_final` mean: `10.6` (min `4`, max `18`),
+  - `median_state_age_final` mean: `1549.7` years.
+- conflict emergence signal (v2):
+  - `civil_conflict_max` mean: `11.06` (min `6`, max `16`).
+
+### Selection Decision
+- Chose profile `v2` as final live config.
+- `v3` had lower tech ceiling density (`>=40` counts `2` vs `4` in v2) and lower empire/war incidence, so v2 was retained.
+
+## Entry: 2026-02-11 09:52:30 UTC (addendum)
+
+### Final validation run after constitutional-reform patch
+- Run dir: `out/seed_max_tech_post16_realism_v4`
+- Summary: `out/seed_max_tech_post16_realism_v4/seed_max_tech_summary.json`
+- Aggregates: `out/seed_max_tech_post16_realism_v4/post_metrics.json`
+
+### v4 key aggregates (16 seeds)
+- `max_unlocked`: mean `33.125`, min `26`, max `42`, stdev `5.544`
+- `country_area_top1_share` max-over-run: mean `0.060384`, max `0.089704`
+- `wars_active_max`: mean `3.6875` (min `2`, max `5`)
+- `major_wars_final`: mean `0.039667`
+- `civil_conflict_max`: mean `11.0625`
+- `habitable_cell_share_pop_gt_0` final mean: `0.449913`
+- `founder_state_share_final` mean: `0.030254`
+
+### Baseline -> v4 deltas (means)
+- `top1_max`: `0.027600 -> 0.060384` (+118.8%)
+- `wars_active_max`: `0.0 -> 3.6875`
+- `major_wars_final`: `0.008644 -> 0.039667` (+358.9%)
+- `hab0_final`: `0.337814 -> 0.449913` (+33.2%)
+- `habs_final`: `0.176930 -> 0.329052` (+86.0%)
+- `max_unlocked`: `38.5625 -> 33.125` (broader variability, lower mean endpoint)
+
+### Additional instrumentation added after v4
+- `src/cli_main.cpp` now tracks/exports `election_count` in checkpoint metrics to directly validate electoral-cycle incidence in future sweeps.
+
+## Entry: 2026-02-11 18:30:53 UTC (Europe divergence calibration + 16-seed validation)
+
+### Goal
+- Add a realism-grounded, non-scripted Europe-era tech advantage mechanism (conditional on institutions/trade/connectivity), and verify it with full 16-seed runs from `-5000 -> 2025`.
+
+### Code/Config changes
+- Added configurable Europe divergence knobs in `SimulationConfig::Tech` and TOML:
+  - `europeAdvantageStartYear`, `europeAdvantagePeakYear`, `europeAdvantageFadeYear`
+  - `europeInnovationBoost`, `europeAdoptionBoost`, `europeReadinessThreshold`
+- Wired TOML loading for the above in `src/simulation_context.cpp`.
+- Implemented in `src/technology.cpp`:
+  - era strength curve (`start -> peak -> fade`),
+  - Europe region detection via spawn-region keys,
+  - readiness activation (market/institution/connectivity/idea-market/merchant/media/openness, inequality penalty),
+  - conditional multiplier on innovation production,
+  - conditional multiplier on discovery hazard,
+  - conditional multiplier on adoption speed.
+- Calibrations tested:
+  - `v5`: moderate (`start=1100, peak=1750, fade=1980, innovation=0.24, adoption=0.18, threshold=0.44`)
+  - `v6`: stronger (`start=1000, peak=1750, fade=2025, innovation=0.55, adoption=0.40, threshold=0.30`)
+
+### Validation runs (16 seeds, 16 workers, CPU)
+- `out/seed_max_tech_post16_realism_v5`
+- `out/seed_max_tech_post16_realism_v6`
+- Both completed `16/16` with `failed=0`.
+
+### Aggregates (v6)
+- `post_metrics.json`: `out/seed_max_tech_post16_realism_v6/post_metrics.json`
+- `max_unlocked` unique values: `[26, 28, 29, 31, 35, 37, 40, 41, 42]`
+- `max_unlocked` mean/min/max: `33.125 / 26 / 42`
+- largest-state share (`top1_max`) mean/min/max: `0.060384 / 0.0389 / 0.089704`
+  - CV: `0.274`
+- final largest-state share (`top1_final`) mean/min/max: `0.04086 / 0.017979 / 0.077867`
+  - CV: `0.396`
+- `wars_active_max` mean: `3.6875`
+- `major_wars_final` mean: `0.0393196875`
+- election activity (`new instrumentation`):
+  - `election_count_max` mean/min/max: `76.4375 / 37 / 140`
+  - `election_count_final` mean/min/max: `37.0 / 20 / 65`
+
+### Notes
+- Coarse endpoint tech spread remains diverse and non-uniform (not a single fixed endpoint), while empire-size variability remains high.
+- Relative to the pre-update baseline (`out/seed_max_tech_baseline16`), largest-empire scale and conflict incidence remain substantially elevated.

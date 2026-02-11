@@ -507,6 +507,7 @@ public:
     const ResourceManager& getResourceManager() const;
     const std::string& getName() const;
     void setName(const std::string& name);
+    void setFoundingYear(int year) { m_foundingYear = year; }
     int getFoundingYear() const { return m_foundingYear; }
     const std::string& getSpawnRegionKey() const { return m_spawnRegionKey; }
     void setSpawnRegionKey(const std::string& key);
@@ -650,6 +651,7 @@ public:
     void setIdeology(Ideology ideology) { m_ideology = ideology; }
     std::string getIdeologyString() const;
     void checkIdeologyChange(int currentYear, News& news, const class TechnologyManager& techManager);
+    void forceLeaderTransition(int currentYear, bool crisis, News& news);
     bool canChangeToIdeology(Ideology newIdeology) const;
     double getSciencePointsMultiplier() const;
     double calculateNeighborScienceBonus(const std::vector<Country>& allCountries, const class Map& map, const class TechnologyManager& techManager, int currentYear) const;
@@ -689,6 +691,8 @@ private:
                                 int techCount,
                                 const SimulationConfig& simCfg,
                                 News& news);
+        void maybeRunElection(int currentYear, News& news);
+        void scheduleNextElection(int currentYear);
         void assignRegionalIdentityFromSpawnKey();
         void transitionLeader(int currentYear, bool crisis, News& news);
 
@@ -824,6 +828,7 @@ private:
 	int m_stagnationYears = 0;
 	int m_fragmentationCooldown = 0;
 	int m_yearsSinceWar = 0;
+    double m_conquestMomentum = 0.0;
 
 		// Phase 1: polity state (pressure-and-constraint driven).
 		struct PolityState {
@@ -855,5 +860,7 @@ private:
         int m_autonomyOverThresholdYears = 0;
         std::vector<RegionalState> m_regions;
         int m_nextSuccessionYear = std::numeric_limits<int>::min();
+        int m_nextElectionYear = std::numeric_limits<int>::min();
+        int m_lastElectionYear = std::numeric_limits<int>::min();
         double m_eliteDefectionPressure = 0.0;
 	};

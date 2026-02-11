@@ -1,0 +1,209 @@
+{
+  "n": 16,
+  "agg": {
+    "max_unlocked": {
+      "mean": 38.5625,
+      "min": 28,
+      "max": 44,
+      "stdev": 6.33412138737489
+    },
+    "top1_max": {
+      "mean": 0.027599625,
+      "min": 0.020211,
+      "max": 0.036777,
+      "stdev": 0.0045492559951463485
+    },
+    "top1_final": {
+      "mean": 0.0260778125,
+      "min": 0.020211,
+      "max": 0.035583,
+      "stdev": 0.0039147387719161725
+    },
+    "wars_active_max": {
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "stdev": 0.0
+    },
+    "major_wars_final": {
+      "mean": 0.00864375,
+      "min": 0.006835,
+      "max": 0.012713,
+      "stdev": 0.0013449160986842266
+    },
+    "hab0_final": {
+      "mean": 0.337813875,
+      "min": 0.282071,
+      "max": 0.416704,
+      "stdev": 0.029969624667892908
+    },
+    "habs_final": {
+      "mean": 0.17693006249999998,
+      "min": 0.154516,
+      "max": 0.197259,
+      "stdev": 0.012918391518822833
+    }
+  },
+  "runs": [
+    {
+      "seed": 1,
+      "max_unlocked": 44,
+      "top1_max": 0.029952,
+      "top1_final": 0.029877,
+      "wars_active_max": 0.0,
+      "major_wars_final": 0.00853,
+      "hab0_final": 0.341103,
+      "habs_final": 0.197259
+    },
+    {
+      "seed": 10,
+      "max_unlocked": 44,
+      "top1_max": 0.027461,
+      "top1_final": 0.027461,
+      "wars_active_max": 0.0,
+      "major_wars_final": 0.007736,
+      "hab0_final": 0.336273,
+      "habs_final": 0.163727
+    },
+    {
+      "seed": 11,
+      "max_unlocked": 40,
+      "top1_max": 0.036777,
+      "top1_final": 0.035583,
+      "wars_active_max": 0.0,
+      "major_wars_final": 0.009034,
+      "hab0_final": 0.309537,
+      "habs_final": 0.154516
+    },
+    {
+      "seed": 12,
+      "max_unlocked": 38,
+      "top1_max": 0.025549,
+      "top1_final": 0.025549,
+      "wars_active_max": 0.0,
+      "major_wars_final": 0.008819,
+      "hab0_final": 0.361885,
+      "habs_final": 0.192597
+    },
+    {
+      "seed": 13,
+      "max_unlocked": 44,
+      "top1_max": 0.026654,
+      "top1_final": 0.026205,
+      "wars_active_max": 0.0,
+      "major_wars_final": 0.009363,
+      "hab0_final": 0.339587,
+      "habs_final": 0.193664
+    },
+    {
+      "seed": 14,
+      "max_unlocked": 44,
+      "top1_max": 0.021829,
+      "top1_final": 0.021829,
+      "wars_active_max": 0.0,
+      "major_wars_final": 0.007703,
+      "hab0_final": 0.370479,
+      "habs_final": 0.188834
+    },
+    {
+      "seed": 15,
+      "max_unlocked": 28,
+      "top1_max": 0.022818,
+      "top1_final": 0.020289,
+      "wars_active_max": 0.0,
+      "major_wars_final": 0.008106,
+      "hab0_final": 0.344698,
+      "habs_final": 0.16749
+    },
+    {
+      "seed": 16,
+      "max_unlocked": 37,
+      "top1_max": 0.032982,
+      "top1_final": 0.02794,
+      "wars_active_max": 0.0,
+      "major_wars_final": 0.009154,
+      "hab0_final": 0.320771,
+      "habs_final": 0.183273
+    },
+    {
+      "seed": 2,
+      "max_unlocked": 44,
+      "top1_max": 0.026614,
+      "top1_final": 0.025664,
+      "wars_active_max": 0.0,
+      "major_wars_final": 0.012713,
+      "hab0_final": 0.301112,
+      "habs_final": 0.167266
+    },
+    {
+      "seed": 3,
+      "max_unlocked": 43,
+      "top1_max": 0.029867,
+      "top1_final": 0.02888,
+      "wars_active_max": 0.0,
+      "major_wars_final": 0.007269,
+      "hab0_final": 0.337003,
+      "habs_final": 0.174736
+    },
+    {
+      "seed": 4,
+      "max_unlocked": 37,
+      "top1_max": 0.034718,
+      "top1_final": 0.024221,
+      "wars_active_max": 0.0,
+      "major_wars_final": 0.007239,
+      "hab0_final": 0.323354,
+      "habs_final": 0.16384
+    },
+    {
+      "seed": 5,
+      "max_unlocked": 28,
+      "top1_max": 0.020211,
+      "top1_final": 0.020211,
+      "wars_active_max": 0.0,
+      "major_wars_final": 0.009775,
+      "hab0_final": 0.354471,
+      "habs_final": 0.174905
+    },
+    {
+      "seed": 6,
+      "max_unlocked": 44,
+      "top1_max": 0.028935,
+      "top1_final": 0.027196,
+      "wars_active_max": 0.0,
+      "major_wars_final": 0.008683,
+      "hab0_final": 0.282071,
+      "habs_final": 0.17659
+    },
+    {
+      "seed": 7,
+      "max_unlocked": 44,
+      "top1_max": 0.025875,
+      "top1_final": 0.025875,
+      "wars_active_max": 0.0,
+      "major_wars_final": 0.006835,
+      "hab0_final": 0.346383,
+      "habs_final": 0.167434
+    },
+    {
+      "seed": 8,
+      "max_unlocked": 30,
+      "top1_max": 0.02939,
+      "top1_final": 0.02939,
+      "wars_active_max": 0.0,
+      "major_wars_final": 0.007966,
+      "hab0_final": 0.319591,
+      "habs_final": 0.168951
+    },
+    {
+      "seed": 9,
+      "max_unlocked": 28,
+      "top1_max": 0.021962,
+      "top1_final": 0.021075,
+      "wars_active_max": 0.0,
+      "major_wars_final": 0.009375,
+      "hab0_final": 0.416704,
+      "habs_final": 0.195799
+    }
+  ]
+}

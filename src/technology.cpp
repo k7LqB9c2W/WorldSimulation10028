@@ -45,6 +45,37 @@ std::string toLowerCopy(std::string s) {
     return s;
 }
 
+bool isEuropeSpawnRegion(const std::string& key) {
+    return key == "se_europe" ||
+           key == "med_europe" ||
+           key == "central_europe" ||
+           key == "wnw_europe" ||
+           key == "north_europe";
+}
+
+double europeEraStrength(int currentYear, int startYear, int peakYear, int fadeYear) {
+    int start = startYear;
+    int peak = peakYear;
+    int fade = fadeYear;
+    if (peak < start) std::swap(peak, start);
+    if (fade < peak) fade = peak;
+    if (currentYear <= start) return 0.0;
+    if (currentYear < peak) {
+        const double den = std::max(1.0, static_cast<double>(peak - start));
+        return std::clamp((static_cast<double>(currentYear - start)) / den, 0.0, 1.0);
+    }
+    if (currentYear >= fade) return 0.0;
+    const double den = std::max(1.0, static_cast<double>(fade - peak));
+    return std::clamp(1.0 - (static_cast<double>(currentYear - peak) / den), 0.0, 1.0);
+}
+
+double readinessActivation(double readinessRaw, double threshold) {
+    const double r = std::clamp(readinessRaw, 0.0, 1.0);
+    const double th = std::clamp(threshold, 0.0, 0.95);
+    if (r <= th) return 0.0;
+    return std::clamp((r - th) / std::max(1e-6, 1.0 - th), 0.0, 1.0);
+}
+
 int domainForTechName(const std::string& name) {
     const std::string n = toLowerCopy(name);
     auto has = [&](const char* kw) { return n.find(kw) != std::string::npos; };
@@ -569,6 +600,14 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
     const SimulationConfig& cfg = map.getConfig();
     const double adoptionThreshold = std::clamp(cfg.tech.adoptionThreshold, 0.10, 0.95);
     const double prereqAdoptScale = std::clamp(cfg.tech.prereqAdoptionFraction, 0.25, 1.0);
+    const double europeEra = europeEraStrength(
+        currentYear,
+        cfg.tech.europeAdvantageStartYear,
+        cfg.tech.europeAdvantagePeakYear,
+        cfg.tech.europeAdvantageFadeYear);
+    const double europeInnovationBoost = std::clamp(cfg.tech.europeInnovationBoost, 0.0, 1.5);
+    const double europeAdoptionBoost = std::clamp(cfg.tech.europeAdoptionBoost, 0.0, 1.5);
+    const double europeReadinessThreshold = std::clamp(cfg.tech.europeReadinessThreshold, 0.0, 0.95);
     const std::uint64_t worldSeed = map.getWorldSeed();
 
     auto clamp01 = [](double v) { return std::clamp(v, 0.0, 1.0); };
@@ -615,6 +654,15 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         const double healthShare = clamp01(c.getHealthSpendingShare());
         const double admin = clamp01(c.getAdminCapacity());
         const double control = clamp01(c.getAvgControl());
+        const Country::LeaderAgent& leader = c.getLeader();
+        const double leadershipQuality = clamp01(
+            0.45 * leader.competence +
+            0.30 * leader.reformism +
+            0.25 * (1.0 - 0.60 * leader.coercion));
+        const double governanceStress = clamp01(
+            0.48 * c.getEliteDefectionPressure() +
+            0.30 * c.getAutonomyPressure() +
+            0.22 * std::max(0.0, 0.55 - control));
 
         const auto& m = c.getMacroEconomy();
         const double orePot = std::max(0.0, map.getCountryOrePotential(i));
@@ -703,7 +751,39 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         adv *= (1.0 - 0.45 * clamp01(m.inequality));
         adv *= (0.28 + 0.72 * resourceGate);
 
-        const double totalInnovPerYear = std::max(0.0, baselineCraft + std::max(0.0, adv));
+        const double volatility = std::clamp(cfg.tech.innovationVolatility, 0.0, 0.95);
+        const double wave =
+            2.0 * deterministicUnit(worldSeed, currentYear / 12, i, 997, 0x494e4e4f564157ull) - 1.0;
+        const double regimeShock = std::clamp(1.0 + volatility * wave, 0.45, 1.75);
+        const double leadershipTechWeight = std::clamp(cfg.tech.leadershipInnovationWeight, 0.0, 1.5);
+        const double inertiaPenalty = std::clamp(cfg.tech.institutionalInertiaPenalty, 0.0, 1.0);
+        const double governanceFactor =
+            (0.62 + leadershipTechWeight * leadershipQuality) *
+            (1.0 - inertiaPenalty * 0.75 * governanceStress);
+        double regionalInnovationMultiplier = 1.0;
+        // Europe receives a temporary edge only when market/institution preconditions are present.
+        if (europeEra > 0.0 && europeInnovationBoost > 0.0 && isEuropeSpawnRegion(c.getSpawnRegionKey())) {
+            const double readinessRaw =
+                0.23 * access +
+                0.21 * clamp01(m.connectivityIndex) +
+                0.20 * clamp01(m.institutionCapacity) +
+                0.14 * urban +
+                0.12 * open +
+                0.10 * eduShare -
+                0.10 * clamp01(m.inequality);
+            const double activation = readinessActivation(readinessRaw, europeReadinessThreshold);
+            if (activation > 0.0) {
+                const double jitter =
+                    0.88 + 0.24 * deterministicUnit(worldSeed, currentYear / 14, i, 191, 0x455552494e4f564full);
+                regionalInnovationMultiplier += europeInnovationBoost * europeEra * activation * jitter;
+            }
+        }
+        const double totalInnovPerYear =
+            std::max(0.0,
+                     (baselineCraft + std::max(0.0, adv)) *
+                         regimeShock *
+                         std::max(0.15, governanceFactor) *
+                         regionalInnovationMultiplier);
         c.setInnovationRate(totalInnovPerYear);
 
         double w[Country::kDomains] = {1, 1, 1, 1, 1, 1, 1, 1};
@@ -918,6 +998,12 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         s.relativeFactorPrice = clamp01(c.getRelativeFactorPriceIndex());
         s.mediaThroughput = clamp01(c.getMediaThroughputIndex());
         s.merchantPower = clamp01(c.getMerchantPowerIndex());
+        const Country::LeaderAgent& leader = c.getLeader();
+        s.leaderCompetence = clamp01(leader.competence);
+        s.leaderReformism = clamp01(leader.reformism);
+        s.leaderAmbition = clamp01(leader.ambition);
+        s.eliteDefectionPressure = clamp01(c.getEliteDefectionPressure());
+        s.autonomyPressure = clamp01(c.getAutonomyPressure());
         s.foodSecurity = clamp01(c.getFoodSecurity());
         s.famineSeverity = clamp01(c.getMacroEconomy().famineSeverity);
         s.atWar = c.isAtWar();
@@ -941,6 +1027,43 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         s.herdDomesticationPotential = clamp01(herdCells[static_cast<size_t>(i)] / own);
         s.riverWetlandShare = clamp01((s.farmingPotential) / std::max(1.0, s.farmingPotential + s.foragingPotential));
         signals[static_cast<size_t>(i)] = s;
+    }
+
+    std::vector<double> regionalDiscoveryMultiplier(static_cast<size_t>(n), 1.0);
+    std::vector<double> regionalAdoptionMultiplier(static_cast<size_t>(n), 1.0);
+    if (europeEra > 0.0 && (europeInnovationBoost > 0.0 || europeAdoptionBoost > 0.0)) {
+        for (int i = 0; i < n; ++i) {
+            const Country& c = countries[static_cast<size_t>(i)];
+            if (!isEuropeSpawnRegion(c.getSpawnRegionKey())) continue;
+
+            const CountryTechSignals& s = signals[static_cast<size_t>(i)];
+            const double readinessRaw =
+                0.20 * s.institution +
+                0.18 * s.marketAccess +
+                0.16 * s.connectivity +
+                0.12 * s.ideaMarketIntegration +
+                0.10 * s.credibleCommitment +
+                0.08 * s.mediaThroughput +
+                0.08 * s.merchantPower +
+                0.05 * s.urban +
+                0.03 * s.openness -
+                0.08 * s.inequality;
+            const double activation = readinessActivation(readinessRaw, europeReadinessThreshold);
+            if (activation <= 0.0) continue;
+
+            if (europeInnovationBoost > 0.0) {
+                const double jitter =
+                    0.86 + 0.28 * deterministicUnit(worldSeed, currentYear / 12, i, 193, 0x455552444953434full);
+                regionalDiscoveryMultiplier[static_cast<size_t>(i)] +=
+                    europeInnovationBoost * europeEra * activation * jitter;
+            }
+            if (europeAdoptionBoost > 0.0) {
+                const double jitter =
+                    0.90 + 0.20 * deterministicUnit(worldSeed, currentYear / 10, i, 197, 0x45555241444f5054ull);
+                regionalAdoptionMultiplier[static_cast<size_t>(i)] +=
+                    europeAdoptionBoost * europeEra * activation * jitter;
+            }
+        }
     }
 
     auto inferSearchBias = [&](const Technology& t) -> int {
@@ -984,6 +1107,10 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         }
         mult *= (0.85 + 0.30 * s.competitionFragmentation);
         mult *= (0.80 + 0.35 * s.ideaMarketIntegration);
+        mult *= (0.70 + 0.40 * s.leaderCompetence);
+        mult *= (0.72 + 0.38 * s.leaderReformism);
+        mult *= (1.0 - 0.28 * s.eliteDefectionPressure);
+        mult *= (1.0 - 0.20 * s.autonomyPressure);
         return std::clamp(mult, 0.35, 2.20);
     };
 
@@ -994,7 +1121,16 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
 
         const CountryTechSignals& s = signals[static_cast<size_t>(i)];
         int discoveredThisYear = 0;
-        int maxDiscoveries = std::max(1, std::min(3, cfg.tech.maxDiscoveriesPerYear + (s.specialization > 0.10 ? 1 : 0)));
+        const double discoveryCadence =
+            std::clamp(
+                0.55 + 0.60 * s.leaderReformism + 0.25 * s.leaderCompetence -
+                0.25 * s.autonomyPressure - 0.20 * s.eliteDefectionPressure,
+                0.20, 1.75);
+        int maxDiscoveries = std::max(
+            1,
+            std::min(6, cfg.tech.maxDiscoveriesPerYear +
+                        (s.specialization > 0.10 ? 1 : 0) +
+                        static_cast<int>(std::floor(discoveryCadence))));
 
         for (int id : m_sortedIds) {
             if (discoveredThisYear >= maxDiscoveries) break;
@@ -1024,10 +1160,22 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                 (0.75 + 0.25 * s.credibleCommitment) *
                 (0.80 + 0.20 * s.mediaThroughput);
             const double inducedBias = inducedInnovationBias(t, s);
+            const double volatility = std::clamp(cfg.tech.innovationVolatility, 0.0, 0.95);
+            const double discoveryWave =
+                2.0 * deterministicUnit(worldSeed, currentYear / 10, i, dense, 0x5445434844495343ull) - 1.0;
+            const double regimeShock = std::clamp(1.0 + volatility * discoveryWave, 0.40, 1.90);
+            const double leadershipBoost =
+                0.65 + std::clamp(cfg.tech.leadershipInnovationWeight, 0.0, 1.5) *
+                (0.55 * s.leaderCompetence + 0.45 * s.leaderReformism);
+            const double inertia =
+                1.0 + std::clamp(cfg.tech.institutionalInertiaPenalty, 0.0, 1.0) *
+                (0.65 * s.eliteDefectionPressure + 0.35 * s.autonomyPressure);
             const double hazard =
                 std::max(0.0, cfg.tech.discoveryBase) *
                 popFactor * orgFactor * domainFactor *
-                mechanismBoost * inducedBias / std::max(0.2, difficultyDen);
+                mechanismBoost * inducedBias * regimeShock * leadershipBoost *
+                regionalDiscoveryMultiplier[static_cast<size_t>(i)] /
+                std::max(0.2, difficultyDen * inertia);
             const double p = 1.0 - std::exp(-hazard * yearsD);
             const double u = deterministicUnit(worldSeed, currentYear, i, dense, 0x444953434f564552ull);
             if (u >= p) continue;
@@ -1098,8 +1246,11 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                 (0.30 + 0.70 * sf.ideaMarketIntegration) *
                 (0.30 + 0.70 * sf.mediaThroughput) *
                 (0.30 + 0.70 * st.ideaMarketIntegration) *
+                (0.25 + 0.75 * st.leaderCompetence) *
+                (0.25 + 0.75 * st.leaderReformism) *
                 (0.35 + 0.65 * sf.connectivity) *
                 (0.25 + 0.75 * st.openness) *
+                (1.0 - 0.25 * st.eliteDefectionPressure) *
                 yearsD,
                 0.0,
                 0.85);
@@ -1118,6 +1269,8 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                     (0.30 + 0.70 * sf.mediaThroughput) *
                     (0.35 + 0.65 * st.institution) *
                     (0.30 + 0.70 * st.connectivity) *
+                    (0.30 + 0.70 * st.leaderReformism) *
+                    (1.0 - 0.30 * st.autonomyPressure) *
                     yearsD,
                     0.0,
                     0.60);
@@ -1188,8 +1341,13 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                 speed *= (0.78 + 0.22 * s.mediaThroughput);
                 speed *= (0.78 + 0.22 * s.competitionFragmentation);
                 speed *= inducedInnovationBias(t, s);
+                speed *= (0.70 + 0.45 * s.leaderCompetence);
+                speed *= (0.68 + 0.55 * s.leaderReformism);
+                speed *= (1.0 - 0.35 * s.eliteDefectionPressure);
+                speed *= (1.0 - 0.22 * s.autonomyPressure);
                 if (s.atWar) speed *= 0.88;
                 speed *= (1.0 - 0.35 * s.famineSeverity);
+                speed *= regionalAdoptionMultiplier[static_cast<size_t>(i)];
                 const double dA = speed * (1.0 - A) * yearsD;
                 A += dA;
             } else {
@@ -1200,6 +1358,8 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                 collapse += std::max(0.0, 0.55 - s.stability);
                 collapse += std::max(0.0, 0.50 - s.legitimacy);
                 collapse += std::max(0.0, 0.35 - s.connectivity);
+                collapse += 0.45 * s.eliteDefectionPressure;
+                collapse += 0.35 * s.autonomyPressure;
                 if (s.pop < 5000.0) {
                     collapse += 0.8;
                 }

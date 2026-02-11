@@ -1900,6 +1900,106 @@ void Map::tickPopulationGrid(const std::vector<Country>& countries,
         if (owner < 0 || owner >= countryCount) continue;
         m_fieldPopulation[fi] = static_cast<float>(std::max(0.0, static_cast<double>(m_fieldPopulation[fi]) * scale[static_cast<size_t>(owner)]));
     }
+
+    // Frontier claiming pass: persistent frontier population can be absorbed by nearby states.
+    {
+        const double claimPopThreshold = std::max(10.0, m_ctx->config.migration.frontierClaimPopulationThreshold);
+        const double claimControlThreshold = clamp01(m_ctx->config.migration.frontierClaimControlThreshold);
+        struct ClaimDecision {
+            int fi = -1;
+            int owner = -1;
+        };
+        std::vector<ClaimDecision> claims;
+        claims.reserve(256);
+
+        for (int fy = 0; fy < m_fieldH; ++fy) {
+            for (int fx = 0; fx < m_fieldW; ++fx) {
+                const int fi = fy * m_fieldW + fx;
+                if (fi < 0 || static_cast<size_t>(fi) >= ownerN || static_cast<size_t>(fi) >= n) continue;
+                if (m_fieldOwnerId[static_cast<size_t>(fi)] != -1) continue;
+                if (static_cast<size_t>(fi) >= m_fieldFoodPotential.size() ||
+                    m_fieldFoodPotential[static_cast<size_t>(fi)] <= 0.0f) {
+                    continue;
+                }
+                const double pop = static_cast<double>(std::max(0.0f, m_fieldPopulation[static_cast<size_t>(fi)]));
+                if (pop < claimPopThreshold) continue;
+
+                int bestOwner = -1;
+                double bestScore = 0.0;
+                const int nx[4] = {fx + 1, fx - 1, fx, fx};
+                const int ny[4] = {fy, fy, fy + 1, fy - 1};
+                for (int k = 0; k < 4; ++k) {
+                    const int x = nx[k];
+                    const int y = ny[k];
+                    if (x < 0 || y < 0 || x >= m_fieldW || y >= m_fieldH) continue;
+                    const int nfi = y * m_fieldW + x;
+                    if (nfi < 0 || static_cast<size_t>(nfi) >= ownerN) continue;
+                    const int owner = m_fieldOwnerId[static_cast<size_t>(nfi)];
+                    if (owner < 0 || owner >= countryCount) continue;
+
+                    const Country& c = countries[static_cast<size_t>(owner)];
+                    if (c.getPopulation() <= 0) continue;
+                    const double control = clamp01(c.getAvgControl());
+                    if (control < claimControlThreshold) continue;
+                    const double stability = clamp01(c.getStability());
+                    const double admin = clamp01(c.getAdminCapacity());
+                    const double legitimacy = clamp01(c.getLegitimacy());
+                    const double neighborPop = static_cast<double>(std::max(0.0f, m_fieldPopulation[static_cast<size_t>(nfi)]));
+                    const double neighborPopSat = neighborPop / (neighborPop + claimPopThreshold);
+                    double score =
+                        0.45 * neighborPopSat +
+                        0.23 * control +
+                        0.14 * stability +
+                        0.10 * admin +
+                        0.08 * legitimacy;
+                    if (c.isAtWar()) score *= 0.75;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestOwner = owner;
+                    }
+                }
+
+                if (bestOwner >= 0 && bestScore >= 0.34) {
+                    claims.push_back(ClaimDecision{fi, bestOwner});
+                }
+            }
+        }
+
+        if (!claims.empty()) {
+            const int h = static_cast<int>(m_countryGrid.size());
+            const int w = (h > 0) ? static_cast<int>(m_countryGrid[0].size()) : 0;
+            std::lock_guard<std::mutex> lock(m_gridMutex);
+            for (const ClaimDecision& claim : claims) {
+                const int fi = claim.fi;
+                const int owner = claim.owner;
+                if (fi < 0 || static_cast<size_t>(fi) >= ownerN) continue;
+                if (m_fieldOwnerId[static_cast<size_t>(fi)] != -1) continue;
+
+                const int fx = fi % m_fieldW;
+                const int fy = fi / m_fieldW;
+                const int x0 = fx * kFieldCellSize;
+                const int y0 = fy * kFieldCellSize;
+                const int x1 = std::min(w, x0 + kFieldCellSize);
+                const int y1 = std::min(h, y0 + kFieldCellSize);
+                bool capturedAny = false;
+                for (int y = y0; y < y1; ++y) {
+                    for (int x = x0; x < x1; ++x) {
+                        if (!m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) continue;
+                        if (m_countryGrid[static_cast<size_t>(y)][static_cast<size_t>(x)] != -1) continue;
+                        if (setCountryOwnerAssumingLockedImpl(x, y, owner)) {
+                            capturedAny = true;
+                            const int regionsPerRow = std::max(1, static_cast<int>(m_baseImage.getSize().x) / (m_gridCellSize * m_regionSize));
+                            const int regionIndex = static_cast<int>((y / m_regionSize) * regionsPerRow + (x / m_regionSize));
+                            m_dirtyRegions.insert(regionIndex);
+                        }
+                    }
+                }
+                if (capturedAny) {
+                    m_fieldOwnerId[static_cast<size_t>(fi)] = owner;
+                }
+            }
+        }
+    }
 }
 
 void Map::updateCitiesFromPopulation(std::vector<Country>& countries,
@@ -4690,6 +4790,9 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
         countries[static_cast<size_t>(countryIndex)].setAutonomyPressure(std::max(0.0, countries[static_cast<size_t>(countryIndex)].getAutonomyPressure() * 0.52));
         countries[static_cast<size_t>(countryIndex)].setAutonomyOverThresholdYears(0);
         countries[static_cast<size_t>(countryIndex)].setFragmentationCooldown(fragmentationCooldownYears);
+        if (stress > 0.55 || localCenter.overYears > 20) {
+            countries[static_cast<size_t>(countryIndex)].setFoundingYear(currentYear);
+        }
         countries[static_cast<size_t>(countryIndex)].setYearsSinceWar(0);
         countries[static_cast<size_t>(countryIndex)].resetStagnation();
         countries[static_cast<size_t>(countryIndex)].setTerritory(groupA);
@@ -4863,6 +4966,190 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
     }
     traceDetailed("afterSplits");
 
+    if (currentYear % 5 == 0) {
+        if (localCenterByCountry.size() < countries.size()) {
+            const size_t oldSize = localCenterByCountry.size();
+            localCenterByCountry.resize(countries.size());
+            for (size_t i = oldSize; i < countries.size(); ++i) {
+                scoreAndTrackLocalCenters(static_cast<int>(i), localCenterByCountry[i]);
+            }
+        }
+
+        const auto& polityCfg = m_ctx->config.polity;
+        std::uniform_real_distribution<double> u01(0.0, 1.0);
+
+        struct TurnoverCandidate {
+            int idx = -1;
+            double risk = 0.0;
+            double fragility = 0.0;
+            double successionStress = 0.0;
+            double continuity = 0.0;
+            int stateAge = 0;
+            LocalCenterCandidate localCenter{};
+        };
+
+        std::vector<TurnoverCandidate> turnover;
+        turnover.reserve(countries.size());
+        for (int i = 0; i < static_cast<int>(countries.size()); ++i) {
+            const Country& c = countries[static_cast<size_t>(i)];
+            if (c.getPopulation() <= 0) continue;
+
+            const int ageYears = std::max(0, currentYear - c.getFoundingYear());
+            if (ageYears < std::max(40, polityCfg.stateTurnoverMinAgeYears) &&
+                c.getAutonomyPressure() < 0.72 &&
+                c.getEliteDefectionPressure() < 0.65) {
+                continue;
+            }
+
+            const double legit = clamp01(c.getLegitimacy());
+            const double stability = clamp01(c.getStability());
+            const double control = clamp01(c.getAvgControl());
+            const double autonomy = clamp01(c.getAutonomyPressure());
+            const double eliteDefection = clamp01(c.getEliteDefectionPressure());
+            const double famine = famineStress(i);
+            const double war = c.isAtWar() ? 1.0 : 0.0;
+            const Country::LeaderAgent& leader = c.getLeader();
+            const double leaderFragility = clamp01(
+                0.40 * std::max(0.0, 0.55 - leader.competence) +
+                0.30 * std::max(0.0, 0.50 - leader.eliteAffinity) +
+                0.30 * std::max(0.0, (static_cast<double>(leader.age) - 60.0) / 30.0));
+
+            const double fragility = clamp01(
+                0.28 * (1.0 - legit) +
+                0.24 * (1.0 - stability) +
+                0.16 * (1.0 - control) +
+                0.14 * autonomy +
+                0.10 * eliteDefection +
+                0.05 * famine +
+                0.03 * war);
+
+            const double agePressure = clamp01(
+                static_cast<double>(std::max(0, ageYears - std::max(80, polityCfg.stateTurnoverMinAgeYears))) / 2200.0);
+            const double successionStress = clamp01(
+                0.55 * leaderFragility +
+                0.25 * std::max(0.0, (static_cast<double>(leader.age) - 68.0) / 24.0) +
+                0.20 * autonomy);
+            const double continuity = clamp01(
+                0.34 * clamp01(c.getAdminCapacity()) +
+                0.24 * control +
+                0.20 * legit +
+                0.14 * stability +
+                0.08 * clamp01(c.getMacroEconomy().knowledgeStock));
+
+            const double base = clamp01(std::max(0.0, polityCfg.stateTurnoverBaseChance) * 5.0);
+            double risk = clamp01(
+                base +
+                std::max(0.0, polityCfg.stateTurnoverStressWeight) * fragility +
+                std::max(0.0, polityCfg.stateTurnoverAgeWeight) * agePressure +
+                0.22 * successionStress +
+                0.10 * war);
+            risk *= std::clamp(
+                1.0 - std::max(0.0, polityCfg.institutionalContinuityShield) * continuity,
+                0.20, 1.00);
+
+            if (c.getFoundingYear() <= -5000) {
+                risk = clamp01(risk + 0.06 * agePressure);
+            }
+            const LocalCenterCandidate local = localCenterByCountry[static_cast<size_t>(i)];
+            risk = clamp01(risk + 0.10 * local.pressure);
+            if (risk < 0.20 && ageYears < 900) continue;
+
+            turnover.push_back(TurnoverCandidate{i, risk, fragility, successionStress, continuity, ageYears, local});
+        }
+
+        std::sort(turnover.begin(), turnover.end(), [](const TurnoverCandidate& a, const TurnoverCandidate& b) {
+            if (greaterFinite(a.risk, b.risk)) return true;
+            if (greaterFinite(b.risk, a.risk)) return false;
+            return a.idx < b.idx;
+        });
+
+        int turnoverEvents = 0;
+        for (const TurnoverCandidate& cand : turnover) {
+            if (turnoverEvents >= 3) break;
+            if (cand.idx < 0 || cand.idx >= static_cast<int>(countries.size())) continue;
+            Country& c = countries[static_cast<size_t>(cand.idx)];
+            if (c.getCountryIndex() != cand.idx || c.getPopulation() <= 0) continue;
+
+            const double draw = u01(rng);
+            const double splitTrigger = clamp01(
+                std::max(0.0, polityCfg.successionCrisisSplitWeight) *
+                cand.risk *
+                (0.40 + 0.60 * cand.successionStress));
+            const bool canSplit =
+                c.getFragmentationCooldown() <= 0 &&
+                c.getBoundaryPixels().size() >= static_cast<size_t>(minTerritoryPixels) &&
+                c.getPopulation() >= minPopulation;
+            if (canSplit && draw < splitTrigger && trySplitCountry(cand.idx, cand.risk, cand.localCenter)) {
+                changedTerritory = true;
+                controlUpToDate = false;
+                turnoverEvents++;
+                continue;
+            }
+
+            if (draw > cand.risk * 0.78) {
+                continue;
+            }
+
+            const bool crisis = (u01(rng) < clamp01(0.35 + 0.55 * cand.risk));
+            const bool reformistTransition = !crisis && (u01(rng) < clamp01(0.20 + 0.35 * c.getLeader().reformism));
+
+            std::string newName = c.getName();
+            if (u01(rng) < clamp01(0.20 + 0.40 * cand.risk + 0.20 * cand.successionStress)) {
+                std::string root;
+                for (int attempt = 0; attempt < 10; ++attempt) {
+                    root = generate_country_name(rng, c.getSpawnRegionKey());
+                    if (!root.empty()) break;
+                }
+                if (!root.empty()) {
+                    switch (c.getIdeology()) {
+                        case Country::Ideology::Empire: newName = "Empire of " + root; break;
+                        case Country::Ideology::Republic:
+                        case Country::Ideology::Democracy:
+                        case Country::Ideology::Federation: newName = "Republic of " + root; break;
+                        case Country::Ideology::Kingdom:
+                        case Country::Ideology::Theocracy: newName = "Kingdom of " + root; break;
+                        default: newName = root + " Tribe"; break;
+                    }
+                }
+                if (isNameTaken(countries, newName)) {
+                    newName = c.getName();
+                }
+            }
+
+            const std::string oldName = c.getName();
+            c.forceLeaderTransition(currentYear, crisis, news);
+            c.setFoundingYear(currentYear);
+            c.setFragmentationCooldown(std::max(c.getFragmentationCooldown(), crisis ? 170 : 120));
+            c.setAutonomyPressure(std::max(0.0, c.getAutonomyPressure() * (crisis ? 0.78 : 0.58)));
+            c.setAutonomyOverThresholdYears(0);
+            c.setYearsSinceWar(0);
+
+            const double legitBefore = clamp01(c.getLegitimacy());
+            const double legitTarget = clamp01(
+                (crisis ? 0.28 : 0.42) +
+                0.22 * cand.continuity -
+                0.10 * cand.fragility);
+            c.setLegitimacy(legitTarget);
+            recordLegitimacyEventDelta(c, legitBefore, 0, 1);
+
+            const double stabilityTarget = std::clamp(
+                c.getStability() * (crisis ? 0.82 : 0.94) + 0.08 * cand.continuity - 0.05 * cand.fragility,
+                0.20, 0.85);
+            c.setStability(stabilityTarget);
+
+            if (reformistTransition && c.getIdeology() == Country::Ideology::Kingdom && currentYear >= -500) {
+                c.setIdeology(Country::Ideology::Republic);
+            }
+            if (newName != oldName) {
+                c.setName(newName);
+                news.addEvent("Dynastic refoundation: " + oldName + " transitions into " + newName + ".");
+            } else {
+                news.addEvent("State refoundation in " + c.getName() + " after a succession crisis.");
+            }
+            turnoverEvents++;
+        }
+    }
+
     if (currentYear % 10 == 0) {
         for (auto& c : countries) {
             if (c.getPopulation() <= 0) continue;
@@ -4899,6 +5186,7 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
             if (isNameTaken(countries, next)) continue;
 
             c.setName(next);
+            c.setFoundingYear(currentYear);
             const double legitBefore = clamp01(c.getLegitimacy());
             c.setLegitimacy(0.45);
             recordLegitimacyEventDelta(c, legitBefore, 0, 1);
@@ -4908,6 +5196,59 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
             else c.setIdeology(Country::Ideology::Kingdom);
 
             news.addEvent("Regime change: " + base + " undergoes tag replacement and emerges as " + next + ".");
+        }
+    }
+
+    if (currentYear % 12 == 0) {
+        std::uniform_real_distribution<double> u01(0.0, 1.0);
+        for (auto& c : countries) {
+            if (c.getPopulation() <= 0) continue;
+            if (c.isAtWar()) continue;
+            if (c.getIdeology() != Country::Ideology::Kingdom &&
+                c.getIdeology() != Country::Ideology::Empire &&
+                c.getIdeology() != Country::Ideology::Theocracy) {
+                continue;
+            }
+
+            const double pop = static_cast<double>(std::max<long long>(1, c.getPopulation()));
+            const double urban = clamp01(c.getTotalCityPopulation() / pop);
+            const double capability = clamp01(
+                0.35 * clamp01(c.getAdminCapacity()) +
+                0.25 * clamp01(c.getAvgControl()) +
+                0.20 * clamp01(c.getLegitimacy()) +
+                0.20 * urban);
+            if (currentYear < -500 || capability < 0.42) continue;
+            if (!TechnologyManager::hasTech(techManager, c, TechId::WRITING)) continue;
+            if (!TechnologyManager::hasTech(techManager, c, TechId::NUMERACY_MEASUREMENT)) continue;
+
+            const double reformDrive = clamp01(
+                0.45 * c.getLeader().reformism +
+                0.20 * c.getLeader().diplomacy +
+                0.15 * urban +
+                0.20 * std::max(0.0, 0.60 - clamp01(c.getLegitimacy())));
+            const double chance = std::clamp(0.02 + 0.10 * reformDrive, 0.0, 0.22);
+            if (u01(rng) > chance) continue;
+
+            std::string base = c.getName();
+            base = stripSuffix(base, " Tribe");
+            base = stripSuffix(base, " Kingdom");
+            base = stripSuffix(base, " Empire");
+            base = stripSuffix(base, " Republic");
+            std::string next = "Republic of " + base;
+            if (next == c.getName() || isNameTaken(countries, next)) {
+                next = c.getName();
+            }
+
+            if (next != c.getName()) {
+                c.setName(next);
+            }
+            c.setIdeology((reformDrive > 0.62) ? Country::Ideology::Democracy : Country::Ideology::Republic);
+            const double legitBefore = clamp01(c.getLegitimacy());
+            c.setLegitimacy(std::max(0.42, c.getLegitimacy()));
+            recordLegitimacyEventDelta(c, legitBefore, 0, 1);
+            c.setStability(std::max(0.40, c.getStability()));
+            c.setFragmentationCooldown(std::max(c.getFragmentationCooldown(), 80));
+            news.addEvent("Constitutional reform in " + c.getName() + " establishes an electoral regime.");
         }
     }
     traceDetailed("afterTagReplacement");
@@ -6278,7 +6619,8 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
                        std::function<void(int, int)> chunkCompletedCallback,
                        const std::atomic<bool>* cancelRequested,
                        bool enablePopulationDebugLog,
-                       const std::string& populationDebugLogPath) {
+                       const std::string& populationDebugLogPath,
+                       bool enableMegaSnapshotConsoleLog) {
     std::cout << "\nBEGINNING MEGA SIMULATION OF HUMAN HISTORY (EXACT YEARLY KERNEL)..." << std::endl;
 
     const int totalYears = targetYear - currentYear;
@@ -6410,29 +6752,34 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
         if ((simYear % worldSnapshotCadenceYears) != 0) {
             return;
         }
+        if (!enableMegaSnapshotConsoleLog && !populationDebugLog.is_open()) {
+            return;
+        }
 
         const WorldFoodSnapshot snap = computeWorldFoodSnapshot();
 
-        std::cout << "[FOOD SNAPSHOT] year=" << simYear
-                  << " pop=" << static_cast<long long>(std::llround(snap.worldPopOwned))
-                  << " need=" << snap.worldFoodNeed
-                  << " prod=" << snap.worldFoodProd
-                  << " importsQty=" << snap.worldFoodImportsQty
-                  << " stock=" << snap.worldFoodStock
-                  << " stockCap=" << snap.worldFoodStockCap
-                  << " shortage=" << snap.worldShortage
-                  << " fsMean=" << snap.meanFoodSecurityPopWeighted
-                  << " nutrMean=" << snap.meanNutritionPopWeighted
-                  << " pop<0.9=" << (100.0 * snap.popShareUnder09) << "%"
-                  << " pop<0.7=" << (100.0 * snap.popShareUnder07) << "%"
-                  << " pop<0.5=" << (100.0 * snap.popShareUnder05) << "%"
-                  << std::endl;
-        std::cout << "[DEMOGRAPHY SNAPSHOT] year=" << simYear
-                  << " births=" << snap.birthsTotal
-                  << " deathsBase=" << snap.deathsBaseTotal
-                  << " deathsFamine=" << snap.deathsFamineTotal
-                  << " deathsEpi=" << snap.deathsEpiTotal
-                  << std::endl;
+        if (enableMegaSnapshotConsoleLog) {
+            std::cout << "[FOOD SNAPSHOT] year=" << simYear
+                      << " pop=" << static_cast<long long>(std::llround(snap.worldPopOwned))
+                      << " need=" << snap.worldFoodNeed
+                      << " prod=" << snap.worldFoodProd
+                      << " importsQty=" << snap.worldFoodImportsQty
+                      << " stock=" << snap.worldFoodStock
+                      << " stockCap=" << snap.worldFoodStockCap
+                      << " shortage=" << snap.worldShortage
+                      << " fsMean=" << snap.meanFoodSecurityPopWeighted
+                      << " nutrMean=" << snap.meanNutritionPopWeighted
+                      << " pop<0.9=" << (100.0 * snap.popShareUnder09) << "%"
+                      << " pop<0.7=" << (100.0 * snap.popShareUnder07) << "%"
+                      << " pop<0.5=" << (100.0 * snap.popShareUnder05) << "%"
+                      << std::endl;
+            std::cout << "[DEMOGRAPHY SNAPSHOT] year=" << simYear
+                      << " births=" << snap.birthsTotal
+                      << " deathsBase=" << snap.deathsBaseTotal
+                      << " deathsFamine=" << snap.deathsFamineTotal
+                      << " deathsEpi=" << snap.deathsEpiTotal
+                      << std::endl;
+        }
 
         struct WorstFoodCountry {
             int index = -1;
@@ -6495,27 +6842,29 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
                       return a.index < b.index;
                   });
 
-        const size_t worstCount = std::min<size_t>(5, worstCountries.size());
-        std::cout << "[FOOD WORST5] year=" << simYear << " count=" << worstCount << std::endl;
-        for (size_t rank = 0; rank < worstCount; ++rank) {
-            const WorstFoodCountry& row = worstCountries[rank];
-            const Country& c = countries[static_cast<size_t>(row.index)];
-            std::cout << "  #" << (rank + 1)
-                      << " " << c.getName()
-                      << " (id=" << c.getCountryIndex() << ")"
-                      << " pop=" << static_cast<long long>(std::llround(row.pop))
-                      << " foodSecurity=" << row.foodSecurity
-                      << " famineSeverity=" << row.famineSeverity
-                      << " subsistenceNeed=" << row.subsistenceFoodNeedAnnual
-                      << " foodOutput=" << row.lastFoodOutput
-                      << " importsQty=" << row.importsQtyAnnual
-                      << " foodStock=" << row.foodStock
-                      << " foodStockCap=" << row.foodStockCap
-                      << " laborFoodShare=" << row.laborFoodShare
-                      << " realWage=" << row.realWage
-                      << " stability=" << row.stability
-                      << " control=" << row.control
-                      << std::endl;
+        if (enableMegaSnapshotConsoleLog) {
+            const size_t worstCount = std::min<size_t>(5, worstCountries.size());
+            std::cout << "[FOOD WORST5] year=" << simYear << " count=" << worstCount << std::endl;
+            for (size_t rank = 0; rank < worstCount; ++rank) {
+                const WorstFoodCountry& row = worstCountries[rank];
+                const Country& c = countries[static_cast<size_t>(row.index)];
+                std::cout << "  #" << (rank + 1)
+                          << " " << c.getName()
+                          << " (id=" << c.getCountryIndex() << ")"
+                          << " pop=" << static_cast<long long>(std::llround(row.pop))
+                          << " foodSecurity=" << row.foodSecurity
+                          << " famineSeverity=" << row.famineSeverity
+                          << " subsistenceNeed=" << row.subsistenceFoodNeedAnnual
+                          << " foodOutput=" << row.lastFoodOutput
+                          << " importsQty=" << row.importsQtyAnnual
+                          << " foodStock=" << row.foodStock
+                          << " foodStockCap=" << row.foodStockCap
+                          << " laborFoodShare=" << row.laborFoodShare
+                          << " realWage=" << row.realWage
+                          << " stability=" << row.stability
+                          << " control=" << row.control
+                          << std::endl;
+            }
         }
 
         struct WorstDemographyCountry {
@@ -6598,29 +6947,31 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
                       return a.index < b.index;
                   });
 
-        const size_t worstDemoCount = std::min<size_t>(5, worstDemography.size());
-        std::cout << "[DEMOGRAPHY WORST5] year=" << simYear << " count=" << worstDemoCount << std::endl;
-        for (size_t rank = 0; rank < worstDemoCount; ++rank) {
-            const WorstDemographyCountry& row = worstDemography[rank];
-            const Country& c = countries[static_cast<size_t>(row.index)];
-            std::cout << "  #" << (rank + 1)
-                      << " " << c.getName()
-                      << " (id=" << c.getCountryIndex() << ")"
-                      << " pop=" << static_cast<long long>(std::llround(row.pop))
-                      << " c0=" << row.c0SharePct << "%"
-                      << " c1=" << row.c1SharePct << "%"
-                      << " c2=" << row.c2SharePct << "%"
-                      << " c3=" << row.c3SharePct << "%"
-                      << " c4=" << row.c4SharePct << "%"
-                      << " fertility=" << row.fertility
-                      << " nutritionMult=" << row.nutritionMult
-                      << " stabilityMult=" << row.stabilityMult
-                      << " wageMult=" << row.wageMult
-                      << " crudeBirthRate=" << row.crudeBirthRate
-                      << " crudeDeathRate=" << row.crudeDeathRate
-                      << " stagnationYears=" << row.stagnationYears
-                      << " stability=" << row.stability
-                      << std::endl;
+        if (enableMegaSnapshotConsoleLog) {
+            const size_t worstDemoCount = std::min<size_t>(5, worstDemography.size());
+            std::cout << "[DEMOGRAPHY WORST5] year=" << simYear << " count=" << worstDemoCount << std::endl;
+            for (size_t rank = 0; rank < worstDemoCount; ++rank) {
+                const WorstDemographyCountry& row = worstDemography[rank];
+                const Country& c = countries[static_cast<size_t>(row.index)];
+                std::cout << "  #" << (rank + 1)
+                          << " " << c.getName()
+                          << " (id=" << c.getCountryIndex() << ")"
+                          << " pop=" << static_cast<long long>(std::llround(row.pop))
+                          << " c0=" << row.c0SharePct << "%"
+                          << " c1=" << row.c1SharePct << "%"
+                          << " c2=" << row.c2SharePct << "%"
+                          << " c3=" << row.c3SharePct << "%"
+                          << " c4=" << row.c4SharePct << "%"
+                          << " fertility=" << row.fertility
+                          << " nutritionMult=" << row.nutritionMult
+                          << " stabilityMult=" << row.stabilityMult
+                          << " wageMult=" << row.wageMult
+                          << " crudeBirthRate=" << row.crudeBirthRate
+                          << " crudeDeathRate=" << row.crudeDeathRate
+                          << " stagnationYears=" << row.stagnationYears
+                          << " stability=" << row.stability
+                          << std::endl;
+            }
         }
 
         struct StabilitySnapshot {
@@ -6707,20 +7058,22 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
         };
 
         const StabilitySnapshot stabilitySnapshot = computeStabilitySnapshot();
-        std::cout << "[STABILITY SNAPSHOT] year=" << simYear
-                  << " popOwned=" << static_cast<long long>(std::llround(stabilitySnapshot.popOwned))
-                  << " stabMean=" << stabilitySnapshot.stabMean
-                  << " stabP10=" << stabilitySnapshot.stabP10
-                  << " pop<0.2=" << (100.0 * stabilitySnapshot.popShareUnder02) << "%"
-                  << " pop<0.4=" << (100.0 * stabilitySnapshot.popShareUnder04) << "%"
-                  << " pop<0.6=" << (100.0 * stabilitySnapshot.popShareUnder06) << "%"
-                  << " meanDeltaTotal=" << stabilitySnapshot.meanDeltaTotal
-                  << " meanDeltaUpdate=" << stabilitySnapshot.meanDeltaUpdate
-                  << " meanDeltaBudget=" << stabilitySnapshot.meanDeltaBudget
-                  << " meanDeltaDemog=" << stabilitySnapshot.meanDeltaDemog
-                  << " countStagn>20=" << stabilitySnapshot.countStagnationGt20
-                  << " meanGrowthRatio=" << stabilitySnapshot.meanGrowthRatioUsed
-                  << std::endl;
+        if (enableMegaSnapshotConsoleLog) {
+            std::cout << "[STABILITY SNAPSHOT] year=" << simYear
+                      << " popOwned=" << static_cast<long long>(std::llround(stabilitySnapshot.popOwned))
+                      << " stabMean=" << stabilitySnapshot.stabMean
+                      << " stabP10=" << stabilitySnapshot.stabP10
+                      << " pop<0.2=" << (100.0 * stabilitySnapshot.popShareUnder02) << "%"
+                      << " pop<0.4=" << (100.0 * stabilitySnapshot.popShareUnder04) << "%"
+                      << " pop<0.6=" << (100.0 * stabilitySnapshot.popShareUnder06) << "%"
+                      << " meanDeltaTotal=" << stabilitySnapshot.meanDeltaTotal
+                      << " meanDeltaUpdate=" << stabilitySnapshot.meanDeltaUpdate
+                      << " meanDeltaBudget=" << stabilitySnapshot.meanDeltaBudget
+                      << " meanDeltaDemog=" << stabilitySnapshot.meanDeltaDemog
+                      << " countStagn>20=" << stabilitySnapshot.countStagnationGt20
+                      << " meanGrowthRatio=" << stabilitySnapshot.meanGrowthRatioUsed
+                      << std::endl;
+        }
 
         struct WorstStabilityCountry {
             int index = -1;
@@ -6755,42 +7108,44 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
                       return a.index < b.index;
                   });
 
-        const size_t worstStabilityCount = std::min<size_t>(5, worstStability.size());
-        std::cout << "[STABILITY WORST5] year=" << simYear << " count=" << worstStabilityCount << std::endl;
-        for (size_t rank = 0; rank < worstStabilityCount; ++rank) {
-            const WorstStabilityCountry& row = worstStability[rank];
-            const Country& c = countries[static_cast<size_t>(row.index)];
-            const auto& sd = row.dbg;
-            std::cout << "  #" << (rank + 1)
-                      << " " << c.getName()
-                      << " (id=" << c.getCountryIndex() << ")"
-                      << " pop=" << static_cast<long long>(std::llround(row.pop))
-                      << " stabStart=" << sd.dbg_stab_start_year
-                      << " stabAfterUpdate=" << sd.dbg_stab_after_country_update
-                      << " stabAfterBudget=" << sd.dbg_stab_after_budget
-                      << " stabAfterDemog=" << sd.dbg_stab_after_demography
-                      << " deltas(update=" << sd.dbg_stab_delta_update
-                      << ", budget=" << sd.dbg_stab_delta_budget
-                      << ", demog=" << sd.dbg_stab_delta_demog
-                      << ", total=" << sd.dbg_stab_delta_total << ")"
-                      << " growthRatio=" << sd.dbg_growthRatio_used
-                      << " stagnYears=" << sd.dbg_stagnationYears
-                      << " war=" << (sd.dbg_isAtWar ? 1 : 0)
-                      << " plague=" << (sd.dbg_plagueAffected ? 1 : 0)
-                      << " deltas(war=" << sd.dbg_delta_war
-                      << ", plague=" << sd.dbg_delta_plague
-                      << ", stagn=" << sd.dbg_delta_stagnation
-                      << ", peaceRec=" << sd.dbg_delta_peace_recover << ")"
-                      << " deltas(debt=" << sd.dbg_delta_debt_crisis
-                      << ", control=" << sd.dbg_delta_control_decay
-                      << ", demogStress=" << sd.dbg_delta_demog_stress << ")"
-                      << " control=" << sd.dbg_avgControl
-                      << " shortage=" << sd.dbg_shortageRatio
-                      << " disease=" << sd.dbg_diseaseBurden
-                      << " popCountryBeforeUpdate=" << sd.dbg_pop_country_before_update
-                      << " popGridOld=" << sd.dbg_pop_grid_oldTotals
-                      << " mismatch=" << sd.dbg_pop_mismatch_ratio
-                      << std::endl;
+        if (enableMegaSnapshotConsoleLog) {
+            const size_t worstStabilityCount = std::min<size_t>(5, worstStability.size());
+            std::cout << "[STABILITY WORST5] year=" << simYear << " count=" << worstStabilityCount << std::endl;
+            for (size_t rank = 0; rank < worstStabilityCount; ++rank) {
+                const WorstStabilityCountry& row = worstStability[rank];
+                const Country& c = countries[static_cast<size_t>(row.index)];
+                const auto& sd = row.dbg;
+                std::cout << "  #" << (rank + 1)
+                          << " " << c.getName()
+                          << " (id=" << c.getCountryIndex() << ")"
+                          << " pop=" << static_cast<long long>(std::llround(row.pop))
+                          << " stabStart=" << sd.dbg_stab_start_year
+                          << " stabAfterUpdate=" << sd.dbg_stab_after_country_update
+                          << " stabAfterBudget=" << sd.dbg_stab_after_budget
+                          << " stabAfterDemog=" << sd.dbg_stab_after_demography
+                          << " deltas(update=" << sd.dbg_stab_delta_update
+                          << ", budget=" << sd.dbg_stab_delta_budget
+                          << ", demog=" << sd.dbg_stab_delta_demog
+                          << ", total=" << sd.dbg_stab_delta_total << ")"
+                          << " growthRatio=" << sd.dbg_growthRatio_used
+                          << " stagnYears=" << sd.dbg_stagnationYears
+                          << " war=" << (sd.dbg_isAtWar ? 1 : 0)
+                          << " plague=" << (sd.dbg_plagueAffected ? 1 : 0)
+                          << " deltas(war=" << sd.dbg_delta_war
+                          << ", plague=" << sd.dbg_delta_plague
+                          << ", stagn=" << sd.dbg_delta_stagnation
+                          << ", peaceRec=" << sd.dbg_delta_peace_recover << ")"
+                          << " deltas(debt=" << sd.dbg_delta_debt_crisis
+                          << ", control=" << sd.dbg_delta_control_decay
+                          << ", demogStress=" << sd.dbg_delta_demog_stress << ")"
+                          << " control=" << sd.dbg_avgControl
+                          << " shortage=" << sd.dbg_shortageRatio
+                          << " disease=" << sd.dbg_diseaseBurden
+                          << " popCountryBeforeUpdate=" << sd.dbg_pop_country_before_update
+                          << " popGridOld=" << sd.dbg_pop_grid_oldTotals
+                          << " mismatch=" << sd.dbg_pop_mismatch_ratio
+                          << std::endl;
+            }
         }
 
         struct LegitimacySnapshot {
@@ -6885,24 +7240,26 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
         };
 
         const LegitimacySnapshot legitimacySnapshot = computeLegitimacySnapshot();
-        std::cout << "[LEGITIMACY SNAPSHOT] year=" << simYear
-                  << " popOwned=" << static_cast<long long>(std::llround(legitimacySnapshot.popOwned))
-                  << " legitMean=" << legitimacySnapshot.legitMean
-                  << " legitP10=" << legitimacySnapshot.legitP10
-                  << " pop<0.2=" << (100.0 * legitimacySnapshot.popShareUnder02) << "%"
-                  << " pop<0.4=" << (100.0 * legitimacySnapshot.popShareUnder04) << "%"
-                  << " pop<0.6=" << (100.0 * legitimacySnapshot.popShareUnder06) << "%"
-                  << " meanDeltaEconomy=" << legitimacySnapshot.meanDeltaEconomy
-                  << " meanDeltaBudget=" << legitimacySnapshot.meanDeltaBudget
-                  << " meanDeltaDemog=" << legitimacySnapshot.meanDeltaDemog
-                  << " meanDeltaCulture=" << legitimacySnapshot.meanDeltaCulture
-                  << " meanDeltaEvents=" << legitimacySnapshot.meanDeltaEvents
-                  << " meanDeltaTotal=" << legitimacySnapshot.meanDeltaTotal
-                  << " clamp0_economy=" << legitimacySnapshot.clamp0Economy
-                  << " clamp0_budget=" << legitimacySnapshot.clamp0Budget
-                  << " clamp0_demog=" << legitimacySnapshot.clamp0Demog
-                  << " clamp0_events=" << legitimacySnapshot.clamp0Events
-                  << std::endl;
+        if (enableMegaSnapshotConsoleLog) {
+            std::cout << "[LEGITIMACY SNAPSHOT] year=" << simYear
+                      << " popOwned=" << static_cast<long long>(std::llround(legitimacySnapshot.popOwned))
+                      << " legitMean=" << legitimacySnapshot.legitMean
+                      << " legitP10=" << legitimacySnapshot.legitP10
+                      << " pop<0.2=" << (100.0 * legitimacySnapshot.popShareUnder02) << "%"
+                      << " pop<0.4=" << (100.0 * legitimacySnapshot.popShareUnder04) << "%"
+                      << " pop<0.6=" << (100.0 * legitimacySnapshot.popShareUnder06) << "%"
+                      << " meanDeltaEconomy=" << legitimacySnapshot.meanDeltaEconomy
+                      << " meanDeltaBudget=" << legitimacySnapshot.meanDeltaBudget
+                      << " meanDeltaDemog=" << legitimacySnapshot.meanDeltaDemog
+                      << " meanDeltaCulture=" << legitimacySnapshot.meanDeltaCulture
+                      << " meanDeltaEvents=" << legitimacySnapshot.meanDeltaEvents
+                      << " meanDeltaTotal=" << legitimacySnapshot.meanDeltaTotal
+                      << " clamp0_economy=" << legitimacySnapshot.clamp0Economy
+                      << " clamp0_budget=" << legitimacySnapshot.clamp0Budget
+                      << " clamp0_demog=" << legitimacySnapshot.clamp0Demog
+                      << " clamp0_events=" << legitimacySnapshot.clamp0Events
+                      << std::endl;
+        }
 
         struct WorstLegitimacyCountry {
             int index = -1;
@@ -6937,76 +7294,78 @@ bool Map::megaTimeJump(std::vector<Country>& countries, int& currentYear, int ta
                       return a.index < b.index;
                   });
 
-        const size_t worstLegitimacyCount = std::min<size_t>(5, worstLegitimacy.size());
-        std::cout << "[LEGITIMACY WORST5] year=" << simYear << " count=" << worstLegitimacyCount << std::endl;
-        for (size_t rank = 0; rank < worstLegitimacyCount; ++rank) {
-            const WorstLegitimacyCountry& row = worstLegitimacy[rank];
-            const Country& c = countries[static_cast<size_t>(row.index)];
-            const auto& ld = row.dbg;
-            std::cout << "  #" << (rank + 1)
-                      << " " << c.getName()
-                      << " (id=" << c.getCountryIndex() << ")"
-                      << " pop=" << static_cast<long long>(std::llround(row.pop))
-                      << " legitStart=" << ld.dbg_legit_start
-                      << " afterEconomy=" << ld.dbg_legit_after_economy
-                      << " afterBudget=" << ld.dbg_legit_after_budget
-                      << " afterDemog=" << ld.dbg_legit_after_demog
-                      << " afterCulture=" << ld.dbg_legit_after_culture
-                      << " end=" << ld.dbg_legit_end
-                      << " deltas(economy=" << ld.dbg_legit_delta_economy
-                      << ", budget=" << ld.dbg_legit_delta_budget
-                      << ", demog=" << ld.dbg_legit_delta_demog
-                      << ", culture=" << ld.dbg_legit_delta_culture
-                      << ", events=" << ld.dbg_legit_delta_events
-                      << ", total=" << ld.dbg_legit_delta_total << ")"
-                      << " budget(incomeAnnual=" << ld.dbg_legit_budget_incomeAnnual
-                      << ", incomeSafe=" << ld.dbg_legit_budget_incomeSafe
-                      << ", desired=" << ld.dbg_legit_budget_desiredBlock
-                      << ", actual=" << ld.dbg_legit_budget_actualSpending
-                      << ", shortfallStress=" << ld.dbg_legit_budget_shortfallStress
-                      << ", taxRateTarget=" << ld.dbg_legit_budget_taxRateTarget
-                      << ", taxRateBefore=" << ld.dbg_legit_budget_taxRateBefore
-                      << ", taxRateAfter=" << ld.dbg_legit_budget_taxRateAfter
-                      << ", taxRateSource=" << ld.dbg_legit_budget_taxRateSource
-                      << ", debtToIncome=" << ld.dbg_legit_budget_debtToIncome
-                      << ", debtToIncomeRaw=" << ld.dbg_legit_budget_debtToIncomeRaw
-                      << ", serviceToIncome=" << ld.dbg_legit_budget_serviceToIncome
-                      << ", serviceToIncomeRaw=" << ld.dbg_legit_budget_serviceToIncomeRaw
-                      << ", debtRaw=" << ld.dbg_legit_budget_debtEnd
-                      << ", debtServiceRaw=" << ld.dbg_legit_budget_debtServiceAnnual
-                      << ", ratioOver5=" << (ld.dbg_legit_budget_ratioOver5 ? 1 : 0)
-                      << ", taxRate=" << ld.dbg_legit_budget_taxRate
-                      << ", control=" << ld.dbg_legit_budget_avgControl
-                      << ", stability=" << ld.dbg_legit_budget_stability << ")"
-                      << " economy(instCap=" << ld.dbg_legit_econ_instCap
-                      << ", wageGain=" << ld.dbg_legit_econ_wageGain
-                      << ", famine=" << ld.dbg_legit_econ_famineSeverity
-                      << ", ineq=" << ld.dbg_legit_econ_ineq
-                      << ", disease=" << ld.dbg_legit_econ_disease << ")"
-                      << " budgetLegit(shortfallDirect=" << ld.dbg_legit_budget_shortfall_direct
-                      << ", burdenPenalty=" << ld.dbg_legit_budget_burden_penalty
-                      << ", debtStress=" << ld.dbg_legit_budget_debtStress
-                      << ", serviceStress=" << ld.dbg_legit_budget_serviceStress
-                      << ", drift_tax=" << ld.dbg_legit_budget_drift_tax
-                      << ", drift_control=" << ld.dbg_legit_budget_drift_control
-                      << ", drift_debt=" << ld.dbg_legit_budget_drift_debt
-                      << ", drift_service=" << ld.dbg_legit_budget_drift_service
-                      << ", drift_shortfall=" << ld.dbg_legit_budget_drift_shortfall
-                      << ", drift_plague=" << ld.dbg_legit_budget_drift_plague
-                      << ", drift_war=" << ld.dbg_legit_budget_drift_war
-                      << ", drift_stability=" << ld.dbg_legit_budget_drift_stability << ")"
-                      << " economyLegit(inst=" << ld.dbg_legit_econ_up_inst
-                      << ", wage=" << ld.dbg_legit_econ_up_wage
-                      << ", famine=" << ld.dbg_legit_econ_down_famine
-                      << ", inequality=" << ld.dbg_legit_econ_down_ineq
-                      << ", disease=" << ld.dbg_legit_econ_down_disease << ")"
-                      << " events(splits=" << ld.dbg_legit_event_splits
-                      << ", tagReplacements=" << ld.dbg_legit_event_tag_replacements << ")"
-                      << " clamp0(economy=" << ld.dbg_legit_clamp_to_zero_economy
-                      << ", budget=" << ld.dbg_legit_clamp_to_zero_budget
-                      << ", demog=" << ld.dbg_legit_clamp_to_zero_demog
-                      << ", events=" << ld.dbg_legit_clamp_to_zero_events << ")"
-                      << std::endl;
+        if (enableMegaSnapshotConsoleLog) {
+            const size_t worstLegitimacyCount = std::min<size_t>(5, worstLegitimacy.size());
+            std::cout << "[LEGITIMACY WORST5] year=" << simYear << " count=" << worstLegitimacyCount << std::endl;
+            for (size_t rank = 0; rank < worstLegitimacyCount; ++rank) {
+                const WorstLegitimacyCountry& row = worstLegitimacy[rank];
+                const Country& c = countries[static_cast<size_t>(row.index)];
+                const auto& ld = row.dbg;
+                std::cout << "  #" << (rank + 1)
+                          << " " << c.getName()
+                          << " (id=" << c.getCountryIndex() << ")"
+                          << " pop=" << static_cast<long long>(std::llround(row.pop))
+                          << " legitStart=" << ld.dbg_legit_start
+                          << " afterEconomy=" << ld.dbg_legit_after_economy
+                          << " afterBudget=" << ld.dbg_legit_after_budget
+                          << " afterDemog=" << ld.dbg_legit_after_demog
+                          << " afterCulture=" << ld.dbg_legit_after_culture
+                          << " end=" << ld.dbg_legit_end
+                          << " deltas(economy=" << ld.dbg_legit_delta_economy
+                          << ", budget=" << ld.dbg_legit_delta_budget
+                          << ", demog=" << ld.dbg_legit_delta_demog
+                          << ", culture=" << ld.dbg_legit_delta_culture
+                          << ", events=" << ld.dbg_legit_delta_events
+                          << ", total=" << ld.dbg_legit_delta_total << ")"
+                          << " budget(incomeAnnual=" << ld.dbg_legit_budget_incomeAnnual
+                          << ", incomeSafe=" << ld.dbg_legit_budget_incomeSafe
+                          << ", desired=" << ld.dbg_legit_budget_desiredBlock
+                          << ", actual=" << ld.dbg_legit_budget_actualSpending
+                          << ", shortfallStress=" << ld.dbg_legit_budget_shortfallStress
+                          << ", taxRateTarget=" << ld.dbg_legit_budget_taxRateTarget
+                          << ", taxRateBefore=" << ld.dbg_legit_budget_taxRateBefore
+                          << ", taxRateAfter=" << ld.dbg_legit_budget_taxRateAfter
+                          << ", taxRateSource=" << ld.dbg_legit_budget_taxRateSource
+                          << ", debtToIncome=" << ld.dbg_legit_budget_debtToIncome
+                          << ", debtToIncomeRaw=" << ld.dbg_legit_budget_debtToIncomeRaw
+                          << ", serviceToIncome=" << ld.dbg_legit_budget_serviceToIncome
+                          << ", serviceToIncomeRaw=" << ld.dbg_legit_budget_serviceToIncomeRaw
+                          << ", debtRaw=" << ld.dbg_legit_budget_debtEnd
+                          << ", debtServiceRaw=" << ld.dbg_legit_budget_debtServiceAnnual
+                          << ", ratioOver5=" << (ld.dbg_legit_budget_ratioOver5 ? 1 : 0)
+                          << ", taxRate=" << ld.dbg_legit_budget_taxRate
+                          << ", control=" << ld.dbg_legit_budget_avgControl
+                          << ", stability=" << ld.dbg_legit_budget_stability << ")"
+                          << " economy(instCap=" << ld.dbg_legit_econ_instCap
+                          << ", wageGain=" << ld.dbg_legit_econ_wageGain
+                          << ", famine=" << ld.dbg_legit_econ_famineSeverity
+                          << ", ineq=" << ld.dbg_legit_econ_ineq
+                          << ", disease=" << ld.dbg_legit_econ_disease << ")"
+                          << " budgetLegit(shortfallDirect=" << ld.dbg_legit_budget_shortfall_direct
+                          << ", burdenPenalty=" << ld.dbg_legit_budget_burden_penalty
+                          << ", debtStress=" << ld.dbg_legit_budget_debtStress
+                          << ", serviceStress=" << ld.dbg_legit_budget_serviceStress
+                          << ", drift_tax=" << ld.dbg_legit_budget_drift_tax
+                          << ", drift_control=" << ld.dbg_legit_budget_drift_control
+                          << ", drift_debt=" << ld.dbg_legit_budget_drift_debt
+                          << ", drift_service=" << ld.dbg_legit_budget_drift_service
+                          << ", drift_shortfall=" << ld.dbg_legit_budget_drift_shortfall
+                          << ", drift_plague=" << ld.dbg_legit_budget_drift_plague
+                          << ", drift_war=" << ld.dbg_legit_budget_drift_war
+                          << ", drift_stability=" << ld.dbg_legit_budget_drift_stability << ")"
+                          << " economyLegit(inst=" << ld.dbg_legit_econ_up_inst
+                          << ", wage=" << ld.dbg_legit_econ_up_wage
+                          << ", famine=" << ld.dbg_legit_econ_down_famine
+                          << ", inequality=" << ld.dbg_legit_econ_down_ineq
+                          << ", disease=" << ld.dbg_legit_econ_down_disease << ")"
+                          << " events(splits=" << ld.dbg_legit_event_splits
+                          << ", tagReplacements=" << ld.dbg_legit_event_tag_replacements << ")"
+                          << " clamp0(economy=" << ld.dbg_legit_clamp_to_zero_economy
+                          << ", budget=" << ld.dbg_legit_clamp_to_zero_budget
+                          << ", demog=" << ld.dbg_legit_clamp_to_zero_demog
+                          << ", events=" << ld.dbg_legit_clamp_to_zero_events << ")"
+                          << std::endl;
+            }
         }
 
         if (populationDebugLog.is_open()) {

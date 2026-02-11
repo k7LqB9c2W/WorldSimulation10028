@@ -8,6 +8,10 @@
 #include <cstdio>
 #include <cstdint>
 #include <random>
+#include <deque>
+#include <queue>
+#include <unordered_set>
+#include <limits>
 #include <imgui.h>
 #include <imgui-SFML.h>
 
@@ -169,6 +173,7 @@ Renderer::Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& wa
     m_needsUpdate(true),
     m_showWarmongerHighlights(false),
     m_showWarHighlights(false),
+    m_showTradeRoutes(true),
     m_showCountryAddModeText(false),
     m_showPaintHud(false),
     m_paintHudText(""),
@@ -384,7 +389,9 @@ void Renderer::render(const std::vector<Country>& countries,
         drawRoadNetwork(*worldTarget, country, map, technologyManager, visibleArea);
     }
 
-    drawTradeRoutes(*worldTarget, tradeManager, countries, map, visibleArea);
+    if (m_showTradeRoutes) {
+        drawTradeRoutes(*worldTarget, tradeManager, countries, map, visibleArea);
+    }
     drawAirwayPlanes(*worldTarget, countries, map);
 
     if (m_extractorVertices.getVertexCount() > 0) {
@@ -483,6 +490,13 @@ void Renderer::render(const std::vector<Country>& countries,
 
     // Always show a primary-target war arrow when a country is at war.
     drawWarArrows(*worldTarget, countries, map, visibleArea);
+
+    if (m_showCountryPovOverlay) {
+        updateCountryPovFogTexture(map, countries, tradeManager, selectedCountry);
+        if (m_countryPovTex.getSize().x > 0u && m_countryPovTex.getSize().y > 0u) {
+            worldTarget->draw(m_countryPovSprite);
+        }
+    }
 
     // CPU fallback hover marker (GPU path handles full highlight via shader).
     if (!m_useGpuCountryOverlay && m_hoveredCountryIndex >= 0 &&
@@ -896,8 +910,30 @@ void Renderer::setOverseasOverlay(bool enabled) {
     m_showOverseasOverlay = enabled;
 }
 
+void Renderer::toggleCountryPovOverlay() {
+    m_showCountryPovOverlay = !m_showCountryPovOverlay;
+    if (!m_showCountryPovOverlay) {
+        m_countryPovObserverIndex = -1;
+    }
+}
+
+void Renderer::setCountryPovOverlay(bool enabled) {
+    m_showCountryPovOverlay = enabled;
+    if (!m_showCountryPovOverlay) {
+        m_countryPovObserverIndex = -1;
+    }
+}
+
 void Renderer::toggleWarHighlights() {
     m_showWarHighlights = !m_showWarHighlights;
+}
+
+void Renderer::toggleTradeRouteOverlay() {
+    m_showTradeRoutes = !m_showTradeRoutes;
+}
+
+void Renderer::setTradeRouteOverlay(bool enabled) {
+    m_showTradeRoutes = enabled;
 }
 
 void Renderer::updateClimateOverlayTexture(const Map& map) {
@@ -1143,6 +1179,261 @@ void Renderer::updateOverseasOverlayTexture(const Map& map) {
     const float scale = static_cast<float>(map.getGridCellSize() * Map::kFieldCellSize);
     m_overseasSprite.setScale(scale, scale);
     m_overseasSprite.setColor(sf::Color(255, 255, 255, 140));
+}
+
+std::vector<uint8_t> Renderer::buildCountryKnowledgeMask(const Map& map,
+                                                         const std::vector<Country>& countries,
+                                                         const TradeManager& tradeManager,
+                                                         int observerIndex) const {
+    std::vector<uint8_t> known(countries.size(), 0u);
+    if (observerIndex < 0 || observerIndex >= static_cast<int>(countries.size())) {
+        return known;
+    }
+    if (countries[static_cast<size_t>(observerIndex)].getPopulation() <= 0) {
+        return known;
+    }
+
+    auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+    const Country& observer = countries[static_cast<size_t>(observerIndex)];
+    known[static_cast<size_t>(observerIndex)] = 1u;
+
+    const double connectivity = clamp01(observer.getMacroEconomy().connectivityIndex);
+    const double knowledge = clamp01(observer.getMacroEconomy().knowledgeStock);
+    const double market = clamp01(observer.getMarketAccess());
+    const double logistics = clamp01(observer.getLogisticsReach());
+    const double diplomacy = clamp01(observer.getLeader().diplomacy);
+    const double eraBoost =
+        (m_currentYear >= 1950) ? 2.2 :
+        (m_currentYear >= 1850) ? 1.7 :
+        (m_currentYear >= 1500) ? 1.2 :
+        (m_currentYear >= -500) ? 0.6 : 0.0;
+    const int hopBudget = std::max(1, std::min(9, static_cast<int>(std::round(
+        1.0 + eraBoost + 1.8 * connectivity + 1.4 * knowledge + 1.0 * market + 0.8 * diplomacy + 0.7 * logistics))));
+
+    std::vector<int> hopDist(countries.size(), std::numeric_limits<int>::max());
+    std::queue<int> q;
+    hopDist[static_cast<size_t>(observerIndex)] = 0;
+    q.push(observerIndex);
+
+    while (!q.empty()) {
+        const int a = q.front();
+        q.pop();
+        const int d = hopDist[static_cast<size_t>(a)];
+        if (d >= hopBudget) {
+            continue;
+        }
+        const auto& adj = map.getAdjacentCountryIndicesPublic(a);
+        for (int b : adj) {
+            if (b < 0 || b >= static_cast<int>(countries.size())) continue;
+            if (countries[static_cast<size_t>(b)].getCountryIndex() != b) continue;
+            if (countries[static_cast<size_t>(b)].getPopulation() <= 0) continue;
+            if (hopDist[static_cast<size_t>(b)] <= d + 1) continue;
+            hopDist[static_cast<size_t>(b)] = d + 1;
+            known[static_cast<size_t>(b)] = 1u;
+            q.push(b);
+        }
+    }
+
+    for (const Country* enemy : observer.getEnemies()) {
+        if (!enemy) continue;
+        const int idx = enemy->getCountryIndex();
+        if (idx >= 0 && idx < static_cast<int>(countries.size())) {
+            known[static_cast<size_t>(idx)] = 1u;
+            const auto& enemyLinks = countries[static_cast<size_t>(idx)].getEnemies();
+            for (const Country* enemyOfEnemy : enemyLinks) {
+                if (!enemyOfEnemy) continue;
+                const int j = enemyOfEnemy->getCountryIndex();
+                if (j >= 0 && j < static_cast<int>(countries.size()) && hopBudget >= 2) {
+                    known[static_cast<size_t>(j)] = 1u;
+                }
+            }
+        }
+    }
+
+    int propagationRounds = std::max(1, hopBudget / 2);
+    for (int round = 0; round < propagationRounds; ++round) {
+        bool changed = false;
+        for (const TradeRoute& route : tradeManager.getTradeRoutes()) {
+            if (!route.isActive || route.capacity <= 0.0 || route.efficiency <= 0.0) continue;
+            const int a = route.fromCountryIndex;
+            const int b = route.toCountryIndex;
+            if (a < 0 || b < 0 || a >= static_cast<int>(countries.size()) || b >= static_cast<int>(countries.size())) continue;
+            if (countries[static_cast<size_t>(a)].getPopulation() <= 0 || countries[static_cast<size_t>(b)].getPopulation() <= 0) continue;
+            if (known[static_cast<size_t>(a)] == 1u && known[static_cast<size_t>(b)] == 0u) {
+                known[static_cast<size_t>(b)] = 1u;
+                changed = true;
+            } else if (known[static_cast<size_t>(b)] == 1u && known[static_cast<size_t>(a)] == 0u) {
+                known[static_cast<size_t>(a)] = 1u;
+                changed = true;
+            }
+        }
+        if (!changed) break;
+    }
+
+    if (m_currentYear >= 1850) {
+        double totalPop = 0.0;
+        double totalArea = 0.0;
+        for (const Country& c : countries) {
+            if (c.getPopulation() <= 0) continue;
+            totalPop += static_cast<double>(c.getPopulation());
+            totalArea += static_cast<double>(c.getBoundaryPixels().size());
+        }
+        for (const Country& c : countries) {
+            const int idx = c.getCountryIndex();
+            if (idx < 0 || idx >= static_cast<int>(countries.size())) continue;
+            if (c.getPopulation() <= 0) continue;
+            const double popShare = (totalPop > 1e-9) ? static_cast<double>(c.getPopulation()) / totalPop : 0.0;
+            const double areaShare = (totalArea > 1e-9) ? static_cast<double>(c.getBoundaryPixels().size()) / totalArea : 0.0;
+            if (popShare >= 0.015 || areaShare >= 0.025) {
+                known[static_cast<size_t>(idx)] = 1u;
+            }
+        }
+    }
+
+    return known;
+}
+
+void Renderer::updateCountryPovFogTexture(const Map& map,
+                                          const std::vector<Country>& countries,
+                                          const TradeManager& tradeManager,
+                                          const Country* observer) {
+    const auto& grid = map.getCountryGrid();
+    if (grid.empty() || grid[0].empty()) {
+        m_countryPovObserverIndex = -1;
+        m_countryPovPixels.clear();
+        return;
+    }
+
+    const int h = static_cast<int>(grid.size());
+    const int w = static_cast<int>(grid[0].size());
+    const int observerIndex = (observer != nullptr) ? observer->getCountryIndex() : -1;
+    if (observerIndex < 0 || observerIndex >= static_cast<int>(countries.size()) ||
+        countries[static_cast<size_t>(observerIndex)].getPopulation() <= 0) {
+        m_countryPovObserverIndex = -1;
+        m_countryPovLastYear = m_currentYear;
+        m_countryPovLastCountryCount = static_cast<int>(countries.size());
+        m_countryPovW = w;
+        m_countryPovH = h;
+        m_countryPovPixels.assign(static_cast<size_t>(w) * static_cast<size_t>(h) * 4u, 0u);
+        if (m_countryPovTex.getSize().x != static_cast<unsigned>(w) || m_countryPovTex.getSize().y != static_cast<unsigned>(h)) {
+            m_countryPovTex.create(static_cast<unsigned>(w), static_cast<unsigned>(h));
+            m_countryPovTex.setSmooth(false);
+            m_countryPovSprite.setTexture(m_countryPovTex, true);
+            m_countryPovSprite.setPosition(0.f, 0.f);
+        }
+        m_countryPovTex.update(m_countryPovPixels.data());
+        m_countryPovSprite.setScale(static_cast<float>(map.getGridCellSize()), static_cast<float>(map.getGridCellSize()));
+        return;
+    }
+
+    const bool sizeChanged = (w != m_countryPovW) || (h != m_countryPovH);
+    const bool observerChanged = (observerIndex != m_countryPovObserverIndex);
+    const bool yearChanged = (m_currentYear != m_countryPovLastYear);
+    const bool countryCountChanged = (static_cast<int>(countries.size()) != m_countryPovLastCountryCount);
+    if (!sizeChanged && !observerChanged && !yearChanged && !countryCountChanged && !m_countryPovPixels.empty()) {
+        return;
+    }
+
+    m_countryPovW = w;
+    m_countryPovH = h;
+    m_countryPovObserverIndex = observerIndex;
+    m_countryPovLastYear = m_currentYear;
+    m_countryPovLastCountryCount = static_cast<int>(countries.size());
+
+    const std::vector<uint8_t> knownCountries = buildCountryKnowledgeMask(map, countries, tradeManager, observerIndex);
+    const Country& src = countries[static_cast<size_t>(observerIndex)];
+    auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+    const double connectivity = clamp01(src.getMacroEconomy().connectivityIndex);
+    const double knowledge = clamp01(src.getMacroEconomy().knowledgeStock);
+    const double market = clamp01(src.getMarketAccess());
+    const double logistics = clamp01(src.getLogisticsReach());
+    const double eraGeoBoost =
+        (m_currentYear >= 1950) ? 14.0 :
+        (m_currentYear >= 1850) ? 10.0 :
+        (m_currentYear >= 1500) ? 7.0 :
+        (m_currentYear >= -500) ? 4.0 : 0.0;
+    const int revealRadius = std::max(3, std::min(26, static_cast<int>(std::round(
+        2.0 + eraGeoBoost + 5.0 * connectivity + 4.0 * knowledge + 2.0 * market + 2.0 * logistics))));
+
+    const size_t n = static_cast<size_t>(w) * static_cast<size_t>(h);
+    std::vector<uint8_t> knownCells(n, 0u);
+    std::deque<int> dq;
+    std::vector<int> dist(n, std::numeric_limits<int>::max());
+    auto pushSeed = [&](int x, int y) {
+        if (x < 0 || y < 0 || x >= w || y >= h) return;
+        const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(w) + static_cast<size_t>(x);
+        if (dist[idx] == 0) return;
+        dist[idx] = 0;
+        knownCells[idx] = 1u;
+        dq.push_back(static_cast<int>(idx));
+    };
+
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            const int owner = grid[static_cast<size_t>(y)][static_cast<size_t>(x)];
+            if (owner >= 0 && owner < static_cast<int>(knownCountries.size()) &&
+                knownCountries[static_cast<size_t>(owner)] == 1u) {
+                pushSeed(x, y);
+            }
+        }
+    }
+    if (dq.empty()) {
+        const sf::Vector2i cap = src.getCapitalLocation();
+        pushSeed(cap.x, cap.y);
+    }
+
+    static constexpr int kDirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+    while (!dq.empty()) {
+        const int idx = dq.front();
+        dq.pop_front();
+        const int d = dist[static_cast<size_t>(idx)];
+        if (d >= revealRadius) continue;
+        const int x = idx % w;
+        const int y = idx / w;
+        for (const auto& dir : kDirs) {
+            const int nx = x + dir[0];
+            const int ny = y + dir[1];
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            const size_t ni = static_cast<size_t>(ny) * static_cast<size_t>(w) + static_cast<size_t>(nx);
+            if (dist[ni] <= d + 1) continue;
+            dist[ni] = d + 1;
+            knownCells[ni] = 1u;
+            dq.push_back(static_cast<int>(ni));
+        }
+    }
+
+    m_countryPovPixels.assign(n * 4u, 0u);
+    for (size_t i = 0; i < n; ++i) {
+        const int x = static_cast<int>(i % static_cast<size_t>(w));
+        const int y = static_cast<int>(i / static_cast<size_t>(w));
+        const int owner = grid[static_cast<size_t>(y)][static_cast<size_t>(x)];
+        const bool ownerKnown = (owner >= 0 && owner < static_cast<int>(knownCountries.size()) &&
+                                 knownCountries[static_cast<size_t>(owner)] == 1u);
+        const bool geoKnown = knownCells[i] == 1u;
+
+        sf::Uint8 alpha = 235u;
+        if (ownerKnown) {
+            alpha = 0u;
+        } else if (geoKnown) {
+            alpha = (owner >= 0) ? 175u : 90u;
+        }
+
+        const size_t out = i * 4u;
+        m_countryPovPixels[out + 0] = 5u;
+        m_countryPovPixels[out + 1] = 8u;
+        m_countryPovPixels[out + 2] = 12u;
+        m_countryPovPixels[out + 3] = alpha;
+    }
+
+    if (sizeChanged || m_countryPovTex.getSize().x != static_cast<unsigned>(w) || m_countryPovTex.getSize().y != static_cast<unsigned>(h)) {
+        m_countryPovTex.create(static_cast<unsigned>(w), static_cast<unsigned>(h));
+        m_countryPovTex.setSmooth(false);
+        m_countryPovSprite.setTexture(m_countryPovTex, true);
+        m_countryPovSprite.setPosition(0.f, 0.f);
+    }
+    m_countryPovTex.update(m_countryPovPixels.data());
+    m_countryPovSprite.setScale(static_cast<float>(map.getGridCellSize()), static_cast<float>(map.getGridCellSize()));
+    m_countryPovSprite.setColor(sf::Color(255, 255, 255, 255));
 }
 
 void Renderer::drawWealthLeaderboard(const std::vector<Country>& countries) {
@@ -2755,7 +3046,7 @@ void Renderer::drawTradeRoutes(sf::RenderTarget& target, const TradeManager& tra
         float capacityFactor = static_cast<float>(std::min(1.0, route.capacity / 15.0));
         float efficiencyFactor = static_cast<float>(std::min(1.0, route.efficiency));
         sf::Uint8 alpha = static_cast<sf::Uint8>(80 + 140 * capacityFactor * efficiencyFactor);
-        sf::Color routeColor(230, 190, 120, alpha);
+        sf::Color routeColor(70, 245, 120, alpha);
 
         routeLines.append(sf::Vertex(start, routeColor));
         routeLines.append(sf::Vertex(end, routeColor));

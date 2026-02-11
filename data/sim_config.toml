@@ -67,6 +67,8 @@ corridorMountainPenalty = 0.45
 corridorDesertPenalty = 0.25
 refugeeHalfLifeYears = 12
 culturalPreference = 0.2
+frontierClaimPopulationThreshold = 300
+frontierClaimControlThreshold = 0.28
 
 [disease]
 initialInfectedShare = 0.0002
@@ -109,6 +111,10 @@ peaceTributeWeight = 0.25
 peaceReconstructionDrag = 0.22
 earlyAnnihilationBias = 0.15
 highInstitutionAnnihilationDamp = 0.85
+maxConcurrentWars = 4
+leaderAmbitionWarWeight = 0.5
+weakStatePredationWeight = 0.65
+opportunisticWarThreshold = 0.52
 
 [polity]
 regionCountMin = 4
@@ -142,6 +148,12 @@ debtServiceAusterityStrength = 0.42
 subsistenceAdminFloorShare = 0.50
 earlyLegitimacyProvisioningWeight = 0.45
 earlyLegitimacyFiscalWeight = 0.62
+stateTurnoverBaseChance = 0.0024
+stateTurnoverStressWeight = 0.78
+stateTurnoverAgeWeight = 0.44
+successionCrisisSplitWeight = 0.62
+institutionalContinuityShield = 0.60
+stateTurnoverMinAgeYears = 140
 
 [tech]
 capabilityThresholdScale = 0.9
@@ -165,6 +177,15 @@ collapseDecayMultiplier = 1.1
 prereqAdoptionFraction = 0.62
 rareForgetYears = 240
 rareForgetChance = 0.0015
+innovationVolatility = 0.38
+leadershipInnovationWeight = 0.42
+institutionalInertiaPenalty = 0.34
+europeAdvantageStartYear = 1000
+europeAdvantagePeakYear = 1750
+europeAdvantageFadeYear = 2025
+europeInnovationBoost = 0.55
+europeAdoptionBoost = 0.40
+europeReadinessThreshold = 0.30
 
 [economy]
 foodLaborElasticity = 0.95

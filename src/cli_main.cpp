@@ -112,6 +112,10 @@ struct MetricsSnapshot {
     double country_area_top1_share = 0.0;
     double control_median = 0.0;
     double control_p10 = 0.0;
+    int founder_state_count = 0;
+    double founder_state_share = 0.0;
+    double median_state_age_years = 0.0;
+    double p90_state_age_years = 0.0;
     int wars_active_count = 0;
     double city_pop_top1 = 0.0;
     double city_pop_top10_sum_share = 0.0;
@@ -120,6 +124,7 @@ struct MetricsSnapshot {
     int famine_wave_count = 0;
     int epidemic_wave_count = 0;
     double major_war_count = 0.0;
+    int election_count = 0;
     int civil_conflict_count = 0;
     int fragmentation_count = 0;
     int mass_migration_count = 0;
@@ -150,6 +155,7 @@ struct EventWindowCounters {
     int famine_wave_count = 0;
     int epidemic_wave_count = 0;
     int major_war_count = 0;
+    int election_count = 0;
     int civil_conflict_count = 0;
     int fragmentation_count = 0;
     int mass_migration_count = 0;
@@ -608,6 +614,7 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
     std::vector<double> logisticsCapIdx;
     std::vector<double> storageCapIdx;
     std::vector<double> healthCapIdx;
+    std::vector<double> stateAges;
     std::vector<double> cityPops;
     pops.reserve(countries.size());
     areas.reserve(countries.size());
@@ -626,6 +633,7 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
     logisticsCapIdx.reserve(countries.size());
     storageCapIdx.reserve(countries.size());
     healthCapIdx.reserve(countries.size());
+    stateAges.reserve(countries.size());
     cityPops.reserve(countries.size() * 2);
 
     double totalPop = 0.0;
@@ -643,6 +651,7 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
     double extraction = 0.0;
     int live = 0;
     int warsActive = 0;
+    int founderStates = 0;
 
     const double tScale = std::max(0.25, ctx.config.tech.capabilityThresholdScale);
     const double t3 = 300.0 * tScale;
@@ -652,11 +661,16 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
         if (c.getPopulation() <= 0) continue;
         const double pop = static_cast<double>(c.getPopulation());
         const double area = static_cast<double>(c.getTerritoryVec().size());
+        const double stateAgeYears = static_cast<double>(std::max(0, year - c.getFoundingYear()));
         const auto& m = c.getMacroEconomy();
         totalPop += pop;
         totalUrban += std::max(0.0, c.getTotalCityPopulation());
         pops.push_back(pop);
         areas.push_back(area);
+        stateAges.push_back(stateAgeYears);
+        if (c.getFoundingYear() <= -5000) {
+            founderStates++;
+        }
         const double fs = std::clamp(m.foodSecurity, 0.0, 2.0);
         const double db = std::clamp(m.diseaseBurden, 0.0, 1.0);
         const double ma = std::clamp(m.marketAccess, 0.0, 1.0);
@@ -792,6 +806,10 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
     }
     s.control_median = percentile(controls, 0.50);
     s.control_p10 = percentile(controls, 0.10);
+    s.founder_state_count = founderStates;
+    s.founder_state_share = (live > 0) ? (static_cast<double>(founderStates) / static_cast<double>(live)) : 0.0;
+    s.median_state_age_years = percentile(stateAges, 0.50);
+    s.p90_state_age_years = percentile(stateAges, 0.90);
     s.wars_active_count = warsActive;
 
     if (prevSnapshot != nullptr && yearsSinceLastCheckpoint > 0) {
@@ -812,6 +830,7 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
     s.famine_wave_count = events.famine_wave_count;
     s.epidemic_wave_count = events.epidemic_wave_count;
     s.major_war_count = static_cast<double>(events.major_war_count);
+    s.election_count = events.election_count;
     s.civil_conflict_count = events.civil_conflict_count;
     s.fragmentation_count = events.fragmentation_count;
     s.mass_migration_count = events.mass_migration_count;
@@ -1689,7 +1708,7 @@ int main(int argc, char** argv) {
                            "pop_low_stability_share,pop_low_legitimacy_share,pop_low_both_share,pop_critical_share,"
                            "stability_mean,stability_p10,legitimacy_mean,legitimacy_p10,"
                            "worst_stability_ids,worst_legitimacy_ids\n";
-        stateCountriesCsv << "year,country_index,country_name,population,stability,legitimacy,avg_control,autonomy_pressure,autonomy_over_years,is_at_war,"
+        stateCountriesCsv << "year,country_index,country_name,founding_year,state_age_years,population,stability,legitimacy,avg_control,autonomy_pressure,autonomy_over_years,is_at_war,"
                              "state_bucket,low_stability,low_legitimacy,critical_state,stable_state,"
                              "stab_start,stab_after_update,stab_after_budget,stab_after_demog,stab_delta_update,stab_delta_budget,stab_delta_demog,stab_delta_total,"
                              "stab_delta_war,stab_delta_plague,stab_delta_stagnation,stab_delta_peace_recover,stab_delta_debt,stab_delta_control,stab_delta_demog_stress,"
@@ -1924,6 +1943,8 @@ int main(int argc, char** argv) {
                 << year << ","
                 << c.getCountryIndex() << ","
                 << csvEscape(c.getName()) << ","
+                << c.getFoundingYear() << ","
+                << std::max(0, year - c.getFoundingYear()) << ","
                 << popLL << ","
                 << stability << ","
                 << legitimacy << ","
@@ -2078,9 +2099,11 @@ int main(int argc, char** argv) {
             if (!seenNewsTokens.insert(token).second) {
                 continue;
             }
+            const bool electionEvt = (e.find("Election in ") != std::string::npos) || (e.find("election in ") != std::string::npos);
             const bool civil = (e.find("Civil war") != std::string::npos) || (e.find("civil war") != std::string::npos);
             const bool frag = (e.find("Breakaway") != std::string::npos) || (e.find("fragments") != std::string::npos);
             const bool migrationEvt = (e.find("migration") != std::string::npos) || (e.find("refugee") != std::string::npos);
+            if (electionEvt) eventsWindow.election_count++;
             if (civil) eventsWindow.civil_conflict_count++;
             if (frag) eventsWindow.fragmentation_count++;
             if (migrationEvt) eventsWindow.mass_migration_count++;
@@ -2128,7 +2151,8 @@ int main(int argc, char** argv) {
                "migration_rate_t,famine_exposure_share_t,habitable_cell_share_pop_gt_0,habitable_cell_share_pop_gt_small,pop_share_by_lat_band,"
                "pop_share_coastal_vs_inland,pop_share_river_proximal,market_access_p10,market_access_median,food_adequacy_p10,food_adequacy_median,travel_cost_index_median,"
                "country_pop_median,country_pop_p90,country_pop_top1_share,country_area_median,country_area_p90,country_area_top1_share,control_median,control_p10,"
-               "wars_active_count,city_pop_top1,city_pop_top10_sum_share,city_tail_index,famine_wave_count,epidemic_wave_count,major_war_count,civil_conflict_count,"
+               "founder_state_count,founder_state_share,median_state_age_years,p90_state_age_years,"
+               "wars_active_count,city_pop_top1,city_pop_top10_sum_share,city_tail_index,famine_wave_count,epidemic_wave_count,major_war_count,election_count,civil_conflict_count,"
                "fragmentation_count,mass_migration_count,logistics_capability_index,storage_capability_index,health_capability_index,transport_cost_index,"
                "spoilage_kcal,storage_loss_kcal,available_kcal_before_losses,trade_volume_total,trade_volume_long,long_distance_trade_proxy,extraction_index\n";
         csv << std::fixed << std::setprecision(6);
@@ -2174,6 +2198,10 @@ int main(int argc, char** argv) {
                 << s.country_area_top1_share << ","
                 << s.control_median << ","
                 << s.control_p10 << ","
+                << s.founder_state_count << ","
+                << s.founder_state_share << ","
+                << s.median_state_age_years << ","
+                << s.p90_state_age_years << ","
                 << s.wars_active_count << ","
                 << s.city_pop_top1 << ","
                 << s.city_pop_top10_sum_share << ","
@@ -2181,6 +2209,7 @@ int main(int argc, char** argv) {
                 << s.famine_wave_count << ","
                 << s.epidemic_wave_count << ","
                 << s.major_war_count << ","
+                << s.election_count << ","
                 << s.civil_conflict_count << ","
                 << s.fragmentation_count << ","
                 << s.mass_migration_count << ","
@@ -2240,9 +2269,14 @@ int main(int argc, char** argv) {
             js << "      \"credible_commitment_index_median\": " << s.credible_commitment_index_median << ",\n";
             js << "      \"relative_factor_price_index_median\": " << s.relative_factor_price_index_median << ",\n";
             js << "      \"major_war_count\": " << s.major_war_count << ",\n";
+            js << "      \"election_count\": " << s.election_count << ",\n";
             js << "      \"famine_wave_count\": " << s.famine_wave_count << ",\n";
             js << "      \"epidemic_wave_count\": " << s.epidemic_wave_count << ",\n";
-            js << "      \"migration_rate_t\": " << s.migration_rate_t << "\n";
+            js << "      \"migration_rate_t\": " << s.migration_rate_t << ",\n";
+            js << "      \"founder_state_count\": " << s.founder_state_count << ",\n";
+            js << "      \"founder_state_share\": " << s.founder_state_share << ",\n";
+            js << "      \"median_state_age_years\": " << s.median_state_age_years << ",\n";
+            js << "      \"p90_state_age_years\": " << s.p90_state_age_years << "\n";
             js << "    }" << (i + 1 < checkpoints.size() ? "," : "") << "\n";
         }
         js << "  ]\n";

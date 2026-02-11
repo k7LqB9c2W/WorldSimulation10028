@@ -128,7 +128,8 @@ public:
 	                      std::function<void(int, int)> chunkCompletedCallback = nullptr,
 	                      const std::atomic<bool>* cancelRequested = nullptr,
                           bool enablePopulationDebugLog = false,
-                          const std::string& populationDebugLogPath = std::string());
+                          const std::string& populationDebugLogPath = std::string(),
+                          bool enableMegaSnapshotConsoleLog = false);
 
     // Keep these for read-only access (const versions)
     const std::vector<std::vector<int>>& getCountryGrid() const;

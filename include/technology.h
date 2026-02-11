@@ -113,6 +113,11 @@ private:
         double relativeFactorPrice = 0.0;
         double mediaThroughput = 0.0;
         double merchantPower = 0.0;
+        double leaderCompetence = 0.5;
+        double leaderReformism = 0.5;
+        double leaderAmbition = 0.5;
+        double eliteDefectionPressure = 0.0;
+        double autonomyPressure = 0.0;
         double foodSecurity = 1.0;
         double famineSeverity = 0.0;
         double climateFoodMult = 1.0;

@@ -1,0 +1,314 @@
+{
+  "n": 16,
+  "agg": {
+    "max_unlocked": {
+      "mean": 31.3125,
+      "min": 27,
+      "max": 42,
+      "stdev": 4.895390050853966
+    },
+    "top1_max": {
+      "mean": 0.055859187500000004,
+      "min": 0.035687,
+      "max": 0.087398,
+      "stdev": 0.012835103959545624
+    },
+    "top1_final": {
+      "mean": 0.0382325625,
+      "min": 0.020337,
+      "max": 0.061211,
+      "stdev": 0.012195038929667005
+    },
+    "wars_active_max": {
+      "mean": 4.0,
+      "min": 2.0,
+      "max": 5.0,
+      "stdev": 0.6123724356957945
+    },
+    "major_wars_final": {
+      "mean": 0.03913575,
+      "min": 0.033232,
+      "max": 0.05585,
+      "stdev": 0.005471177461250914
+    },
+    "hab0_final": {
+      "mean": 0.449217875,
+      "min": 0.387329,
+      "max": 0.505617,
+      "stdev": 0.02758928465880142
+    },
+    "habs_final": {
+      "mean": 0.329097375,
+      "min": 0.29763,
+      "max": 0.358683,
+      "stdev": 0.01802077643261729
+    },
+    "founder_count_final": {
+      "mean": 10.4375,
+      "min": 1.0,
+      "max": 15.0,
+      "stdev": 3.7578043788893534
+    },
+    "founder_share_final": {
+      "mean": 0.0295549375,
+      "min": 0.002778,
+      "max": 0.045455,
+      "stdev": 0.010820901178210333
+    },
+    "median_state_age_final": {
+      "mean": 1596.09375,
+      "min": 1075.0,
+      "max": 2030.0,
+      "stdev": 227.1803536530778
+    },
+    "p90_state_age_final": {
+      "mean": 5376.53125,
+      "min": 4446.0,
+      "max": 6322.0,
+      "stdev": 518.818443338744
+    }
+  },
+  "runs": [
+    {
+      "seed": 1,
+      "max_unlocked": 42,
+      "top1_max": 0.055963,
+      "top1_final": 0.051085,
+      "wars_active_max": 5.0,
+      "major_wars_final": 0.033232,
+      "hab0_final": 0.464446,
+      "habs_final": 0.335711,
+      "founder_count_final": 11.0,
+      "founder_share_final": 0.030812,
+      "median_state_age_final": 2030.0,
+      "p90_state_age_final": 6322.0
+    },
+    {
+      "seed": 2,
+      "max_unlocked": 35,
+      "top1_max": 0.05876,
+      "top1_final": 0.042982,
+      "wars_active_max": 4.0,
+      "major_wars_final": 0.043434,
+      "hab0_final": 0.444675,
+      "habs_final": 0.336104,
+      "founder_count_final": 9.0,
+      "founder_share_final": 0.025496,
+      "median_state_age_final": 1420.0,
+      "p90_state_age_final": 5165.0
+    },
+    {
+      "seed": 3,
+      "max_unlocked": 39,
+      "top1_max": 0.073268,
+      "top1_final": 0.050826,
+      "wars_active_max": 4.0,
+      "major_wars_final": 0.036813,
+      "hab0_final": 0.475904,
+      "habs_final": 0.333464,
+      "founder_count_final": 12.0,
+      "founder_share_final": 0.032698,
+      "median_state_age_final": 1675.0,
+      "p90_state_age_final": 5198.0
+    },
+    {
+      "seed": 4,
+      "max_unlocked": 28,
+      "top1_max": 0.087398,
+      "top1_final": 0.061211,
+      "wars_active_max": 4.0,
+      "major_wars_final": 0.036684,
+      "hab0_final": 0.451135,
+      "habs_final": 0.332116,
+      "founder_count_final": 10.0,
+      "founder_share_final": 0.027933,
+      "median_state_age_final": 1820.0,
+      "p90_state_age_final": 4914.5
+    },
+    {
+      "seed": 5,
+      "max_unlocked": 27,
+      "top1_max": 0.042298,
+      "top1_final": 0.023849,
+      "wars_active_max": 4.0,
+      "major_wars_final": 0.04551,
+      "hab0_final": 0.466861,
+      "habs_final": 0.328466,
+      "founder_count_final": 11.0,
+      "founder_share_final": 0.031161,
+      "median_state_age_final": 1675.0,
+      "p90_state_age_final": 6070.0
+    },
+    {
+      "seed": 6,
+      "max_unlocked": 32,
+      "top1_max": 0.045488,
+      "top1_final": 0.027687,
+      "wars_active_max": 4.0,
+      "major_wars_final": 0.034406,
+      "hab0_final": 0.387329,
+      "habs_final": 0.300719,
+      "founder_count_final": 15.0,
+      "founder_share_final": 0.04491,
+      "median_state_age_final": 1075.0,
+      "p90_state_age_final": 4446.0
+    },
+    {
+      "seed": 7,
+      "max_unlocked": 28,
+      "top1_max": 0.068969,
+      "top1_final": 0.055535,
+      "wars_active_max": 2.0,
+      "major_wars_final": 0.034072,
+      "hab0_final": 0.428106,
+      "habs_final": 0.29763,
+      "founder_count_final": 4.0,
+      "founder_share_final": 0.011799,
+      "median_state_age_final": 1515.0,
+      "p90_state_age_final": 6195.0
+    },
+    {
+      "seed": 8,
+      "max_unlocked": 28,
+      "top1_max": 0.052888,
+      "top1_final": 0.036782,
+      "wars_active_max": 4.0,
+      "major_wars_final": 0.036841,
+      "hab0_final": 0.416423,
+      "habs_final": 0.301112,
+      "founder_count_final": 10.0,
+      "founder_share_final": 0.028011,
+      "median_state_age_final": 1605.0,
+      "p90_state_age_final": 4714.0
+    },
+    {
+      "seed": 9,
+      "max_unlocked": 29,
+      "top1_max": 0.054586,
+      "top1_final": 0.042859,
+      "wars_active_max": 5.0,
+      "major_wars_final": 0.041478,
+      "hab0_final": 0.505617,
+      "habs_final": 0.358683,
+      "founder_count_final": 8.0,
+      "founder_share_final": 0.023256,
+      "median_state_age_final": 1737.5,
+      "p90_state_age_final": 5763.0
+    },
+    {
+      "seed": 10,
+      "max_unlocked": 29,
+      "top1_max": 0.047923,
+      "top1_final": 0.031586,
+      "wars_active_max": 4.0,
+      "major_wars_final": 0.040202,
+      "hab0_final": 0.454898,
+      "habs_final": 0.325376,
+      "founder_count_final": 15.0,
+      "founder_share_final": 0.045455,
+      "median_state_age_final": 1430.0,
+      "p90_state_age_final": 5605.0
+    },
+    {
+      "seed": 11,
+      "max_unlocked": 29,
+      "top1_max": 0.068374,
+      "top1_final": 0.044403,
+      "wars_active_max": 4.0,
+      "major_wars_final": 0.033983,
+      "hab0_final": 0.41384,
+      "habs_final": 0.308358,
+      "founder_count_final": 10.0,
+      "founder_share_final": 0.028249,
+      "median_state_age_final": 1620.0,
+      "p90_state_age_final": 5268.0
+    },
+    {
+      "seed": 12,
+      "max_unlocked": 28,
+      "top1_max": 0.059308,
+      "top1_final": 0.043698,
+      "wars_active_max": 4.0,
+      "major_wars_final": 0.03996,
+      "hab0_final": 0.455347,
+      "habs_final": 0.343631,
+      "founder_count_final": 14.0,
+      "founder_share_final": 0.03794,
+      "median_state_age_final": 1960.0,
+      "p90_state_age_final": 5691.0
+    },
+    {
+      "seed": 13,
+      "max_unlocked": 28,
+      "top1_max": 0.044625,
+      "top1_final": 0.026881,
+      "wars_active_max": 4.0,
+      "major_wars_final": 0.037731,
+      "hab0_final": 0.467086,
+      "habs_final": 0.349584,
+      "founder_count_final": 9.0,
+      "founder_share_final": 0.025,
+      "median_state_age_final": 1432.5,
+      "p90_state_age_final": 4852.5
+    },
+    {
+      "seed": 14,
+      "max_unlocked": 30,
+      "top1_max": 0.035687,
+      "top1_final": 0.027356,
+      "wars_active_max": 4.0,
+      "major_wars_final": 0.039099,
+      "hab0_final": 0.471636,
+      "habs_final": 0.352,
+      "founder_count_final": 1.0,
+      "founder_share_final": 0.002778,
+      "median_state_age_final": 1385.0,
+      "p90_state_age_final": 5389.0
+    },
+    {
+      "seed": 15,
+      "max_unlocked": 28,
+      "top1_max": 0.049234,
+      "top1_final": 0.024644,
+      "wars_active_max": 4.0,
+      "major_wars_final": 0.036877,
+      "hab0_final": 0.449899,
+      "habs_final": 0.333689,
+      "founder_count_final": 13.0,
+      "founder_share_final": 0.035714,
+      "median_state_age_final": 1660.0,
+      "p90_state_age_final": 5335.0
+    },
+    {
+      "seed": 16,
+      "max_unlocked": 41,
+      "top1_max": 0.048978,
+      "top1_final": 0.020337,
+      "wars_active_max": 4.0,
+      "major_wars_final": 0.05585,
+      "hab0_final": 0.434284,
+      "habs_final": 0.328915,
+      "founder_count_final": 15.0,
+      "founder_share_final": 0.041667,
+      "median_state_age_final": 1497.5,
+      "p90_state_age_final": 5096.5
+    }
+  ],
+  "derived": {
+    "max_unlocked_unique_values": [
+      27,
+      28,
+      29,
+      30,
+      32,
+      35,
+      39,
+      41,
+      42
+    ],
+    "max_unlocked_below_30_count": 10,
+    "max_unlocked_atleast_40_count": 2,
+    "empire_like_top1_over_0_05_count": 9,
+    "empire_like_top1_over_0_08_count": 1
+  }
+}

@@ -181,6 +181,8 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "migration", "corridorDesertPenalty", config.migration.corridorDesertPenalty);
         readTomlValue(root, "migration", "refugeeHalfLifeYears", config.migration.refugeeHalfLifeYears);
         readTomlValue(root, "migration", "culturalPreference", config.migration.culturalPreference);
+        readTomlValue(root, "migration", "frontierClaimPopulationThreshold", config.migration.frontierClaimPopulationThreshold);
+        readTomlValue(root, "migration", "frontierClaimControlThreshold", config.migration.frontierClaimControlThreshold);
 
         readTomlValue(root, "disease", "initialInfectedShare", config.disease.initialInfectedShare);
         readTomlValue(root, "disease", "initialRecoveredShare", config.disease.initialRecoveredShare);
@@ -221,6 +223,10 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "war", "peaceReconstructionDrag", config.war.peaceReconstructionDrag);
         readTomlValue(root, "war", "earlyAnnihilationBias", config.war.earlyAnnihilationBias);
         readTomlValue(root, "war", "highInstitutionAnnihilationDamp", config.war.highInstitutionAnnihilationDamp);
+        readTomlValue(root, "war", "maxConcurrentWars", config.war.maxConcurrentWars);
+        readTomlValue(root, "war", "leaderAmbitionWarWeight", config.war.leaderAmbitionWarWeight);
+        readTomlValue(root, "war", "weakStatePredationWeight", config.war.weakStatePredationWeight);
+        readTomlValue(root, "war", "opportunisticWarThreshold", config.war.opportunisticWarThreshold);
 
         readTomlValue(root, "polity", "regionCountMin", config.polity.regionCountMin);
         readTomlValue(root, "polity", "regionCountMax", config.polity.regionCountMax);
@@ -253,6 +259,12 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "polity", "subsistenceAdminFloorShare", config.polity.subsistenceAdminFloorShare);
         readTomlValue(root, "polity", "earlyLegitimacyProvisioningWeight", config.polity.earlyLegitimacyProvisioningWeight);
         readTomlValue(root, "polity", "earlyLegitimacyFiscalWeight", config.polity.earlyLegitimacyFiscalWeight);
+        readTomlValue(root, "polity", "stateTurnoverBaseChance", config.polity.stateTurnoverBaseChance);
+        readTomlValue(root, "polity", "stateTurnoverStressWeight", config.polity.stateTurnoverStressWeight);
+        readTomlValue(root, "polity", "stateTurnoverAgeWeight", config.polity.stateTurnoverAgeWeight);
+        readTomlValue(root, "polity", "successionCrisisSplitWeight", config.polity.successionCrisisSplitWeight);
+        readTomlValue(root, "polity", "institutionalContinuityShield", config.polity.institutionalContinuityShield);
+        readTomlValue(root, "polity", "stateTurnoverMinAgeYears", config.polity.stateTurnoverMinAgeYears);
 
         readTomlValue(root, "tech", "capabilityThresholdScale", config.tech.capabilityThresholdScale);
         readTomlValue(root, "tech", "diffusionBase", config.tech.diffusionBase);
@@ -275,6 +287,15 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "tech", "prereqAdoptionFraction", config.tech.prereqAdoptionFraction);
         readTomlValue(root, "tech", "rareForgetYears", config.tech.rareForgetYears);
         readTomlValue(root, "tech", "rareForgetChance", config.tech.rareForgetChance);
+        readTomlValue(root, "tech", "innovationVolatility", config.tech.innovationVolatility);
+        readTomlValue(root, "tech", "leadershipInnovationWeight", config.tech.leadershipInnovationWeight);
+        readTomlValue(root, "tech", "institutionalInertiaPenalty", config.tech.institutionalInertiaPenalty);
+        readTomlValue(root, "tech", "europeAdvantageStartYear", config.tech.europeAdvantageStartYear);
+        readTomlValue(root, "tech", "europeAdvantagePeakYear", config.tech.europeAdvantagePeakYear);
+        readTomlValue(root, "tech", "europeAdvantageFadeYear", config.tech.europeAdvantageFadeYear);
+        readTomlValue(root, "tech", "europeInnovationBoost", config.tech.europeInnovationBoost);
+        readTomlValue(root, "tech", "europeAdoptionBoost", config.tech.europeAdoptionBoost);
+        readTomlValue(root, "tech", "europeReadinessThreshold", config.tech.europeReadinessThreshold);
 
         readTomlValue(root, "economy", "foodLaborElasticity", config.economy.foodLaborElasticity);
         readTomlValue(root, "economy", "goodsLaborElasticity", config.economy.goodsLaborElasticity);

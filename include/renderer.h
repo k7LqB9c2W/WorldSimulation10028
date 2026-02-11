@@ -27,6 +27,9 @@ public:
     bool warmongerHighlightsEnabled() const { return m_showWarmongerHighlights; }
     void setWarHighlights(bool enabled);
     bool warHighlightsEnabled() const { return m_showWarHighlights; }
+    void toggleTradeRouteOverlay();
+    void setTradeRouteOverlay(bool enabled);
+    bool tradeRouteOverlayEnabled() const { return m_showTradeRoutes; }
     void toggleWealthLeaderboard();
     void toggleClimateOverlay();
     void cycleClimateOverlayMode();
@@ -43,6 +46,9 @@ public:
     void toggleOverseasOverlay();
     void setOverseasOverlay(bool enabled);
     bool overseasOverlayEnabled() const { return m_showOverseasOverlay; }
+    void toggleCountryPovOverlay();
+    void setCountryPovOverlay(bool enabled);
+    bool countryPovOverlayEnabled() const { return m_showCountryPovOverlay; }
     void updateYearText(int year);
     void setNeedsUpdate(bool needsUpdate);
     void setPaintHud(bool show, const std::string& text);
@@ -98,6 +104,7 @@ private:
     bool m_needsUpdate;
     bool m_showWarmongerHighlights;
     bool m_showWarHighlights;
+    bool m_showTradeRoutes;
     bool m_showCountryAddModeText;
     bool m_showPaintHud;
     std::string m_paintHudText;
@@ -189,6 +196,14 @@ private:
         void updateClimateOverlayTexture(const Map& map);
         void updateUrbanOverlayTexture(const Map& map);
         void updateOverseasOverlayTexture(const Map& map);
+        void updateCountryPovFogTexture(const Map& map,
+                                        const std::vector<Country>& countries,
+                                        const TradeManager& tradeManager,
+                                        const Country* observer);
+        std::vector<uint8_t> buildCountryKnowledgeMask(const Map& map,
+                                                       const std::vector<Country>& countries,
+                                                       const TradeManager& tradeManager,
+                                                       int observerIndex) const;
 
         bool m_showClimateOverlay = false;
         int m_climateOverlayMode = 0; // 0=zone,1=biome,2=tempMean,3=precMean
@@ -219,4 +234,15 @@ private:
         std::vector<sf::Uint8> m_overseasPixels;
         sf::Texture m_overseasTex;
         sf::Sprite m_overseasSprite;
+
+        // Country POV overlay (known states/geography; unknown masked by fog).
+        bool m_showCountryPovOverlay = false;
+        int m_countryPovObserverIndex = -1;
+        int m_countryPovLastYear = -9999999;
+        int m_countryPovLastCountryCount = -1;
+        int m_countryPovW = 0;
+        int m_countryPovH = 0;
+        std::vector<sf::Uint8> m_countryPovPixels;
+        sf::Texture m_countryPovTex;
+        sf::Sprite m_countryPovSprite;
 				};

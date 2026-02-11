@@ -110,6 +110,8 @@ struct SimulationConfig {
         double corridorDesertPenalty = 0.25;
         double refugeeHalfLifeYears = 10.0;
         double culturalPreference = 0.20;
+        double frontierClaimPopulationThreshold = 350.0;
+        double frontierClaimControlThreshold = 0.30;
     } migration{};
 
     struct Disease {
@@ -154,6 +156,10 @@ struct SimulationConfig {
         double peaceReconstructionDrag = 0.15;
         double earlyAnnihilationBias = 0.15;
         double highInstitutionAnnihilationDamp = 0.65;
+        int maxConcurrentWars = 3;
+        double leaderAmbitionWarWeight = 0.45;
+        double weakStatePredationWeight = 0.55;
+        double opportunisticWarThreshold = 0.60;
     } war{};
 
     struct Polity {
@@ -188,6 +194,12 @@ struct SimulationConfig {
         double subsistenceAdminFloorShare = 0.62;
         double earlyLegitimacyProvisioningWeight = 0.65;
         double earlyLegitimacyFiscalWeight = 0.35;
+        double stateTurnoverBaseChance = 0.0018;
+        double stateTurnoverStressWeight = 0.60;
+        double stateTurnoverAgeWeight = 0.35;
+        double successionCrisisSplitWeight = 0.50;
+        double institutionalContinuityShield = 0.55;
+        int stateTurnoverMinAgeYears = 160;
     } polity{};
 
     struct Tech {
@@ -212,6 +224,15 @@ struct SimulationConfig {
         double prereqAdoptionFraction = 0.70;
         int rareForgetYears = 220;
         double rareForgetChance = 0.0015;
+        double innovationVolatility = 0.30;
+        double leadershipInnovationWeight = 0.35;
+        double institutionalInertiaPenalty = 0.28;
+        int europeAdvantageStartYear = 1100;
+        int europeAdvantagePeakYear = 1750;
+        int europeAdvantageFadeYear = 1980;
+        double europeInnovationBoost = 0.22;
+        double europeAdoptionBoost = 0.16;
+        double europeReadinessThreshold = 0.42;
     } tech{};
 
     struct Economy {

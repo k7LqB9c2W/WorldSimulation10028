@@ -84,6 +84,7 @@ bool paused = false;
 bool megaTimeJumpMode = false;
 std::string megaTimeJumpInput = "";
 bool megaTimeJumpDebugLogEnabled = false;
+bool megaTimeJumpSnapshotLogEnabled = false;
 std::string megaTimeJumpInputError = "";
 bool megaTimeJumpFocusInputNextFrame = false;
 int megaTimeJumpInputSessionId = 0;
@@ -170,6 +171,83 @@ std::optional<int> tryParseStartYearArg(int argc, char** argv) {
             } catch (...) {
                 return std::nullopt;
             }
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<int> tryParseNumCountriesArg(int argc, char** argv) {
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i] ? std::string(argv[i]) : std::string();
+        if (arg == "--numCountries" && i + 1 < argc) {
+            try {
+                return std::stoi(argv[i + 1]);
+            } catch (...) {
+                return std::nullopt;
+            }
+        }
+        const std::string prefixA = "--numCountries=";
+        if (arg.rfind(prefixA, 0) == 0) {
+            try {
+                return std::stoi(arg.substr(prefixA.size()));
+            } catch (...) {
+                return std::nullopt;
+            }
+        }
+        const std::string prefixB = "--num-countries=";
+        if (arg.rfind(prefixB, 0) == 0) {
+            try {
+                return std::stoi(arg.substr(prefixB.size()));
+            } catch (...) {
+                return std::nullopt;
+            }
+        }
+        if (arg == "--num-countries" && i + 1 < argc) {
+            try {
+                return std::stoi(argv[i + 1]);
+            } catch (...) {
+                return std::nullopt;
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<bool> tryParseBoolToken(const std::string& rawValue) {
+    size_t start = rawValue.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) {
+        return std::nullopt;
+    }
+    size_t end = rawValue.find_last_not_of(" \t\r\n");
+    std::string value = rawValue.substr(start, end - start + 1);
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    if (value == "1" || value == "true" || value == "yes" || value == "on") {
+        return true;
+    }
+    if (value == "0" || value == "false" || value == "no" || value == "off") {
+        return false;
+    }
+    return std::nullopt;
+}
+
+std::optional<bool> tryParseMegaSnapshotsArg(int argc, char** argv) {
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i] ? std::string(argv[i]) : std::string();
+
+        if ((arg == "--megaSnapshots" || arg == "--mega-snapshots") && i + 1 < argc) {
+            return tryParseBoolToken(argv[i + 1] ? std::string(argv[i + 1]) : std::string());
+        }
+
+        const std::string prefixA = "--megaSnapshots=";
+        if (arg.rfind(prefixA, 0) == 0) {
+            return tryParseBoolToken(arg.substr(prefixA.size()));
+        }
+
+        const std::string prefixB = "--mega-snapshots=";
+        if (arg.rfind(prefixB, 0) == 0) {
+            return tryParseBoolToken(arg.substr(prefixB.size()));
         }
     }
     return std::nullopt;
@@ -362,9 +440,23 @@ int main(int argc, char** argv) {
     std::cout << "✅ MAP INITIALIZED in " << mapDuration.count() << " ms" << std::endl;
 
     std::vector<Country> countries;
-    const int numCountries = 100;
-    const int maxCountries = 400;
-    countries.reserve(maxCountries);
+    constexpr int kDefaultNumCountries = 100;
+    auto deriveMaxCountries = [](int starts) {
+        const int safeStarts = std::max(1, starts);
+        return std::max(400, safeStarts * 4);
+    };
+    int startupNumCountries = kDefaultNumCountries;
+    if (auto n = tryParseNumCountriesArg(argc, argv)) {
+        startupNumCountries = *n;
+    }
+    if (startupNumCountries < 1) {
+        startupNumCountries = 1;
+    }
+    if (auto enableSnapshots = tryParseMegaSnapshotsArg(argc, argv)) {
+        megaTimeJumpSnapshotLogEnabled = *enableSnapshots;
+    }
+    int maxCountries = deriveMaxCountries(startupNumCountries);
+    countries.reserve(static_cast<size_t>(maxCountries));
 
     // Show loading screen before initialization
     Renderer tempRenderer(window, map, waterColor);
@@ -456,6 +548,7 @@ int main(int argc, char** argv) {
         std::to_string(std::max<std::int64_t>(1, ctx.config.world.population.minValue));
     std::string simulationStartupPopulationMaxInput =
         std::to_string(std::max<std::int64_t>(1, ctx.config.world.population.maxValue));
+    std::string simulationStartupCountryCountInput = std::to_string(startupNumCountries);
     bool simulationStartupUseRegionalSpawnMask = ctx.config.spawn.enabled;
     bool simulationStartupStartTechPresetsEnabled = ctx.config.startTech.enabled;
     bool simulationStartYearPromptMode = true;
@@ -669,11 +762,16 @@ int main(int argc, char** argv) {
             std::cout << "From " << megaTimeJumpStartYear << " to " << megaTimeJumpTargetYear << std::endl;
             const bool megaDebugThisRun = megaTimeJumpDebugLogEnabled;
             const std::string megaDebugPathThisRun = megaTimeJumpDebugLogPath;
+            const bool megaSnapshotConsoleLogThisRun = megaTimeJumpSnapshotLogEnabled;
             if (megaDebugThisRun) {
                 std::cout << "MEGA DEBUG CSV ENABLED: " << megaDebugPathThisRun << std::endl;
             }
+            if (megaSnapshotConsoleLogThisRun) {
+                std::cout << "MEGA SNAPSHOT CONSOLE LOGGING ENABLED" << std::endl;
+            }
 
-            megaTimeJumpThread = std::thread([&, megaDebugThisRun, megaDebugPathThisRun] {
+            megaTimeJumpThread = std::thread(
+                [&, megaDebugThisRun, megaDebugPathThisRun, megaSnapshotConsoleLogThisRun] {
                 try {
                     const bool completed = map.megaTimeJump(
                         countries, currentYear, megaTimeJumpTargetYear, news,
@@ -688,7 +786,8 @@ int main(int argc, char** argv) {
                         },
                         &megaTimeJumpCancelRequested,
                         megaDebugThisRun,
-                        megaDebugPathThisRun);
+                        megaDebugPathThisRun,
+                        megaSnapshotConsoleLogThisRun);
 
                     megaTimeJumpCanceled.store(!completed, std::memory_order_relaxed);
                 } catch (const std::exception& e) {
@@ -894,6 +993,10 @@ int main(int argc, char** argv) {
 		                else if (event.key.code == sf::Keyboard::Num6) {
 		                    renderer.toggleWarHighlights();
 		                }
+                        else if (event.key.code == sf::Keyboard::Y) {
+                            renderer.toggleTradeRouteOverlay();
+                            renderingNeedsUpdate = true;
+                        }
 				                else if (event.key.code == sf::Keyboard::L) {
 				                    // Phase 4: macro economy is authoritative for Wealth/GDP/Exports.
 				                    if (TechnologyManager::getDebugMode()) {
@@ -1079,6 +1182,10 @@ int main(int argc, char** argv) {
 		                    renderer.toggleOverseasOverlay();
 		                    renderingNeedsUpdate = true;
 		                }
+                        else if (event.key.code == sf::Keyboard::P) { // 👁️ COUNTRY POV FOG
+                            renderer.toggleCountryPovOverlay();
+                            renderingNeedsUpdate = true;
+                        }
 			                else if (event.key.code == sf::Keyboard::E) { // 🧠 TECHNOLOGY EDITOR
 			                    if (selectedCountry != nullptr) {
 			                        guiShowTechEditor = true;
@@ -1758,6 +1865,7 @@ int main(int argc, char** argv) {
                                 label.c_str(),
                                 &simulationStartYearInput,
                                 ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_EnterReturnsTrue);
+                            ImGui::InputText("Starting Countries", &simulationStartupCountryCountInput);
 
                             ImGui::Separator();
                             ImGui::TextUnformatted("Initial World Population");
@@ -1817,6 +1925,31 @@ int main(int argc, char** argv) {
                                         std::to_string(ctx.config.world.endYear) + ".";
                                     return;
                                 }
+                                long long requestedCountriesLL = 0;
+                                try {
+                                    requestedCountriesLL = std::stoll(simulationStartupCountryCountInput);
+                                } catch (...) {
+                                    simulationStartYearInputError = "Starting countries must be a positive integer.";
+                                    return;
+                                }
+                                if (requestedCountriesLL <= 0 ||
+                                    requestedCountriesLL > static_cast<long long>(std::numeric_limits<int>::max())) {
+                                    simulationStartYearInputError = "Starting countries must be in range 1.." +
+                                        std::to_string(std::numeric_limits<int>::max()) + ".";
+                                    return;
+                                }
+                                const int requestedCountries = static_cast<int>(requestedCountriesLL);
+                                const int requiredCapacity = deriveMaxCountries(requestedCountries);
+                                if (requiredCapacity > maxCountries) {
+                                    maxCountries = requiredCapacity;
+                                    countries.reserve(static_cast<size_t>(maxCountries));
+                                    if (ctx.config.economy.useGPU) {
+                                        economy.init(map, maxCountries, econCfg);
+                                        if (!economy.isInitialized()) {
+                                            std::cout << "⚠️ EconomyGPU disabled (shaders unavailable/init failed). Using CPU fallback for wealth/GDP/exports." << std::endl;
+                                        }
+                                    }
+                                }
 
                                 ctx.config.world.startYear = requestedYear;
                                 if (simulationStartupPopulationFixed) {
@@ -1867,7 +2000,7 @@ int main(int argc, char** argv) {
 
                                 std::cout << "🚀 SPAWNING COUNTRIES..." << std::endl;
                                 auto countryStart = std::chrono::high_resolution_clock::now();
-                                map.initializeCountries(countries, numCountries, &technologyManager);
+                                map.initializeCountries(countries, requestedCountries, &technologyManager);
                                 auto countryEnd = std::chrono::high_resolution_clock::now();
                                 auto countryDuration = std::chrono::duration_cast<std::chrono::milliseconds>(countryEnd - countryStart);
                                 if (countries.empty()) {
@@ -1898,6 +2031,7 @@ int main(int argc, char** argv) {
                                     std::to_string(std::max<std::int64_t>(1, ctx.config.world.population.minValue));
                                 simulationStartupPopulationMaxInput =
                                     std::to_string(std::max<std::int64_t>(1, ctx.config.world.population.maxValue));
+                                simulationStartupCountryCountInput = std::to_string(startupNumCountries);
                                 simulationStartupUseRegionalSpawnMask = ctx.config.spawn.enabled;
                                 simulationStartupStartTechPresetsEnabled = ctx.config.startTech.enabled;
                                 simulationStartYearInputError.clear();
@@ -1940,6 +2074,7 @@ int main(int argc, char** argv) {
                             if (megaTimeJumpDebugLogEnabled) {
                                 ImGui::TextWrapped("Log file: %s", megaTimeJumpDebugLogPath.c_str());
                             }
+                            ImGui::Checkbox("Diagnostic snapshot console logs", &megaTimeJumpSnapshotLogEnabled);
                             if (!megaTimeJumpInputError.empty()) {
                                 ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.45f, 1.0f), "%s", megaTimeJumpInputError.c_str());
                             }
@@ -2082,6 +2217,11 @@ int main(int argc, char** argv) {
 		                            renderer.setWarHighlights(war);
 		                            renderingNeedsUpdate = true;
 		                        }
+                                bool tradeRoutes = renderer.tradeRouteOverlayEnabled();
+                                if (ImGui::Checkbox("Trade Routes (Y)", &tradeRoutes)) {
+                                    renderer.setTradeRouteOverlay(tradeRoutes);
+                                    renderingNeedsUpdate = true;
+                                }
 
 		                        bool climate = renderer.climateOverlayEnabled();
 		                        if (ImGui::Checkbox("Climate Overlay (C)", &climate)) {
@@ -2116,6 +2256,19 @@ int main(int argc, char** argv) {
 		                            renderer.setOverseasOverlay(overseas);
 		                            renderingNeedsUpdate = true;
 		                        }
+
+                                bool countryPov = renderer.countryPovOverlayEnabled();
+                                if (ImGui::Checkbox("Country POV Fog (P)", &countryPov)) {
+                                    renderer.setCountryPovOverlay(countryPov);
+                                    renderingNeedsUpdate = true;
+                                }
+                                if (countryPov) {
+                                    if (selectedCountry != nullptr) {
+                                        ImGui::Text("POV Source: %s", selectedCountry->getName().c_str());
+                                    } else {
+                                        ImGui::TextUnformatted("POV Source: <select a country>");
+                                    }
+                                }
 
 		                        ImGui::Separator();
 		                        ImGui::Checkbox("Add Country Mode (9)", &countryAddMode);
