@@ -1,0 +1,63 @@
+{
+  "elapsed_sec": 212.10775542259216,
+  "total_seeds": 8,
+  "ok_runs": 8,
+  "failed_runs": 0,
+  "final_low_state_means": {
+    "final_low_stability_countries": 3.125,
+    "final_low_legitimacy_countries": 12.375,
+    "final_low_both_countries": 3.0,
+    "final_pop_low_stability_share": 0.0014656250000000001,
+    "final_pop_low_legitimacy_share": 0.049694125,
+    "final_pop_critical_share": 0.00395275,
+    "final_stability_mean": 0.968927375,
+    "final_legitimacy_mean": 0.849457
+  },
+  "peak_low_state_means": {
+    "max_pop_low_stability_share": 0.00955,
+    "max_pop_low_legitimacy_share": 0.07114575,
+    "max_pop_critical_share": 0.016003375,
+    "max_low_stability_countries": 4.875,
+    "max_low_legitimacy_countries": 15.5
+  },
+  "aggregate_top_low_stability_causes": [
+    {
+      "name": "stagnation",
+      "count": 1174
+    },
+    {
+      "name": "budget",
+      "count": 529
+    },
+    {
+      "name": "debt",
+      "count": 273
+    },
+    {
+      "name": "control",
+      "count": 6
+    },
+    {
+      "name": "plague",
+      "count": 1
+    }
+  ],
+  "aggregate_top_low_legitimacy_causes": [
+    {
+      "name": "budget",
+      "count": 2497
+    },
+    {
+      "name": "economy",
+      "count": 1642
+    },
+    {
+      "name": "none",
+      "count": 1303
+    },
+    {
+      "name": "demography",
+      "count": 209
+    }
+  ]
+}
