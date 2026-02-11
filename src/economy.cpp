@@ -1502,6 +1502,8 @@ void EconomyModelCPU::tickYear(int year,
         m.lastFoodAvailableBeforeLosses = availableBeforeLosses / yearsD;
         m.lastFoodSpoilageLoss = spoilageTotal / yearsD;
         m.lastFoodStorageLoss = handlingLossTotal / yearsD;
+        m.skilledMigrationInRate = 0.0;
+        m.skilledMigrationOutRate = 0.0;
 
         const double valueAddedAnnual =
             foodOutAnnual[static_cast<size_t>(i)] * foodPrice[static_cast<size_t>(i)] +
@@ -1922,6 +1924,145 @@ void EconomyModelCPU::tickYear(int year,
             : 0.0;
         m.knowledgeStock = clamp01(m.knowledgeStock + yearsD * (0.018 * kGrow - collapse - 0.0012));
 
+        // Mechanism indices: competition/idea-market/commitment/factor-prices/media/merchant coalition.
+        int adjacentLive = 0;
+        int adjacentPeerPower = 0;
+        int adjacentEnemies = 0;
+        const double ownPower =
+            (0.50 + 0.50 * std::max(0.0, m.lastGoodsOutput + m.lastServicesOutput + 0.5 * m.lastMilitaryOutput)) *
+            (0.30 + 0.70 * m.institutionCapacity) *
+            (0.30 + 0.70 * m.connectivityIndex) *
+            (0.45 + 0.55 * control) *
+            std::max(1.0, pop);
+        for (int j : map.getAdjacentCountryIndicesPublic(i)) {
+            if (j < 0 || j >= n || j == i) continue;
+            const Country& nb = countries[static_cast<size_t>(j)];
+            if (nb.getPopulation() <= 0) continue;
+            adjacentLive++;
+            const auto& nm = nb.getMacroEconomy();
+            const double nbPower =
+                (0.50 + 0.50 * std::max(0.0, nm.lastGoodsOutput + nm.lastServicesOutput + 0.5 * nm.lastMilitaryOutput)) *
+                (0.30 + 0.70 * clamp01(nm.institutionCapacity)) *
+                (0.30 + 0.70 * clamp01(nm.connectivityIndex)) *
+                (0.45 + 0.55 * clamp01(nb.getAvgControl())) *
+                std::max(1.0, static_cast<double>(nb.getPopulation()));
+            const double ratio = ownPower / std::max(1.0, nbPower);
+            if (ratio >= 0.45 && ratio <= 2.20) {
+                adjacentPeerPower++;
+            }
+            if (isEnemy(i, j) || isEnemy(j, i)) {
+                adjacentEnemies++;
+            }
+        }
+        const double neighborDensity = clamp01(static_cast<double>(adjacentLive) / 8.0);
+        const double peerBalance = (adjacentLive > 0) ? clamp01(static_cast<double>(adjacentPeerPower) / static_cast<double>(adjacentLive)) : 0.0;
+        const double threatPressure =
+            clamp01(0.55 * (c.isAtWar() ? 1.0 : 0.0) +
+                    0.45 * ((adjacentLive > 0) ? static_cast<double>(adjacentEnemies) / static_cast<double>(adjacentLive) : 0.0));
+        const double exitOptions =
+            clamp01(0.40 * m.connectivityIndex + 0.30 * m.marketAccess + 0.20 * tradeNorm + 0.10 * neighborDensity);
+        m.competitionFragmentationIndex =
+            clamp01(0.32 * neighborDensity + 0.28 * peerBalance + 0.22 * threatPressure + 0.18 * exitOptions);
+
+        const bool hasWriting = TechnologyManager::hasTech(tech, c, TechId::WRITING) ||
+                                TechnologyManager::hasTech(tech, c, TechId::PROTO_WRITING);
+        const bool hasUniversities = TechnologyManager::hasTech(tech, c, TechId::UNIVERSITIES);
+        const bool hasScientificMethod = TechnologyManager::hasTech(tech, c, TechId::SCIENTIFIC_METHOD);
+        const bool hasPrinting = TechnologyManager::hasTech(tech, c, 54);
+        const bool hasPaper = TechnologyManager::hasTech(tech, c, 69);
+        const double mediaTech = clamp01(
+            (hasWriting ? 0.28 : 0.0) +
+            (hasPaper ? 0.18 : 0.0) +
+            (hasPrinting ? 0.30 : 0.0) +
+            (hasUniversities ? 0.16 : 0.0) +
+            (hasScientificMethod ? 0.12 : 0.0));
+        m.mediaThroughputIndex = clamp01(
+            0.14 +
+            0.22 * c.getEducationSpendingShare() +
+            0.22 * m.institutionCapacity +
+            0.20 * m.marketAccess +
+            0.10 * m.connectivityIndex +
+            0.12 * mediaTech);
+
+        double affinityAcc = 0.0;
+        int affinityCnt = 0;
+        for (int j : map.getAdjacentCountryIndicesPublic(i)) {
+            if (j < 0 || j >= n || j == i) continue;
+            const Country& nb = countries[static_cast<size_t>(j)];
+            if (nb.getPopulation() <= 0) continue;
+            affinityAcc += c.computeCulturalAffinity(nb);
+            affinityCnt++;
+        }
+        const double culturalBridge = (affinityCnt > 0) ? clamp01(affinityAcc / static_cast<double>(affinityCnt)) : 0.45;
+        m.ideaMarketIntegrationIndex = clamp01(
+            0.33 * tradeNorm +
+            0.22 * m.connectivityIndex +
+            0.18 * m.marketAccess +
+            0.17 * m.mediaThroughputIndex +
+            0.10 * culturalBridge);
+
+        const double taxBurdenSignal = clamp01(c.getTaxRate() / 0.30);
+        const double predationRisk = clamp01(
+            0.40 * m.leakageRate +
+            0.20 * (1.0 - m.compliance) +
+            0.20 * (1.0 - control) +
+            0.20 * taxBurdenSignal);
+        const double incomeSafe = std::max(1.0, netRevenueAnnual[static_cast<size_t>(i)] + 0.20 * taxableBaseAnnual[static_cast<size_t>(i)]);
+        const double debtToIncome = clamp01(std::max(0.0, c.getDebt()) / std::max(1.0, 25.0 * incomeSafe));
+        const double debtServiceAnnual =
+            std::max(0.0, c.getDebt()) * (0.02 + 0.05 * (1.0 - m.institutionCapacity));
+        const double serviceStress = clamp01(debtServiceAnnual / std::max(1.0, incomeSafe));
+        m.credibleCommitmentIndex = clamp01(
+            0.32 * m.institutionCapacity +
+            0.25 * legitimacy +
+            0.18 * control +
+            0.15 * m.compliance +
+            0.10 * (1.0 - predationRisk) -
+            0.15 * debtToIncome -
+            0.10 * serviceStress);
+
+        const auto sat = [](double x, double s) {
+            const double d = std::max(1e-9, s);
+            const double v = std::max(0.0, x);
+            return v / (v + d);
+        };
+        const double wageHigh = clamp01(m.realWage / 1.35);
+        const double energyCheap = sat(energyPot * (0.35 + 0.65 * m.marketAccess), 24.0 + 0.00012 * pop);
+        const double materialCheap = sat(orePot * (0.35 + 0.65 * m.marketAccess), 24.0 + 0.00012 * pop);
+        m.relativeFactorPriceIndex = clamp01(wageHigh * (0.60 * energyCheap + 0.40 * materialCheap));
+
+        const double portTerm = std::min(1.0, std::sqrt(static_cast<double>(c.getPorts().size()) / 8.0));
+        m.merchantPowerIndex = clamp01(
+            0.36 * tradeNorm +
+            0.24 * urban +
+            0.20 * m.marketAccess +
+            0.12 * portTerm +
+            0.08 * m.ideaMarketIntegrationIndex);
+
+        const double constraintScore = clamp01(
+            0.45 * m.institutionCapacity +
+            0.30 * legitimacy +
+            0.25 * (1.0 - m.leakageRate));
+        const double merchantImpulse = yearsD * 0.028 * m.merchantPowerIndex;
+        if (constraintScore >= 0.45) {
+            const double gain = merchantImpulse * (0.35 + 0.65 * constraintScore);
+            m.institutionCapacity = clamp01(m.institutionCapacity + 0.55 * gain);
+            m.compliance = clamp01(m.compliance + 0.45 * gain);
+            m.leakageRate = clamp01(m.leakageRate - 0.50 * gain);
+            m.humanCapital = clamp01(m.humanCapital + 0.16 * gain);
+            m.knowledgeStock = clamp01(m.knowledgeStock + 0.20 * gain);
+            if (!c.isAtWar()) {
+                c.setLegitimacy(c.getLegitimacy() + 0.010 * gain);
+                c.setStability(c.getStability() + 0.008 * gain);
+            }
+        } else {
+            const double extractive = merchantImpulse * (1.0 - constraintScore);
+            m.inequality = clamp01(m.inequality + 0.60 * extractive);
+            m.leakageRate = clamp01(m.leakageRate + 0.42 * extractive);
+            c.setLegitimacy(c.getLegitimacy() - 0.010 * extractive);
+            c.setStability(c.getStability() - 0.008 * extractive);
+        }
+
         // Inequality dynamics and feedback loops.
         const double tradeRent = clamp01(tradeNorm * (0.50 + 0.50 * m.marketAccess));
         const double extraction = clamp01(c.getTaxRate() * (1.0 - m.compliance));
@@ -2000,5 +2141,95 @@ void EconomyModelCPU::tickYear(int year,
         c.setGDP(std::max(0.0, gdpAnnual));
         c.setWealth(std::max(0.0, wealth));
         c.setExports(std::max(0.0, m.exportsValue));
+    }
+
+    // Skilled-mobility / brain-drain mechanism: flow of specialists and tacit know-how.
+    const bool hasTradeMatrix =
+        m_tradeIntensity.size() >= static_cast<size_t>(n) * static_cast<size_t>(n);
+    std::vector<double> skilledOutShare(static_cast<size_t>(n), 0.0);
+    std::vector<double> skilledInShare(static_cast<size_t>(n), 0.0);
+
+    for (int i = 0; i < n; ++i) {
+        Country& src = countries[static_cast<size_t>(i)];
+        if (src.getPopulation() <= 0) continue;
+        Country::MacroEconomyState& sm = src.getMacroEconomyMutable();
+
+        const double predationPressure = clamp01(
+            0.45 * (1.0 - sm.credibleCommitmentIndex) +
+            0.22 * clamp01(src.getTaxRate() / 0.30) +
+            0.18 * (src.isAtWar() ? 1.0 : 0.0) +
+            0.15 * clamp01(sm.refugeePush));
+        const double connectivityGate = clamp01(0.65 * sm.connectivityIndex + 0.35 * sm.marketAccess);
+        const double talentBase = clamp01(0.55 * sm.humanCapital + 0.45 * sm.knowledgeStock);
+        const double outShare =
+            std::clamp(0.0012 * yearsD * predationPressure * connectivityGate * (0.30 + 0.70 * talentBase), 0.0, 0.025);
+        if (outShare <= 1e-7) continue;
+
+        struct Dest { int j = -1; double score = 0.0; };
+        std::vector<Dest> dest;
+        dest.reserve(static_cast<size_t>(n));
+
+        for (int j = 0; j < n; ++j) {
+            if (j == i) continue;
+            const Country& dst = countries[static_cast<size_t>(j)];
+            if (dst.getPopulation() <= 0) continue;
+            const Country::MacroEconomyState& dm = dst.getMacroEconomy();
+
+            double conn = 0.0;
+            if (hasTradeMatrix) {
+                const size_t ij = static_cast<size_t>(i) * static_cast<size_t>(n) + static_cast<size_t>(j);
+                const size_t ji = static_cast<size_t>(j) * static_cast<size_t>(n) + static_cast<size_t>(i);
+                conn = static_cast<double>(m_tradeIntensity[ij]) + 0.60 * static_cast<double>(m_tradeIntensity[ji]);
+            }
+            if (map.areCountryIndicesNeighbors(i, j)) {
+                conn = std::max(conn, 0.12);
+            }
+            if (conn <= 1e-8) continue;
+
+            const double affinity = src.computeCulturalAffinity(dst);
+            const double attract = clamp01(
+                0.34 * dm.credibleCommitmentIndex +
+                0.24 * dm.ideaMarketIntegrationIndex +
+                0.18 * dm.marketAccess +
+                0.14 * clamp01(dm.realWage / 1.35) +
+                0.10 * affinity);
+            const double score = std::max(0.0, conn * attract);
+            if (score > 1e-8) {
+                dest.push_back(Dest{j, score});
+            }
+        }
+
+        if (dest.empty()) continue;
+        std::sort(dest.begin(), dest.end(), [](const Dest& a, const Dest& b) {
+            if (a.score != b.score) return a.score > b.score;
+            return a.j < b.j;
+        });
+        if (dest.size() > 8) dest.resize(8);
+
+        double sumScore = 0.0;
+        for (const Dest& d : dest) sumScore += d.score;
+        if (sumScore <= 1e-9) continue;
+
+        skilledOutShare[static_cast<size_t>(i)] += outShare;
+        for (const Dest& d : dest) {
+            skilledInShare[static_cast<size_t>(d.j)] += outShare * (d.score / sumScore);
+        }
+    }
+
+    for (int i = 0; i < n; ++i) {
+        Country& c = countries[static_cast<size_t>(i)];
+        if (c.getPopulation() <= 0) continue;
+        Country::MacroEconomyState& m = c.getMacroEconomyMutable();
+        const double inShare = std::clamp(skilledInShare[static_cast<size_t>(i)], 0.0, 0.08);
+        const double outShare = std::clamp(skilledOutShare[static_cast<size_t>(i)], 0.0, 0.08);
+
+        m.skilledMigrationInRate = std::clamp(inShare / yearsD, 0.0, 1.0);
+        m.skilledMigrationOutRate = std::clamp(outShare / yearsD, 0.0, 1.0);
+
+        const double netTalent = inShare - outShare;
+        m.humanCapital = clamp01(m.humanCapital + 0.30 * netTalent);
+        m.knowledgeStock = clamp01(m.knowledgeStock + 0.42 * netTalent);
+        const double infra = std::max(0.0, c.getKnowledgeInfra());
+        c.setKnowledgeInfra(std::max(0.0, infra * (1.0 - 0.10 * outShare) + 12.0 * inShare));
     }
 }

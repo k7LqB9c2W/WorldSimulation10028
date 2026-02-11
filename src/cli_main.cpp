@@ -65,6 +65,7 @@ struct RunOptions {
     bool spawnDisable = false;
     std::vector<std::pair<std::string, double>> spawnRegionShareOverrides;
     bool stateDiagnostics = false; // optional: emit per-country state cause diagnostics at checkpoints
+    int numCountries = kDefaultNumCountries;
 };
 
 struct MetricsSnapshot {
@@ -81,6 +82,14 @@ struct MetricsSnapshot {
     double world_tech_capability_index_p90 = 0.0;
     double world_state_capacity_index_median = 0.0;
     double world_state_capacity_index_p10 = 0.0;
+    double competition_fragmentation_index_median = 0.0;
+    double idea_market_integration_index_median = 0.0;
+    double credible_commitment_index_median = 0.0;
+    double relative_factor_price_index_median = 0.0;
+    double media_throughput_index_median = 0.0;
+    double merchant_power_index_median = 0.0;
+    double skilled_migration_in_rate_t = 0.0;
+    double skilled_migration_out_rate_t = 0.0;
     double migration_rate_t = 0.0;
     double famine_exposure_share_t = 0.0;
 
@@ -207,6 +216,7 @@ void printUsage(const char* argv0) {
               << "       [--techUnlockLog path] [--techUnlockLogIncludeInitial 0|1]\n"
               << "       [--stateDiagnostics 0|1]\n"
               << "       [--stopOnTechId N]\n"
+              << "       [--numCountries N]\n"
               << "       [--world-pop N] [--world-pop-range MIN MAX]\n"
               << "       [--spawn-mask path] [--spawn-disable]\n"
               << "       [--spawn-region-share KEY VALUE] (repeatable)\n"
@@ -318,6 +328,13 @@ bool parseArgs(int argc, char** argv, RunOptions& opt) {
             if (!requireValue(v) || !parseInt(v, opt.stopOnTechId)) return false;
         } else if (arg.rfind("--stopOnTechId=", 0) == 0) {
             if (!parseInt(arg.substr(15), opt.stopOnTechId)) return false;
+        } else if (arg == "--numCountries" || arg == "--num-countries") {
+            std::string v;
+            if (!requireValue(v) || !parseInt(v, opt.numCountries)) return false;
+        } else if (arg.rfind("--numCountries=", 0) == 0) {
+            if (!parseInt(arg.substr(15), opt.numCountries)) return false;
+        } else if (arg.rfind("--num-countries=", 0) == 0) {
+            if (!parseInt(arg.substr(16), opt.numCountries)) return false;
         } else if (arg == "--world-pop") {
             std::string v;
             if (!requireValue(v) || !parseInt64(v, opt.worldPopFixedValue)) return false;
@@ -582,6 +599,12 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
     std::vector<double> controls;
     std::vector<double> stateCap;
     std::vector<double> techCapIdx;
+    std::vector<double> competitionIdx;
+    std::vector<double> ideaMarketIdx;
+    std::vector<double> commitmentIdx;
+    std::vector<double> factorPriceIdx;
+    std::vector<double> mediaIdx;
+    std::vector<double> merchantIdx;
     std::vector<double> logisticsCapIdx;
     std::vector<double> storageCapIdx;
     std::vector<double> healthCapIdx;
@@ -594,6 +617,12 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
     controls.reserve(countries.size());
     stateCap.reserve(countries.size());
     techCapIdx.reserve(countries.size());
+    competitionIdx.reserve(countries.size());
+    ideaMarketIdx.reserve(countries.size());
+    commitmentIdx.reserve(countries.size());
+    factorPriceIdx.reserve(countries.size());
+    mediaIdx.reserve(countries.size());
+    merchantIdx.reserve(countries.size());
     logisticsCapIdx.reserve(countries.size());
     storageCapIdx.reserve(countries.size());
     healthCapIdx.reserve(countries.size());
@@ -603,6 +632,8 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
     double totalUrban = 0.0;
     double faminePop = 0.0;
     double migrationWeighted = 0.0;
+    double skilledMigInWeighted = 0.0;
+    double skilledMigOutWeighted = 0.0;
     double famineDeaths = 0.0;
     double diseaseDeaths = 0.0;
     double diseaseUrbanProxyWeighted = 0.0;
@@ -637,10 +668,18 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
         marketAccess.push_back(ma);
         controls.push_back(ctrl);
         stateCap.push_back(inst);
+        competitionIdx.push_back(std::clamp(m.competitionFragmentationIndex, 0.0, 1.0));
+        ideaMarketIdx.push_back(std::clamp(m.ideaMarketIntegrationIndex, 0.0, 1.0));
+        commitmentIdx.push_back(std::clamp(m.credibleCommitmentIndex, 0.0, 1.0));
+        factorPriceIdx.push_back(std::clamp(m.relativeFactorPriceIndex, 0.0, 1.0));
+        mediaIdx.push_back(std::clamp(m.mediaThroughputIndex, 0.0, 1.0));
+        merchantIdx.push_back(std::clamp(m.merchantPowerIndex, 0.0, 1.0));
         const double migPressureEff = clamp01(
             0.70 * std::clamp(m.migrationPressureOut, 0.0, 1.0) +
             0.30 * std::clamp(m.refugeePush, 0.0, 1.0));
         migrationWeighted += pop * migPressureEff;
+        skilledMigInWeighted += pop * std::clamp(m.skilledMigrationInRate, 0.0, 1.0);
+        skilledMigOutWeighted += pop * std::clamp(m.skilledMigrationOutRate, 0.0, 1.0);
         // Country-level food security is a coarse aggregate; use shortage severity as
         // a proxy for the exposed share rather than binary fs<1.0 classification.
         const double famineExposureShareCountry = clamp01(std::max(0.0, 1.0 - fs) / 0.20);
@@ -706,6 +745,16 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
     s.world_urban_share_proxy = (totalPop > 1e-9) ? std::clamp(totalUrban / totalPop, 0.0, 1.0) : 0.0;
     s.world_food_adequacy_index = std::clamp(mean(foodSec), 0.0, 2.0);
     s.world_famine_death_rate = (totalPop > 1e-9) ? std::max(0.0, famineDeaths) / totalPop : 0.0;
+    s.world_tech_capability_index_median = percentile(techCapIdx, 0.50);
+    s.world_tech_capability_index_p90 = percentile(techCapIdx, 0.90);
+    s.world_state_capacity_index_median = percentile(stateCap, 0.50);
+    s.world_state_capacity_index_p10 = percentile(stateCap, 0.10);
+    s.competition_fragmentation_index_median = percentile(competitionIdx, 0.50);
+    s.idea_market_integration_index_median = percentile(ideaMarketIdx, 0.50);
+    s.credible_commitment_index_median = percentile(commitmentIdx, 0.50);
+    s.relative_factor_price_index_median = percentile(factorPriceIdx, 0.50);
+    s.media_throughput_index_median = percentile(mediaIdx, 0.50);
+    s.merchant_power_index_median = percentile(merchantIdx, 0.50);
     const double healthCapMedian = percentile(healthCapIdx, 0.50);
     const double rawDiseaseDeathRate = (totalPop > 1e-9) ? std::max(0.0, diseaseDeaths) / totalPop : 0.0;
     const double diseaseUrbanProxyRate = (totalPop > 1e-9) ? std::max(0.0, diseaseUrbanProxyWeighted) / totalPop : 0.0;
@@ -720,11 +769,9 @@ MetricsSnapshot computeSnapshot(const SimulationContext& ctx,
         0.20 * rawDiseaseDeathRate + 0.25 * diseaseUrbanProxyRate + chronicEndemicRate,
         0.0, 0.20);
     s.world_trade_intensity = 0.0;
-    s.world_tech_capability_index_median = percentile(techCapIdx, 0.50);
-    s.world_tech_capability_index_p90 = percentile(techCapIdx, 0.90);
-    s.world_state_capacity_index_median = percentile(stateCap, 0.50);
-    s.world_state_capacity_index_p10 = percentile(stateCap, 0.10);
     const double migrationRaw = (totalPop > 1e-9) ? std::clamp(migrationWeighted / totalPop, 0.0, 1.0) : 0.0;
+    s.skilled_migration_in_rate_t = (totalPop > 1e-9) ? std::clamp(skilledMigInWeighted / totalPop, 0.0, 1.0) : 0.0;
+    s.skilled_migration_out_rate_t = (totalPop > 1e-9) ? std::clamp(skilledMigOutWeighted / totalPop, 0.0, 1.0) : 0.0;
     s.migration_rate_t = migrationRaw;
     const double baseFamineExposure = (totalPop > 1e-9) ? std::clamp(faminePop / totalPop, 0.0, 1.0) : 0.0;
     s.famine_exposure_share_t = baseFamineExposure;
@@ -1280,7 +1327,9 @@ bool collectParityChecksums(const RunOptions& opt,
 
     CliRuntime runtime(opt.seed, opt.configPath);
     std::string initError;
-    if (!initializeRuntime(runtime, opt, kDefaultNumCountries, kDefaultMaxCountries, &initError)) {
+    const int requestedCountries = std::max(1, opt.numCountries);
+    const int maxCountries = std::max(kDefaultMaxCountries, requestedCountries * 4);
+    if (!initializeRuntime(runtime, opt, requestedCountries, maxCountries, &initError)) {
         if (errorOut) *errorOut = initError;
         return false;
     }
@@ -1479,6 +1528,7 @@ int runParityCheck(const RunOptions& opt, const std::string& argv0) {
             << " --config " << shellQuote(opt.configPath)
             << " --parityCheckYears " << parityYears
             << " --parityCheckpointEveryYears " << parityCheckpointEvery
+            << " --numCountries " << std::max(1, opt.numCountries)
             << " --parityRole " << role
             << " --parityOut " << shellQuote(csvPath.string());
         if (opt.useGPU >= 0) {
@@ -1554,9 +1604,16 @@ int main(int argc, char** argv) {
         return runParityCheck(opt, argv0);
     }
 
+    if (opt.numCountries < 1) {
+        std::cerr << "Invalid --numCountries=" << opt.numCountries << " (must be >= 1)\n";
+        return 2;
+    }
+
     CliRuntime runtime(opt.seed, opt.configPath);
     std::string initError;
-    if (!initializeRuntime(runtime, opt, kDefaultNumCountries, kDefaultMaxCountries, &initError)) {
+    const int requestedCountries = std::max(1, opt.numCountries);
+    const int maxCountries = std::max(kDefaultMaxCountries, requestedCountries * 4);
+    if (!initializeRuntime(runtime, opt, requestedCountries, maxCountries, &initError)) {
         std::cerr << "Error: " << initError << "\n";
         return 1;
     }
@@ -2066,7 +2123,9 @@ int main(int argc, char** argv) {
         std::ofstream csv(csvPath);
         csv << "year,world_pop_total,world_pop_growth_rate_annual,world_food_adequacy_index,world_famine_death_rate,world_disease_death_rate,world_war_death_rate,"
                "world_trade_intensity,world_urban_share_proxy,world_tech_capability_index_median,world_tech_capability_index_p90,world_state_capacity_index_median,"
-               "world_state_capacity_index_p10,migration_rate_t,famine_exposure_share_t,habitable_cell_share_pop_gt_0,habitable_cell_share_pop_gt_small,pop_share_by_lat_band,"
+               "world_state_capacity_index_p10,competition_fragmentation_index_median,idea_market_integration_index_median,credible_commitment_index_median,"
+               "relative_factor_price_index_median,media_throughput_index_median,merchant_power_index_median,skilled_migration_in_rate_t,skilled_migration_out_rate_t,"
+               "migration_rate_t,famine_exposure_share_t,habitable_cell_share_pop_gt_0,habitable_cell_share_pop_gt_small,pop_share_by_lat_band,"
                "pop_share_coastal_vs_inland,pop_share_river_proximal,market_access_p10,market_access_median,food_adequacy_p10,food_adequacy_median,travel_cost_index_median,"
                "country_pop_median,country_pop_p90,country_pop_top1_share,country_area_median,country_area_p90,country_area_top1_share,control_median,control_p10,"
                "wars_active_count,city_pop_top1,city_pop_top10_sum_share,city_tail_index,famine_wave_count,epidemic_wave_count,major_war_count,civil_conflict_count,"
@@ -2087,6 +2146,14 @@ int main(int argc, char** argv) {
                 << s.world_tech_capability_index_p90 << ","
                 << s.world_state_capacity_index_median << ","
                 << s.world_state_capacity_index_p10 << ","
+                << s.competition_fragmentation_index_median << ","
+                << s.idea_market_integration_index_median << ","
+                << s.credible_commitment_index_median << ","
+                << s.relative_factor_price_index_median << ","
+                << s.media_throughput_index_median << ","
+                << s.merchant_power_index_median << ","
+                << s.skilled_migration_in_rate_t << ","
+                << s.skilled_migration_out_rate_t << ","
                 << s.migration_rate_t << ","
                 << s.famine_exposure_share_t << ","
                 << s.habitable_cell_share_pop_gt_0 << ","
@@ -2168,6 +2235,10 @@ int main(int argc, char** argv) {
             js << "      \"world_urban_share_proxy\": " << s.world_urban_share_proxy << ",\n";
             js << "      \"world_tech_capability_index_median\": " << s.world_tech_capability_index_median << ",\n";
             js << "      \"world_state_capacity_index_median\": " << s.world_state_capacity_index_median << ",\n";
+            js << "      \"competition_fragmentation_index_median\": " << s.competition_fragmentation_index_median << ",\n";
+            js << "      \"idea_market_integration_index_median\": " << s.idea_market_integration_index_median << ",\n";
+            js << "      \"credible_commitment_index_median\": " << s.credible_commitment_index_median << ",\n";
+            js << "      \"relative_factor_price_index_median\": " << s.relative_factor_price_index_median << ",\n";
             js << "      \"major_war_count\": " << s.major_war_count << ",\n";
             js << "      \"famine_wave_count\": " << s.famine_wave_count << ",\n";
             js << "      \"epidemic_wave_count\": " << s.epidemic_wave_count << ",\n";

@@ -157,6 +157,14 @@ void canonicalizeDeterministicState(SimulationStepContext& ctx) {
         m.rndInvestment = std::clamp(quantize(m.rndInvestment, kScale), 0.0, 1.0);
         m.connectivityIndex = std::clamp(quantize(m.connectivityIndex, kScale), 0.0, 1.0);
         m.institutionCapacity = std::clamp(quantize(m.institutionCapacity, kScale), 0.0, 1.0);
+        m.competitionFragmentationIndex = std::clamp(quantize(m.competitionFragmentationIndex, kScale), 0.0, 1.0);
+        m.ideaMarketIntegrationIndex = std::clamp(quantize(m.ideaMarketIntegrationIndex, kScale), 0.0, 1.0);
+        m.credibleCommitmentIndex = std::clamp(quantize(m.credibleCommitmentIndex, kScale), 0.0, 1.0);
+        m.relativeFactorPriceIndex = std::clamp(quantize(m.relativeFactorPriceIndex, kScale), 0.0, 1.0);
+        m.mediaThroughputIndex = std::clamp(quantize(m.mediaThroughputIndex, kScale), 0.0, 1.0);
+        m.merchantPowerIndex = std::clamp(quantize(m.merchantPowerIndex, kScale), 0.0, 1.0);
+        m.skilledMigrationInRate = std::clamp(quantize(m.skilledMigrationInRate, kScale), 0.0, 1.0);
+        m.skilledMigrationOutRate = std::clamp(quantize(m.skilledMigrationOutRate, kScale), 0.0, 1.0);
         m.compliance = std::clamp(quantize(m.compliance, kScale), 0.0, 1.0);
         m.leakageRate = std::clamp(quantize(m.leakageRate, kScale), 0.0, 1.0);
         m.realWage = std::max(0.0, quantize(m.realWage, kScale));

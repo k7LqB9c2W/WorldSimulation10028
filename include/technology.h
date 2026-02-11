@@ -107,6 +107,12 @@ private:
         double connectivity = 0.0;
         double openness = 0.0;
         double inequality = 0.0;
+        double competitionFragmentation = 0.0;
+        double ideaMarketIntegration = 0.0;
+        double credibleCommitment = 0.0;
+        double relativeFactorPrice = 0.0;
+        double mediaThroughput = 0.0;
+        double merchantPower = 0.0;
         double foodSecurity = 1.0;
         double famineSeverity = 0.0;
         double climateFoodMult = 1.0;

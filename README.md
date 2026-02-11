@@ -9,6 +9,7 @@ The model is free-form: outcomes should emerge from mechanisms (food, logistics,
 - Build your normal GUI target (`WorldSimulation`) with your existing CMake/Visual Studio workflow.
 - Optional runtime config override:
   - `WorldSimulation --config data/sim_config.toml`
+  - `WorldSimulation --megaSnapshots 1` enables mega time-jump diagnostic snapshot console logs.
 - On launch, the GUI shows an ImGui start-year prompt before simulation begins.
   - Allowed range: `-20000` to configured `world.endYear`
   - Default input: configured `world.startYear` (now `-20000`)
@@ -17,6 +18,10 @@ The model is free-form: outcomes should emerge from mechanisms (food, logistics,
     - population value/range
     - regional spawn mask toggle
     - 5000 BCE regional start-tech preset toggle
+- Mega Time Jump diagnostics:
+  - `Debug CSV logging` controls CSV export (`mega_time_jump_population_debug.csv`).
+  - `Diagnostic snapshot console logs` controls `[FOOD SNAPSHOT]`, `[STABILITY SNAPSHOT]`, `[LEGITIMACY SNAPSHOT]`, and `WORST5` console output.
+  - Snapshot console logs are off by default.
 
 ### CLI build/run
 - Build target: `worldsim_cli`
@@ -59,6 +64,7 @@ Supported flags:
 - `--config path`
 - `--startYear Y`
 - `--endYear Y`
+- `--numCountries N`
 - `--checkpointEveryYears N`
 - `--outDir path`
 - `--useGPU 0|1`
@@ -73,6 +79,7 @@ Supported flags:
 Example:
 - `worldsim_cli --seed 7 --config data/sim_config.toml --startYear -20000 --endYear 2025 --checkpointEveryYears 50 --outDir out/cli_runs/seed_7 --useGPU 0`
 - `worldsim_cli --seed 7 --config data/sim_config.toml --world-pop-range 8000000 12000000 --spawn-region-share south_asia 28 --spawn-region-share east_asia 24 --outDir out/cli_runs/seed_7`
+- `worldsim_cli --seed 7 --config data/sim_config.toml --numCountries 240 --startYear -5000 --endYear 2025 --outDir out/cli_runs/seed_7`
 
 ### CLI outputs
 Each run writes:
@@ -102,6 +109,34 @@ These include core metrics (population, urban proxy, war frequency, trade intens
   - gradual warming/wetting toward Holocene
 - City formation is gated by tech transition:
   - requires adopted Sedentism and Agriculture in both legacy and population-grid city founding paths.
+
+## Mechanism Update (2026-02-11): Frontier Emergence Without Region Scripts
+- Added endogenous "frontier emergence" mechanisms so any region can become technologically leading if it develops the right mix of:
+  - competition among peer polities
+  - connected idea markets and media throughput
+  - credible commitment / low predation institutions
+  - favorable relative factor prices (high wages + cheap energy/materials)
+  - strong merchant-trade coalitions
+- Implemented in runtime economy state (`Country::MacroEconomyState`) as annual indices:
+  - `competitionFragmentationIndex`
+  - `ideaMarketIntegrationIndex`
+  - `credibleCommitmentIndex`
+  - `relativeFactorPriceIndex`
+  - `mediaThroughputIndex`
+  - `merchantPowerIndex`
+  - `skilledMigrationInRate` / `skilledMigrationOutRate`
+- Added trade-driven institutional dynamics:
+  - high merchant power with adequate constraints improves institutional capacity/compliance and reduces leakage
+  - high merchant power with weak constraints tends toward extractive outcomes (higher inequality/leakage, weaker legitimacy/stability)
+- Added skilled mobility (brain-drain/brain-gain) through connected routes:
+  - predatory/repressive contexts lose specialized know-how
+  - attractive/credible connected states gain knowledge/human-capital momentum
+- Added induced-innovation bias in technology search/adoption:
+  - discovery and adoption now respond to profitability direction and institutions/media integration
+  - information/media and institution-oriented technologies accelerate more where those mechanisms are already stronger
+- Added phase-1 style metric availability to CLI outputs:
+  - `timeseries.csv` now includes median values for the six new mechanism indices and skilled migration in/out rates
+  - `run_summary.json` checkpoints now include the key mechanism medians for diagnostics and tuning
 
 ## Python Evaluation Harness
 
@@ -135,6 +170,24 @@ Current automation script set includes this evaluator and the baseline JSON file
 ## Baseline File
 - `tools/baseline_score.json`
 - Stores baseline aggregate score used by evaluation regression checks.
+
+## Map Scale and Territory Cap Notes (2026-02-11)
+
+Important: this world map is rendered on a `1920 x 1080` grid and is not equal-area. It behaves like a Mercator-like display for gameplay, so there is no single globally-correct square-mile size per pixel.
+
+- Total pixel count: `2,073,600`.
+- If you force a whole-Earth average (`~196.94M sq mi / 2,073,600`), you get about `95 sq mi per pixel` as a rough global mean.
+- If you use equatorial angular width (`360 / 1920 = 0.1875 deg` longitude per pixel), one pixel is about `12.97 miles` wide at the equator, giving an equatorial cell area on the order of `~150 sq mi` (projection-dependent vertically).
+- Real ground area per pixel varies strongly with latitude; high-latitude land is visually inflated in Mercator-like maps.
+
+Current territory scaling model (code):
+- Expansion no longer uses a hard territory stop.
+- It now uses a soft overload model:
+  - `governanceLoad`: territory size adjusted by low control, autonomy pressure, and wartime strain.
+  - `nominalCapacity`: admin capacity, city count, and technology depth.
+  - growth is scaled by a continuous `loadRatio` response curve (smooth slowdown under overload, mild recovery bonus under slack).
+- Overload now gradually reduces control/legitimacy and raises autonomy pressure instead of abruptly clamping expansion.
+- Treat this as a gameplay state-capacity model, not literal geodesic state area.
 
 ## Agentic Society Update (2026-02-11)
 

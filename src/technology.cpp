@@ -912,6 +912,12 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         s.connectivity = clamp01(c.getConnectivityIndex());
         s.openness = clamp01(c.getTraits()[5]);
         s.inequality = clamp01(c.getInequality());
+        s.competitionFragmentation = clamp01(c.getCompetitionFragmentationIndex());
+        s.ideaMarketIntegration = clamp01(c.getIdeaMarketIntegrationIndex());
+        s.credibleCommitment = clamp01(c.getCredibleCommitmentIndex());
+        s.relativeFactorPrice = clamp01(c.getRelativeFactorPriceIndex());
+        s.mediaThroughput = clamp01(c.getMediaThroughputIndex());
+        s.merchantPower = clamp01(c.getMerchantPowerIndex());
         s.foodSecurity = clamp01(c.getFoodSecurity());
         s.famineSeverity = clamp01(c.getMacroEconomy().famineSeverity);
         s.atWar = c.isAtWar();
@@ -936,6 +942,50 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         s.riverWetlandShare = clamp01((s.farmingPotential) / std::max(1.0, s.farmingPotential + s.foragingPotential));
         signals[static_cast<size_t>(i)] = s;
     }
+
+    auto inferSearchBias = [&](const Technology& t) -> int {
+        // 1=labor-saving, 2=energy-using, 3=materials-intensive, 4=information/media, 5=institutions/finance
+        const std::string n = toLowerCopy(t.name);
+        auto has = [&](const char* kw) { return n.find(kw) != std::string::npos; };
+        if (t.domainId == 6 || has("printing") || has("paper") || has("writing") || has("alphabet") ||
+            has("telegraph") || has("radio") || has("internet") || has("computer") || has("education")) {
+            return 4;
+        }
+        if (t.domainId == 4 || has("bank") || has("banking") || has("currency") || has("civil service") ||
+            has("economics") || has("law") || has("market")) {
+            return 5;
+        }
+        if (has("steam") || has("engine") || has("industrial") || has("mechanized") || has("rail") ||
+            has("coal") || has("electric")) {
+            return 2;
+        }
+        if (has("metall") || has("mining") || has("smelting") || has("steel") || has("iron") || has("bronze")) {
+            return 3;
+        }
+        if (has("automation") || has("machine") || has("mechan") || has("assembly") || has("textile")) {
+            return 1;
+        }
+        return 0;
+    };
+
+    auto inducedInnovationBias = [&](const Technology& t, const CountryTechSignals& s) -> double {
+        const int bias = inferSearchBias(t);
+        double mult = 1.0;
+        if (bias == 1) {
+            mult *= 0.85 + 0.55 * s.relativeFactorPrice;
+        } else if (bias == 2) {
+            mult *= 0.80 + 0.45 * s.relativeFactorPrice + 0.35 * s.energyAvail;
+        } else if (bias == 3) {
+            mult *= 0.85 + 0.55 * s.oreAvail;
+        } else if (bias == 4) {
+            mult *= 0.80 + 0.55 * s.mediaThroughput + 0.35 * s.ideaMarketIntegration;
+        } else if (bias == 5) {
+            mult *= 0.82 + 0.50 * s.credibleCommitment + 0.35 * s.merchantPower;
+        }
+        mult *= (0.85 + 0.30 * s.competitionFragmentation);
+        mult *= (0.80 + 0.35 * s.ideaMarketIntegration);
+        return std::clamp(mult, 0.35, 2.20);
+    };
 
     // ---- Discovery pass: new knowledge only (not instant full adoption) ----
     for (int i = 0; i < n; ++i) {
@@ -968,7 +1018,16 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                 (0.35 + 0.65 * s.connectivity) *
                 (0.25 + 0.75 * s.openness);
             const double difficultyDen = 1.0 + std::max(0.0, cfg.tech.discoveryDifficultyScale) * std::max(0.0, t.difficulty);
-            const double hazard = std::max(0.0, cfg.tech.discoveryBase) * popFactor * orgFactor * domainFactor / std::max(0.2, difficultyDen);
+            const double mechanismBoost =
+                (0.72 + 0.28 * s.competitionFragmentation) *
+                (0.72 + 0.28 * s.ideaMarketIntegration) *
+                (0.75 + 0.25 * s.credibleCommitment) *
+                (0.80 + 0.20 * s.mediaThroughput);
+            const double inducedBias = inducedInnovationBias(t, s);
+            const double hazard =
+                std::max(0.0, cfg.tech.discoveryBase) *
+                popFactor * orgFactor * domainFactor *
+                mechanismBoost * inducedBias / std::max(0.2, difficultyDen);
             const double p = 1.0 - std::exp(-hazard * yearsD);
             const double u = deterministicUnit(worldSeed, currentYear, i, dense, 0x444953434f564552ull);
             if (u >= p) continue;
@@ -1036,6 +1095,9 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                 std::max(0.0, cfg.tech.knownDiffusionBase) *
                 contactW *
                 friction *
+                (0.30 + 0.70 * sf.ideaMarketIntegration) *
+                (0.30 + 0.70 * sf.mediaThroughput) *
+                (0.30 + 0.70 * st.ideaMarketIntegration) *
                 (0.35 + 0.65 * sf.connectivity) *
                 (0.25 + 0.75 * st.openness) *
                 yearsD,
@@ -1052,6 +1114,8 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
             if (sourceAdopt > 0.80f && targetAdopt < 0.10f && isFeasible(target, t, st)) {
                 const double pSeed = std::clamp(
                     0.12 * contactW * friction *
+                    (0.30 + 0.70 * sf.ideaMarketIntegration) *
+                    (0.30 + 0.70 * sf.mediaThroughput) *
                     (0.35 + 0.65 * st.institution) *
                     (0.30 + 0.70 * st.connectivity) *
                     yearsD,
@@ -1119,6 +1183,11 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                 speed *= (0.20 + 0.80 * s.specialization);
                 speed *= (1.0 - 0.50 * s.inequality);
                 speed *= (0.55 + 0.45 * s.foodSecurity);
+                speed *= (0.70 + 0.30 * s.ideaMarketIntegration);
+                speed *= (0.72 + 0.28 * s.credibleCommitment);
+                speed *= (0.78 + 0.22 * s.mediaThroughput);
+                speed *= (0.78 + 0.22 * s.competitionFragmentation);
+                speed *= inducedInnovationBias(t, s);
                 if (s.atWar) speed *= 0.88;
                 speed *= (1.0 - 0.35 * s.famineSeverity);
                 const double dA = speed * (1.0 - A) * yearsD;

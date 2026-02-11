@@ -218,6 +218,15 @@ public:
         double rndInvestment = 0.0;        // 0..1 budget share
         double connectivityIndex = 0.0;    // 0..1 (trade + access)
         double institutionCapacity = 0.0;  // 0..1 (derived)
+        // Endogenous mechanism indices for innovation-frontier emergence.
+        double competitionFragmentationIndex = 0.0; // 0..1 (peer competition + exit options)
+        double ideaMarketIntegrationIndex = 0.0;    // 0..1 (contact/trade/media integration)
+        double credibleCommitmentIndex = 0.0;       // 0..1 (rule-of-law / low predation)
+        double relativeFactorPriceIndex = 0.0;      // 0..1 (high wages + cheap energy/materials)
+        double mediaThroughputIndex = 0.0;          // 0..1 (information copying/transmission capacity)
+        double merchantPowerIndex = 0.0;            // 0..1 (trade/urban coalition strength)
+        double skilledMigrationInRate = 0.0;        // annualized share of population-equivalent
+        double skilledMigrationOutRate = 0.0;       // annualized share of population-equivalent
 
         // Scarcity prices / wage signals.
         double priceFood = 1.0;
@@ -375,6 +384,12 @@ public:
     double getInequality() const { return m_macro.inequality; }
     double getRealWage() const { return m_macro.realWage; }
     double getConnectivityIndex() const { return m_macro.connectivityIndex; }
+    double getCompetitionFragmentationIndex() const { return m_macro.competitionFragmentationIndex; }
+    double getIdeaMarketIntegrationIndex() const { return m_macro.ideaMarketIntegrationIndex; }
+    double getCredibleCommitmentIndex() const { return m_macro.credibleCommitmentIndex; }
+    double getRelativeFactorPriceIndex() const { return m_macro.relativeFactorPriceIndex; }
+    double getMediaThroughputIndex() const { return m_macro.mediaThroughputIndex; }
+    double getMerchantPowerIndex() const { return m_macro.merchantPowerIndex; }
 
     // Phase 4/5A integration: last computed taxable base / tax take (annualized).
     double getLastTaxBase() const { return m_lastTaxBase; }
