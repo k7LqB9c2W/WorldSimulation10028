@@ -1,0 +1,47 @@
+{
+  "elapsed_sec": 2.270883083343506,
+  "total_seeds": 2,
+  "ok_runs": 2,
+  "failed_runs": 0,
+  "final_low_state_means": {
+    "final_low_stability_countries": 9.0,
+    "final_low_legitimacy_countries": 21.0,
+    "final_low_both_countries": 9.0,
+    "final_pop_low_stability_share": 0.017325,
+    "final_pop_low_legitimacy_share": 0.08906549999999999,
+    "final_pop_critical_share": 0.035809,
+    "final_stability_mean": 0.8855839999999999,
+    "final_legitimacy_mean": 0.6637055000000001
+  },
+  "peak_low_state_means": {
+    "max_pop_low_stability_share": 0.020624999999999998,
+    "max_pop_low_legitimacy_share": 0.08906549999999999,
+    "max_pop_critical_share": 0.035809,
+    "max_low_stability_countries": 9.0,
+    "max_low_legitimacy_countries": 21.0
+  },
+  "aggregate_top_low_stability_causes": [
+    {
+      "name": "budget",
+      "count": 34
+    },
+    {
+      "name": "control",
+      "count": 2
+    },
+    {
+      "name": "stagnation",
+      "count": 1
+    }
+  ],
+  "aggregate_top_low_legitimacy_causes": [
+    {
+      "name": "budget",
+      "count": 61
+    },
+    {
+      "name": "economy",
+      "count": 32
+    }
+  ]
+}

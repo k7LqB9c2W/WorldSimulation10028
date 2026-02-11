@@ -1,0 +1,569 @@
+🏪 Trade & Economic Exchange Framework initialized!
+🚀 INITIALIZING RESOURCES (Optimized)...
+✅ RESOURCES INITIALIZED in 190 ms
+   Resource ingestion: coal=18834, copper=30078, tin=14335, clay=18632, riverland-cells=18632
+[SpawnInit] worldPopTarget=24477003 startYear=-5000
+[StartTech] Applied regional presets at startYear=-5000 countries=100
+  - south_asia: countries=14 techIds=1,2,3,4,6,20,115
+  - east_asia: countries=14 techIds=1,2,3,4,6,20,115
+  - west_asia: countries=11 techIds=1,2,3,4,6,10,20,115,119
+  - se_asia: countries=6 techIds=1,2,3,5,6,20
+  - cn_asia: countries=3 techIds=2,3,4,6
+  - nile_ne_africa: countries=2 techIds=1,2,3,6,10,20,115
+  - north_africa: countries=1 techIds=1,2,3,4,6,20,115
+  - west_africa: countries=2 techIds=1,3,4,6,20
+  - east_africa: countries=2 techIds=1,3,4,6,20
+  - cs_africa: countries=1 techIds=1,3,4,6
+  - se_europe: countries=2 techIds=1,2,3,4,6,20,115,119
+  - med_europe: countries=2 techIds=1,2,3,4,5,6,20,115
+  - central_europe: countries=2 techIds=1,2,3,4,6,20
+  - wnw_europe: countries=2 techIds=1,3,4,6,20
+  - north_europe: countries=1 techIds=3,4,6
+  - mesoamerica: countries=10 techIds=1,3,6,20
+  - andes: countries=7 techIds=1,3,4,6,20
+  - e_na: countries=7 techIds=3,4,6
+  - w_na: countries=8 techIds=3,4,6
+  - caribbean: countries=1 techIds=3,5,6
+  - oceania: countries=2 techIds=3,5,6
+[SpawnInit] Region summary
+  - south_asia targetShare=0.145 actualShare=0.145 targetPop=3549166 actualPop=3549166 countriesPlaced=14
+  - east_asia targetShare=0.145 actualShare=0.145 targetPop=3549166 actualPop=3549166 countriesPlaced=14
+  - west_asia targetShare=0.11 actualShare=0.111487 targetPop=2692471 actualPop=2728873 countriesPlaced=11
+  - se_asia targetShare=0.06 actualShare=0.06 targetPop=1468620 actualPop=1468620 countriesPlaced=6
+  - cn_asia targetShare=0.033 actualShare=0.033 targetPop=807741 actualPop=807741 countriesPlaced=3
+  - nile_ne_africa targetShare=0.02 actualShare=0.02 targetPop=489540 actualPop=489540 countriesPlaced=2
+  - north_africa targetShare=0.013 actualShare=0.0122564 targetPop=318201 actualPop=300000 countriesPlaced=1
+  - west_africa targetShare=0.016 actualShare=0.016 targetPop=391632 actualPop=391632 countriesPlaced=2
+  - east_africa targetShare=0.017 actualShare=0.017 targetPop=416109 actualPop=416109 countriesPlaced=2
+  - cs_africa targetShare=0.01 actualShare=0.01 targetPop=244770 actualPop=244770 countriesPlaced=1
+  - se_europe targetShare=0.02 actualShare=0.02 targetPop=489540 actualPop=489540 countriesPlaced=2
+  - med_europe targetShare=0.018 actualShare=0.018 targetPop=440586 actualPop=440586 countriesPlaced=2
+  - central_europe targetShare=0.02 actualShare=0.02 targetPop=489540 actualPop=489540 countriesPlaced=2
+  - wnw_europe targetShare=0.018 actualShare=0.018 targetPop=440586 actualPop=440586 countriesPlaced=2
+  - north_europe targetShare=0.008 actualShare=0.008 targetPop=195816 actualPop=195816 countriesPlaced=1
+  - mesoamerica targetShare=0.1 actualShare=0.1 targetPop=2447700 actualPop=2447700 countriesPlaced=10
+  - andes targetShare=0.065 actualShare=0.065 targetPop=1591005 actualPop=1591005 countriesPlaced=7
+  - e_na targetShare=0.07 actualShare=0.07 targetPop=1713390 actualPop=1713390 countriesPlaced=7
+  - w_na targetShare=0.078 actualShare=0.078 targetPop=1909206 actualPop=1909206 countriesPlaced=8
+  - caribbean targetShare=0.013 actualShare=0.0122564 targetPop=318201 actualPop=300000 countriesPlaced=1
+  - oceania targetShare=0.021 actualShare=0.021 targetPop=514017 actualPop=514017 countriesPlaced=2
+worldsim_cli seed=205 config=data/sim_config.toml hash=d6f60bee2abeff19 start=-5000 end=2025 gpu=0
+🏛️ Marterstan Tribe changed from Tribal to Chiefdom
+🏛️ Old sollorvia Tribe changed from Tribal to Chiefdom
+🏛️ Lormar Tribe changed from Tribal to Chiefdom
+🏛️ North viasollorgrad Tribe changed from Tribal to Chiefdom
+🏛️ North solkin Tribe changed from Tribal to Chiefdom
+🏛️ Great linlorstan Tribe changed from Tribal to Chiefdom
+🏛️ Dusnasolia Tribe changed from Tribal to Chiefdom
+🏛️ Old terterviagrad Tribe changed from Tribal to Chiefdom
+🏛️ South nanagrad Tribe changed from Tribal to Chiefdom
+🏛️ South zenviaia Tribe changed from Tribal to Chiefdom
+🏛️ South belmarland Tribe changed from Tribal to Chiefdom
+🏛️ Old zenlorstan Tribe changed from Tribal to Chiefdom
+🏛️ Viazenquigrad Tribe changed from Tribal to Chiefdom
+🏛️ North vialinstan Tribe changed from Tribal to Chiefdom
+🏛️ Old dusromzen Tribe changed from Tribal to Chiefdom
+🏛️ South viasolstan Tribe changed from Tribal to Chiefdom
+🏛️ New linromgaria Tribe changed from Tribal to Chiefdom
+🏛️ Marterstan Tribe changed from Chiefdom to Kingdom
+🏛️ Great lorromlinstan Tribe changed from Tribal to Chiefdom
+🏛️ North kinsolgargrad Tribe changed from Tribal to Chiefdom
+🏛️ Kinzenter Tribe changed from Tribal to Chiefdom
+🏛️ Old linranzenland Tribe changed from Tribal to Chiefdom
+🏛️ Great lorviaromland Tribe changed from Tribal to Chiefdom
+🏛️ North solkin Tribe changed from Chiefdom to Kingdom
+🏛️ Old quilormarland Tribe changed from Tribal to Chiefdom
+🏛️ South dusromzenstan Tribe changed from Tribal to Chiefdom
+🏛️ Old lorbelsolstan Tribe changed from Tribal to Chiefdom
+🏛️ South belmarland Tribe changed from Chiefdom to Kingdom
+🏛️ South solnaviagrad Tribe changed from Tribal to Chiefdom
+🏛️ Old terlorland Tribe changed from Tribal to Chiefdom
+🏛️ Old belsolquiland Tribe changed from Tribal to Chiefdom
+🏛️ Ranromquigrad Tribe changed from Tribal to Chiefdom
+🏛️ New lorromland Tribe changed from Tribal to Chiefdom
+🏛️ North nadusrangrad Tribe changed from Tribal to Chiefdom
+🏛️ Old garrannagrad Tribe changed from Tribal to Chiefdom
+🏛️ Naromland Tribe changed from Tribal to Chiefdom
+🏛️ New quikinzenia Tribe changed from Tribal to Chiefdom
+🏛️ North beldusromstan Tribe changed from Tribal to Chiefdom
+🏛️ Old viaviagrad Tribe changed from Tribal to Chiefdom
+🏛️ North ranran Tribe changed from Tribal to Chiefdom
+🏛️ Great viabelland Tribe changed from Tribal to Chiefdom
+🏛️ Old dusvia Tribe changed from Tribal to Chiefdom
+🏛️ Romviagrad Tribe changed from Tribal to Chiefdom
+🏛️ Dusnasolia Tribe changed from Chiefdom to Kingdom
+🏛️ Great romquiland Tribe changed from Tribal to Chiefdom
+🏛️ Old quiquistan Tribe changed from Tribal to Chiefdom
+🏛️ New marrom Tribe changed from Tribal to Chiefdom
+🏛️ Old terterviagrad Tribe changed from Chiefdom to Kingdom
+🏛️ New garromlingrad Tribe changed from Tribal to Chiefdom
+🏛️ Great linlorland Tribe changed from Tribal to Chiefdom
+🏛️ Old marquirania Tribe changed from Tribal to Chiefdom
+🏛️ South bellorstan Tribe changed from Tribal to Chiefdom
+🏛️ North termarlin Tribe changed from Tribal to Chiefdom
+🏛️ Great lorsoldus Tribe changed from Tribal to Chiefdom
+🏛️ Old dusromzen Tribe changed from Chiefdom to Kingdom
+🏛️ South lornaquistan Tribe changed from Tribal to Chiefdom
+🏛️ Old zenrangrad Tribe changed from Tribal to Chiefdom
+🏛️ Old garrannagrad Tribe changed from Chiefdom to Kingdom
+🏛️ North quiquinaia Tribe changed from Tribal to Chiefdom
+🏛️ North kinsolgargrad Tribe changed from Chiefdom to Kingdom
+🏛️ Old sollorvia Tribe changed from Chiefdom to Kingdom
+🏛️ South linbelsolland Tribe changed from Tribal to Chiefdom
+🏛️ Great quinadusgrad Tribe changed from Tribal to Chiefdom
+🏛️ South terlorgrad Tribe changed from Tribal to Chiefdom
+🏛️ North ranran Tribe changed from Chiefdom to Kingdom
+🏛️ Old dusvia Tribe changed from Chiefdom to Kingdom
+🏛️ Old solbelgrad Tribe changed from Tribal to Chiefdom
+🏛️ Romviagrad Tribe changed from Chiefdom to Kingdom
+🏛️ North nanastan Tribe changed from Tribal to Chiefdom
+🏛️ New kinromland Tribe changed from Tribal to Chiefdom
+🏛️ South nanagrad Tribe changed from Chiefdom to Kingdom
+🏛️ South lorlingrad Tribe changed from Tribal to Chiefdom
+🏛️ Old marquirania Tribe changed from Chiefdom to Kingdom
+🏛️ Great lorsoldus Tribe changed from Chiefdom to Kingdom
+🏛️ Great viasolzengrad Tribe changed from Tribal to Chiefdom
+🏛️ North nadusrangrad Tribe changed from Chiefdom to Kingdom
+🏛️ Old zenrangrad Tribe changed from Chiefdom to Kingdom
+🏛️ North soldusland Tribe changed from Tribal to Chiefdom
+🏛️ Old garmarlor Tribe changed from Tribal to Chiefdom
+🏛️ Great nasolkinstan Tribe changed from Chiefdom to Kingdom
+🏛️ New zenkingrad Tribe changed from Chiefdom to Kingdom
+🏛️ Naromland Tribe changed from Chiefdom to Kingdom
+🏛️ North lorkingaria Tribe changed from Tribal to City-State
+🏛️ New markinrania Tribe changed from Tribal to Chiefdom
+🏛️ Old soltergrad Tribe changed from Tribal to Chiefdom
+🏛️ North viaquiia Tribe changed from Tribal to Chiefdom
+🏛️ North beldusromstan Tribe changed from Chiefdom to Kingdom
+🏛️ Great linlorstan Tribe changed from Chiefdom to Kingdom
+🏛️ Old lorbelsolstan Tribe changed from Chiefdom to Kingdom
+🏛️ Quisolbelgrad Tribe changed from Tribal to Chiefdom
+🏛️ Dusterter Tribe changed from Tribal to Chiefdom
+🏛️ New marrom Tribe changed from Chiefdom to Kingdom
+🏛️ North vialinstan Tribe changed from Chiefdom to Kingdom
+🏛️ North garnagrad Tribe changed from Tribal to Chiefdom
+🏛️ South soldusteria Tribe changed from Tribal to Chiefdom
+🏛️ New linromgaria Tribe changed from Chiefdom to Kingdom
+🏛️ New lorromland Tribe changed from Chiefdom to Kingdom
+🏛️ North dusviagrad Tribe changed from Chiefdom to Kingdom
+🏛️ Old quisol Tribe changed from Chiefdom to Kingdom
+🏛️ Gargargrad Tribe changed from Chiefdom to Kingdom
+🏛️ North naternagrad Tribe changed from Tribal to Chiefdom
+🏛️ New belmarromland Tribe changed from Tribal to Chiefdom
+🏛️ Old kinmarzen Tribe changed from Tribal to Chiefdom
+🏛️ Old linranzenland Tribe changed from Chiefdom to Kingdom
+🏛️ Marlin Tribe changed from Tribal to City-State
+🏛️ Zenlinstan Tribe changed from Tribal to Chiefdom
+🏛️ North viasollorgrad Tribe changed from Chiefdom to Kingdom
+🏛️ Old viaviagrad Tribe changed from Chiefdom to Kingdom
+🏛️ Great kinzengrad Tribe changed from Tribal to Chiefdom
+🏛️ Great belranstan Tribe changed from Tribal to Chiefdom
+🏛️ North ranlinlin Tribe changed from Tribal to Chiefdom
+🏛️ North dusranzenstan Tribe changed from Tribal to Chiefdom
+🏛️ Old quiquistan Tribe changed from Chiefdom to Kingdom
+🏛️ New kinromland Tribe changed from Chiefdom to Kingdom
+🏛️ South zenviaia Tribe changed from Chiefdom to Kingdom
+🏛️ New viatergarland Tribe changed from Tribal to Chiefdom
+🏛️ South romromia Tribe changed from Tribal to Chiefdom
+🏛️ North garnagrad Tribe changed from Chiefdom to Kingdom
+🏛️ South soldusteria Tribe changed from Chiefdom to Kingdom
+🏛️ South solkinrom Tribe changed from Tribal to Chiefdom
+🏛️ South linzenmarstan Tribe changed from Tribal to Chiefdom
+🏛️ New belmartergrad Tribe changed from Tribal to City-State
+🏛️ New quikinzenia Tribe changed from Chiefdom to Kingdom
+🏛️ Kinzenter Tribe changed from Chiefdom to Kingdom
+🏛️ Dusranquigrad Tribe changed from Tribal to Chiefdom
+🏛️ Great quinadusgrad Tribe changed from Chiefdom to Kingdom
+🏛️ North nanastan Tribe changed from Chiefdom to Kingdom
+🏛️ South solnaviagrad Tribe changed from Chiefdom to Kingdom
+🏛️ Marmarstan Tribe changed from Tribal to Chiefdom
+🏛️ South lorquidus Tribe changed from Tribal to Chiefdom
+🏛️ New ranrania Tribe changed from Tribal to Chiefdom
+🏛️ South zenromgarstan Tribe changed from Tribal to Chiefdom
+🏛️ Great quiranqui Tribe changed from Chiefdom to Kingdom
+🏛️ Great belranstan Tribe changed from Chiefdom to Kingdom
+🏛️ Quisolbelgrad Tribe changed from Chiefdom to Kingdom
+🏛️ New ranrania Tribe changed from Chiefdom to Kingdom
+🏛️ North quiquinaia Tribe changed from Chiefdom to Kingdom
+🏛️ New tergarlorland Tribe changed from Tribal to Chiefdom
+🏛️ Great belromstan Tribe changed from Tribal to Chiefdom
+🏛️ Old solkinrania Tribe changed from Tribal to City-State
+🏛️ South linzenmarstan Tribe changed from Chiefdom to Kingdom
+🏛️ Old garmarlor Tribe changed from Chiefdom to Kingdom
+🏛️ Old dusbelgaria Tribe changed from Chiefdom to Kingdom
+🏛️ New marrangrad Tribe changed from Tribal to City-State
+🏛️ Old naquiloria Tribe changed from Tribal to Chiefdom
+🏛️ South romgar Tribe changed from Chiefdom to Kingdom
+🏛️ Old vianaland Tribe changed from Tribal to City-State
+🏛️ South linbelsolland Tribe changed from Chiefdom to Kingdom
+🏛️ Old soltergrad Tribe changed from Chiefdom to Kingdom
+🏛️ South terran Tribe changed from Tribal to Chiefdom
+🏛️ Great garnakinia Tribe changed from Tribal to Chiefdom
+🏛️ South kinvianaia Tribe changed from Tribal to Chiefdom
+🏛️ Great viabelland Tribe changed from Chiefdom to Kingdom
+🏛️ North ranlinlin Tribe changed from Chiefdom to Kingdom
+🏛️ Marmarstan Tribe changed from Chiefdom to Kingdom
+🏛️ New viatergarland Tribe changed from Chiefdom to Kingdom
+🏛️ Terterqui Tribe changed from Tribal to Chiefdom
+🏛️ North marlorgrad Tribe changed from Tribal to City-State
+🏛️ New zenzengargrad Tribe changed from Tribal to City-State
+🏛️ Great terromrom Tribe changed from Chiefdom to Kingdom
+🏛️ New linsolland Tribe changed from Chiefdom to Kingdom
+🏛️ Viaterland Tribe changed from Tribal to City-State
+🏛️ Old kinmarzen Tribe changed from Chiefdom to Kingdom
+🏛️ Great lorviaromland Tribe changed from Chiefdom to Kingdom
+🏛️ South terlorgrad Tribe changed from Chiefdom to Kingdom
+🏛️ North viaquiia Tribe changed from Chiefdom to Kingdom
+🏛️ Old belsolquiland Tribe changed from Chiefdom to Kingdom
+🏛️ South solkinrom Tribe changed from Chiefdom to Kingdom
+🏛️ Great viasolzengrad Tribe changed from Chiefdom to Kingdom
+🏛️ South zenromgarstan Tribe changed from Chiefdom to Kingdom
+🏛️ Old viaterdus Tribe changed from Chiefdom to Kingdom
+🏛️ Great kinlorlorland Tribe changed from Chiefdom to Kingdom
+🏛️ South terran Tribe changed from Chiefdom to Kingdom
+🏛️ Great linlorland Tribe changed from Chiefdom to Kingdom
+🏛️ Viazenquigrad Tribe changed from Chiefdom to Kingdom
+🏛️ North soldusland Tribe changed from Chiefdom to Kingdom
+🏛️ Great lorranzenstan Tribe changed from Chiefdom to Kingdom
+🏛️ Lormar Tribe changed from Chiefdom to Kingdom
+🏛️ New dusterbelland Tribe changed from Tribal to Chiefdom
+🏛️ Old quilormarland Tribe changed from Chiefdom to Kingdom
+🏛️ South garsolrom Tribe changed from Chiefdom to Kingdom
+🏛️ New lordusdus Tribe changed from Tribal to Chiefdom
+🏛️ South gargarrangrad Tribe changed from Tribal to City-State
+🏛️ Great garnakinia Tribe changed from Chiefdom to Kingdom
+🏛️ North quidusia Tribe changed from Tribal to Chiefdom
+🏛️ Great kinzengrad Tribe changed from Chiefdom to Kingdom
+🏛️ South lormarzenland Tribe changed from Tribal to Chiefdom
+🏛️ Great belromstan Tribe changed from Chiefdom to Kingdom
+🏛️ New belmarromland Tribe changed from Chiefdom to Kingdom
+🏛️ North terzenlorland Kingdom changed from Chiefdom to Kingdom
+🏛️ North quidusia Tribe changed from Chiefdom to Kingdom
+🏛️ Dusterter Tribe changed from Chiefdom to Kingdom
+🏛️ New tergarlorland Tribe changed from Chiefdom to Kingdom
+🏛️ New markinrania Tribe changed from Chiefdom to Kingdom
+🏛️ Dusranquigrad Tribe changed from Chiefdom to Kingdom
+🏛️ Zenlinstan Tribe changed from Chiefdom to Kingdom
+🏛️ South dustergrad Tribe changed from Tribal to City-State
+🏛️ Marmarkinia Tribe changed from Chiefdom to Kingdom
+🏛️ New lordusdus Tribe changed from Chiefdom to Kingdom
+🏛️ North terlorgrad Tribe changed from Tribal to Chiefdom
+🏛️ South lortergrad Tribe changed from Tribal to Chiefdom
+🏛️ Old romvialand Kingdom changed from Chiefdom to Kingdom
+🏛️ South kinvianaia Tribe changed from Chiefdom to Kingdom
+🏛️ Linranromgrad Tribe changed from Tribal to Chiefdom
+🏛️ North dusranzenstan Tribe changed from Chiefdom to Kingdom
+🏛️ New dusterbelland Tribe changed from Chiefdom to Kingdom
+🏛️ Ranromquigrad Tribe changed from Chiefdom to Kingdom
+🏛️ Terterqui Tribe changed from Chiefdom to Kingdom
+🏛️ New lorlinland Kingdom changed from Chiefdom to Kingdom
+🏛️ Linranromgrad Tribe changed from Chiefdom to Kingdom
+🏛️ South lormarzenland Tribe changed from Chiefdom to Kingdom
+🏛️ North terlorgrad Tribe changed from Chiefdom to Kingdom
+🏛️ Kinbelland Kingdom changed from Chiefdom to Kingdom
+🏛️ South ranmarter Tribe changed from Tribal to City-State
+🏛️ South lortergrad Tribe changed from Chiefdom to Kingdom
+🏛️ Great lormar Tribe changed from Chiefdom to Kingdom
+🏛️ Old marlormarland Kingdom changed from Chiefdom to Kingdom
+🏛️ Old naquiloria Tribe changed from Chiefdom to Kingdom
+🏛️ South mardusgarland Kingdom changed from Chiefdom to Kingdom
+🏛️ Quiromgrad Kingdom changed from Chiefdom to Kingdom
+🏛️ Great romquiland Tribe changed from Chiefdom to Kingdom
+🏛️ Old solbelgrad Tribe changed from Chiefdom to Kingdom
+🏛️ South romromia Tribe changed from Chiefdom to Kingdom
+🏛️ Lorbelquigrad Tribe changed from Tribal to Chiefdom
+🏛️ Lorbelquigrad Tribe changed from Chiefdom to Kingdom
+🏛️ New garranland Tribe changed from Chiefdom to Kingdom
+🏛️ Old quiquistan Tribe changed from Kingdom to Empire
+🏛️ South viasolstan Tribe changed from Chiefdom to Kingdom
+🏛️ South lorquidus Tribe changed from Chiefdom to Kingdom
+🏛️ Great lorviaromland Tribe changed from Kingdom to Empire
+🏛️ Old lorbelsolstan Tribe changed from Kingdom to Empire
+🛣️ Gargargrad Tribe built roads to Old solbelgrad Tribe (44 pixels)
+🏛️ North dusranzenstan Tribe changed from Kingdom to Empire
+🛣️ Gargargrad Tribe built roads to Quiromgrad Kingdom (46 pixels)
+🏛️ Great lorromlinstan Tribe changed from Chiefdom to Kingdom
+🛣️ South dustergrad Tribe built roads to New lordusdus Tribe (58 pixels)
+🛣️ South dustergrad Tribe built roads to South mardusgarland Kingdom (91 pixels)
+🏛️ New garromlingrad Tribe changed from Chiefdom to Kingdom
+🛣️ North vialinstan Tribe built roads to Great terromrom Tribe (79 pixels)
+🛣️ Great linlorland Tribe built roads to South romromia Tribe (65 pixels)
+🛣️ Great linlorland Tribe built roads to New garranland Tribe (52 pixels)
+🛣️ New dusgarvia Kingdom built roads to North lorkingaria Tribe (44 pixels)
+🛣️ Great linlorland Tribe built roads to Old marlormarland Kingdom (64 pixels)
+🛣️ New dusgarvia Kingdom built roads to North naternagrad Tribe (72 pixels)
+🏛️ North vialinstan Tribe changed from Kingdom to Empire
+🛣️ South dustergrad Tribe built roads to New lordusdus Tribe (58 pixels)
+🛣️ Zenmaria Kingdom built roads to South dustergrad Tribe (69 pixels)
+🛣️ South dustergrad Tribe built roads to South mardusgarland Kingdom (91 pixels)
+🛣️ Zenmaria Kingdom built roads to New lordusdus Tribe (67 pixels)
+🛣️ Zenmaria Kingdom built roads to South mardusgarland Kingdom (82 pixels)
+🛣️ North kinnabel Kingdom built roads to Viaterland Tribe (24 pixels)
+🛣️ South dustergrad Tribe built roads to New lordusdus Tribe (58 pixels)
+🛣️ New dusgarvia Kingdom built roads to New zenzengargrad Tribe (89 pixels)
+🛣️ North kinnabel Kingdom built roads to Old vianaland Tribe (168 pixels)
+🛣️ South dustergrad Tribe built roads to South mardusgarland Kingdom (91 pixels)
+🛣️ Quisolbelgrad Tribe built roads to Great dusdusia Tribe (36 pixels)
+🏛️ Great belromstan Tribe changed from Kingdom to Empire
+🛣️ Zenmarzenia Kingdom built roads to South dustergrad Tribe (56 pixels)
+🏛️ Old dusromzen Tribe changed from Kingdom to Empire
+🛣️ North kinnabel Kingdom built roads to New markinrania Tribe (100 pixels)
+🏛️ New lorlinland Kingdom changed from Kingdom to Empire
+🛣️ North kinnabel Kingdom built roads to North soldusland Tribe (24 pixels)
+🛣️ South dustergrad Tribe built roads to Zenmaria Kingdom (69 pixels)
+🛣️ Zenmarzenia Kingdom built roads to New lordusdus Tribe (24 pixels)
+🛣️ Nanateria Kingdom built roads to Quisolbelgrad Tribe (36 pixels)
+🛣️ North kinnabel Kingdom built roads to New linsolland Tribe (27 pixels)
+🛣️ Quisolbelgrad Tribe built roads to Great dusdusia Tribe (36 pixels)
+🛣️ Great kinlorlorland Tribe built roads to New garromlingrad Tribe (23 pixels)
+🏛️ Old terlorland Tribe changed from Chiefdom to Kingdom
+🛣️ South rangar Kingdom built roads to South solnaviagrad Tribe (24 pixels)
+🛣️ Great kinlorlorland Tribe built roads to Old dusbelgaria Tribe (60 pixels)
+🛣️ North kinnabel Kingdom built roads to Old belzen Kingdom (84 pixels)
+🏛️ Kinbelland Kingdom changed from Kingdom to Empire
+🛣️ North kinnabel Kingdom built roads to Duslingrad Kingdom (32 pixels)
+🛣️ Great kinlorlorland Tribe built roads to North terzenlorland Kingdom (28 pixels)
+🏛️ Old viaterdus Tribe changed from Kingdom to Empire
+🛣️ South rangar Kingdom built roads to South zenviaia Tribe (44 pixels)
+🛣️ Quisolbelgrad Tribe built roads to New marzenzenia Kingdom (60 pixels)
+🛣️ Great dusdusia Tribe built roads to Quisolbelgrad Tribe (36 pixels)
+🛣️ New marzenzenia Kingdom built roads to Great dusdusia Tribe (48 pixels)
+🛣️ Quisolbelgrad Tribe built roads to Great dusdusia Tribe (36 pixels)
+🛣️ Great kinlorlorland Tribe built roads to South quibellingrad Kingdom (67 pixels)
+🛣️ Kinbelland Kingdom built roads to Ranromquigrad Tribe (24 pixels)
+🛣️ North kinnabel Kingdom built roads to Mardusrangrad Kingdom (26 pixels)
+🛣️ Great dusdusia Tribe built roads to Old dussolvialand Kingdom (22 pixels)
+🛣️ South rangar Kingdom built roads to South lorlingrad Tribe (89 pixels)
+🛣️ Kinbelland Kingdom built roads to Old zenlorstan Tribe (80 pixels)
+🛣️ New marzenzenia Kingdom built roads to Old dussolvialand Kingdom (50 pixels)
+🛣️ Quisolbelgrad Tribe built roads to Nanateria Kingdom (32 pixels)
+🛣️ Old dussolvialand Kingdom built roads to Quisolbelgrad Tribe (24 pixels)
+🛣️ South rangar Kingdom built roads to Old dusbelgaria Tribe (36 pixels)
+🛣️ South dustergrad Kingdom built roads to North randus Kingdom (65 pixels)
+🛣️ Kinbelland Kingdom built roads to South romgar Tribe (2 pixels)
+🛣️ South rangar Kingdom built roads to New garlin Tribe (59 pixels)
+🛣️ Kinbelland Kingdom built roads to Linbelland Kingdom (48 pixels)
+🛣️ Nanateria Kingdom built roads to North lingarstan Kingdom (66 pixels)
+🛣️ Zenmarzenia Kingdom built roads to South dustergrad Kingdom (56 pixels)
+🛣️ North randus Kingdom built roads to New lordusdus Tribe (6 pixels)
+🛣️ South rangar Kingdom built roads to Old vianarom Kingdom (64 pixels)
+🛣️ Zenmarzenia Kingdom built roads to North randus Kingdom (18 pixels)
+🛣️ Quisolbelgrad Tribe built roads to Great dusdusia Tribe (36 pixels)
+🛣️ South rangar Kingdom built roads to New linrandusia Kingdom (12 pixels)
+🛣️ Great dusdusia Tribe built roads to North lingarstan Kingdom (6 pixels)
+🛣️ North lingarstan Kingdom built roads to Quisolbelgrad Tribe (30 pixels)
+🛣️ Quisolbelgrad Tribe built roads to Nanateria Kingdom (32 pixels)
+🛣️ Kinbelland Kingdom built roads to South linter Kingdom (80 pixels)
+🛣️ Kinbelland Kingdom built roads to North kinromquigrad Kingdom (12 pixels)
+🛣️ Old marquirania Kingdom built roads to New marlingrad Kingdom (17 pixels)
+🛣️ Quisolbelgrad Tribe built roads to Old dussolvialand Kingdom (18 pixels)
+🛣️ South naransol Kingdom built roads to South dustergrad Kingdom (33 pixels)
+🏛️ Great quiranqui Tribe changed from Kingdom to Empire
+🛣️ Zenmaria Kingdom built roads to South naransol Kingdom (36 pixels)
+🛣️ South dustergrad Kingdom built roads to New lordusdus Tribe (58 pixels)
+🛣️ South naransol Kingdom built roads to New lordusdus Tribe (35 pixels)
+🛣️ New rangaria Kingdom built roads to Old zenrangrad Tribe (24 pixels)
+🛣️ South dustergrad Kingdom built roads to South mardusgarland Kingdom (91 pixels)
+🛣️ New rangaria Kingdom built roads to South garsolrom Tribe (50 pixels)
+🛣️ South terran Kingdom built roads to Old zenrangrad Tribe (24 pixels)
+🛣️ New rangaria Kingdom built roads to South quikinzenstan Kingdom (12 pixels)
+🏛️ Old soltergrad Tribe changed from Kingdom to Empire
+🛣️ Nanateria Kingdom built roads to Quisolbelgrad Tribe (36 pixels)
+🛣️ Quisolbelgrad Tribe built roads to Great kinnarangrad Kingdom (37 pixels)
+🛣️ Great kinnarangrad Kingdom built roads to Nanateria Kingdom (36 pixels)
+🛣️ South dustergrad Kingdom built roads to Zenmaria Kingdom (69 pixels)
+🛣️ North lingarstan Kingdom built roads to Great kinnarangrad Kingdom (53 pixels)
+🛣️ Nanateria Kingdom built roads to North lingarstan Kingdom (66 pixels)
+🛣️ South terran Kingdom built roads to South garsolrom Tribe (40 pixels)
+🏛️ Kinzenter Tribe changed from Kingdom to Empire
+🛣️ South dustergrad Kingdom built roads to Zenmarzenia Kingdom (57 pixels)
+🛣️ South terran Kingdom built roads to South quikinzenstan Kingdom (36 pixels)
+🛣️ South terran Kingdom built roads to Linranmarstan Kingdom (57 pixels)
+🛣️ South dustergrad Kingdom built roads to North randus Kingdom (65 pixels)
+🛣️ New dusgarvia Kingdom built roads to Old zenbelia Kingdom (58 pixels)
+🏛️ Rombel Kingdom changed from Chiefdom to Kingdom
+🛣️ Old quiquistan Tribe built roads to New dusbelia Tribe (54 pixels)
+🛣️ Great kinlorlorland Tribe built roads to South rangar Kingdom (96 pixels)
+🏛️ Great linlorstan Tribe changed from Kingdom to Empire
+🛣️ New zenviastan Kingdom built roads to North terlorgrad Tribe (37 pixels)
+🏛️ North termarlin Tribe changed from Chiefdom to Kingdom
+🏛️ New rangaria Kingdom changed from Kingdom to Empire
+🛣️ New zenviastan Kingdom built roads to Great duslorstan Kingdom (46 pixels)
+🛣️ Great kinlorlorland Tribe built roads to Great nasolkinstan Tribe (100 pixels)
+🏛️ Terterqui Tribe changed from Kingdom to Empire
+🏛️ South lortergrad Tribe changed from Kingdom to Empire
+🏛️ North viasollorgrad Tribe changed from Kingdom to Empire
+🏛️ South dusromzenstan Tribe changed from Chiefdom to Kingdom
+🛣️ New linsolland Kingdom built roads to New markinrania Tribe (104 pixels)
+🛣️ New linsolland Kingdom built roads to Great lorrom Kingdom (39 pixels)
+🛣️ New belmarromland Tribe built roads to North garnagrad Tribe (17 pixels)
+🛣️ New dusrania Kingdom built roads to Old dusbelgaria Tribe (24 pixels)
+🛣️ New dusrania Kingdom built roads to South rangar Kingdom (36 pixels)
+🛣️ New linsolland Kingdom built roads to Nazenia Kingdom (40 pixels)
+🛣️ South rangar Kingdom built roads to South zenviaia Tribe (44 pixels)
+🛣️ New lordusdus Kingdom built roads to South mardusgarland Kingdom (36 pixels)
+🛣️ New belmarromland Tribe built roads to South soldusteria Tribe (38 pixels)
+🛣️ North garnagrad Tribe built roads to South soldusteria Tribe (48 pixels)
+🛣️ Quiromgrad Kingdom built roads to Old solbelgrad Tribe (38 pixels)
+🛣️ New belmarromland Tribe built roads to Old solgarquiia Kingdom (24 pixels)
+🛣️ South rangar Kingdom built roads to South solnaviagrad Tribe (24 pixels)
+🛣️ New linsolland Kingdom built roads to Duslingrad Kingdom (24 pixels)
+🛣️ South viatermar Kingdom built roads to North ranran Tribe (50 pixels)
+🛣️ Old quiquistan Tribe built roads to South garviasolia Kingdom (98 pixels)
+🛣️ New dusbelia Tribe built roads to Old quiquistan Tribe (84 pixels)
+🛣️ New lordusdus Kingdom built roads to New dusgarromland Kingdom (70 pixels)
+🛣️ New dusgarromland Kingdom built roads to South dustergrad Kingdom (85 pixels)
+🛣️ Lormar Kingdom built roads to Viaterland Kingdom (62 pixels)
+🛣️ North garnagrad Tribe built roads to South solkinrom Tribe (109 pixels)
+🛣️ Zenmaria Kingdom built roads to South dustergrad Kingdom (69 pixels)
+🛣️ Quiromgrad Kingdom built roads to Great belranstan Tribe (18 pixels)
+🛣️ South viatermar Kingdom built roads to Great quiranqui Tribe (60 pixels)
+🛣️ South garviasolia Kingdom built roads to New dusbelia Tribe (44 pixels)
+🛣️ New marviastan Kingdom built roads to North solkin Tribe (14 pixels)
+🛣️ South rangar Kingdom built roads to South lorlingrad Tribe (89 pixels)
+🏛️ Viazenquigrad Tribe changed from Kingdom to Empire
+🛣️ Zenmaria Kingdom built roads to New lordusdus Kingdom (67 pixels)
+🛣️ New dusgarromland Kingdom built roads to South mardusgarland Kingdom (34 pixels)
+🛣️ Lormar Kingdom built roads to New quikinzenia Tribe (163 pixels)
+🛣️ New marviastan Kingdom built roads to Linbelstan Kingdom (48 pixels)
+🛣️ South viatermar Kingdom built roads to South rankingarstan Kingdom (58 pixels)
+🛣️ North garnagrad Tribe built roads to Old solgarquiia Kingdom (32 pixels)
+🛣️ New dusrania Kingdom built roads to Great kinlorlorland Tribe (75 pixels)
+🛣️ New marviastan Kingdom built roads to North nalinzengrad Kingdom (48 pixels)
+🛣️ Lormar Kingdom built roads to New belmartergrad Tribe (50 pixels)
+🛣️ Great lorrom Kingdom built roads to Viaterland Kingdom (72 pixels)
+🛣️ South rangar Kingdom built roads to Great kinlorlorland Tribe (96 pixels)
+🛣️ Zenmaria Kingdom built roads to South dustergrad Kingdom (69 pixels)
+🛣️ New dusbelia Tribe built roads to Old quiquistan Tribe (84 pixels)
+🛣️ New dusgarromland Kingdom built roads to Zenmaria Kingdom (72 pixels)
+🛣️ South garviasolia Kingdom built roads to Great mardusgrad Kingdom (20 pixels)
+🛣️ Great lorrom Kingdom built roads to New quikinzenia Tribe (107 pixels)
+🛣️ Lormar Kingdom built roads to Great lorranzenstan Tribe (26 pixels)
+🛣️ South rangar Kingdom built roads to Old dusbelgaria Tribe (36 pixels)
+🛣️ Great mardusgrad Kingdom built roads to New dusbelia Tribe (34 pixels)
+🛣️ North garnagrad Tribe built roads to South garbelranstan Tribe (42 pixels)
+🛣️ Great kinlorlorland Tribe built roads to South zenviaia Tribe (113 pixels)
+🛣️ New dusgarromland Kingdom built roads to South dustergrad Kingdom (85 pixels)
+🛣️ New marviastan Kingdom built roads to Great garduslin Kingdom (39 pixels)
+🛣️ Marbelia Kingdom built roads to Zenmaria Kingdom (70 pixels)
+🛣️ New dusgarromland Kingdom built roads to New lordusdus Kingdom (70 pixels)
+🛣️ Zenmaria Kingdom built roads to New lordusdus Kingdom (67 pixels)
+🛣️ Great lorrom Kingdom built roads to Duslingrad Kingdom (24 pixels)
+🛣️ New dusbelia Tribe built roads to South garviasolia Kingdom (59 pixels)
+🛣️ New marsolstan Kingdom built roads to New dusgarromland Kingdom (51 pixels)
+🛣️ South viatermar Kingdom built roads to Great dusnana Kingdom (22 pixels)
+🛣️ South rangar Kingdom built roads to New garlin Tribe (59 pixels)
+🛣️ South naransol Kingdom built roads to South dustergrad Kingdom (33 pixels)
+🛣️ New marsolstan Kingdom built roads to Marbelia Kingdom (84 pixels)
+🛣️ Zenmaria Kingdom built roads to South naransol Kingdom (36 pixels)
+🛣️ Marbelia Kingdom built roads to New dusgarromland Kingdom (70 pixels)
+🛣️ South naransol Kingdom built roads to New lordusdus Kingdom (35 pixels)
+🛣️ Zenmaria Kingdom built roads to Great nalingarland Kingdom (23 pixels)
+🛣️ South naransol Kingdom built roads to Great nalingarland Kingdom (12 pixels)
+🛣️ New dusgarromland Kingdom built roads to South mardusgarland Kingdom (34 pixels)
+🛣️ South garviasolia Kingdom built roads to North linnabelgrad Kingdom (32 pixels)
+🛣️ South rangar Kingdom built roads to Old vianarom Kingdom (64 pixels)
+🛣️ Viaterland Kingdom built roads to New quikinzenia Tribe (112 pixels)
+🛣️ New dusbelia Tribe built roads to Old quiquistan Tribe (84 pixels)
+🛣️ Old quiquistan Tribe built roads to North linnabelgrad Kingdom (120 pixels)
+🛣️ Great nalingarland Kingdom built roads to South dustergrad Kingdom (45 pixels)
+🛣️ Zenmaria Kingdom built roads to South dustergrad Kingdom (69 pixels)
+🛣️ Old viazenia Kingdom built roads to Zenmaria Kingdom (47 pixels)
+🛣️ Great kinzengrad Tribe built roads to North ranran Tribe (116 pixels)
+🛣️ Great mardusgrad Kingdom built roads to North linnabelgrad Kingdom (12 pixels)
+🛣️ Old marquirania Kingdom built roads to Marmarstan Tribe (37 pixels)
+🛣️ South gargarrangrad Tribe built roads to Great belranstan Tribe (42 pixels)
+🛣️ Marbelia Kingdom built roads to Old viazenia Kingdom (24 pixels)
+🛣️ New dusgarromland Kingdom built roads to Zenmaria Kingdom (72 pixels)
+🛣️ Marmarstan Tribe built roads to Great linlorland Tribe (45 pixels)
+🛣️ North linnabelgrad Kingdom built roads to New dusbelia Tribe (28 pixels)
+🛣️ New garromlingrad Tribe built roads to South solnaviagrad Tribe (146 pixels)
+🛣️ New garromlingrad Tribe built roads to South lorlingrad Tribe (41 pixels)
+🛣️ Viaterland Kingdom built roads to New markinrania Tribe (124 pixels)
+🛣️ New dusbelia Tribe built roads to Great mardusgrad Kingdom (48 pixels)
+🛣️ South rangar Kingdom built roads to New linrandusia Kingdom (12 pixels)
+🛣️ Zenmaria Kingdom built roads to New lordusdus Kingdom (67 pixels)
+🛣️ New dusgarromland Kingdom built roads to Old viazenia Kingdom (72 pixels)
+🛣️ Viaterland Kingdom built roads to New belmartergrad Kingdom (36 pixels)
+🛣️ Great kinzengrad Tribe built roads to Great viabelland Tribe (126 pixels)
+🛣️ Marmarstan Tribe built roads to South romromia Tribe (23 pixels)
+🛣️ New garromlingrad Tribe built roads to Great quiquidusgrad Tribe (36 pixels)
+🛣️ Great duslorstan Kingdom built roads to South lorquidus Kingdom (66 pixels)
+🛣️ New garromlingrad Tribe built roads to Old dusbelgaria Tribe (86 pixels)
+🛣️ Great kinzengrad Tribe built roads to Great quiranqui Tribe (139 pixels)
+🛣️ Viaterland Kingdom built roads to Quisolter Kingdom (36 pixels)
+🛣️ Zenmaria Kingdom built roads to South naransol Kingdom (36 pixels)
+🛣️ Great duslorstan Kingdom built roads to North marlorgrad Kingdom (48 pixels)
+🛣️ Great kinzengrad Tribe built roads to Old viaviagrad Tribe (53 pixels)
+🛣️ Old solgarquiia Kingdom built roads to South soldusteria Tribe (25 pixels)
+🛣️ New garromlingrad Tribe built roads to New garlin Tribe (48 pixels)
+🛣️ Marmarstan Tribe built roads to Old naquiloria Tribe (28 pixels)
+🛣️ Great kinzengrad Tribe built roads to Old solkinrania Tribe (68 pixels)
+🛣️ Viaterland Kingdom built roads to Duslingrad Kingdom (31 pixels)
+🛣️ Old viazenia Kingdom built roads to New kinlinquiland Kingdom (36 pixels)
+🛣️ New kinlinquiland Kingdom built roads to Zenmaria Kingdom (36 pixels)
+🛣️ Old dusvia Tribe built roads to Great viagar Tribe (26 pixels)
+🏛️ Great quinadusgrad Tribe changed from Kingdom to Empire
+🛣️ New garromlingrad Tribe built roads to North terzenlorland Kingdom (15 pixels)
+🛣️ Great kinzengrad Tribe built roads to South rankingarstan Kingdom (98 pixels)
+🛣️ Viaterland Kingdom built roads to Mardusrangrad Kingdom (26 pixels)
+🛣️ South lorlingrad Tribe built roads to South belmarland Tribe (98 pixels)
+🏛️ South bellorstan Tribe changed from Chiefdom to Kingdom
+🛣️ Zenmaria Kingdom built roads to South dustergrad Kingdom (69 pixels)
+🛣️ Great kinzengrad Tribe built roads to Old romvialand Kingdom (54 pixels)
+🛣️ Old solgarquiia Kingdom built roads to North linran Kingdom (102 pixels)
+🛣️ New garromlingrad Tribe built roads to Old vianarom Kingdom (47 pixels)
+🛣️ Great kinzengrad Tribe built roads to Old zenzenia Kingdom (126 pixels)
+🛣️ New garranland Kingdom built roads to South romromia Tribe (39 pixels)
+🛣️ Zenmaria Kingdom built roads to New lordusdus Kingdom (67 pixels)
+🛣️ South lorlingrad Tribe built roads to South solnaviagrad Tribe (101 pixels)
+🛣️ Great kinzengrad Tribe built roads to Great garlorviastan Kingdom (18 pixels)
+🛣️ New marsolstan Kingdom built roads to Old lingarlinstan Kingdom (46 pixels)
+🛣️ Marbelia Kingdom built roads to Old lingarlinstan Kingdom (81 pixels)
+🛣️ Zenmaria Kingdom built roads to South dustergrad Kingdom (69 pixels)
+🛣️ Great kinzengrad Tribe built roads to New solromkin Kingdom (66 pixels)
+🛣️ North marlorgrad Kingdom built roads to South lorquidus Kingdom (42 pixels)
+🛣️ New garranland Kingdom built roads to Old marlormarland Kingdom (36 pixels)
+🛣️ South lorlingrad Tribe built roads to Great quiquidusgrad Tribe (17 pixels)
+🛣️ New dusgarromland Kingdom built roads to South dustergrad Kingdom (85 pixels)
+🛣️ Old viazenia Kingdom built roads to North lorkinstan Kingdom (35 pixels)
+🛣️ South naransol Kingdom built roads to North lorkinstan Kingdom (48 pixels)
+🛣️ Old viaviagrad Tribe built roads to North ranran Tribe (68 pixels)
+🛣️ New lordusdus Kingdom built roads to North lorkinstan Kingdom (83 pixels)
+🛣️ North lorkinstan Kingdom built roads to Zenmaria Kingdom (36 pixels)
+🛣️ Old lingarlinstan Kingdom built roads to Zenmaria Kingdom (108 pixels)
+🛣️ Great kinzengrad Tribe built roads to Garkinland Kingdom (79 pixels)
+🛣️ Zenmaria Kingdom built roads to South naransol Kingdom (36 pixels)
+🛣️ South lorlingrad Tribe built roads to New garlin Tribe (62 pixels)
+🛣️ Great kinzengrad Tribe built roads to Lornaterstan Tribe (38 pixels)
+🛣️ Old viaviagrad Tribe built roads to North solkin Tribe (136 pixels)
+🛣️ North lorkinstan Kingdom built roads to New dusgarromland Kingdom (32 pixels)
+🛣️ Zenmaria Kingdom built roads to New dusgarromland Kingdom (66 pixels)
+🛣️ New dusgarromland Kingdom built roads to New lordusdus Kingdom (70 pixels)
+🛣️ South viatermar Kingdom built roads to Linlinstan Kingdom (24 pixels)
+🛣️ Old lingarlinstan Kingdom built roads to New dusgarromland Kingdom (36 pixels)
+🛣️ South lorlingrad Tribe built roads to North terzenlorland Kingdom (54 pixels)
+🛣️ New marsolstan Kingdom built roads to North lorlordusgrad Kingdom (36 pixels)
+🛣️ Old viaviagrad Tribe built roads to South rankingarstan Kingdom (48 pixels)
+🛣️ Old viazenia Kingdom built roads to North lorlordusgrad Kingdom (69 pixels)
+🛣️ New belmartergrad Kingdom built roads to Great lorranzenstan Kingdom (24 pixels)
+🛣️ Zenmaria Kingdom built roads to South dustergrad Kingdom (69 pixels)
+🛣️ Marbelia Kingdom built roads to North lorlordusgrad Kingdom (47 pixels)
+🛣️ Old lingarlinstan Kingdom built roads to North lorlordusgrad Kingdom (36 pixels)
+🛣️ Old viazenia Kingdom built roads to North ranviaviaia Kingdom (24 pixels)
+🛣️ South lorlingrad Tribe built roads to Old vianarom Kingdom (81 pixels)
+🛣️ New belmartergrad Kingdom built roads to Quisolter Kingdom (48 pixels)
+🛣️ New dusgarromland Kingdom built roads to South dustergrad Kingdom (85 pixels)
+🛣️ Zenmaria Kingdom built roads to South naransol Kingdom (36 pixels)
+🛣️ North lorlordusgrad Kingdom built roads to New dusgarromland Kingdom (23 pixels)
+🛣️ North ranviaviaia Kingdom built roads to Zenmaria Kingdom (24 pixels)
+🛣️ New kinlinquiland Kingdom built roads to North ranviaviaia Kingdom (12 pixels)
+🛣️ Old viaviagrad Tribe built roads to Old romvialand Kingdom (54 pixels)
+🛣️ New dusgarromland Kingdom built roads to New lordusdus Kingdom (70 pixels)
+🛣️ South lorlingrad Tribe built roads to Old ternaromland Kingdom (121 pixels)
+🛣️ Great belranstan Tribe built roads to Old solbelgrad Tribe (28 pixels)
+🛣️ Zenmaria Kingdom built roads to New dusgarromland Kingdom (66 pixels)
+🛣️ Old viaviagrad Tribe built roads to North nalinromgrad Tribe (54 pixels)
+🛣️ South zenviaia Tribe built roads to Old ransollorgrad Kingdom (26 pixels)
+🛣️ New dusgarromland Kingdom built roads to South mardusgarland Kingdom (34 pixels)
+Wrote out/investigate_low_state_batch/seed_205\run_summary.json, out/investigate_low_state_batch/seed_205\timeseries.csv, out/investigate_low_state_batch/seed_205\run_meta.json, out/investigate_low_state_batch/seed_205\violations.json

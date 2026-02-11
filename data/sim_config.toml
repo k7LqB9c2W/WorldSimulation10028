@@ -128,6 +128,20 @@ demogDiseaseStabilityHit = 0.007
 demogShortageLegitimacyHit = 0.009
 demogDiseaseLegitimacyHit = 0.006
 legitimacyRecoveryStrength = 0.018
+lowCapabilityFiscalThreshold = 0.52
+lowCapabilityNearBalanceCap = 1.01
+lowCapabilityBorrowingScale = 0.05
+lowCapabilityReserveMonthsTarget = 1.65
+debtMarketAccessFloor = 0.34
+debtMarketAccessSlope = 0.32
+revenueTrendFastAlpha = 0.58
+revenueTrendSlowAlpha = 0.18
+revenueTrendSpendSensitivity = 0.45
+debtServiceAusterityThreshold = 0.26
+debtServiceAusterityStrength = 0.9
+subsistenceAdminFloorShare = 0.66
+earlyLegitimacyProvisioningWeight = 0.72
+earlyLegitimacyFiscalWeight = 0.28
 
 [tech]
 capabilityThresholdScale = 0.9

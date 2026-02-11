@@ -64,6 +64,7 @@ struct RunOptions {
     std::string spawnMaskPath;
     bool spawnDisable = false;
     std::vector<std::pair<std::string, double>> spawnRegionShareOverrides;
+    bool stateDiagnostics = false; // optional: emit per-country state cause diagnostics at checkpoints
 };
 
 struct MetricsSnapshot {
@@ -204,6 +205,7 @@ void printUsage(const char* argv0) {
               << "       [--parityCheckYears N] [--parityCheckpointEveryYears N]\n"
               << "       [--parityRole gui|cli] [--parityOut path]\n"
               << "       [--techUnlockLog path] [--techUnlockLogIncludeInitial 0|1]\n"
+              << "       [--stateDiagnostics 0|1]\n"
               << "       [--stopOnTechId N]\n"
               << "       [--world-pop N] [--world-pop-range MIN MAX]\n"
               << "       [--spawn-mask path] [--spawn-disable]\n"
@@ -302,6 +304,15 @@ bool parseArgs(int argc, char** argv, RunOptions& opt) {
             bool parsed = false;
             if (!parseBool01(arg.substr(30), parsed)) return false;
             opt.techUnlockLogIncludeInitial = parsed;
+        } else if (arg == "--stateDiagnostics") {
+            std::string v;
+            bool parsed = false;
+            if (!requireValue(v) || !parseBool01(v, parsed)) return false;
+            opt.stateDiagnostics = parsed;
+        } else if (arg.rfind("--stateDiagnostics=", 0) == 0) {
+            bool parsed = false;
+            if (!parseBool01(arg.substr(19), parsed)) return false;
+            opt.stateDiagnostics = parsed;
         } else if (arg == "--stopOnTechId") {
             std::string v;
             if (!requireValue(v) || !parseInt(v, opt.stopOnTechId)) return false;
@@ -1601,6 +1612,40 @@ int main(int argc, char** argv) {
         techLog << "year,event_type,country_index,country_name,tech_id,tech_name,total_unlocked_techs\n";
     }
 
+    std::ofstream stateSummaryCsv;
+    std::ofstream stateCountriesCsv;
+    const bool stateDiagnosticsEnabled = opt.stateDiagnostics;
+    constexpr double kStateLowThreshold = 0.40;
+    constexpr double kStateCriticalThreshold = 0.20;
+    constexpr double kStateStableThreshold = 0.60;
+    if (stateDiagnosticsEnabled) {
+        const std::filesystem::path summaryPath = std::filesystem::path(opt.outDir) / "state_diagnostics_summary.csv";
+        const std::filesystem::path countriesPath = std::filesystem::path(opt.outDir) / "state_diagnostics_countries.csv";
+        stateSummaryCsv.open(summaryPath);
+        stateCountriesCsv.open(countriesPath);
+        if (!stateSummaryCsv || !stateCountriesCsv) {
+            std::cerr << "Could not open state diagnostics outputs in " << opt.outDir << "\n";
+            return 2;
+        }
+        stateSummaryCsv << "year,live_countries,stable_countries,low_stability_countries,low_legitimacy_countries,low_both_countries,"
+                           "critical_countries,pop_total,pop_low_stability,pop_low_legitimacy,pop_low_both,pop_critical,"
+                           "pop_low_stability_share,pop_low_legitimacy_share,pop_low_both_share,pop_critical_share,"
+                           "stability_mean,stability_p10,legitimacy_mean,legitimacy_p10,"
+                           "worst_stability_ids,worst_legitimacy_ids\n";
+        stateCountriesCsv << "year,country_index,country_name,population,stability,legitimacy,avg_control,autonomy_pressure,autonomy_over_years,is_at_war,"
+                             "state_bucket,low_stability,low_legitimacy,critical_state,stable_state,"
+                             "stab_start,stab_after_update,stab_after_budget,stab_after_demog,stab_delta_update,stab_delta_budget,stab_delta_demog,stab_delta_total,"
+                             "stab_delta_war,stab_delta_plague,stab_delta_stagnation,stab_delta_peace_recover,stab_delta_debt,stab_delta_control,stab_delta_demog_stress,"
+                             "stab_shortage_ratio,stab_disease_burden,stab_stagnation_years,stab_dominant_cause,stab_dominant_impact,"
+                             "legit_start,legit_after_economy,legit_after_budget,legit_after_demog,legit_after_culture,legit_end,"
+                             "legit_delta_economy,legit_delta_budget,legit_delta_demog,legit_delta_culture,legit_delta_events,legit_delta_total,"
+                             "legit_budget_shortfall_direct,legit_budget_burden_penalty,legit_budget_drift_stability,legit_budget_drift_tax,legit_budget_drift_control,"
+                             "legit_budget_drift_debt,legit_budget_drift_service,legit_budget_drift_shortfall,legit_budget_drift_plague,legit_budget_drift_war,"
+                             "legit_demog_shortage_ratio,legit_demog_disease_burden,legit_dominant_cause,legit_dominant_impact\n";
+        stateSummaryCsv << std::fixed << std::setprecision(6);
+        stateCountriesCsv << std::fixed << std::setprecision(6);
+    }
+
     std::cout << "worldsim_cli seed=" << opt.seed
               << " config=" << ctx.configPath
               << " hash=" << ctx.configHash
@@ -1665,6 +1710,19 @@ int main(int argc, char** argv) {
         return false;
     };
 
+    auto stateBucket = [&](double stability, double legitimacy) -> std::string {
+        const bool lowS = stability < kStateLowThreshold;
+        const bool lowL = legitimacy < kStateLowThreshold;
+        const bool crit = stability < kStateCriticalThreshold || legitimacy < kStateCriticalThreshold;
+        const bool stable = stability >= kStateStableThreshold && legitimacy >= kStateStableThreshold;
+        if (crit) return "critical";
+        if (lowS && lowL) return "low_both";
+        if (lowS) return "low_stability";
+        if (lowL) return "low_legitimacy";
+        if (stable) return "stable";
+        return "mixed";
+    };
+
     bool stoppedOnTargetTech = false;
     int stoppedOnTargetTechYear = std::numeric_limits<int>::min();
 
@@ -1715,6 +1773,206 @@ int main(int argc, char** argv) {
     std::vector<uint8_t> famineWave(countries.size(), 0u);
     std::vector<uint8_t> epidemicWave(countries.size(), 0u);
     std::vector<uint8_t> migrationWave(countries.size(), 0u);
+
+    auto emitStateDiagnosticsCheckpoint = [&](int year) {
+        if (!stateDiagnosticsEnabled) return;
+
+        struct WeakRow {
+            int id = -1;
+            double value = 1.0;
+        };
+        std::vector<WeakRow> worstStability;
+        std::vector<WeakRow> worstLegitimacy;
+        std::vector<double> stabilities;
+        std::vector<double> legitimacies;
+        worstStability.reserve(countries.size());
+        worstLegitimacy.reserve(countries.size());
+        stabilities.reserve(countries.size());
+        legitimacies.reserve(countries.size());
+
+        int liveCountries = 0;
+        int stableCountries = 0;
+        int lowStabilityCountries = 0;
+        int lowLegitimacyCountries = 0;
+        int lowBothCountries = 0;
+        int criticalCountries = 0;
+
+        double popTotal = 0.0;
+        double popLowStability = 0.0;
+        double popLowLegitimacy = 0.0;
+        double popLowBoth = 0.0;
+        double popCritical = 0.0;
+
+        auto pickDominant = [](const std::vector<std::pair<const char*, double>>& terms) -> std::pair<std::string, double> {
+            double best = 0.0;
+            std::string bestName = "none";
+            for (const auto& t : terms) {
+                if (t.second > best) {
+                    best = t.second;
+                    bestName = t.first;
+                }
+            }
+            return {bestName, best};
+        };
+
+        for (const Country& c : countries) {
+            const long long popLL = c.getPopulation();
+            if (popLL <= 0) continue;
+            const double pop = static_cast<double>(popLL);
+            const double stability = clamp01(c.getStability());
+            const double legitimacy = clamp01(c.getLegitimacy());
+            const bool lowS = stability < kStateLowThreshold;
+            const bool lowL = legitimacy < kStateLowThreshold;
+            const bool crit = stability < kStateCriticalThreshold || legitimacy < kStateCriticalThreshold;
+            const bool stable = stability >= kStateStableThreshold && legitimacy >= kStateStableThreshold;
+
+            liveCountries++;
+            if (stable) stableCountries++;
+            if (lowS) lowStabilityCountries++;
+            if (lowL) lowLegitimacyCountries++;
+            if (lowS && lowL) lowBothCountries++;
+            if (crit) criticalCountries++;
+
+            popTotal += pop;
+            if (lowS) popLowStability += pop;
+            if (lowL) popLowLegitimacy += pop;
+            if (lowS && lowL) popLowBoth += pop;
+            if (crit) popCritical += pop;
+
+            worstStability.push_back(WeakRow{c.getCountryIndex(), stability});
+            worstLegitimacy.push_back(WeakRow{c.getCountryIndex(), legitimacy});
+            stabilities.push_back(stability);
+            legitimacies.push_back(legitimacy);
+
+            const auto& sd = c.getMacroEconomy().stabilityDebug;
+            const auto& ld = c.getMacroEconomy().legitimacyDebug;
+            const auto stabDom = pickDominant({
+                {"war", std::max(0.0, -sd.dbg_delta_war)},
+                {"plague", std::max(0.0, -sd.dbg_delta_plague)},
+                {"stagnation", std::max(0.0, -sd.dbg_delta_stagnation)},
+                {"debt", std::max(0.0, -sd.dbg_delta_debt_crisis)},
+                {"control", std::max(0.0, -sd.dbg_delta_control_decay)},
+                {"demography", std::max(0.0, -sd.dbg_delta_demog_stress)},
+                {"budget", std::max(0.0, -sd.dbg_stab_delta_budget)}
+            });
+            const auto legitDom = pickDominant({
+                {"economy", std::max(0.0, -ld.dbg_legit_delta_economy)},
+                {"budget", std::max(0.0, -ld.dbg_legit_delta_budget)},
+                {"demography", std::max(0.0, -ld.dbg_legit_delta_demog)},
+                {"culture", std::max(0.0, -ld.dbg_legit_delta_culture)},
+                {"events", std::max(0.0, -ld.dbg_legit_delta_events)}
+            });
+
+            stateCountriesCsv
+                << year << ","
+                << c.getCountryIndex() << ","
+                << csvEscape(c.getName()) << ","
+                << popLL << ","
+                << stability << ","
+                << legitimacy << ","
+                << clamp01(c.getAvgControl()) << ","
+                << clamp01(c.getAutonomyPressure()) << ","
+                << std::max(0, c.getAutonomyOverThresholdYears()) << ","
+                << (c.isAtWar() ? 1 : 0) << ","
+                << stateBucket(stability, legitimacy) << ","
+                << (lowS ? 1 : 0) << ","
+                << (lowL ? 1 : 0) << ","
+                << (crit ? 1 : 0) << ","
+                << (stable ? 1 : 0) << ","
+                << sd.dbg_stab_start_year << ","
+                << sd.dbg_stab_after_country_update << ","
+                << sd.dbg_stab_after_budget << ","
+                << sd.dbg_stab_after_demography << ","
+                << sd.dbg_stab_delta_update << ","
+                << sd.dbg_stab_delta_budget << ","
+                << sd.dbg_stab_delta_demog << ","
+                << sd.dbg_stab_delta_total << ","
+                << sd.dbg_delta_war << ","
+                << sd.dbg_delta_plague << ","
+                << sd.dbg_delta_stagnation << ","
+                << sd.dbg_delta_peace_recover << ","
+                << sd.dbg_delta_debt_crisis << ","
+                << sd.dbg_delta_control_decay << ","
+                << sd.dbg_delta_demog_stress << ","
+                << sd.dbg_shortageRatio << ","
+                << sd.dbg_diseaseBurden << ","
+                << sd.dbg_stagnationYears << ","
+                << stabDom.first << ","
+                << stabDom.second << ","
+                << ld.dbg_legit_start << ","
+                << ld.dbg_legit_after_economy << ","
+                << ld.dbg_legit_after_budget << ","
+                << ld.dbg_legit_after_demog << ","
+                << ld.dbg_legit_after_culture << ","
+                << ld.dbg_legit_end << ","
+                << ld.dbg_legit_delta_economy << ","
+                << ld.dbg_legit_delta_budget << ","
+                << ld.dbg_legit_delta_demog << ","
+                << ld.dbg_legit_delta_culture << ","
+                << ld.dbg_legit_delta_events << ","
+                << ld.dbg_legit_delta_total << ","
+                << ld.dbg_legit_budget_shortfall_direct << ","
+                << ld.dbg_legit_budget_burden_penalty << ","
+                << ld.dbg_legit_budget_drift_stability << ","
+                << ld.dbg_legit_budget_drift_tax << ","
+                << ld.dbg_legit_budget_drift_control << ","
+                << ld.dbg_legit_budget_drift_debt << ","
+                << ld.dbg_legit_budget_drift_service << ","
+                << ld.dbg_legit_budget_drift_shortfall << ","
+                << ld.dbg_legit_budget_drift_plague << ","
+                << ld.dbg_legit_budget_drift_war << ","
+                << ld.dbg_legit_demog_shortageRatio << ","
+                << ld.dbg_legit_demog_diseaseBurden << ","
+                << legitDom.first << ","
+                << legitDom.second
+                << "\n";
+        }
+
+        std::sort(worstStability.begin(), worstStability.end(), [](const WeakRow& a, const WeakRow& b) {
+            if (a.value != b.value) return a.value < b.value;
+            return a.id < b.id;
+        });
+        std::sort(worstLegitimacy.begin(), worstLegitimacy.end(), [](const WeakRow& a, const WeakRow& b) {
+            if (a.value != b.value) return a.value < b.value;
+            return a.id < b.id;
+        });
+
+        auto weakestToString = [](const std::vector<WeakRow>& rows) -> std::string {
+            std::ostringstream oss;
+            const size_t n = std::min<size_t>(5, rows.size());
+            for (size_t i = 0; i < n; ++i) {
+                if (i > 0) oss << ";";
+                oss << rows[i].id << ":" << std::fixed << std::setprecision(3) << rows[i].value;
+            }
+            return oss.str();
+        };
+
+        const double popDen = std::max(1.0, popTotal);
+        stateSummaryCsv
+            << year << ","
+            << liveCountries << ","
+            << stableCountries << ","
+            << lowStabilityCountries << ","
+            << lowLegitimacyCountries << ","
+            << lowBothCountries << ","
+            << criticalCountries << ","
+            << popTotal << ","
+            << popLowStability << ","
+            << popLowLegitimacy << ","
+            << popLowBoth << ","
+            << popCritical << ","
+            << (popLowStability / popDen) << ","
+            << (popLowLegitimacy / popDen) << ","
+            << (popLowBoth / popDen) << ","
+            << (popCritical / popDen) << ","
+            << mean(stabilities) << ","
+            << percentile(stabilities, 0.10) << ","
+            << mean(legitimacies) << ","
+            << percentile(legitimacies, 0.10) << ","
+            << csvEscape(weakestToString(worstStability)) << ","
+            << csvEscape(weakestToString(worstLegitimacy))
+            << "\n";
+    };
 
     for (int y = startYear; y <= endYear && !stoppedOnTargetTech; ++y) {
         simulateOneYear(y);
@@ -1792,6 +2050,7 @@ int main(int argc, char** argv) {
                                                   eventsWindow,
                                                   prev,
                                                   yearsSinceLast));
+            emitStateDiagnosticsCheckpoint(y);
             eventsWindow = EventWindowCounters{};
             lastCheckpointYear = y;
         }
@@ -1885,6 +2144,7 @@ int main(int argc, char** argv) {
         js << "  \"stoppedOnTargetTechYear\": " << (stoppedOnTargetTech ? std::to_string(stoppedOnTargetTechYear) : std::string("null")) << ",\n";
         js << "  \"worldStartYear\": " << worldStartYear << ",\n";
         js << "  \"useGPU\": " << (ctx.config.economy.useGPU ? "true" : "false") << ",\n";
+        js << "  \"stateDiagnostics\": " << (stateDiagnosticsEnabled ? "true" : "false") << ",\n";
         js << "  \"total_score\": 0.0,\n";
         js << "  \"gates\": {\n";
         js << "    \"metric_availability\": true,\n";
@@ -1929,6 +2189,7 @@ int main(int argc, char** argv) {
         meta << "  \"backend\": \"" << (ctx.config.economy.useGPU ? "gpu" : "cpu") << "\",\n";
         meta << "  \"start_year\": " << startYear << ",\n";
         meta << "  \"end_year\": " << endYear << ",\n";
+        meta << "  \"state_diagnostics\": " << (stateDiagnosticsEnabled ? "true" : "false") << ",\n";
         meta << "  \"stopped_on_target_tech\": " << (stoppedOnTargetTech ? "true" : "false") << ",\n";
         meta << "  \"stopped_on_target_tech_year\": " << (stoppedOnTargetTech ? std::to_string(stoppedOnTargetTechYear) : std::string("null")) << ",\n";
         meta << "  \"map_hash\": \"" << jsonEscape(SimulationContext::hashFileFNV1a("assets/images/map.png")) << "\",\n";

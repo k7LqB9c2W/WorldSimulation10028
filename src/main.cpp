@@ -2330,36 +2330,41 @@ int main(int argc, char** argv) {
 		                                    ImGui::TableSetupColumn("Pop");
 		                                    ImGui::TableHeadersRow();
 
-		                                    if (ImGuiTableSortSpecs* sort = ImGui::TableGetSortSpecs()) {
-		                                        if (sort->SpecsDirty && sort->SpecsCount > 0) {
-		                                            const ImGuiTableColumnSortSpecs& s = sort->Specs[0];
-		                                            auto cmp = [&](const Row& a, const Row& b) {
-		                                                auto dir = (s.SortDirection == ImGuiSortDirection_Ascending) ? 1 : -1;
-		                                                auto by = [&](auto va, auto vb) {
-		                                                    if (va < vb) return -1 * dir;
-		                                                    if (va > vb) return  1 * dir;
-		                                                    return 0;
-		                                                };
-		                                                int sr = 0;
-		                                                switch (s.ColumnIndex) {
-		                                                    case 3: sr = by(a.wealth, b.wealth); break;
-		                                                    case 4: sr = by(a.gdp, b.gdp); break;
-		                                                    case 5: sr = by(a.exports, b.exports); break;
-		                                                    case 6: sr = by(a.pop, b.pop); break;
-		                                                    default: sr = 0; break;
-		                                                }
-		                                                if (sr != 0) return sr < 0;
-		                                                return a.idx < b.idx;
-		                                            };
-		                                            std::sort(rows.begin(), rows.end(), cmp);
-		                                            sort->SpecsDirty = false;
-		                                        }
-		                                    } else {
-		                                        std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
-		                                            if (a.wealth != b.wealth) return a.wealth > b.wealth;
-		                                            return a.idx < b.idx;
-		                                        });
-		                                    }
+                                    if (ImGuiTableSortSpecs* sort = ImGui::TableGetSortSpecs()) {
+                                        if (sort->SpecsCount > 0) {
+                                            const ImGuiTableColumnSortSpecs& s = sort->Specs[0];
+                                            auto cmp = [&](const Row& a, const Row& b) {
+                                                auto dir = (s.SortDirection == ImGuiSortDirection_Ascending) ? 1 : -1;
+                                                auto by = [&](auto va, auto vb) {
+                                                    if (va < vb) return -1 * dir;
+                                                    if (va > vb) return  1 * dir;
+                                                    return 0;
+                                                };
+                                                int sr = 0;
+                                                switch (s.ColumnIndex) {
+                                                    case 3: sr = by(a.wealth, b.wealth); break;
+                                                    case 4: sr = by(a.gdp, b.gdp); break;
+                                                    case 5: sr = by(a.exports, b.exports); break;
+                                                    case 6: sr = by(a.pop, b.pop); break;
+                                                    default: sr = 0; break;
+                                                }
+                                                if (sr != 0) return sr < 0;
+                                                return a.idx < b.idx;
+                                            };
+                                            std::sort(rows.begin(), rows.end(), cmp);
+                                            sort->SpecsDirty = false;
+                                        } else {
+                                            std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
+                                                if (a.wealth != b.wealth) return a.wealth > b.wealth;
+                                                return a.idx < b.idx;
+                                            });
+                                        }
+                                    } else {
+                                        std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
+                                            if (a.wealth != b.wealth) return a.wealth > b.wealth;
+                                            return a.idx < b.idx;
+                                        });
+                                    }
 
 		                                    ImGuiListClipper clipper;
 		                                    clipper.Begin(static_cast<int>(rows.size()));
@@ -2412,38 +2417,45 @@ int main(int argc, char** argv) {
 		                                    ImGui::TableSetupColumn("Wealth");
 		                                    ImGui::TableHeadersRow();
 
-		                                    if (ImGuiTableSortSpecs* sort = ImGui::TableGetSortSpecs()) {
-		                                        if (sort->SpecsDirty && sort->SpecsCount > 0) {
-		                                            const ImGuiTableColumnSortSpecs& s = sort->Specs[0];
-		                                            auto cmp = [&](const Row& a, const Row& b) {
-		                                                auto dir = (s.SortDirection == ImGuiSortDirection_Ascending) ? 1 : -1;
-		                                                auto by = [&](auto va, auto vb) {
-		                                                    if (va < vb) return -1 * dir;
-		                                                    if (va > vb) return  1 * dir;
-		                                                    return 0;
-		                                                };
-		                                                int sr = 0;
-		                                                switch (s.ColumnIndex) {
-		                                                    case 3: sr = by(a.techCount, b.techCount); break;
-		                                                    case 4: sr = by(a.institutionCount, b.institutionCount); break;
-		                                                    case 5: sr = by(a.pop, b.pop); break;
-		                                                    case 6: sr = by(a.wealth, b.wealth); break;
-		                                                    default: sr = 0; break;
-		                                                }
-		                                                if (sr != 0) return sr < 0;
-		                                                return a.idx < b.idx;
-		                                            };
-		                                            std::sort(rows.begin(), rows.end(), cmp);
-		                                            sort->SpecsDirty = false;
-		                                        }
-		                                    } else {
-		                                        std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
-		                                            if (a.techCount != b.techCount) return a.techCount > b.techCount;
-		                                            if (a.institutionCount != b.institutionCount) return a.institutionCount > b.institutionCount;
-		                                            if (a.pop != b.pop) return a.pop > b.pop;
-		                                            return a.idx < b.idx;
-		                                        });
-		                                    }
+                                    if (ImGuiTableSortSpecs* sort = ImGui::TableGetSortSpecs()) {
+                                        if (sort->SpecsCount > 0) {
+                                            const ImGuiTableColumnSortSpecs& s = sort->Specs[0];
+                                            auto cmp = [&](const Row& a, const Row& b) {
+                                                auto dir = (s.SortDirection == ImGuiSortDirection_Ascending) ? 1 : -1;
+                                                auto by = [&](auto va, auto vb) {
+                                                    if (va < vb) return -1 * dir;
+                                                    if (va > vb) return  1 * dir;
+                                                    return 0;
+                                                };
+                                                int sr = 0;
+                                                switch (s.ColumnIndex) {
+                                                    case 3: sr = by(a.techCount, b.techCount); break;
+                                                    case 4: sr = by(a.institutionCount, b.institutionCount); break;
+                                                    case 5: sr = by(a.pop, b.pop); break;
+                                                    case 6: sr = by(a.wealth, b.wealth); break;
+                                                    default: sr = 0; break;
+                                                }
+                                                if (sr != 0) return sr < 0;
+                                                return a.idx < b.idx;
+                                            };
+                                            std::sort(rows.begin(), rows.end(), cmp);
+                                            sort->SpecsDirty = false;
+                                        } else {
+                                            std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
+                                                if (a.techCount != b.techCount) return a.techCount > b.techCount;
+                                                if (a.institutionCount != b.institutionCount) return a.institutionCount > b.institutionCount;
+                                                if (a.pop != b.pop) return a.pop > b.pop;
+                                                return a.idx < b.idx;
+                                            });
+                                        }
+                                    } else {
+                                        std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
+                                            if (a.techCount != b.techCount) return a.techCount > b.techCount;
+                                            if (a.institutionCount != b.institutionCount) return a.institutionCount > b.institutionCount;
+                                            if (a.pop != b.pop) return a.pop > b.pop;
+                                            return a.idx < b.idx;
+                                        });
+                                    }
 
 		                                    ImGuiListClipper clipper;
 		                                    clipper.Begin(static_cast<int>(rows.size()));
@@ -2496,38 +2508,45 @@ int main(int argc, char** argv) {
 		                                    ImGui::TableSetupColumn("Wealth");
 		                                    ImGui::TableHeadersRow();
 
-		                                    if (ImGuiTableSortSpecs* sort = ImGui::TableGetSortSpecs()) {
-		                                        if (sort->SpecsDirty && sort->SpecsCount > 0) {
-		                                            const ImGuiTableColumnSortSpecs& s = sort->Specs[0];
-		                                            auto cmp = [&](const Row& a, const Row& b) {
-		                                                auto dir = (s.SortDirection == ImGuiSortDirection_Ascending) ? 1 : -1;
-		                                                auto by = [&](auto va, auto vb) {
-		                                                    if (va < vb) return -1 * dir;
-		                                                    if (va > vb) return  1 * dir;
-		                                                    return 0;
-		                                                };
-		                                                int sr = 0;
-		                                                switch (s.ColumnIndex) {
-		                                                    case 3: sr = by(a.institutionCount, b.institutionCount); break;
-		                                                    case 4: sr = by(a.techCount, b.techCount); break;
-		                                                    case 5: sr = by(a.pop, b.pop); break;
-		                                                    case 6: sr = by(a.wealth, b.wealth); break;
-		                                                    default: sr = 0; break;
-		                                                }
-		                                                if (sr != 0) return sr < 0;
-		                                                return a.idx < b.idx;
-		                                            };
-		                                            std::sort(rows.begin(), rows.end(), cmp);
-		                                            sort->SpecsDirty = false;
-		                                        }
-		                                    } else {
-		                                        std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
-		                                            if (a.institutionCount != b.institutionCount) return a.institutionCount > b.institutionCount;
-		                                            if (a.techCount != b.techCount) return a.techCount > b.techCount;
-		                                            if (a.pop != b.pop) return a.pop > b.pop;
-		                                            return a.idx < b.idx;
-		                                        });
-		                                    }
+                                    if (ImGuiTableSortSpecs* sort = ImGui::TableGetSortSpecs()) {
+                                        if (sort->SpecsCount > 0) {
+                                            const ImGuiTableColumnSortSpecs& s = sort->Specs[0];
+                                            auto cmp = [&](const Row& a, const Row& b) {
+                                                auto dir = (s.SortDirection == ImGuiSortDirection_Ascending) ? 1 : -1;
+                                                auto by = [&](auto va, auto vb) {
+                                                    if (va < vb) return -1 * dir;
+                                                    if (va > vb) return  1 * dir;
+                                                    return 0;
+                                                };
+                                                int sr = 0;
+                                                switch (s.ColumnIndex) {
+                                                    case 3: sr = by(a.institutionCount, b.institutionCount); break;
+                                                    case 4: sr = by(a.techCount, b.techCount); break;
+                                                    case 5: sr = by(a.pop, b.pop); break;
+                                                    case 6: sr = by(a.wealth, b.wealth); break;
+                                                    default: sr = 0; break;
+                                                }
+                                                if (sr != 0) return sr < 0;
+                                                return a.idx < b.idx;
+                                            };
+                                            std::sort(rows.begin(), rows.end(), cmp);
+                                            sort->SpecsDirty = false;
+                                        } else {
+                                            std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
+                                                if (a.institutionCount != b.institutionCount) return a.institutionCount > b.institutionCount;
+                                                if (a.techCount != b.techCount) return a.techCount > b.techCount;
+                                                if (a.pop != b.pop) return a.pop > b.pop;
+                                                return a.idx < b.idx;
+                                            });
+                                        }
+                                    } else {
+                                        std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
+                                            if (a.institutionCount != b.institutionCount) return a.institutionCount > b.institutionCount;
+                                            if (a.techCount != b.techCount) return a.techCount > b.techCount;
+                                            if (a.pop != b.pop) return a.pop > b.pop;
+                                            return a.idx < b.idx;
+                                        });
+                                    }
 
 		                                    ImGuiListClipper clipper;
 		                                    clipper.Begin(static_cast<int>(rows.size()));

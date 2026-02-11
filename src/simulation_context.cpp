@@ -239,6 +239,20 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "polity", "demogShortageLegitimacyHit", config.polity.demogShortageLegitimacyHit);
         readTomlValue(root, "polity", "demogDiseaseLegitimacyHit", config.polity.demogDiseaseLegitimacyHit);
         readTomlValue(root, "polity", "legitimacyRecoveryStrength", config.polity.legitimacyRecoveryStrength);
+        readTomlValue(root, "polity", "lowCapabilityFiscalThreshold", config.polity.lowCapabilityFiscalThreshold);
+        readTomlValue(root, "polity", "lowCapabilityNearBalanceCap", config.polity.lowCapabilityNearBalanceCap);
+        readTomlValue(root, "polity", "lowCapabilityBorrowingScale", config.polity.lowCapabilityBorrowingScale);
+        readTomlValue(root, "polity", "lowCapabilityReserveMonthsTarget", config.polity.lowCapabilityReserveMonthsTarget);
+        readTomlValue(root, "polity", "debtMarketAccessFloor", config.polity.debtMarketAccessFloor);
+        readTomlValue(root, "polity", "debtMarketAccessSlope", config.polity.debtMarketAccessSlope);
+        readTomlValue(root, "polity", "revenueTrendFastAlpha", config.polity.revenueTrendFastAlpha);
+        readTomlValue(root, "polity", "revenueTrendSlowAlpha", config.polity.revenueTrendSlowAlpha);
+        readTomlValue(root, "polity", "revenueTrendSpendSensitivity", config.polity.revenueTrendSpendSensitivity);
+        readTomlValue(root, "polity", "debtServiceAusterityThreshold", config.polity.debtServiceAusterityThreshold);
+        readTomlValue(root, "polity", "debtServiceAusterityStrength", config.polity.debtServiceAusterityStrength);
+        readTomlValue(root, "polity", "subsistenceAdminFloorShare", config.polity.subsistenceAdminFloorShare);
+        readTomlValue(root, "polity", "earlyLegitimacyProvisioningWeight", config.polity.earlyLegitimacyProvisioningWeight);
+        readTomlValue(root, "polity", "earlyLegitimacyFiscalWeight", config.polity.earlyLegitimacyFiscalWeight);
 
         readTomlValue(root, "tech", "capabilityThresholdScale", config.tech.capabilityThresholdScale);
         readTomlValue(root, "tech", "diffusionBase", config.tech.diffusionBase);

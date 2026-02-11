@@ -174,6 +174,20 @@ struct SimulationConfig {
         double demogShortageLegitimacyHit = 0.014;
         double demogDiseaseLegitimacyHit = 0.009;
         double legitimacyRecoveryStrength = 0.010;
+        double lowCapabilityFiscalThreshold = 0.50;
+        double lowCapabilityNearBalanceCap = 1.02;
+        double lowCapabilityBorrowingScale = 0.08;
+        double lowCapabilityReserveMonthsTarget = 1.50;
+        double debtMarketAccessFloor = 0.30;
+        double debtMarketAccessSlope = 0.35;
+        double revenueTrendFastAlpha = 0.55;
+        double revenueTrendSlowAlpha = 0.18;
+        double revenueTrendSpendSensitivity = 0.40;
+        double debtServiceAusterityThreshold = 0.30;
+        double debtServiceAusterityStrength = 0.85;
+        double subsistenceAdminFloorShare = 0.62;
+        double earlyLegitimacyProvisioningWeight = 0.65;
+        double earlyLegitimacyFiscalWeight = 0.35;
     } polity{};
 
     struct Tech {

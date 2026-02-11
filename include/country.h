@@ -655,6 +655,8 @@ private:
 	    MacroEconomyState m_macro{};
         double m_lastTaxBase = 0.0; // annualized taxable value base
         double m_lastTaxTake = 0.0; // annualized tax revenue actually collected
+        double m_revenueTrendFast = -1.0; // adaptive short-horizon revenue estimate
+        double m_revenueTrendSlow = -1.0; // adaptive long-horizon revenue estimate
 	    KnowledgeVec m_knowledge{}; // domain knowledge stocks (unbounded, thresholds unlock tech)
     std::vector<uint8_t> m_knownTechDense; // dense known-tech bitset (0/1).
     std::vector<float> m_adoptionTechDense; // dense adoption level [0,1].
