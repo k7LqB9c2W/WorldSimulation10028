@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Parallel random-seed sweep for maximum tech reached.
+"""Parallel seed sweep for maximum tech reached.
 
 Runs `worldsim_cli` for many seeds, captures `tech_unlocks.csv`, and reports:
 - max unlocked tech-count reached in each seed
 - highest tech-id reached in each seed
 - overall best across all seeds
+
+Supports both CLI mode and a Tkinter GUI (`--gui`) with live per-seed year updates.
 """
 
 from __future__ import annotations
@@ -14,13 +16,15 @@ import concurrent.futures
 import csv
 import json
 import os
+import queue
 import random
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Callable, Iterable, Optional
 
 
 @dataclass(frozen=True)
@@ -36,6 +40,10 @@ class SweepConfig:
     use_gpu: Optional[bool]
     reuse_existing: bool
     include_initial_log_rows: bool = True
+
+
+ProgressCallback = Callable[[str], None]
+SeedEventCallback = Callable[[dict], None]
 
 
 def resolve_user_path(path_value: str, repo_root: Path) -> Path:
@@ -165,6 +173,33 @@ def can_reuse_existing_run(seed: int, cfg: SweepConfig, seed_dir: Path, tech_log
     return True
 
 
+def read_latest_year_from_tech_log(tech_log_path: Path, bytes_from_end: int = 8192) -> Optional[int]:
+    if not tech_log_path.exists():
+        return None
+    try:
+        with tech_log_path.open("rb") as f:
+            f.seek(0, os.SEEK_END)
+            size = f.tell()
+            if size <= 0:
+                return None
+            start = max(0, size - bytes_from_end)
+            f.seek(start)
+            chunk = f.read().decode("utf-8", errors="ignore")
+    except OSError:
+        return None
+
+    for line in reversed(chunk.splitlines()):
+        row = line.strip()
+        if not row or row.startswith("year,"):
+            continue
+        first = row.split(",", 1)[0].strip()
+        try:
+            return int(first)
+        except ValueError:
+            continue
+    return None
+
+
 def scan_max_tech(tech_log_path: Path) -> dict:
     if not tech_log_path.exists():
         return {"ok": False, "reason": "tech log missing"}
@@ -224,27 +259,128 @@ def scan_max_tech(tech_log_path: Path) -> dict:
     }
 
 
-def run_one_seed(seed: int, cfg: SweepConfig) -> dict:
+def run_one_seed(
+    seed: int,
+    cfg: SweepConfig,
+    cancel_event: Optional[threading.Event] = None,
+    seed_event_cb: Optional[SeedEventCallback] = None,
+) -> dict:
     seed_dir = cfg.out_root / f"seed_{seed}"
     tech_log = seed_dir / "tech_unlocks.csv"
     run_log = seed_dir / "seed_run.log"
     seed_dir.mkdir(parents=True, exist_ok=True)
 
+    def emit_event(**fields: object) -> None:
+        if seed_event_cb is None:
+            return
+        payload = {"seed": seed}
+        payload.update(fields)
+        try:
+            seed_event_cb(payload)
+        except Exception:
+            pass
+
     started = time.time()
     reused = False
     rc = 0
+    emit_event(state="starting", current_year=None, elapsed_sec=0.0, note="")
+
+    if cancel_event is not None and cancel_event.is_set():
+        emit_event(state="canceled", current_year=None, elapsed_sec=0.0, note="canceled before start")
+        return {
+            "seed": seed,
+            "ok": False,
+            "returncode": -2,
+            "elapsed_sec": 0.0,
+            "run_dir": str(seed_dir),
+            "reused": False,
+            "reason": "canceled",
+            "canceled": True,
+        }
 
     if cfg.reuse_existing and can_reuse_existing_run(seed, cfg, seed_dir, tech_log):
         reused = True
+        current_year = read_latest_year_from_tech_log(tech_log)
+        emit_event(
+            state="reused",
+            current_year=current_year,
+            elapsed_sec=(time.time() - started),
+            note="reused existing run",
+        )
     else:
         cmd = build_cli_cmd(seed, cfg, seed_dir, tech_log)
         with run_log.open("w", encoding="utf-8") as logf:
             logf.write("COMMAND:\n")
             logf.write(" ".join(cmd) + "\n\n")
-            rc = subprocess.call(cmd, stdout=logf, stderr=subprocess.STDOUT, cwd=str(cfg.repo_root))
+            proc = subprocess.Popen(cmd, stdout=logf, stderr=subprocess.STDOUT, cwd=str(cfg.repo_root))
+            last_year: Optional[int] = None
+            last_probe = 0.0
+            canceled = False
+
+            while True:
+                polled = proc.poll()
+                if polled is not None:
+                    rc = polled
+                    break
+
+                if cancel_event is not None and cancel_event.is_set():
+                    canceled = True
+                    try:
+                        proc.terminate()
+                        proc.wait(timeout=3.0)
+                    except Exception:
+                        try:
+                            proc.kill()
+                            proc.wait(timeout=3.0)
+                        except Exception:
+                            pass
+                    rc = proc.poll()
+                    if rc is None:
+                        rc = -2
+                    break
+
+                now = time.monotonic()
+                if now - last_probe >= 0.35:
+                    year = read_latest_year_from_tech_log(tech_log)
+                    last_probe = now
+                    if year is not None and year != last_year:
+                        last_year = year
+                        emit_event(
+                            state="running",
+                            current_year=year,
+                            elapsed_sec=(time.time() - started),
+                            note="",
+                        )
+
+                time.sleep(0.10)
+
+            if canceled:
+                elapsed = time.time() - started
+                emit_event(
+                    state="canceled",
+                    current_year=read_latest_year_from_tech_log(tech_log),
+                    elapsed_sec=elapsed,
+                    note="canceled by user",
+                )
+                return {
+                    "seed": seed,
+                    "ok": False,
+                    "returncode": rc,
+                    "elapsed_sec": elapsed,
+                    "run_dir": str(seed_dir),
+                    "reused": reused,
+                    "reason": "canceled",
+                    "canceled": True,
+                }
 
     elapsed = time.time() - started
     if rc != 0:
+        emit_event(
+            state="failed",
+            current_year=read_latest_year_from_tech_log(tech_log),
+            elapsed_sec=elapsed,
+            note="cli run failed",
+        )
         return {
             "seed": seed,
             "ok": False,
@@ -253,10 +389,17 @@ def run_one_seed(seed: int, cfg: SweepConfig) -> dict:
             "run_dir": str(seed_dir),
             "reused": reused,
             "reason": "cli run failed",
+            "canceled": False,
         }
 
     scan = scan_max_tech(tech_log)
     if not scan["ok"]:
+        emit_event(
+            state="failed",
+            current_year=read_latest_year_from_tech_log(tech_log),
+            elapsed_sec=elapsed,
+            note=str(scan["reason"]),
+        )
         return {
             "seed": seed,
             "ok": False,
@@ -265,8 +408,17 @@ def run_one_seed(seed: int, cfg: SweepConfig) -> dict:
             "run_dir": str(seed_dir),
             "reused": reused,
             "reason": scan["reason"],
+            "canceled": False,
         }
 
+    emit_event(
+        state="done",
+        current_year=(scan.get("max_total_row") or {}).get("year"),
+        max_total_unlocked_techs=scan.get("max_total_unlocked_techs"),
+        max_tech_id=(scan.get("max_tech_row") or {}).get("tech_id"),
+        elapsed_sec=elapsed,
+        note="ok",
+    )
     return {
         "seed": seed,
         "ok": True,
@@ -275,6 +427,7 @@ def run_one_seed(seed: int, cfg: SweepConfig) -> dict:
         "run_dir": str(seed_dir),
         "reused": reused,
         "reason": "",
+        "canceled": False,
         "rows": scan["rows"],
         "max_total_unlocked_techs": scan["max_total_unlocked_techs"],
         "max_total_row": scan["max_total_row"],
@@ -282,9 +435,17 @@ def run_one_seed(seed: int, cfg: SweepConfig) -> dict:
     }
 
 
-def build_summary(cfg: SweepConfig, results: list[dict], elapsed_sec: float) -> dict:
+def build_summary(
+    cfg: SweepConfig,
+    results: list[dict],
+    elapsed_sec: float,
+    *,
+    total_requested: Optional[int] = None,
+    stopped_early: bool = False,
+) -> dict:
     ok_runs = [r for r in results if r.get("ok")]
-    fail_runs = [r for r in results if not r.get("ok")]
+    canceled_runs = [r for r in results if r.get("canceled")]
+    fail_runs = [r for r in results if (not r.get("ok")) and (not r.get("canceled"))]
 
     best_total = None
     for r in ok_runs:
@@ -299,11 +460,15 @@ def build_summary(cfg: SweepConfig, results: list[dict], elapsed_sec: float) -> 
         if best_tech_id is None or tid > int((best_tech_id.get("max_tech_row") or {}).get("tech_id", -1)):
             best_tech_id = r
 
+    total = len(results) if total_requested is None else total_requested
     return {
         "elapsed_sec": elapsed_sec,
-        "total_seeds": len(results),
+        "total_seeds": total,
+        "completed_seeds": len(results),
         "ok_runs": len(ok_runs),
         "failed_runs": len(fail_runs),
+        "canceled_runs": len(canceled_runs),
+        "stopped_early": stopped_early,
         "run_settings": {
             "start_year": cfg.start_year,
             "end_year": cfg.end_year,
@@ -341,6 +506,7 @@ def write_results(out_root: Path, results: list[dict], summary: dict) -> None:
                 "returncode",
                 "elapsed_sec",
                 "reused",
+                "canceled",
                 "max_total_unlocked_techs",
                 "max_total_year",
                 "max_total_country_index",
@@ -367,6 +533,7 @@ def write_results(out_root: Path, results: list[dict], summary: dict) -> None:
                     r.get("returncode"),
                     f"{r.get('elapsed_sec', 0.0):.3f}",
                     r.get("reused"),
+                    r.get("canceled", False),
                     r.get("max_total_unlocked_techs", ""),
                     max_total.get("year", ""),
                     max_total.get("country_index", ""),
@@ -388,55 +555,143 @@ def write_results(out_root: Path, results: list[dict], summary: dict) -> None:
         json.dump(summary, f, indent=2)
 
 
-def run_sweep(cfg: SweepConfig, seeds: Iterable[int]) -> tuple[list[dict], dict]:
+def run_sweep(
+    cfg: SweepConfig,
+    seeds: Iterable[int],
+    *,
+    progress_cb: Optional[ProgressCallback] = None,
+    seed_event_cb: Optional[SeedEventCallback] = None,
+    cancel_event: Optional[threading.Event] = None,
+) -> tuple[list[dict], dict]:
     seed_list = list(seeds)
-    if not seed_list:
+    total = len(seed_list)
+    if total == 0:
         raise ValueError("No seeds to run")
+
+    def emit(msg: str) -> None:
+        if progress_cb is not None:
+            progress_cb(msg)
+
+    def emit_seed(event: dict) -> None:
+        if seed_event_cb is not None:
+            seed_event_cb(event)
 
     started = time.time()
     results: list[dict] = []
+    done = 0
 
-    print(
-        f"Running {len(seed_list)} seeds with workers={cfg.workers}, "
-        f"years=[{cfg.start_year},{cfg.end_year}], use_gpu={cfg.use_gpu}",
-        flush=True,
+    emit(
+        f"Running {total} seeds with workers={cfg.workers}, "
+        f"years=[{cfg.start_year},{cfg.end_year}], use_gpu={cfg.use_gpu}"
     )
 
+    def make_exception_result(seed: int, exc: Exception) -> dict:
+        return {
+            "seed": seed,
+            "ok": False,
+            "returncode": -1,
+            "elapsed_sec": 0.0,
+            "run_dir": str(cfg.out_root / f"seed_{seed}"),
+            "reused": False,
+            "reason": f"exception: {exc}",
+            "canceled": False,
+        }
+
+    def process_result(seed: int, result: dict) -> None:
+        nonlocal done
+        done += 1
+        results.append(result)
+
+        if result.get("ok"):
+            emit(
+                f"[{done}/{total}] seed={seed} ok max_total={result.get('max_total_unlocked_techs')} "
+                f"max_tid={(result.get('max_tech_row') or {}).get('tech_id')}"
+            )
+        elif result.get("canceled"):
+            emit(f"[{done}/{total}] seed={seed} canceled")
+        else:
+            emit(
+                f"[{done}/{total}] seed={seed} fail rc={result.get('returncode')} "
+                f"reason={result.get('reason')}"
+            )
+
+        emit_seed(
+            {
+                "seed": seed,
+                "state": "finished",
+                "current_year": (result.get("max_total_row") or {}).get("year"),
+                "max_total_unlocked_techs": result.get("max_total_unlocked_techs"),
+                "max_tech_id": (result.get("max_tech_row") or {}).get("tech_id"),
+                "elapsed_sec": result.get("elapsed_sec"),
+                "note": result.get("reason") or ("ok" if result.get("ok") else ""),
+            }
+        )
+
+        partial_results = sorted(results, key=lambda r: int(r.get("seed", 0)))
+        partial = build_summary(
+            cfg,
+            partial_results,
+            time.time() - started,
+            total_requested=total,
+            stopped_early=(cancel_event.is_set() if cancel_event is not None else False),
+        )
+        write_results(cfg.out_root, partial_results, partial)
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=cfg.workers) as ex:
-        future_to_seed = {ex.submit(run_one_seed, seed, cfg): seed for seed in seed_list}
-        done = 0
-        for fut in concurrent.futures.as_completed(future_to_seed):
-            seed = future_to_seed[fut]
-            done += 1
+        in_flight: dict[concurrent.futures.Future, int] = {}
+        seed_iter = iter(seed_list)
+
+        def submit_next() -> bool:
+            if cancel_event is not None and cancel_event.is_set():
+                return False
             try:
-                r = fut.result()
-            except Exception as exc:
-                r = {
-                    "seed": seed,
-                    "ok": False,
-                    "returncode": -1,
-                    "elapsed_sec": 0.0,
-                    "run_dir": str(cfg.out_root / f"seed_{seed}"),
-                    "reused": False,
-                    "reason": f"exception: {exc}",
-                }
-            results.append(r)
-            if r.get("ok"):
-                print(
-                    f"[{done}/{len(seed_list)}] seed={seed} ok "
-                    f"max_total={r.get('max_total_unlocked_techs')} "
-                    f"max_tid={(r.get('max_tech_row') or {}).get('tech_id')}",
-                    flush=True,
-                )
-            else:
-                print(
-                    f"[{done}/{len(seed_list)}] seed={seed} fail rc={r.get('returncode')} reason={r.get('reason')}",
-                    flush=True,
-                )
+                seed = next(seed_iter)
+            except StopIteration:
+                return False
+            emit_seed({"seed": seed, "state": "queued", "current_year": None, "note": ""})
+            fut = ex.submit(run_one_seed, seed, cfg, cancel_event, seed_event_cb)
+            in_flight[fut] = seed
+            return True
+
+        for _ in range(min(cfg.workers, total)):
+            if not submit_next():
+                break
+
+        while in_flight:
+            done_set, _ = concurrent.futures.wait(
+                set(in_flight.keys()),
+                timeout=0.2,
+                return_when=concurrent.futures.FIRST_COMPLETED,
+            )
+            if not done_set:
+                continue
+            for fut in done_set:
+                seed = in_flight.pop(fut)
+                try:
+                    result = fut.result()
+                except Exception as exc:  # pragma: no cover
+                    result = make_exception_result(seed, exc)
+                process_result(seed, result)
+                if cancel_event is None or not cancel_event.is_set():
+                    submit_next()
 
     results.sort(key=lambda x: int(x.get("seed", 0)))
-    summary = build_summary(cfg, results, time.time() - started)
+    elapsed = time.time() - started
+    stopped_early = (cancel_event.is_set() and len(results) < total) if cancel_event is not None else False
+    summary = build_summary(
+        cfg,
+        results,
+        elapsed,
+        total_requested=total,
+        stopped_early=stopped_early,
+    )
     write_results(cfg.out_root, results, summary)
+
+    emit(
+        f"Done in {elapsed:.2f}s. completed={summary['completed_seeds']}/{summary['total_seeds']}, "
+        f"ok={summary['ok_runs']}, failed={summary['failed_runs']}, canceled={summary['canceled_runs']}. "
+        f"Results in {cfg.out_root}"
+    )
     return results, summary
 
 
@@ -465,12 +720,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Exclude initial unlock rows from tech log (included by default for robust max-tech scans)",
     )
+
+    p.add_argument("--gui", action="store_true", help="Launch a GUI")
     return p.parse_args(argv)
 
 
-def main(argv: list[str]) -> int:
-    args = parse_args(argv)
+def run_cli_mode(args: argparse.Namespace) -> int:
     repo_root = Path(__file__).resolve().parent.parent
+    if args.end_year < args.start_year:
+        raise ValueError("--end-year must be >= --start-year")
 
     seeds = parse_seed_values(
         random_count=args.random_count,
@@ -481,8 +739,6 @@ def main(argv: list[str]) -> int:
         seed_end=args.seed_end,
         seeds_csv=args.seeds,
     )
-    if args.end_year < args.start_year:
-        raise ValueError("--end-year must be >= --start-year")
 
     use_gpu: Optional[bool]
     if args.use_gpu is None:
@@ -509,10 +765,356 @@ def main(argv: list[str]) -> int:
     if not cfg.config.exists():
         raise FileNotFoundError(f"Config not found: {cfg.config}")
 
-    _, summary = run_sweep(cfg, seeds)
+    def printer(msg: str) -> None:
+        print(msg, flush=True)
+
+    _, summary = run_sweep(cfg, seeds, progress_cb=printer)
     print("\nSummary:")
     print(json.dumps(summary, indent=2))
     return 0 if summary["failed_runs"] == 0 else 1
+
+
+def launch_gui(defaults: argparse.Namespace) -> int:
+    repo_root = Path(__file__).resolve().parent.parent
+    try:
+        import tkinter as tk
+        from tkinter import messagebox, ttk
+        from tkinter.scrolledtext import ScrolledText
+    except Exception as exc:  # pragma: no cover
+        print(f"GUI unavailable: {exc}", file=sys.stderr)
+        return 2
+
+    root = tk.Tk()
+    root.title("WorldSim Seed Max Tech Finder")
+    root.geometry("1400x900")
+    root.minsize(1120, 760)
+
+    exe_var = tk.StringVar(value=str(resolve_user_path(str(defaults.exe), repo_root)))
+    config_var = tk.StringVar(value=str(resolve_user_path(str(defaults.config), repo_root)))
+    out_var = tk.StringVar(value=str(resolve_user_path(str(defaults.out_root), repo_root)))
+
+    sim_count_var = tk.StringVar(value=str(defaults.random_count) if defaults.random_count is not None else "100")
+    random_seed_var = tk.StringVar(value="" if defaults.random_seed is None else str(defaults.random_seed))
+    seed_min_var = tk.StringVar(value=str(defaults.seed_min))
+    seed_max_var = tk.StringVar(value=str(defaults.seed_max))
+    seed_start_var = tk.StringVar(value="" if defaults.seed_start is None else str(defaults.seed_start))
+    seed_end_var = tk.StringVar(value="" if defaults.seed_end is None else str(defaults.seed_end))
+    seeds_var = tk.StringVar(value=defaults.seeds or "")
+
+    start_year_var = tk.StringVar(value=str(defaults.start_year))
+    end_year_var = tk.StringVar(value=str(defaults.end_year))
+    checkpoint_var = tk.StringVar(value=str(defaults.checkpoint_every_years))
+    workers_var = tk.StringVar(value=str(defaults.workers))
+    use_gpu_var = tk.StringVar(value="" if defaults.use_gpu is None else str(defaults.use_gpu))
+    reuse_var = tk.BooleanVar(value=not defaults.no_reuse)
+    include_initial_var = tk.BooleanVar(value=not defaults.exclude_initial_log_rows)
+
+    status_var = tk.StringVar(value="Idle")
+    run_info_var = tk.StringVar(value="Ready")
+
+    quick = ttk.LabelFrame(root, text="Quick Start")
+    quick.pack(fill="x", padx=10, pady=(10, 6))
+    tk.Label(quick, text="Number of simulations (random):").grid(row=0, column=0, sticky="w", padx=(8, 6), pady=4)
+    tk.Entry(quick, textvariable=sim_count_var, width=10).grid(row=0, column=1, sticky="w", pady=4)
+    tk.Label(quick, text="Random seed (optional):").grid(row=0, column=2, sticky="w", padx=(18, 6), pady=4)
+    tk.Entry(quick, textvariable=random_seed_var, width=10).grid(row=0, column=3, sticky="w", pady=4)
+    tk.Label(quick, text="Seed min:").grid(row=0, column=4, sticky="w", padx=(18, 6), pady=4)
+    tk.Entry(quick, textvariable=seed_min_var, width=12).grid(row=0, column=5, sticky="w", pady=4)
+    tk.Label(quick, text="Seed max:").grid(row=0, column=6, sticky="w", padx=(18, 6), pady=4)
+    tk.Entry(quick, textvariable=seed_max_var, width=12).grid(row=0, column=7, sticky="w", pady=4)
+    tk.Label(quick, text="Workers:").grid(row=1, column=0, sticky="w", padx=(8, 6), pady=4)
+    tk.Entry(quick, textvariable=workers_var, width=10).grid(row=1, column=1, sticky="w", pady=4)
+    tk.Label(quick, text="Use GPU (blank/0/1):").grid(row=1, column=2, sticky="w", padx=(18, 6), pady=4)
+    tk.Entry(quick, textvariable=use_gpu_var, width=10).grid(row=1, column=3, sticky="w", pady=4)
+    tk.Label(
+        quick,
+        text="Tip: set simulations count, then click Start Sweep. You can stop anytime and partial results autosave.",
+        anchor="w",
+    ).grid(row=2, column=0, columnspan=8, sticky="w", padx=8, pady=(2, 8))
+
+    ctrl = tk.Frame(root)
+    ctrl.pack(fill="x", padx=10, pady=(0, 6))
+    run_btn = tk.Button(ctrl, text="Start Sweep", command=lambda: on_run(), width=16)
+    run_btn.pack(side="left")
+    stop_btn = tk.Button(ctrl, text="Stop", command=lambda: on_stop(), state="disabled", width=10)
+    stop_btn.pack(side="left", padx=(8, 0))
+    tk.Label(ctrl, textvariable=status_var, anchor="w").pack(side="left", padx=(18, 10))
+    tk.Label(ctrl, textvariable=run_info_var, anchor="w").pack(side="left")
+
+    advanced = ttk.LabelFrame(root, text="Paths and Advanced Settings")
+    advanced.pack(fill="x", padx=10, pady=(0, 8))
+
+    def add_row(label: str, var: tk.StringVar, row: int) -> None:
+        tk.Label(advanced, text=label, anchor="w").grid(row=row, column=0, sticky="w", padx=(8, 8), pady=2)
+        tk.Entry(advanced, textvariable=var, width=95).grid(row=row, column=1, sticky="we", pady=2)
+
+    add_row("CLI exe", exe_var, 0)
+    add_row("Config", config_var, 1)
+    add_row("Out root", out_var, 2)
+    add_row("Manual seeds csv (optional, overrides random count)", seeds_var, 3)
+    add_row("Manual seed start (optional)", seed_start_var, 4)
+    add_row("Manual seed end (optional)", seed_end_var, 5)
+    add_row("Start year", start_year_var, 6)
+    add_row("End year", end_year_var, 7)
+    add_row("Checkpoint every years", checkpoint_var, 8)
+    tk.Checkbutton(advanced, text="Reuse existing runs", variable=reuse_var).grid(row=9, column=1, sticky="w", pady=2)
+    tk.Checkbutton(advanced, text="Include initial tech log rows", variable=include_initial_var).grid(
+        row=10, column=1, sticky="w", pady=2
+    )
+    advanced.grid_columnconfigure(1, weight=1)
+
+    columns = ("seed", "status", "year", "max_total", "max_tid", "elapsed", "note")
+    tree_frame = tk.Frame(root)
+    tree_frame.pack(fill="both", expand=True, padx=10, pady=(0, 8))
+    tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=18)
+    tree.heading("seed", text="Seed")
+    tree.heading("status", text="Status")
+    tree.heading("year", text="Current Year")
+    tree.heading("max_total", text="Max Unlocked")
+    tree.heading("max_tid", text="Max Tech ID")
+    tree.heading("elapsed", text="Elapsed (s)")
+    tree.heading("note", text="Note")
+    tree.column("seed", width=90, anchor="e")
+    tree.column("status", width=130, anchor="w")
+    tree.column("year", width=120, anchor="e")
+    tree.column("max_total", width=120, anchor="e")
+    tree.column("max_tid", width=110, anchor="e")
+    tree.column("elapsed", width=100, anchor="e")
+    tree.column("note", width=520, anchor="w")
+    scroll = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+    tree.configure(yscrollcommand=scroll.set)
+    tree.pack(side="left", fill="both", expand=True)
+    scroll.pack(side="right", fill="y")
+
+    log = ScrolledText(root, width=140, height=12)
+    log.pack(fill="both", expand=False, padx=10, pady=(0, 10))
+
+    work_thread: Optional[threading.Thread] = None
+    cancel_event: Optional[threading.Event] = None
+    ui_queue: "queue.SimpleQueue[tuple[str, object]]" = queue.SimpleQueue()
+    row_by_seed: dict[int, str] = {}
+    seed_view: dict[int, dict[str, str]] = {}
+
+    def post(kind: str, payload: object) -> None:
+        ui_queue.put((kind, payload))
+
+    def append_log(message: str) -> None:
+        log.insert("end", message + "\n")
+        log.see("end")
+
+    def set_running_state(running: bool) -> None:
+        run_btn.config(state="disabled" if running else "normal")
+        stop_btn.config(state="normal" if running else "disabled")
+        if not running:
+            run_info_var.set("Ready")
+
+    def ensure_row(seed: int) -> None:
+        if seed in row_by_seed:
+            return
+        state = {
+            "seed": str(seed),
+            "status": "pending",
+            "year": "",
+            "max_total": "",
+            "max_tid": "",
+            "elapsed": "",
+            "note": "",
+        }
+        seed_view[seed] = state
+        item_id = tree.insert(
+            "",
+            "end",
+            values=(
+                state["seed"],
+                state["status"],
+                state["year"],
+                state["max_total"],
+                state["max_tid"],
+                state["elapsed"],
+                state["note"],
+            ),
+        )
+        row_by_seed[seed] = item_id
+
+    def apply_seed_event(event: dict) -> None:
+        seed = int(event["seed"])
+        ensure_row(seed)
+        state = seed_view[seed]
+        if "state" in event and event["state"] is not None:
+            state["status"] = str(event["state"])
+        if event.get("current_year") is not None:
+            state["year"] = str(event["current_year"])
+        if event.get("max_total_unlocked_techs") is not None:
+            state["max_total"] = str(event["max_total_unlocked_techs"])
+        if event.get("max_tech_id") is not None:
+            state["max_tid"] = str(event["max_tech_id"])
+        if event.get("elapsed_sec") is not None:
+            state["elapsed"] = f"{float(event['elapsed_sec']):.2f}"
+        if "note" in event and event["note"] is not None:
+            state["note"] = str(event["note"])
+        tree.item(
+            row_by_seed[seed],
+            values=(
+                state["seed"],
+                state["status"],
+                state["year"],
+                state["max_total"],
+                state["max_tid"],
+                state["elapsed"],
+                state["note"],
+            ),
+        )
+
+    def reset_rows(seeds: list[int]) -> None:
+        for item_id in tree.get_children():
+            tree.delete(item_id)
+        row_by_seed.clear()
+        seed_view.clear()
+        for seed in seeds:
+            ensure_row(seed)
+            apply_seed_event({"seed": seed, "state": "queued", "note": ""})
+
+    def parse_optional_int(text: str) -> Optional[int]:
+        raw = text.strip()
+        return None if raw == "" else int(raw)
+
+    def on_run() -> None:
+        nonlocal work_thread, cancel_event
+        if work_thread is not None and work_thread.is_alive():
+            return
+        try:
+            sim_count = parse_optional_int(sim_count_var.get())
+            random_seed = parse_optional_int(random_seed_var.get())
+            seed_min = int(seed_min_var.get())
+            seed_max = int(seed_max_var.get())
+            seed_start = parse_optional_int(seed_start_var.get())
+            seed_end = parse_optional_int(seed_end_var.get())
+            seeds_csv = seeds_var.get().strip() or None
+            random_count: Optional[int] = None
+            if seeds_csv is None:
+                random_count = sim_count
+            seeds = parse_seed_values(
+                random_count=random_count,
+                random_seed=random_seed,
+                seed_min=seed_min,
+                seed_max=seed_max,
+                seed_start=seed_start,
+                seed_end=seed_end,
+                seeds_csv=seeds_csv,
+            )
+            use_gpu_text = use_gpu_var.get().strip()
+            use_gpu: Optional[bool]
+            if use_gpu_text == "":
+                use_gpu = None
+            elif use_gpu_text in ("0", "1"):
+                use_gpu = use_gpu_text == "1"
+            else:
+                raise ValueError("Use GPU must be blank, 0, or 1")
+
+            cfg = SweepConfig(
+                repo_root=repo_root,
+                exe=resolve_user_path(exe_var.get().strip(), repo_root),
+                config=resolve_user_path(config_var.get().strip(), repo_root),
+                out_root=resolve_user_path(out_var.get().strip(), repo_root),
+                start_year=int(start_year_var.get()),
+                end_year=int(end_year_var.get()),
+                checkpoint_every_years=max(1, int(checkpoint_var.get())),
+                workers=max(1, int(workers_var.get())),
+                use_gpu=use_gpu,
+                reuse_existing=bool(reuse_var.get()),
+                include_initial_log_rows=bool(include_initial_var.get()),
+            )
+
+            if cfg.end_year < cfg.start_year:
+                raise ValueError("End year must be >= start year")
+            if not cfg.exe.exists():
+                raise FileNotFoundError(f"Executable not found: {cfg.exe}")
+            if not cfg.config.exists():
+                raise FileNotFoundError(f"Config not found: {cfg.config}")
+        except Exception as exc:
+            messagebox.showerror("Invalid Input", str(exc))
+            return
+
+        reset_rows(seeds)
+        append_log("=" * 90)
+        append_log(f"Starting run with {len(seeds)} seeds.")
+        status_var.set("Running...")
+        run_info_var.set(f"Queued: {len(seeds)} seeds")
+        set_running_state(True)
+
+        cancel_event = threading.Event()
+
+        def worker() -> None:
+            try:
+                _, summary = run_sweep(
+                    cfg,
+                    seeds,
+                    progress_cb=lambda msg: post("log", msg),
+                    seed_event_cb=lambda ev: post("seed", ev),
+                    cancel_event=cancel_event,
+                )
+                post("log", "Summary:")
+                post("log", json.dumps(summary, indent=2))
+                post("status", "Stopped" if summary.get("stopped_early") else "Done")
+                post(
+                    "run_info",
+                    (
+                        f"Completed {summary.get('completed_seeds', 0)}/{summary.get('total_seeds', 0)} | "
+                        f"OK {summary.get('ok_runs', 0)} | Failed {summary.get('failed_runs', 0)} | "
+                        f"Canceled {summary.get('canceled_runs', 0)}"
+                    ),
+                )
+            except Exception as exc:
+                post("log", f"ERROR: {exc}")
+                post("status", "Error")
+                post("run_info", "Error")
+            finally:
+                post("done", None)
+
+        work_thread = threading.Thread(target=worker, daemon=True)
+        work_thread.start()
+
+    def on_stop() -> None:
+        if work_thread is None or not work_thread.is_alive():
+            return
+            if cancel_event is not None and not cancel_event.is_set():
+                cancel_event.set()
+                status_var.set("Stopping...")
+                run_info_var.set("Stop requested")
+                append_log("Stop requested. Finishing in-flight seeds and autosaving partial results...")
+
+    def pump_ui() -> None:
+        processed = 0
+        while processed < 600:
+            try:
+                kind, payload = ui_queue.get_nowait()
+            except queue.Empty:
+                break
+            processed += 1
+            if kind == "log":
+                append_log(str(payload))
+            elif kind == "seed":
+                apply_seed_event(payload)  # type: ignore[arg-type]
+            elif kind == "status":
+                status_var.set(str(payload))
+            elif kind == "run_info":
+                run_info_var.set(str(payload))
+            elif kind == "done":
+                set_running_state(False)
+        root.after(100, pump_ui)
+
+    root.after(100, pump_ui)
+    append_log("Quick start: set 'Number of simulations', then click 'Start Sweep'.")
+    append_log("Manual mode: fill 'Manual seeds csv' or start/end in Advanced Settings.")
+    root.mainloop()
+    return 0
+
+
+def main(argv: list[str]) -> int:
+    args = parse_args(argv)
+    if args.gui:
+        return launch_gui(args)
+    return run_cli_mode(args)
 
 
 if __name__ == "__main__":

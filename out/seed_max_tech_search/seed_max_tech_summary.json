@@ -1,0 +1,41 @@
+{
+  "elapsed_sec": 417.50679111480713,
+  "total_seeds": 16,
+  "completed_seeds": 16,
+  "ok_runs": 16,
+  "failed_runs": 0,
+  "canceled_runs": 0,
+  "stopped_early": false,
+  "run_settings": {
+    "start_year": -5000,
+    "end_year": 2025,
+    "checkpoint_every_years": 50,
+    "use_gpu": false
+  },
+  "best_by_unlocked_count": {
+    "seed": 1651177562,
+    "max_total_unlocked_techs": 45,
+    "detail": {
+      "year": 2001,
+      "tech_id": 40,
+      "tech_name": "Astronomy",
+      "country_index": "225",
+      "country_name": "New quizenquistan Kingdom",
+      "event_type": "unlock"
+    },
+    "run_dir": "C:\\WS\\WorldSimulation10028\\out\\seed_max_tech_search\\seed_1651177562"
+  },
+  "best_by_tech_id": {
+    "seed": 136235257,
+    "detail": {
+      "year": -3522,
+      "tech_id": 120,
+      "tech_name": "Copper Smelting",
+      "country_index": "28",
+      "country_name": "North terterquiia Tribe",
+      "event_type": "unlock",
+      "total_unlocked_techs": 15
+    },
+    "run_dir": "C:\\WS\\WorldSimulation10028\\out\\seed_max_tech_search\\seed_136235257"
+  }
+}
