@@ -72,6 +72,41 @@ public:
         CityState      // Independent city-state
     };
 
+    enum class SocialClass {
+        Subsistence = 0,
+        Laborers = 1,
+        Artisans = 2,
+        Merchants = 3,
+        Bureaucrats = 4,
+        Elite = 5
+    };
+
+    struct LeaderAgent {
+        std::string name = "Nameless Chief";
+        int age = 28;
+        int yearsInPower = 0;
+        double competence = 0.45;      // statecraft quality
+        double coercion = 0.45;        // coercive control preference
+        double diplomacy = 0.45;       // external bargaining quality
+        double reformism = 0.40;       // willingness to modernize institutions
+        double eliteAffinity = 0.50;   // elite bargaining preference
+        double commonerAffinity = 0.50;// provisioning/redistribution preference
+        double ambition = 0.50;        // expansion / centralization drive
+    };
+
+    struct EliteBlocState {
+        std::string label;
+        double influence = 0.25;       // 0..1, normalized across blocs
+        double loyalty = 0.60;         // 0..1
+        double grievance = 0.20;       // 0..1
+        double extractionTolerance = 0.50; // 0..1
+    };
+
+    struct SocietalClassState {
+        std::array<double, 6> shares{0.82, 0.18, 0.0, 0.0, 0.0, 0.0};
+        int complexityLevel = 2; // active classes from the bottom up
+    };
+
     enum class WarGoal {
         Raid,
         BorderShift,
@@ -457,8 +492,18 @@ public:
     const ResourceManager& getResourceManager() const;
     const std::string& getName() const;
     void setName(const std::string& name);
+    int getFoundingYear() const { return m_foundingYear; }
     const std::string& getSpawnRegionKey() const { return m_spawnRegionKey; }
-    void setSpawnRegionKey(const std::string& key) { m_spawnRegionKey = key; }
+    void setSpawnRegionKey(const std::string& key);
+    const std::string& getLanguageName() const { return m_languageName; }
+    const std::string& getCultureIdentityName() const { return m_cultureIdentityName; }
+    const LeaderAgent& getLeader() const { return m_leader; }
+    const std::array<EliteBlocState, 4>& getEliteBlocs() const { return m_eliteBlocs; }
+    const SocietalClassState& getSocietalClasses() const { return m_socialClasses; }
+    double getEliteBargainingPressure() const { return m_eliteBargainingPressure; }
+    double getCommonerPressure() const { return m_commonerPressure; }
+    double getClassShare(SocialClass cls) const { return m_socialClasses.shares[static_cast<size_t>(cls)]; }
+    double computeCulturalAffinity(const Country& other) const;
     Type getType() const; // Add a getter for the country type
     bool canFoundCity() const;
     bool canFoundCity(const class TechnologyManager& technologyManager) const;
@@ -623,6 +668,15 @@ public:
     double getWorkingAgeLaborSupply() const;
 
 private:
+        void initializeLeaderForEra(int foundingYear);
+        void resetEliteBlocsForEra(int foundingYear);
+        void tickAgenticSociety(int currentYear,
+                                int techCount,
+                                const SimulationConfig& simCfg,
+                                News& news);
+        void assignRegionalIdentityFromSpawnKey();
+        void transitionLeader(int currentYear, bool crisis, News& news);
+
 	    void attemptFactoryConstruction(const TechnologyManager& techManager,
 	                                    const std::vector<std::vector<bool>>& isLandGrid,
 	                                    const std::vector<std::vector<int>>& countryGrid,
@@ -631,6 +685,7 @@ private:
 	    int m_countryIndex;
 	    std::mt19937_64 m_rng;
 	    sf::Color m_color;
+        int m_foundingYear = -20000;
 	    long long m_population;
 	    long long m_prevYearPopulation = -1;
 	    std::unordered_set<sf::Vector2i> m_boundaryPixels;
@@ -641,6 +696,11 @@ private:
     ResourceManager m_resourceManager;
     std::string m_name;
     std::string m_spawnRegionKey;
+    std::string m_languageName = "Proto-Local";
+    std::string m_cultureIdentityName = "Local Culture";
+    int m_languageFamilyId = 0;
+    int m_cultureFamilyId = 0;
+    double m_culturalDrift = 0.0;
 	    int m_nextWarCheckYear;
 	    std::vector<City> m_cities;
 	    double m_totalCityPopulation = 0.0;
@@ -703,6 +763,13 @@ private:
     double m_sciencePoints; // For science points
     double m_scienceMultiplier = 1.0;
     double m_researchMultiplier = 1.0; // Multiplicative technology research bonuses
+    LeaderAgent m_leader{};
+    std::array<EliteBlocState, 4> m_eliteBlocs{};
+    SocietalClassState m_socialClasses{};
+    double m_eliteBargainingPressure = 0.0;
+    double m_commonerPressure = 0.0;
+    int m_lastLeaderTransitionYear = std::numeric_limits<int>::min();
+    int m_lastNameChangeYear = std::numeric_limits<int>::min();
     
     // Science generation scaler system
     static double s_scienceScaler; // Global scaler for balancing

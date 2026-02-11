@@ -136,6 +136,56 @@ Current automation script set includes this evaluator and the baseline JSON file
 - `tools/baseline_score.json`
 - Stores baseline aggregate score used by evaluation regression checks.
 
+## Agentic Society Update (2026-02-11)
+
+This update adds a new meso-level simulation layer between macro country metrics and full individual agents. Countries now carry leadership, elite bargaining, social class composition, and culture/language identity that can evolve over long horizons.
+
+### Phase 1: Leader agents
+- Each country has a persistent leader profile (competence, coercion, diplomacy, reformism, elite/commoner affinity, ambition, age, tenure).
+- Succession events now account for leadership fragility in addition to existing stress factors (war, famine, debt, low control).
+- Leadership traits feed back into yearly stability and legitimacy drift rather than only static ideology/type effects.
+
+### Phase 2: Elite blocs and bargaining
+- Countries track four elite blocs:
+  - landed clans
+  - warrior houses
+  - ritual authorities
+  - merchant networks
+- Each bloc has influence, loyalty, grievance, and extraction tolerance.
+- Fiscal extraction, debt stress, legitimacy erosion, and war pressure now increase elite bargaining pressure.
+- High bargaining pressure shifts budget priorities and can amplify succession instability.
+
+### Class evolution and bottom classes
+- Countries now track a six-layer class mix:
+  - subsistence
+  - laborers
+  - artisans
+  - merchants
+  - bureaucrats
+  - elite
+- Class complexity grows with capability/technology over time (transitional layering from simple to complex societies).
+- Bottom-class pressure is explicitly modeled through famine, inequality, taxation pressure, and local control stress.
+- Commoner pressure feeds directly into legitimacy/stability dynamics and policy adaptation.
+
+### Culture, language, and regional identity
+- Spawn-region keys now seed language family, culture family, language labels, and region-aware leader names.
+- Similar cultures/languages receive higher affinity; dissimilar countries have lower affinity.
+- Cultural affinity now affects:
+  - war target preference (distant cultures are easier to frame as external targets)
+  - trade acceptance probability
+- Languages can evolve over time (`Proto` -> `Old` -> `Middle` -> `Modern`) and states can occasionally adopt new endonyms after long cultural drift.
+
+### Region-aware naming and continuity
+- Country generation uses region-aware syllable pools for more plausible starting names by cultural region.
+- Breakaway states and colonies inherit parent regional identity for naming continuity.
+
+### UI visibility
+- Inspector and renderer info panels now include:
+  - founding year (BCE/CE formatting)
+  - current leader name
+  - language
+  - culture identity
+
 ## Notes
 - Existing keyboard controls/features in GUI still apply.
 - If you need fast parameter iteration, prefer CLI + config + evaluation harness over manual GUI tuning.

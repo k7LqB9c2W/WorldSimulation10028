@@ -190,6 +190,13 @@ std::string formatMoneyAbbrev(double v) {
     return std::string(buf);
 }
 
+std::string formatEraYear(int year) {
+    if (year < 0) {
+        return std::to_string(-year) + " BCE";
+    }
+    return std::to_string(year) + " CE";
+}
+
 std::string trimCopy(std::string s) {
     size_t start = s.find_first_not_of(" \t\r\n");
     if (start == std::string::npos) return std::string();
@@ -2206,6 +2213,10 @@ int main(int argc, char** argv) {
 		                            ImGui::Text("Wealth: %s", formatMoneyAbbrev(c->getWealth()).c_str());
 		                            ImGui::Text("GDP: %s", formatMoneyAbbrev(c->getGDP()).c_str());
 		                            ImGui::Text("Exports: %s", formatMoneyAbbrev(c->getExports()).c_str());
+		                            ImGui::Text("Founded: %s", formatEraYear(c->getFoundingYear()).c_str());
+		                            ImGui::Text("Leader: %s", c->getLeader().name.c_str());
+		                            ImGui::Text("Language: %s", c->getLanguageName().c_str());
+		                            ImGui::Text("Culture: %s", c->getCultureIdentityName().c_str());
 		                            ImGui::Text("Ideology: %s", c->getIdeologyString().c_str());
 		                            ImGui::Text("Stability: %.1f%%", c->getStability() * 100.0);
 		                            ImGui::Text("Legitimacy: %.1f%%", c->getLegitimacy() * 100.0);

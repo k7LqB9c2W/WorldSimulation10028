@@ -30,7 +30,7 @@ namespace std {
     };
 }
 
-std::string generate_country_name(std::mt19937_64& rng);
+std::string generate_country_name(std::mt19937_64& rng, const std::string& regionKey = std::string());
 bool isNameTaken(const std::vector<Country>& countries, const std::string& name);
 
 class Map {

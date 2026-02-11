@@ -698,6 +698,16 @@ void TradeManager::executeTradeOffers(std::vector<Country>& countries, int curre
         // Warmongers are less likely to trade
         if (fromCountry.getType() == Country::Type::Warmonger || 
             toCountry.getType() == Country::Type::Warmonger) acceptanceChance -= 0.15;
+
+        // Cultural/language affinity affects trust and transaction friction.
+        const double affinity = fromCountry.computeCulturalAffinity(toCountry);
+        acceptanceChance += 0.22 * (affinity - 0.5);
+
+        // Leaders with stronger diplomacy can sustain exchanges across borders.
+        const double diplomacyBlend = 0.5 * fromCountry.getLeader().diplomacy + 0.5 * toCountry.getLeader().diplomacy;
+        acceptanceChance += 0.10 * (diplomacyBlend - 0.5);
+
+        acceptanceChance = std::clamp(acceptanceChance, 0.05, 0.95);
         
         if (acceptanceDist(m_rng) < acceptanceChance) {
             executeTradeOffer(offer, countries, news);
@@ -741,6 +751,10 @@ void TradeManager::processCurrencyTrades(std::vector<Country>& countries, int cu
                         double demand = calculateResourceDemand(resource, buyer);
                         
                         if (demand > 0.8 && buyer.getGold() > 5.0) { // Buyer needs it and has gold
+                            const double affinity = seller.computeCulturalAffinity(buyer);
+                            if (chanceDist(m_rng) > (0.28 + 0.72 * affinity)) {
+                                continue;
+                            }
                             double tradeAmount = std::min(10.0, supply - 1.0); // Trade surplus
                             double price = getResourcePrice(resource, seller) * priceDist(m_rng);
                             double totalCost = tradeAmount * price;

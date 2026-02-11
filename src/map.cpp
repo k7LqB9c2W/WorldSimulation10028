@@ -19,6 +19,7 @@
 #include <cmath>
 #include <algorithm>
 #include <array>
+#include <cctype>
 
 namespace {
 bool isColorNear(const sf::Color& pixel, const sf::Color& target, int tolerance = 0) {
@@ -2395,10 +2396,43 @@ int Map::getCountryLandCellCount(int countryIndex) const {
 }
 
 // Place the function definition in the .cpp file:
-std::string generate_country_name(std::mt19937_64& rng) {
-    std::vector<std::string> prefixes = { "", "New ", "Old ", "Great ", "North ", "South " };
-    std::vector<std::string> syllables = { "na", "mar", "sol", "lin", "ter", "gar", "bel", "kin", "ran", "dus", "zen", "rom", "lor", "via", "qui" };
-    std::vector<std::string> suffixes = { "", "ia", "land", "stan", "grad" };
+std::string generate_country_name(std::mt19937_64& rng, const std::string& regionKey) {
+    std::vector<std::string> prefixes = {"", "New ", "Old ", "Great ", "North ", "South "};
+    std::vector<std::string> syllables = {"na", "mar", "sol", "lin", "ter", "gar", "bel", "kin", "ran", "dus", "zen", "rom", "lor", "via", "qui"};
+    std::vector<std::string> suffixes = {"", "ia", "land", "stan", "grad"};
+
+    auto lower = [](std::string v) {
+        for (char& ch : v) {
+            ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        }
+        return v;
+    };
+    const std::string key = lower(regionKey);
+    if (key.find("south_asia") != std::string::npos) {
+        syllables = {"ra", "vi", "sha", "mit", "kan", "dra", "sur", "var", "nal", "tan"};
+        suffixes = {"", "a", "pur", "nagar", "desh"};
+    } else if (key.find("east_asia") != std::string::npos) {
+        syllables = {"li", "han", "wei", "qin", "zho", "min", "ren", "tai", "lin", "xia"};
+        suffixes = {"", "guo", "zhou", "ling", "shan"};
+    } else if (key.find("west_asia") != std::string::npos) {
+        syllables = {"ur", "ash", "bel", "nin", "sam", "ar", "tam", "esh", "kal", "bar"};
+        suffixes = {"", "um", "ar", "ad", "an"};
+    } else if (key.find("africa") != std::string::npos) {
+        syllables = {"zu", "ka", "tan", "se", "ma", "ngo", "chi", "bar", "lam", "ofi"};
+        suffixes = {"", "a", "u", "ene", "ara"};
+    } else if (key.find("europe") != std::string::npos) {
+        syllables = {"al", "dor", "ven", "tar", "bel", "rom", "sel", "kar", "nor", "len"};
+        suffixes = {"", "ia", "um", "land", "burg"};
+    } else if (key.find("mesoamerica") != std::string::npos) {
+        syllables = {"itz", "cal", "tem", "xoc", "nah", "tol", "chi", "yuc", "teo", "mix"};
+        suffixes = {"", "an", "co", "tan", "pan"};
+    } else if (key.find("andes") != std::string::npos) {
+        syllables = {"inti", "kus", "aya", "rum", "sum", "pach", "tup", "qori", "llaq", "suyu"};
+        suffixes = {"", "a", "yu", "na", "marca"};
+    } else if (key.find("oceania") != std::string::npos) {
+        syllables = {"mo", "ta", "ra", "hiva", "nui", "kiri", "tane", "rangi", "kai", "hana"};
+        suffixes = {"", "a", "ua", "nui", "moa"};
+    }
 
     std::uniform_int_distribution<> numSyllablesDist(2, 3);
     std::uniform_int_distribution<> syllableIndexDist(0, static_cast<int>(syllables.size()) - 1);
@@ -3076,9 +3110,11 @@ void Map::initializeCountries(std::vector<Country>& countries,
         const long long initialPopulation = static_cast<long long>(startPop[static_cast<size_t>(i)]);
         double growthRate = growthRateDist(rng);
 
-        std::string countryName = generate_country_name(rng);
+        const int assignedRegion = std::clamp(placements[static_cast<size_t>(i)].actualRegion, 0, static_cast<int>(regions.size()) - 1);
+        const std::string& regionKey = regions[static_cast<size_t>(assignedRegion)].key;
+        std::string countryName = generate_country_name(rng, regionKey);
         while (isNameTaken(countries, countryName)) {
-            countryName = generate_country_name(rng);
+            countryName = generate_country_name(rng, regionKey);
         }
 
         countryName += " Tribe";
@@ -3119,7 +3155,6 @@ void Map::initializeCountries(std::vector<Country>& countries,
                                countryType,
                                m_ctx->seedForCountry(i),
                                m_ctx->config.world.startYear);
-        const int assignedRegion = std::clamp(placements[static_cast<size_t>(i)].actualRegion, 0, static_cast<int>(regions.size()) - 1);
         countries.back().setSpawnRegionKey(regions[static_cast<size_t>(assignedRegion)].key);
         regionActualPop[static_cast<size_t>(assignedRegion)] += initialPopulation;
         regionActualCountries[static_cast<size_t>(assignedRegion)] += 1;
@@ -4593,12 +4628,13 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
 	        const std::string suffix = country.getCities().empty() ? " Tribe" : " Kingdom";
 	        std::string newName;
 	        do {
-	            newName = generate_country_name(rng) + suffix;
+	            newName = generate_country_name(rng, country.getSpawnRegionKey()) + suffix;
 	        } while (isNameTaken(countries, newName));
 
         const int newIndex = static_cast<int>(countries.size());
         Country newCountry(newIndex, newColor, newStart, newPop, growthRate, newName, country.getType(),
                            m_ctx->seedForCountry(newIndex), currentYear);
+        newCountry.setSpawnRegionKey(country.getSpawnRegionKey());
         newCountry.setIdeology(country.getIdeology());
         const double newCountryLegitBefore = clamp01(newCountry.getLegitimacy());
         {
@@ -5295,12 +5331,13 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
 
 	            std::string newName;
 	            do {
-	                newName = generate_country_name(rng) + " Colony";
+	                newName = generate_country_name(rng, c.getSpawnRegionKey()) + " Colony";
 	            } while (isNameTaken(countries, newName));
 
 	            const int newIndex = static_cast<int>(countries.size());
 	            Country newCountry(newIndex, newColor, newStart, /*initialPop*/50000, /*growth*/0.0005, newName,
 	                               c.getType(), m_ctx->seedForCountry(newIndex), currentYear);
+	            newCountry.setSpawnRegionKey(c.getSpawnRegionKey());
 	            newCountry.setIdeology(c.getIdeology());
 	            newCountry.setStability(std::max(0.30, std::min(0.60, c.getStability())));
 	            const double colonyLegitBefore = clamp01(newCountry.getLegitimacy());
@@ -5589,15 +5626,16 @@ void Map::processPoliticalEvents(std::vector<Country>& countries,
         std::uniform_real_distribution<> growthRateDist(0.0003, 0.001);
         double growthRate = growthRateDist(gen);
 
-        std::string newName = generate_country_name(gen);
+        std::string newName = generate_country_name(gen, country.getSpawnRegionKey());
         while (isNameTaken(countries, newName)) {
-            newName = generate_country_name(gen);
+            newName = generate_country_name(gen, country.getSpawnRegionKey());
         }
         newName += " Republic";
 
         int newIndex = static_cast<int>(countries.size());
         Country newCountry(newIndex, newColor, newStart, newPop, growthRate, newName, country.getType(),
                            m_ctx->seedForCountry(newIndex), currentYear);
+        newCountry.setSpawnRegionKey(country.getSpawnRegionKey());
         newCountry.setIdeology(country.getIdeology());
         newCountry.setStability(0.45);
         newCountry.setFragmentationCooldown(fragmentationCooldown);

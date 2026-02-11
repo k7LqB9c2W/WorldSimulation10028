@@ -14,9 +14,88 @@
 #include <queue>
 #include <numeric>
 #include <cmath> // For std::llround
+#include <cctype>
 
 // Initialize static science scaler (tuned for realistic science progression)
 double Country::s_scienceScaler = 0.1;
+
+namespace {
+double clamp01d(double v) {
+    return std::max(0.0, std::min(1.0, v));
+}
+
+std::string lowerAscii(std::string s) {
+    for (char& c : s) {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return s;
+}
+
+struct RegionIdentity {
+    int languageFamily = 0;
+    int cultureFamily = 0;
+    const char* language = "Proto-Local";
+    const char* culture = "Local Culture";
+};
+
+RegionIdentity regionIdentityFromKey(const std::string& regionKey) {
+    const std::string key = lowerAscii(regionKey);
+    if (key.find("south_asia") != std::string::npos) return {10, 10, "Proto-Indic", "Indic Riverine"};
+    if (key.find("east_asia") != std::string::npos) return {11, 11, "Proto-Sinitic", "East Riverine"};
+    if (key.find("west_asia") != std::string::npos) return {12, 12, "Proto-Mesopotamian", "Fertile Crescent"};
+    if (key.find("se_asia") != std::string::npos) return {13, 13, "Proto-Austroasiatic", "Monsoon Coastal"};
+    if (key.find("cn_asia") != std::string::npos) return {14, 14, "Proto-Steppe", "Steppe Nomadic"};
+    if (key.find("nile_ne_africa") != std::string::npos) return {15, 15, "Proto-Nile", "Nile Floodplain"};
+    if (key.find("north_africa") != std::string::npos) return {16, 16, "Proto-Berberic", "North Saharan"};
+    if (key.find("west_africa") != std::string::npos) return {17, 17, "Proto-Sahelian", "West Sahel"};
+    if (key.find("east_africa") != std::string::npos) return {18, 18, "Proto-Cushitic", "East Horn"};
+    if (key.find("cs_africa") != std::string::npos) return {19, 19, "Proto-Bantu", "Central Forest"};
+    if (key.find("se_europe") != std::string::npos) return {20, 20, "Proto-Balkan", "Mediterranean Highland"};
+    if (key.find("med_europe") != std::string::npos) return {21, 21, "Proto-Italic", "Mediterranean Urban"};
+    if (key.find("central_europe") != std::string::npos) return {22, 22, "Proto-Continental", "Central Plain"};
+    if (key.find("wnw_europe") != std::string::npos) return {23, 23, "Proto-Atlantic", "Atlantic Fringe"};
+    if (key.find("north_europe") != std::string::npos) return {24, 24, "Proto-Nordic", "Northern Maritime"};
+    if (key.find("mesoamerica") != std::string::npos) return {30, 30, "Proto-Meso", "Mesoamerican"};
+    if (key.find("andes") != std::string::npos) return {31, 31, "Proto-Andean", "Andean Highland"};
+    if (key.find("e_na") != std::string::npos) return {32, 32, "Proto-Woodland", "Eastern Woodland"};
+    if (key.find("w_na") != std::string::npos) return {33, 33, "Proto-Plains", "Western Plains"};
+    if (key.find("caribbean") != std::string::npos) return {34, 34, "Proto-Carib", "Caribbean Seafaring"};
+    if (key.find("oceania") != std::string::npos) return {35, 35, "Proto-Oceanic", "Oceanic Navigators"};
+    return {};
+}
+
+std::string evolveLanguageLabel(const std::string& current) {
+    if (current.rfind("Proto-", 0) == 0) {
+        return "Old " + current.substr(6);
+    }
+    if (current.rfind("Old ", 0) == 0) {
+        return "Middle " + current.substr(4);
+    }
+    if (current.rfind("Middle ", 0) == 0) {
+        return "Modern " + current.substr(7);
+    }
+    return current + " II";
+}
+
+std::string randomLeaderRootForRegion(std::mt19937_64& rng, const std::string& regionKey) {
+    const std::string key = lowerAscii(regionKey);
+    auto pick = [&](const std::vector<std::string>& pool) {
+        std::uniform_int_distribution<int> idx(0, static_cast<int>(pool.size()) - 1);
+        return pool[static_cast<size_t>(idx(rng))];
+    };
+    if (key.find("south_asia") != std::string::npos) return pick({"Asha", "Ravi", "Mitra", "Vasu", "Indra", "Nira"});
+    if (key.find("east_asia") != std::string::npos) return pick({"Wei", "Han", "Lin", "Zhao", "Qin", "Ren"});
+    if (key.find("west_asia") != std::string::npos) return pick({"Aru", "Nabu", "Tamar", "Eshar", "Belu", "Sena"});
+    if (key.find("se_asia") != std::string::npos) return pick({"Suri", "Khai", "Lem", "Panna", "Rin", "Mali"});
+    if (key.find("africa") != std::string::npos) return pick({"Kofi", "Amin", "Sefu", "Nala", "Zuri", "Tano"});
+    if (key.find("europe") != std::string::npos) return pick({"Alden", "Bran", "Rhea", "Tarin", "Luka", "Mira"});
+    if (key.find("mesoamerica") != std::string::npos) return pick({"Itza", "Yohu", "Tecu", "Nemi", "Cali", "Olin"});
+    if (key.find("andes") != std::string::npos) return pick({"Inti", "Kusi", "Ayni", "Rumi", "Suma", "Tupa"});
+    if (key.find("na") != std::string::npos) return pick({"Aponi", "Nodin", "Takoda", "Elan", "Kai", "Maka"});
+    if (key.find("oceania") != std::string::npos) return pick({"Tane", "Maui", "Rangi", "Moana", "Kiri", "Hina"});
+    return pick({"Arin", "Belan", "Cora", "Daren", "Elia", "Farin"});
+}
+} // namespace
 
 // Constructor
 Country::Country(int countryIndex,
@@ -31,6 +110,7 @@ Country::Country(int countryIndex,
     m_countryIndex(countryIndex),
 	    m_rng(rngSeed),
 	    m_color(color),
+        m_foundingYear(foundingYear),
 	    m_population(initialPopulation),
 	    m_prevYearPopulation(initialPopulation),
 	    m_populationGrowthRate(growthRate),
@@ -211,8 +291,274 @@ Country::Country(int countryIndex,
             m_nextSuccessionYear = foundingYear + successionInterval(m_rng);
         }
 
+        initializeLeaderForEra(foundingYear);
+        resetEliteBlocsForEra(foundingYear);
+        m_lastNameChangeYear = foundingYear;
         initializePopulationCohorts();
 	}
+
+void Country::initializeLeaderForEra(int foundingYear) {
+    const double era =
+        (foundingYear <= -5000) ? 0.15 :
+        (foundingYear <= 0) ? 0.45 :
+        0.75;
+    std::uniform_real_distribution<double> jitter(-0.12, 0.12);
+    std::uniform_int_distribution<int> ageDist(
+        foundingYear <= -5000 ? 22 : 28,
+        foundingYear <= -5000 ? 44 : 60);
+
+    m_leader.name = randomLeaderRootForRegion(m_rng, m_spawnRegionKey);
+    if (m_ideology == Ideology::Tribal || m_ideology == Ideology::Chiefdom) {
+        m_leader.name = "Chief " + m_leader.name;
+    }
+    m_leader.age = ageDist(m_rng);
+    m_leader.yearsInPower = 0;
+    m_leader.competence = std::clamp(0.35 + 0.40 * era + jitter(m_rng), 0.10, 0.95);
+    m_leader.coercion = std::clamp(0.50 + 0.20 * (m_type == Type::Warmonger ? 1.0 : 0.0) + jitter(m_rng), 0.05, 0.98);
+    m_leader.diplomacy = std::clamp(0.38 + 0.28 * (m_type == Type::Trader ? 1.0 : 0.0) + jitter(m_rng), 0.05, 0.95);
+    m_leader.reformism = std::clamp(0.30 + 0.45 * era + jitter(m_rng), 0.05, 0.95);
+    m_leader.eliteAffinity = std::clamp(0.45 + 0.15 * (m_type == Type::Warmonger ? 1.0 : 0.0) + jitter(m_rng), 0.05, 0.95);
+    m_leader.commonerAffinity = std::clamp(0.45 + 0.15 * (m_type == Type::Pacifist ? 1.0 : 0.0) + jitter(m_rng), 0.05, 0.95);
+    m_leader.ambition = std::clamp(0.45 + 0.20 * (m_type == Type::Warmonger ? 1.0 : 0.0) + jitter(m_rng), 0.05, 0.95);
+}
+
+void Country::resetEliteBlocsForEra(int foundingYear) {
+    (void)foundingYear;
+    m_eliteBlocs[0] = EliteBlocState{"Landed Clans", 0.34, 0.62, 0.20, 0.55};
+    m_eliteBlocs[1] = EliteBlocState{"Warrior Houses", 0.28, 0.60, 0.22, 0.62};
+    m_eliteBlocs[2] = EliteBlocState{"Ritual Authorities", 0.22, 0.64, 0.18, 0.48};
+    m_eliteBlocs[3] = EliteBlocState{"Merchant Networks", 0.16, 0.58, 0.24, 0.42};
+    m_socialClasses.shares = {0.82, 0.18, 0.0, 0.0, 0.0, 0.0};
+    m_socialClasses.complexityLevel = 2;
+    m_eliteBargainingPressure = 0.0;
+    m_commonerPressure = 0.0;
+}
+
+void Country::assignRegionalIdentityFromSpawnKey() {
+    const RegionIdentity rid = regionIdentityFromKey(m_spawnRegionKey);
+    m_languageFamilyId = rid.languageFamily;
+    m_cultureFamilyId = rid.cultureFamily;
+    m_languageName = rid.language;
+    m_cultureIdentityName = rid.culture;
+
+    if (m_leader.name == "Nameless Chief" || m_leader.name.empty()) {
+        initializeLeaderForEra(-5000);
+    }
+    if (m_leader.name.rfind("Chief ", 0) == 0 || m_leader.name.rfind("Leader ", 0) == 0) {
+        const std::string baseName = randomLeaderRootForRegion(m_rng, m_spawnRegionKey);
+        if (m_ideology == Ideology::Tribal || m_ideology == Ideology::Chiefdom) {
+            m_leader.name = "Chief " + baseName;
+        } else if (m_ideology == Ideology::Kingdom || m_ideology == Ideology::Empire) {
+            m_leader.name = "Ruler " + baseName;
+        } else {
+            m_leader.name = "Leader " + baseName;
+        }
+    }
+}
+
+void Country::transitionLeader(int currentYear, bool crisis, News& news) {
+    m_lastLeaderTransitionYear = currentYear;
+    const std::string oldName = m_leader.name;
+    initializeLeaderForEra(currentYear);
+    if (crisis) {
+        m_leader.competence = std::max(0.10, m_leader.competence - 0.08);
+        m_leader.coercion = std::min(0.98, m_leader.coercion + 0.08);
+    }
+    if (m_ideology == Ideology::Tribal || m_ideology == Ideology::Chiefdom) {
+        if (m_leader.name.rfind("Chief ", 0) != 0) m_leader.name = "Chief " + m_leader.name;
+    } else if (m_ideology == Ideology::Kingdom || m_ideology == Ideology::Empire || m_ideology == Ideology::Theocracy) {
+        if (m_leader.name.rfind("Ruler ", 0) != 0) m_leader.name = "Ruler " + m_leader.name;
+    } else {
+        if (m_leader.name.rfind("Leader ", 0) != 0) m_leader.name = "Leader " + m_leader.name;
+    }
+    if (!oldName.empty() && oldName != m_leader.name) {
+        news.addEvent(m_name + " installs a new leadership figure: " + m_leader.name + ".");
+    }
+}
+
+void Country::tickAgenticSociety(int currentYear,
+                                 int techCount,
+                                 const SimulationConfig& simCfg,
+                                 News& news) {
+    (void)simCfg;
+    auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+    const double pop = std::max(1.0, static_cast<double>(std::max<long long>(1, m_population)));
+    const double urbanShare = clamp01(m_totalCityPopulation / pop);
+    const double institution = clamp01(m_macro.institutionCapacity);
+    const double capability = clamp01(
+        0.34 * clamp01(m_polity.adminCapacity) +
+        0.24 * clamp01(m_avgControl) +
+        0.18 * institution +
+        0.14 * clamp01(m_macro.marketAccess) +
+        0.10 * urbanShare);
+    const double scienceDepth = clamp01(static_cast<double>(std::max(0, techCount)) / 45.0);
+
+    int targetComplexity = 2;
+    if (capability > 0.16 || techCount >= 8) targetComplexity = 3;
+    if (capability > 0.28 || techCount >= 16) targetComplexity = 4;
+    if (capability > 0.42 || techCount >= 24) targetComplexity = 5;
+    if (capability > 0.58 || techCount >= 36) targetComplexity = 6;
+    targetComplexity = std::max(2, std::min(6, targetComplexity));
+    if (targetComplexity > m_socialClasses.complexityLevel && (currentYear % 15 == 0)) {
+        m_socialClasses.complexityLevel = targetComplexity;
+        news.addEvent(m_name + " develops more complex social strata and institutions.");
+    }
+
+    std::array<double, 6> targetShares{};
+    const double famine = clamp01(m_macro.famineSeverity + std::max(0.0, 0.92 - m_macro.foodSecurity));
+    targetShares[0] = std::clamp(0.80 - 0.42 * capability - 0.24 * urbanShare + 0.14 * famine, 0.08, 0.92);
+    targetShares[1] = std::clamp(0.14 + 0.16 * urbanShare + 0.08 * capability, 0.05, 0.50);
+    targetShares[2] = (m_socialClasses.complexityLevel >= 3)
+        ? std::clamp(0.03 + 0.10 * capability + 0.10 * urbanShare, 0.0, 0.25) : 0.0;
+    targetShares[3] = (m_socialClasses.complexityLevel >= 4)
+        ? std::clamp(0.02 + 0.10 * clamp01(m_macro.marketAccess) + 0.07 * clamp01(m_macro.connectivityIndex), 0.0, 0.22) : 0.0;
+    targetShares[4] = (m_socialClasses.complexityLevel >= 5)
+        ? std::clamp(0.01 + 0.12 * clamp01(m_polity.adminCapacity) + 0.07 * institution, 0.0, 0.20) : 0.0;
+    targetShares[5] = (m_socialClasses.complexityLevel >= 6)
+        ? std::clamp(0.03 + 0.08 * clamp01(m_macro.inequality) + 0.05 * clamp01(m_polity.adminCapacity), 0.02, 0.16)
+        : std::clamp(0.02 + 0.05 * clamp01(m_macro.inequality), 0.02, 0.10);
+
+    double sumT = 0.0;
+    for (double v : targetShares) sumT += std::max(0.0, v);
+    if (sumT <= 1e-9) {
+        targetShares = {0.82, 0.18, 0.0, 0.0, 0.0, 0.0};
+        sumT = 1.0;
+    }
+    for (double& v : targetShares) v = std::max(0.0, v / sumT);
+
+    for (size_t i = 0; i < m_socialClasses.shares.size(); ++i) {
+        m_socialClasses.shares[i] = 0.90 * m_socialClasses.shares[i] + 0.10 * targetShares[i];
+        if (static_cast<int>(i) >= m_socialClasses.complexityLevel) {
+            m_socialClasses.shares[i] *= 0.85;
+        }
+    }
+    double classSum = 0.0;
+    for (double v : m_socialClasses.shares) classSum += std::max(0.0, v);
+    if (classSum > 1e-9) {
+        for (double& v : m_socialClasses.shares) v = std::max(0.0, v / classSum);
+    }
+
+    const double militarism = clamp01(m_traits[2]);
+    const double religiosity = clamp01(m_traits[0]);
+    const double hierarchy = clamp01(m_traits[4]);
+    const double mercantile = clamp01(m_traits[3]);
+    std::array<double, 4> blocInfluenceTarget{
+        std::clamp(0.42 * m_socialClasses.shares[0] + 0.22 * m_socialClasses.shares[1] + 0.10 * hierarchy, 0.05, 0.55), // landed
+        std::clamp(0.20 + 0.22 * militarism + 0.12 * (m_isAtWar ? 1.0 : 0.0), 0.08, 0.50),                               // military
+        std::clamp(0.14 + 0.20 * religiosity + 0.06 * hierarchy, 0.06, 0.45),                                              // ritual
+        std::clamp(0.10 + 0.28 * m_socialClasses.shares[3] + 0.12 * mercantile, 0.04, 0.45)                                // merchant
+    };
+    double inflSum = 0.0;
+    for (double v : blocInfluenceTarget) inflSum += std::max(0.0, v);
+    if (inflSum > 1e-9) {
+        for (double& v : blocInfluenceTarget) v /= inflSum;
+    }
+
+    m_commonerPressure = clamp01(
+        0.38 * famine +
+        0.22 * clamp01(m_macro.inequality) +
+        0.20 * clamp01(m_polity.taxRate / 0.45) +
+        0.12 * (1.0 - clamp01(m_avgControl)) +
+        0.08 * (m_isAtWar ? 1.0 : 0.0));
+
+    m_eliteBargainingPressure = 0.0;
+    for (size_t i = 0; i < m_eliteBlocs.size(); ++i) {
+        EliteBlocState& bloc = m_eliteBlocs[i];
+        bloc.influence = 0.88 * bloc.influence + 0.12 * blocInfluenceTarget[i];
+        const double extraction = clamp01(m_polity.taxRate / std::max(0.15, bloc.extractionTolerance));
+        const double eliteStress = clamp01(
+            0.30 * clamp01(m_polity.debt / std::max(1.0, m_lastTaxTake * 5.0)) +
+            0.25 * extraction +
+            0.20 * (1.0 - clamp01(m_polity.legitimacy)) +
+            0.15 * m_commonerPressure +
+            0.10 * (m_isAtWar ? 1.0 : 0.0));
+        bloc.grievance = clamp01(0.82 * bloc.grievance + 0.18 * eliteStress);
+        const double alignment = clamp01(0.5 + 0.5 * (m_leader.eliteAffinity - 0.5));
+        bloc.loyalty = clamp01(
+            bloc.loyalty +
+            0.018 * (alignment - 0.50) +
+            0.014 * (clamp01(m_polity.legitimacy) - 0.50) -
+            0.030 * bloc.grievance);
+        m_eliteBargainingPressure += bloc.influence * clamp01(0.6 * bloc.grievance + 0.4 * (0.55 - bloc.loyalty));
+    }
+    m_eliteBargainingPressure = clamp01(m_eliteBargainingPressure);
+
+    const double combinedPressure = clamp01(0.55 * m_eliteBargainingPressure + 0.45 * m_commonerPressure);
+    if (combinedPressure > 0.35) {
+        m_polity.treasurySpendRate = std::clamp(
+            m_polity.treasurySpendRate - 0.05 * combinedPressure + 0.03 * (m_leader.ambition - 0.5),
+            0.40, 1.45);
+        m_polity.taxRate = std::clamp(
+            m_polity.taxRate + 0.010 * combinedPressure * (0.35 + 0.65 * m_leader.coercion),
+            0.02, 0.45);
+        m_polity.adminSpendingShare = std::max(0.03, m_polity.adminSpendingShare + 0.015 * combinedPressure);
+        m_polity.infraSpendingShare = std::max(0.03, m_polity.infraSpendingShare + 0.010 * combinedPressure);
+        m_polity.militarySpendingShare = std::max(0.03, m_polity.militarySpendingShare + 0.010 * m_eliteBargainingPressure);
+    } else if (m_commonerPressure > 0.28) {
+        m_polity.taxRate = std::max(0.02, m_polity.taxRate - 0.006 * m_commonerPressure * (0.45 + 0.55 * m_leader.commonerAffinity));
+        m_polity.infraSpendingShare = std::max(0.03, m_polity.infraSpendingShare + 0.010 * m_commonerPressure);
+    }
+
+    m_leader.age = std::min(95, m_leader.age + 1);
+    m_leader.yearsInPower = std::max(0, m_leader.yearsInPower + 1);
+
+    const double leaderLegitDelta =
+        +0.008 * (m_leader.competence - 0.5) +
+        +0.006 * (m_leader.commonerAffinity - 0.5) * (1.0 - m_commonerPressure) -
+        0.010 * m_commonerPressure * (0.60 + 0.40 * m_leader.coercion) -
+        0.008 * m_eliteBargainingPressure * (0.60 + 0.40 * (1.0 - m_leader.eliteAffinity));
+    m_polity.legitimacy = clamp01(m_polity.legitimacy + leaderLegitDelta);
+
+    const double leaderStabilityDelta =
+        +0.010 * (m_leader.coercion - 0.5) * (0.40 + 0.60 * clamp01(m_polity.adminCapacity)) +
+        +0.007 * (m_leader.competence - 0.5) -
+        0.010 * combinedPressure;
+    m_stability = clamp01(m_stability + leaderStabilityDelta);
+
+    const double driftRate =
+        0.0010 * (1.0 - clamp01(m_macro.connectivityIndex)) +
+        0.0006 * m_commonerPressure +
+        0.0005 * m_eliteBargainingPressure;
+    m_culturalDrift += driftRate;
+    if (m_culturalDrift > 1.0 && (currentYear - m_lastLeaderTransitionYear) > 25) {
+        const std::string oldLang = m_languageName;
+        m_languageName = evolveLanguageLabel(m_languageName);
+        m_culturalDrift *= 0.45;
+        if (oldLang != m_languageName) {
+            news.addEvent(m_name + " language shifts from " + oldLang + " to " + m_languageName + ".");
+            if ((currentYear - m_lastNameChangeYear) >= 220) {
+                std::uniform_real_distribution<double> u01(0.0, 1.0);
+                if (u01(m_rng) < 0.22) {
+                    std::string nextName = generate_country_name(m_rng, m_spawnRegionKey);
+                    if (m_ideology == Ideology::Empire) {
+                        nextName = "Empire of " + nextName;
+                    } else if (m_ideology == Ideology::Kingdom || m_ideology == Ideology::Theocracy) {
+                        nextName = "Kingdom of " + nextName;
+                    } else if (m_ideology == Ideology::Republic || m_ideology == Ideology::Democracy) {
+                        nextName = "Republic of " + nextName;
+                    }
+                    if (!nextName.empty() && nextName != m_name) {
+                        const std::string oldName = m_name;
+                        m_name = nextName;
+                        m_lastNameChangeYear = currentYear;
+                        news.addEvent(oldName + " adopts a new endonym: " + m_name + ".");
+                    }
+                }
+            }
+        }
+    }
+
+    if (m_leader.age > 74) {
+        const double mortalityPressure = std::clamp((static_cast<double>(m_leader.age) - 74.0) / 20.0, 0.0, 1.0);
+        std::uniform_real_distribution<double> u01(0.0, 1.0);
+        if (u01(m_rng) < 0.08 * mortalityPressure) {
+            m_nextSuccessionYear = std::min(m_nextSuccessionYear, currentYear);
+        }
+    }
+    if (scienceDepth > 0.45) {
+        m_leader.reformism = std::clamp(m_leader.reformism + 0.002 * (scienceDepth - 0.45), 0.05, 0.98);
+    }
+}
 
 void Country::ensureTechStateSize(int techCount) {
     const int n = std::max(0, techCount);
@@ -1251,12 +1597,18 @@ bool Country::isNeighbor(const Country& other) const {
                     std::max(std::max(1, simCfg.polity.successionIntervalMin), simCfg.polity.successionIntervalMax));
                 m_nextSuccessionYear = currentYear + nextSuccession(gen);
 
+                const double leadershipFragility = clamp01(
+                    0.35 * std::max(0.0, 0.55 - m_leader.competence) +
+                    0.30 * std::max(0.0, 0.55 - m_leader.eliteAffinity) +
+                    0.20 * m_eliteBargainingPressure +
+                    0.15 * m_commonerPressure);
                 const double risk = clamp01(
                     0.40 * m_eliteDefectionPressure +
                     0.22 * (1.0 - adminCap) +
                     0.18 * war +
                     0.14 * famine +
-                    0.06 * (expenses > income ? 1.0 : 0.0));
+                    0.06 * (expenses > income ? 1.0 : 0.0) +
+                    0.18 * leadershipFragility);
                 const double draw = u01(gen);
                 if (draw < risk) {
                     const double legitDrop = 0.06 + 0.16 * risk;
@@ -1265,10 +1617,12 @@ bool Country::isNeighbor(const Country& other) const {
                     m_stability = clamp01(m_stability - stabDrop);
                     m_autonomyPressure = clamp01(m_autonomyPressure + 0.12 + 0.25 * risk);
                     m_autonomyOverThresholdYears += 2;
+                    transitionLeader(currentYear, true, news);
                     news.addEvent("Succession crisis destabilizes " + m_name + ".");
                 } else {
                     m_polity.legitimacy = clamp01(m_polity.legitimacy + 0.02 + 0.04 * (1.0 - risk));
                     m_stability = clamp01(m_stability + 0.01 + 0.03 * (1.0 - risk));
+                    transitionLeader(currentYear, false, news);
                 }
             }
 
@@ -1278,6 +1632,8 @@ bool Country::isNeighbor(const Country& other) const {
             m_avgControl = clamp01(0.70 * m_avgControl + 0.30 * meanRegionalControl - 0.06 * m_eliteDefectionPressure);
             m_autonomyPressure = clamp01(m_autonomyPressure + 0.05 * m_eliteDefectionPressure);
         }
+
+        tickAgenticSociety(currentYear, techCount, simCfg, news);
 
 	    // Phase 1: pressures & constraint-driven action selection (cadenced).
 	    struct Pressures { double survival = 0.0, revenue = 0.0, legitimacy = 0.0, opportunity = 0.0; };
@@ -1312,10 +1668,13 @@ bool Country::isNeighbor(const Country& other) const {
 	            const double preyFragility = clamp01(
 	                0.55 * (1.0 - clamp01(n.getStability())) +
 	                0.45 * (1.0 - clamp01(n.getLegitimacy())));
+                const double affinity = computeCulturalAffinity(n);
+                const double culturalDistance = 1.0 - affinity;
 	            const double score =
 	                std::min(2.0, oppRatio) *
 	                (0.35 + 0.65 * preyFragility) *
-	                (0.55 + 0.45 * attackerReadiness);
+	                (0.55 + 0.45 * attackerReadiness) *
+                    (0.50 + 0.80 * culturalDistance);
 	            if (score > bestTargetScore) {
 	                bestTargetScore = score;
 	                bestTarget = neighborIndex;
@@ -2407,6 +2766,9 @@ void Country::canonicalizeDeterministicScalars(double fineScale, double govScale
     m_lastTaxTake = std::max(0.0, q(m_lastTaxTake, fineScale));
     m_revenueTrendFast = q(m_revenueTrendFast, fineScale);
     m_revenueTrendSlow = q(m_revenueTrendSlow, fineScale);
+    m_culturalDrift = std::max(0.0, q(m_culturalDrift, govScale));
+    m_eliteBargainingPressure = clamp01(q(m_eliteBargainingPressure, govScale));
+    m_commonerPressure = clamp01(q(m_commonerPressure, govScale));
     m_eliteDefectionPressure = clamp01(q(m_eliteDefectionPressure, govScale));
 
     m_polity.legitimacy = clamp01(q(m_polity.legitimacy, govScale));
@@ -2416,6 +2778,14 @@ void Country::canonicalizeDeterministicScalars(double fineScale, double govScale
     m_polity.taxRate = std::clamp(q(m_polity.taxRate, govScale), 0.0, 0.8);
     m_polity.treasurySpendRate = std::clamp(q(m_polity.treasurySpendRate, govScale), 0.3, 2.2);
     m_polity.debt = std::max(0.0, q(m_polity.debt, fineScale));
+
+    m_leader.competence = clamp01(q(m_leader.competence, govScale));
+    m_leader.coercion = clamp01(q(m_leader.coercion, govScale));
+    m_leader.diplomacy = clamp01(q(m_leader.diplomacy, govScale));
+    m_leader.reformism = clamp01(q(m_leader.reformism, govScale));
+    m_leader.eliteAffinity = clamp01(q(m_leader.eliteAffinity, govScale));
+    m_leader.commonerAffinity = clamp01(q(m_leader.commonerAffinity, govScale));
+    m_leader.ambition = clamp01(q(m_leader.ambition, govScale));
 
     m_polity.militarySpendingShare = std::max(0.0, q(m_polity.militarySpendingShare, govScale));
     m_polity.adminSpendingShare = std::max(0.0, q(m_polity.adminSpendingShare, govScale));
@@ -2438,6 +2808,31 @@ void Country::canonicalizeDeterministicScalars(double fineScale, double govScale
         m_polity.rndSpendingShare /= shareSum;
     }
 
+    double eliteInfluenceSum = 0.0;
+    for (EliteBlocState& bloc : m_eliteBlocs) {
+        bloc.influence = std::max(0.0, q(bloc.influence, govScale));
+        bloc.loyalty = clamp01(q(bloc.loyalty, govScale));
+        bloc.grievance = clamp01(q(bloc.grievance, govScale));
+        bloc.extractionTolerance = clamp01(q(bloc.extractionTolerance, govScale));
+        eliteInfluenceSum += bloc.influence;
+    }
+    if (eliteInfluenceSum > 1.0e-12) {
+        for (EliteBlocState& bloc : m_eliteBlocs) {
+            bloc.influence /= eliteInfluenceSum;
+        }
+    }
+
+    double classSum = 0.0;
+    for (double& share : m_socialClasses.shares) {
+        share = std::max(0.0, q(share, govScale));
+        classSum += share;
+    }
+    if (classSum > 1.0e-12) {
+        for (double& share : m_socialClasses.shares) {
+            share /= classSum;
+        }
+    }
+
     for (float& a : m_adoptionTechDense) {
         const double qv = q(static_cast<double>(a), fineScale);
         a = static_cast<float>(std::clamp(qv, 0.0, 1.0));
@@ -2456,6 +2851,26 @@ const std::string& Country::getName() const {
 
 void Country::setName(const std::string& name) {
     m_name = name;
+}
+
+void Country::setSpawnRegionKey(const std::string& key) {
+    m_spawnRegionKey = key;
+    assignRegionalIdentityFromSpawnKey();
+}
+
+double Country::computeCulturalAffinity(const Country& other) const {
+    const auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+    const double languageAffinity = (m_languageFamilyId == other.m_languageFamilyId) ? 1.0 : 0.25;
+    const double cultureAffinity = (m_cultureFamilyId == other.m_cultureFamilyId) ? 1.0 : 0.30;
+
+    double traitDistSq = 0.0;
+    for (size_t i = 0; i < m_traits.size(); ++i) {
+        const double d = static_cast<double>(m_traits[i]) - static_cast<double>(other.m_traits[i]);
+        traitDistSq += d * d;
+    }
+    const double traitAffinity = 1.0 - std::min(1.0, std::sqrt(traitDistSq / static_cast<double>(m_traits.size())));
+    const double driftPenalty = std::min(0.25, std::abs(m_culturalDrift - other.m_culturalDrift) * 0.10);
+    return clamp01(0.35 * languageAffinity + 0.35 * cultureAffinity + 0.30 * traitAffinity - driftPenalty);
 }
 
 // FAST FORWARD MODE: Optimized growth simulation

@@ -72,6 +72,16 @@ void main()
     gl_FragColor = TEX_SAMPLE(palette, vec2(u, 0.5));
 }
 	)";
+
+std::string formatEraYear(int year) {
+    if (year < 0) {
+        return std::to_string(-year) + " BCE";
+    }
+    if (year > 0) {
+        return std::to_string(year) + " CE";
+    }
+    return "1 BCE/1 CE";
+}
 	} // namespace
 
 namespace {
@@ -701,6 +711,10 @@ void Renderer::drawCountryInfo(const Country* country, const TechnologyManager& 
     basicInfo += "Territory: " + std::to_string(totalPixels) + " pixels\n";
     basicInfo += "Cities: " + std::to_string(country->getCities().size()) + "\n";
     basicInfo += "Gold: " + std::to_string(static_cast<int>(country->getGold())) + "\n";
+    basicInfo += "Founded: " + formatEraYear(country->getFoundingYear()) + "\n";
+    basicInfo += "Leader: " + country->getLeader().name + "\n";
+    basicInfo += "Language: " + country->getLanguageName() + "\n";
+    basicInfo += "Culture: " + country->getCultureIdentityName() + "\n";
     
     // Country type
     basicInfo += "Type: ";
@@ -716,7 +730,7 @@ void Renderer::drawCountryInfo(const Country* country, const TechnologyManager& 
     infoText.setString(basicInfo);
     infoText.setPosition(startX, currentY);
     m_window.draw(infoText);
-    currentY += 200;
+    currentY += 260;
 
     // SCIENCE & CULTURE SECTION
     sectionText.setString("=== DEVELOPMENT ===");
