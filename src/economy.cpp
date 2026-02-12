@@ -2123,8 +2123,8 @@ void EconomyModelCPU::tickYear(int year,
                                 TechnologyManager::hasTech(tech, c, TechId::PROTO_WRITING);
         const bool hasUniversities = TechnologyManager::hasTech(tech, c, TechId::UNIVERSITIES);
         const bool hasScientificMethod = TechnologyManager::hasTech(tech, c, TechId::SCIENTIFIC_METHOD);
-        const bool hasPrinting = TechnologyManager::hasTech(tech, c, 54);
-        const bool hasPaper = TechnologyManager::hasTech(tech, c, 69);
+        const bool hasPrinting = TechnologyManager::hasTech(tech, c, 46);
+        const bool hasPaper = TechnologyManager::hasTech(tech, c, 33);
         const double mediaTech = clamp01(
             (hasWriting ? 0.28 : 0.0) +
             (hasPaper ? 0.18 : 0.0) +

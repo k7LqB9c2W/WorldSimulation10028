@@ -2058,6 +2058,14 @@ bool Country::isNeighbor(const Country& other) const {
         0.55 * (bestTargetScore > 0.0 ? std::min(1.0, bestTargetScore / 2.0) : 0.0) +
         0.25 * pressures.legitimacy +
         0.20 * pressures.opportunity);
+    const double imperialDrive = clamp01(
+        0.30 * leadershipCampaignDrive +
+        0.20 * weakStatePredation +
+        0.18 * clamp01(m_polity.logisticsReach) +
+        0.14 * clamp01(m_polity.adminCapacity) +
+        0.12 * clamp01(m_avgControl) +
+        0.06 * ((m_ideology == Ideology::Empire || m_ideology == Ideology::Kingdom) ? 1.0 : 0.0));
+    const double imperialWindow = clamp01((imperialDrive - 0.56) / 0.34);
 
 	    const int cadence = (techCount < 25) ? 5 : 2;
 	    if (currentYear - m_polity.lastPolicyYear >= cadence) {
@@ -2091,21 +2099,26 @@ bool Country::isNeighbor(const Country& other) const {
 	            if (m_isAtWar && m_warDuration > 1) {
 	                m_warDuration = std::min(m_warDuration, 2);
 	            }
-	        } else {
+        } else {
             const double expansionScale =
                 (0.45 + 0.90 * leadershipCampaignDrive) *
                 (0.55 + 0.70 * clamp01(m_polity.logisticsReach)) *
-                (0.55 + 0.55 * clamp01(m_avgControl));
+                (0.55 + 0.55 * clamp01(m_avgControl)) *
+                (1.0 + 0.95 * imperialWindow);
+            const int expansionCap = std::clamp(
+                60 + static_cast<int>(std::llround(70.0 * imperialWindow + 25.0 * m_conquestMomentum)),
+                60, 150);
             m_expansionBudgetCells = std::clamp(
                 static_cast<int>(std::llround((4.0 + 28.0 * pressures.opportunity) * expansionScale)),
-                0, 60);
+                0, expansionCap);
 
             const int maxWars = std::max(1, simCfg.war.maxConcurrentWars);
             const double warThreshold =
                 std::clamp(
                     simCfg.war.opportunisticWarThreshold -
                     simCfg.war.leaderAmbitionWarWeight * (leadershipCampaignDrive - 0.5) -
-                    simCfg.war.weakStatePredationWeight * (weakStatePredation - 0.5),
+                    simCfg.war.weakStatePredationWeight * (weakStatePredation - 0.5) -
+                    0.16 * imperialWindow,
                     0.25, 0.90);
             const bool canOpenNewWar =
                 !m_isAtWar &&
@@ -2115,7 +2128,7 @@ bool Country::isNeighbor(const Country& other) const {
             const bool diversionaryWar =
                 (pressures.legitimacy > 0.62) &&
                 (attackerReadiness > 0.46) &&
-                (weakStatePredation > 0.40);
+                (weakStatePredation > 0.40 || imperialWindow > 0.45);
             if (canOpenNewWar &&
                 (pressures.opportunity > warThreshold || diversionaryWar) &&
                 (m_gold > std::max(6.0, 0.10 * income))) {
@@ -2135,15 +2148,16 @@ bool Country::isNeighbor(const Country& other) const {
                         0.55 * (1.0 - target.getStability()) +
                         0.45 * (1.0 - target.getLegitimacy()));
                     std::vector<GoalWeight> goals = {
-                        {WarGoal::Raid,          std::max(0.05, simCfg.war.objectiveRaidWeight + 0.35 * scarcity + 0.25 * tribal)},
-                        {WarGoal::BorderShift,   std::max(0.05, simCfg.war.objectiveBorderWeight + 0.20 * institutional + 0.22 * leadershipCampaignDrive)},
+                        {WarGoal::Raid,          std::max(0.05, simCfg.war.objectiveRaidWeight + 0.28 * scarcity + 0.20 * tribal - 0.16 * imperialWindow)},
+                        {WarGoal::BorderShift,   std::max(0.05, simCfg.war.objectiveBorderWeight + 0.20 * institutional + 0.22 * leadershipCampaignDrive + 0.24 * imperialWindow + 0.08 * targetWeakness)},
                         {WarGoal::Tribute,       std::max(0.01, simCfg.war.objectiveTributeWeight + 0.18 * institutional + 0.10 * scarcity + 0.08 * targetWeakness)},
-                        {WarGoal::Vassalization, std::max(0.01, simCfg.war.objectiveVassalWeight + 0.20 * std::max(0.0, powerRatio - 1.0) + 0.12 * targetWeakness)},
+                        {WarGoal::Vassalization, std::max(0.01, simCfg.war.objectiveVassalWeight + 0.22 * std::max(0.0, powerRatio - 1.0) + 0.14 * targetWeakness + 0.18 * imperialWindow)},
                         {WarGoal::RegimeChange,  std::max(0.01, simCfg.war.objectiveRegimeWeight + 0.14 * (1.0 - target.getLegitimacy()) + 0.08 * pressures.legitimacy)},
                         {WarGoal::Annihilation,  std::max(0.01, simCfg.war.objectiveAnnihilationWeight +
                                                                simCfg.war.earlyAnnihilationBias * tribal +
                                                                0.14 * std::max(0.0, powerRatio - 1.25) +
-                                                               0.12 * targetWeakness * leadershipCampaignDrive -
+                                                               0.12 * targetWeakness * leadershipCampaignDrive +
+                                                               0.14 * imperialWindow -
                                                                simCfg.war.highInstitutionAnnihilationDamp * institutional)}
                     };
                     std::vector<double> ws;
@@ -2173,7 +2187,8 @@ bool Country::isNeighbor(const Country& other) const {
                 0.38 * pressures.survival +
                 0.34 * pressures.legitimacy +
                 0.18 * weakStatePredation +
-                0.10 * leadershipCampaignDrive);
+                0.10 * leadershipCampaignDrive +
+                0.12 * imperialWindow);
             if (emergencyWarDrive > 0.72 &&
                 m_gold > std::max(6.0, 0.05 * income)) {
                 m_pendingWarGoal = (pressures.survival > pressures.legitimacy)
@@ -2199,7 +2214,10 @@ bool Country::isNeighbor(const Country& other) const {
         (currentYear % std::max(4, 16 - std::min(10, techCount / 4)) == m_expansionStaggerOffset % std::max(4, 16 - std::min(10, techCount / 4)));
 
 		    // AI expansion budget (replaces random growth as the primary engine).
-    int growth = std::clamp(m_expansionBudgetCells, 0, 60);
+    const int growthCap = std::clamp(
+        60 + static_cast<int>(std::llround(90.0 * imperialWindow + 25.0 * m_conquestMomentum)),
+        60, 170);
+    int growth = std::clamp(m_expansionBudgetCells, 0, growthCap);
 
 		    // Military readiness responds to spending and logistics (cheap, self-limiting).
 		    {

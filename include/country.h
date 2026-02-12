@@ -696,6 +696,7 @@ public:
     void setAutonomyOverThresholdYears(int v) { m_autonomyOverThresholdYears = std::max(0, v); }
     double getEliteDefectionPressure() const { return m_eliteDefectionPressure; }
     int getNextSuccessionYear() const { return m_nextSuccessionYear; }
+    int getNextElectionYear() const { return m_nextElectionYear; }
     void initializePopulationCohorts();
     void renormalizePopulationCohortsToTotal();
     double getWorkingAgeLaborSupply() const;

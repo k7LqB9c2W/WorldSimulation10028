@@ -611,3 +611,67 @@ Notes for next iteration cycle:
 - Keep the `v24` code state.
 - It preserves broad endpoint diversity and removes the prior deterministic `~40` convergence while introducing non-zero steam emergence at plausible historical timing in a subset of timelines.
 - Remaining known gap: downstream deep chain (`52/54/60`) still rare-to-absent under current constraints and likely needs a dedicated next pass on late-stage institutional/energy scaling and cross-domain convergence.
+
+## Entry: 2026-02-12 08:38:26 UTC (v25-v36 deep-chain realism pass)
+
+### Goal
+- Continue the realism upgrade with explicit focus on:
+  - non-uniform long-run tech outcomes (`-5000 -> 2025`),
+  - endogenous industrial/deep-chain emergence without seed-only boosts,
+  - stronger empire/turnover diversity diagnostics and inspector visibility.
+
+### Code updates in this pass
+- `src/technology.cpp`
+  - Removed brittle industrial hard-gate deadlocks and replaced with chain-consistent prereq/feasibility calibration.
+  - Reworked bridge-chain multipliers so late techs depend on correct upstream platforms (`60 -> 63 -> 64 -> 69 -> 70 -> 76 -> 79 -> 85 -> 91`).
+  - Added combinatorial takeoff multipliers tied to adopted general-purpose technologies (rules-based, no per-seed hand boosts).
+  - Fixed late-chain bug where `64`/upper-tech boosts referenced self/incorrect dependencies and suppressed progression.
+  - Rebalanced late costs/difficulties so rare high-readiness states can reach deep frontier while most runs remain mid/low.
+- `src/economy.cpp`
+  - Corrected media-tech ID mapping bug (`Printing`/`Paper` IDs).
+- `src/trade.cpp`
+  - Route-cap and shipping-establishment tuning to increase realistic long-distance connectivity without unbounded route spam.
+- `src/country.cpp`
+  - Expanded imperial-window logic for larger but still conditional expansion trajectories.
+- `src/main.cpp`, `include/country.h`
+  - Country inspector additions: elections, class shares/sentiment/influence, population cohorts, macro/knowledge signals.
+
+### Validation artifacts produced
+- Probe/diagnostic sets:
+  - `out/seed_diag8_after_unblock12`
+  - `out/seed_probe_1_2_after_unblock14`
+- Full 32-seed benchmarks (16 workers, CPU, full horizon):
+  - `out/seed_max_tech_final32_latest` (intermediate)
+  - `out/seed_max_tech_final32_latest_v2` (selected)
+
+### Selected benchmark outcome (`seed_max_tech_final32_latest_v2`)
+- Command baseline: `tools/seed_max_tech_finder.py --seed-start 1 --seed-end 32 --workers 16 --use-gpu 0 --no-reuse --exclude-initial-log-rows`.
+- Run health: `32/32` ok, `0` failed.
+- Max-unlocked distribution:
+  - min/mean/median/max: `29 / 33.781 / 31 / 51`
+  - `>=40`: `6/32`, `<=30`: `14/32`
+  - p10/p90: `29.0 / 44.1`
+- Industrial/deep-chain hit counts across 32 seeds:
+  - `42`: `14`
+  - `49`: `14`
+  - `51`: `4`
+  - `52`: `2`
+  - `54`: `1`
+  - `60`: `1`
+  - `63`: `1`
+  - `64`: `1`
+  - `69`: `1`
+  - `70`: `1`
+  - `76`: `1`
+  - `79`: `1`
+  - `85`: `1`
+  - `91`: `1`
+- Empire-size diversity (timeseries-derived):
+  - `country_area_top1_share` final min/mean/max: `0.0164 / 0.0375 / 0.0695`
+  - `country_area_top1_share` peak min/mean/max: `0.0313 / 0.0515 / 0.0821`
+  - `country_area_p90` final min/mean/max: `1013.0 / 1315.51 / 1617.4`
+  - `founder_state_share` final min/mean/max: `0.0029 / 0.0270 / 0.0456`
+
+### Interpretation
+- The prior near-uniform ceiling behavior is broken: endpoint spread is materially wider, and a rare high-tail trajectory reaches deep frontier tech (`91`) under endogenous rules.
+- Remaining gap for a future pass: a full-tree unlock in a single run is still not observed; upper digital/late branches are now reachable but remain rare.

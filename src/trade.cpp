@@ -16,7 +16,7 @@ namespace {
 constexpr int kDefaultSeaNavStep = 6;             // Downsample factor for sea navigation grid
 constexpr int kMaxDockSearchRadiusPx = 18;        // How far (in pixels) to search for a navigable water nav-cell near a port
 constexpr int kMaxDockCandidates = 6;             // Per-port dock candidates
-constexpr int kMaxShippingPartnerAttempts = 45;   // Random partner attempts per country per establish tick
+constexpr int kMaxShippingPartnerAttempts = 36;   // Random partner attempts per country per establish tick
 constexpr int kMaxAStarNodeExpansions = 220000;   // Hard cap to prevent pathological spikes
 
 inline int clampi(int v, int lo, int hi) {
@@ -947,6 +947,24 @@ void TradeManager::establishShippingRoutes(std::vector<Country>& countries, int 
         return TechnologyManager::hasTech(techManager, c, TechId::NAVIGATION); // Navigation
     };
 
+    auto routeCapForCountry = [&](const Country& c) {
+        int majorCities = 0;
+        for (const auto& city : c.getCities()) {
+            if (city.isMajorCity()) majorCities++;
+        }
+        int cap = 1 + std::min(5, majorCities);
+        if (TechnologyManager::hasTech(techManager, c, 35)) cap += 1; // Markets
+        if (TechnologyManager::hasTech(techManager, c, TechId::BANKING)) cap += 1;
+        if (TechnologyManager::hasTech(techManager, c, 51)) cap += 1; // Steam Engine
+        if (TechnologyManager::hasTech(techManager, c, 58)) cap += 1; // Telegraph
+        if (TechnologyManager::hasTech(techManager, c, 60)) cap += 1; // Combustion
+        return std::clamp(cap, 1, 8);
+    };
+    std::vector<int> routeCaps(countries.size(), 1);
+    for (size_t i = 0; i < countries.size(); ++i) {
+        routeCaps[i] = routeCapForCountry(countries[i]);
+    }
+
     for (size_t i = 0; i < countries.size(); ++i) {
         const Country& a = countries[i];
         if (a.getPopulation() <= 0) continue;
@@ -954,16 +972,18 @@ void TradeManager::establishShippingRoutes(std::vector<Country>& countries, int 
         if (a.getPorts().empty()) continue;
 
         // Limit attempts to spread load (not every country tries every establish tick).
-        if (chanceDist(m_rng) > 0.35) {
+        const int maxRoutesA = routeCaps[i];
+        if (routeCounts[i] >= maxRoutesA) {
             continue;
         }
-
-        int majorCities = 0;
-        for (const auto& city : a.getCities()) {
-            if (city.isMajorCity()) majorCities++;
-        }
-        const int maxRoutesA = std::max(1, std::min(4, 1 + majorCities));
-        if (routeCounts[i] >= maxRoutesA) {
+        const double portFactor = std::min(1.0, std::sqrt(static_cast<double>(a.getPorts().size()) / 4.0));
+        const double urban = std::clamp(
+            static_cast<double>(a.getTotalCityPopulation()) /
+                std::max(1.0, static_cast<double>(std::max<long long>(1, a.getPopulation()))),
+            0.0, 1.0);
+        const double market = std::clamp(a.getMarketAccess(), 0.0, 1.0);
+        const double shipChance = std::clamp(0.18 + 0.22 * portFactor + 0.18 * market + 0.14 * urban, 0.10, 0.72);
+        if (chanceDist(m_rng) > shipChance) {
             continue;
         }
 
@@ -976,11 +996,7 @@ void TradeManager::establishShippingRoutes(std::vector<Country>& countries, int 
             if (b.getPopulation() <= 0) continue;
             if (!hasNavigation(b) || !hasShipbuilding(b)) continue;
             if (b.getPorts().empty()) continue;
-            int majorCitiesB = 0;
-            for (const auto& city : b.getCities()) {
-                if (city.isMajorCity()) majorCitiesB++;
-            }
-            const int maxRoutesB = std::max(1, std::min(4, 1 + majorCitiesB));
+            const int maxRoutesB = routeCaps[static_cast<size_t>(j)];
             if (routeCounts[static_cast<size_t>(j)] >= maxRoutesB) continue;
             if (hasShippingRoute(static_cast<int>(i), j)) continue;
 
@@ -1057,7 +1073,7 @@ void TradeManager::establishShippingRoutes(std::vector<Country>& countries, int 
             routeCounts[static_cast<size_t>(j)]++;
 
             news.addEvent("🚢 SHIPPING ROUTE ESTABLISHED: " + a.getName() + " opens a shipping lane with " + b.getName() + ".");
-            break; // Only one new route per country per establish tick.
+            break;
         }
     }
 }

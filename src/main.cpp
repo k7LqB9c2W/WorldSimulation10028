@@ -2373,6 +2373,49 @@ int main(int argc, char** argv) {
 		                            ImGui::Text("Ideology: %s", c->getIdeologyString().c_str());
 		                            ImGui::Text("Stability: %.1f%%", c->getStability() * 100.0);
 		                            ImGui::Text("Legitimacy: %.1f%%", c->getLegitimacy() * 100.0);
+                                    const int nextElectionYear = c->getNextElectionYear();
+                                    if (nextElectionYear > -100000000) {
+                                        ImGui::Text("Next Election: %s", formatEraYear(nextElectionYear).c_str());
+                                    } else {
+                                        ImGui::TextUnformatted("Next Election: N/A");
+                                    }
+
+                                    ImGui::Separator();
+                                    ImGui::TextUnformatted("Population Structure");
+                                    const auto& cohorts = c->getPopulationCohorts();
+                                    const double popTotal = static_cast<double>(std::max<long long>(1, c->getPopulation()));
+                                    ImGui::BulletText("Ages 0-4: %.1f%%", 100.0 * cohorts[0] / popTotal);
+                                    ImGui::BulletText("Ages 5-14: %.1f%%", 100.0 * cohorts[1] / popTotal);
+                                    ImGui::BulletText("Ages 15-49: %.1f%%", 100.0 * cohorts[2] / popTotal);
+                                    ImGui::BulletText("Ages 50-64: %.1f%%", 100.0 * cohorts[3] / popTotal);
+                                    ImGui::BulletText("Ages 65+: %.1f%%", 100.0 * cohorts[4] / popTotal);
+
+                                    ImGui::Separator();
+                                    ImGui::TextUnformatted("Class Structure");
+                                    const auto& social = c->getSocietalClasses();
+                                    const auto& classAgents = c->getClassAgents();
+                                    static const char* kClassNames[6] = {
+                                        "Subsistence", "Laborers", "Artisans", "Merchants", "Bureaucrats", "Elite"
+                                    };
+                                    for (int ci = 0; ci < 6; ++ci) {
+                                        const double share = 100.0 * std::max(0.0, social.shares[static_cast<size_t>(ci)]);
+                                        const double sentiment = 100.0 * std::clamp(classAgents[static_cast<size_t>(ci)].sentiment, 0.0, 1.0);
+                                        const double influence = 100.0 * std::clamp(classAgents[static_cast<size_t>(ci)].influence, 0.0, 1.0);
+                                        ImGui::BulletText("%s: %.1f%% | sentiment %.0f | influence %.0f",
+                                                          kClassNames[ci], share, sentiment, influence);
+                                    }
+                                    ImGui::Text("Bourgeois Influence: %.1f%%", 100.0 * c->getBourgeoisInfluence());
+
+                                    ImGui::Separator();
+                                    ImGui::TextUnformatted("Macro Signals");
+                                    const auto& macro = c->getMacroEconomy();
+                                    ImGui::Text("Market Access: %.1f%%", 100.0 * macro.marketAccess);
+                                    ImGui::Text("Connectivity: %.1f%%", 100.0 * macro.connectivityIndex);
+                                    ImGui::Text("Human Capital: %.1f%%", 100.0 * macro.humanCapital);
+                                    ImGui::Text("Knowledge Stock: %.1f%%", 100.0 * macro.knowledgeStock);
+                                    ImGui::Text("Merchant Power: %.1f%%", 100.0 * macro.merchantPowerIndex);
+                                    ImGui::Text("Idea Market Integration: %.1f%%", 100.0 * macro.ideaMarketIntegrationIndex);
+                                    ImGui::Text("Food Security: %.1f%%", 100.0 * c->getFoodSecurity());
 
 		                            if (ImGui::Button("Open Tech Editor")) {
 		                                guiShowTechEditor = true;

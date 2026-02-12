@@ -200,28 +200,28 @@ void TechnologyManager::initializeTechnologies() {
     m_technologies.emplace(39, Technology{"Universities", 2100, 39, {30}});
     m_technologies.emplace(40, Technology{"Astronomy", 2600, 40, {24, 14}});
     m_technologies.emplace(41, Technology{"Chemistry", 2800, 41, {42, 25}});
-    m_technologies.emplace(42, Technology{"Metallurgy", 3000, 42, {13, 4, 120}});
+    m_technologies.emplace(42, Technology{"Metallurgy", 3000, 42, {13, 120}});
     m_technologies.emplace(43, Technology{"Navigation", 3200, 43, {26, 40}});
     m_technologies.emplace(44, Technology{"Architecture", 3400, 44, {23, 31}});
     m_technologies.emplace(45, Technology{"Economics", 3600, 45, {34}});
     m_technologies.emplace(46, Technology{"Printing Press", 3800, 46, {36}});
     m_technologies.emplace(47, Technology{"Firearms", 4000, 47, {37, 42}});
     m_technologies.emplace(48, Technology{"Physics", 4200, 48, {40, 49}});
-    m_technologies.emplace(49, Technology{"Scientific Method", 4500, 49, {36, 39, 14}});
+    m_technologies.emplace(49, Technology{"Scientific Method", 4500, 49, {36, 14}});
     m_technologies.emplace(50, Technology{"Rifling", 4800, 50, {47}});
-    m_technologies.emplace(51, Technology{"Steam Engine", 5000, 51, {29, 49}});
+    m_technologies.emplace(51, Technology{"Steam Engine", 5000, 51, {29}});
     m_technologies.emplace(52, Technology{"Industrialization", 5500, 52, {51}});
     m_technologies.emplace(53, Technology{"Vaccination", 6500, 53, {41}});
-    m_technologies.emplace(54, Technology{"Electricity", 7000, 54, {49, 41}});
+    m_technologies.emplace(54, Technology{"Electricity", 7000, 54, {52}});
     m_technologies.emplace(55, Technology{"Railroad", 7500, 55, {51, 52}});
     m_technologies.emplace(56, Technology{"Dynamite", 8000, 56, {41}});
     m_technologies.emplace(57, Technology{"Replaceable Parts", 8500, 57, {51}});
     m_technologies.emplace(58, Technology{"Telegraph", 9000, 58, {54}});
     m_technologies.emplace(59, Technology{"Telephone", 9500, 59, {54}});
-    m_technologies.emplace(60, Technology{"Combustion", 10000, 60, {52, 41}});
+    m_technologies.emplace(60, Technology{"Combustion", 10000, 60, {52}});
     m_technologies.emplace(61, Technology{"Flight", 11000, 61, {60}});
     m_technologies.emplace(62, Technology{"Radio", 12000, 62, {58}});
-    m_technologies.emplace(63, Technology{"Mass Production", 13000, 63, {57}});
+    m_technologies.emplace(63, Technology{"Mass Production", 13000, 63, {60}});
     m_technologies.emplace(64, Technology{"Electronics", 14000, 64, {54}});
     m_technologies.emplace(65, Technology{"Penicillin", 15000, 65, {53}});
     m_technologies.emplace(66, Technology{"Plastics", 16000, 66, {40}});
@@ -237,13 +237,13 @@ void TechnologyManager::initializeTechnologies() {
     m_technologies.emplace(76, Technology{"Integrated Circuit", 35000, 76, {70}});
     m_technologies.emplace(77, Technology{"Advanced Ballistics", 38000, 77, {49}});
     m_technologies.emplace(78, Technology{"Superconductors", 40000, 78, {74}});
-    m_technologies.emplace(79, Technology{"Internet", 45000, 79, {69, 73}});
+    m_technologies.emplace(79, Technology{"Internet", 45000, 79, {69}});
     m_technologies.emplace(80, Technology{"Personal Computers", 50000, 80, {76}});
     m_technologies.emplace(81, Technology{"Genetic Engineering", 55000, 81, {65}});
     m_technologies.emplace(82, Technology{"Fiber Optics", 60000, 82, {74}});
     m_technologies.emplace(83, Technology{"Mobile Phones", 65000, 83, {76, 82}});
     m_technologies.emplace(84, Technology{"Stealth Technology", 70000, 84, {61, 78}});
-    m_technologies.emplace(85, Technology{"Artificial Intelligence", 75000, 85, {75, 80}});
+    m_technologies.emplace(85, Technology{"Artificial Intelligence", 75000, 85, {79, 76}});
     m_technologies.emplace(86, Technology{"Nanotechnology", 80000, 86, {78}});
     m_technologies.emplace(87, Technology{"Renewable Energy", 85000, 87, {72}});
     m_technologies.emplace(88, Technology{"3D Printing", 90000, 88, {80}});
@@ -274,33 +274,59 @@ void TechnologyManager::initializeTechnologies() {
     rescaleCost(39, 0.70); // Universities
     rescaleCost(40, 0.72); // Astronomy
     rescaleCost(41, 0.70); // Chemistry
-    rescaleCost(42, 0.60); // Metallurgy
+    rescaleCost(42, 0.50); // Metallurgy
     rescaleCost(43, 0.82); // Navigation
     rescaleCost(45, 0.78); // Economics
     rescaleCost(46, 0.78); // Printing Press
     rescaleCost(47, 0.82); // Firearms
     rescaleCost(48, 0.66); // Physics
-    rescaleCost(49, 0.60); // Scientific Method
+    rescaleCost(49, 0.50); // Scientific Method
     rescaleCost(50, 0.66); // Rifling
-    rescaleCost(51, 0.44); // Steam Engine
-    rescaleCost(52, 0.50); // Industrialization
+    rescaleCost(51, 0.24); // Steam Engine
+    rescaleCost(52, 0.20); // Industrialization
     rescaleCost(53, 0.82); // Vaccination
-    rescaleCost(54, 0.58); // Electricity
+    rescaleCost(54, 0.24); // Electricity
     rescaleCost(55, 0.82); // Railroad
     rescaleCost(56, 0.85); // Dynamite
     rescaleCost(57, 0.84); // Replaceable Parts
     rescaleCost(58, 0.84); // Telegraph
     rescaleCost(59, 0.86); // Telephone
-    rescaleCost(60, 0.60); // Combustion
-    rescaleCost(61, 0.86); // Flight
-    rescaleCost(62, 0.88); // Radio
-    rescaleCost(63, 0.84); // Mass Production
-    rescaleCost(64, 0.88); // Electronics
-    rescaleCost(65, 0.90); // Penicillin
-    rescaleCost(66, 0.90); // Plastics
-    rescaleCost(67, 0.90); // Rocketry
-    rescaleCost(69, 0.90); // Computers
-    rescaleCost(70, 0.92); // Transistors
+    rescaleCost(60, 0.20); // Combustion
+    rescaleCost(61, 0.70); // Flight
+    rescaleCost(62, 0.72); // Radio
+    rescaleCost(63, 0.40); // Mass Production
+    rescaleCost(64, 0.25); // Electronics
+    rescaleCost(65, 0.76); // Penicillin
+    rescaleCost(66, 0.72); // Plastics
+    rescaleCost(67, 0.72); // Rocketry
+    rescaleCost(68, 0.75); // Nuclear Fission
+    rescaleCost(69, 0.25); // Computers
+    rescaleCost(70, 0.12); // Transistors
+    rescaleCost(71, 0.45); // Refrigeration
+    rescaleCost(72, 0.45); // Ecology
+    rescaleCost(73, 0.40); // Satellites
+    rescaleCost(74, 0.40); // Lasers
+    rescaleCost(75, 0.38); // Robotics
+    rescaleCost(76, 0.12); // Integrated Circuit
+    rescaleCost(77, 0.45); // Advanced Ballistics
+    rescaleCost(78, 0.42); // Superconductors
+    rescaleCost(79, 0.10); // Internet
+    rescaleCost(80, 0.12); // Personal Computers
+    rescaleCost(81, 0.40); // Genetic Engineering
+    rescaleCost(82, 0.36); // Fiber Optics
+    rescaleCost(83, 0.32); // Mobile Phones
+    rescaleCost(84, 0.42); // Stealth Technology
+    rescaleCost(85, 0.10); // Artificial Intelligence
+    rescaleCost(86, 0.30); // Nanotechnology
+    rescaleCost(87, 0.32); // Renewable Energy
+    rescaleCost(88, 0.28); // 3D Printing
+    rescaleCost(89, 0.25); // Social Media
+    rescaleCost(90, 0.32); // Biotechnology
+    rescaleCost(91, 0.08); // Quantum Computing
+    rescaleCost(92, 0.22); // Blockchain
+    rescaleCost(93, 0.18); // Machine Learning
+    rescaleCost(94, 0.24); // Augmented Reality
+    rescaleCost(95, 0.24); // Virtual Reality
 
     auto mark = [&](int id, int order, double difficulty, bool keyTransition) {
         auto it = m_technologies.find(id);
@@ -343,17 +369,25 @@ void TechnologyManager::initializeTechnologies() {
     mark(29, 620, 1.60, true);  // Machinery
     mark(34, 700, 2.0, true);  // Banking
     mark(35, 730, 2.0, true);  // Markets
-    mark(42, 540, 2.0, true);  // Metallurgy
+    mark(42, 540, 1.7, true);  // Metallurgy
     mark(39, 760, 1.9, true);  // Universities
     mark(40, 820, 2.0, true);  // Astronomy
     mark(41, 860, 1.9, true);  // Chemistry
     mark(45, 885, 1.9, true);  // Economics
     mark(46, 900, 1.95, true); // Printing Press
-    mark(49, 910, 1.95, true);  // Scientific Method
-    mark(51, 980, 1.62, true);   // Steam Engine
-    mark(52, 1040, 1.78, true);  // Industrialization
-    mark(54, 1110, 1.94, true);  // Electricity
-    mark(60, 1180, 2.00, true);  // Combustion
+    mark(49, 910, 1.65, true);  // Scientific Method
+    mark(51, 980, 1.10, true);   // Steam Engine
+    mark(52, 1040, 0.95, true);  // Industrialization
+    mark(54, 1110, 1.05, true);  // Electricity
+    mark(60, 1180, 0.95, true);  // Combustion
+    mark(63, 1240, 1.25, true);  // Mass Production
+    mark(64, 1290, 0.95, true);  // Electronics
+    mark(69, 1360, 1.05, true);  // Computers
+    mark(70, 1390, 0.75, true);  // Transistors
+    mark(76, 1460, 0.82, true);  // Integrated Circuit
+    mark(79, 1530, 0.84, true);  // Internet
+    mark(85, 1600, 0.95, true);  // Artificial Intelligence
+    mark(91, 1690, 1.00, true);  // Quantum Computing
 
     for (auto& kv : m_technologies) {
         Technology& t = kv.second;
@@ -413,8 +447,13 @@ void TechnologyManager::initializeTechnologies() {
     gate(118, false, false, 0.50, 100.0, 0.0, 0.0, 0.0, 0.03, 0.09, 0.05, 0.0, 0.0);
     gate(119, false, false, 0.0, 0.0, 0.0, 0.22, 0.12, 0.08, 0.04, 0.02, 0.0, 0.0);
     gate(120, false, false, 0.0, 0.0, 0.0, 0.26, 0.18, 0.10, 0.06, 0.03, 0.0, 0.0);
-    gate(42, false, false, 0.0, 0.0, 0.0, 0.18, 0.14, 0.08, 0.07, 0.04, 0.0, 0.0);
-    gate(52, false, false, 0.0, 0.0, 0.0, 0.08, 0.22, 0.10, 0.24, 0.16, 0.0, 0.0);
+    gate(42, false, false, 0.0, 0.0, 0.0, 0.14, 0.10, 0.06, 0.05, 0.02, 0.0, 0.0);
+    gate(51, false, false, 0.0, 0.0, 0.0, 0.03, 0.06, 0.04, 0.08, 0.04, 0.0, 0.0);
+    gate(52, false, false, 0.0, 0.0, 0.0, 0.03, 0.07, 0.05, 0.10, 0.05, 0.0, 0.0);
+    gate(54, false, false, 0.0, 0.0, 0.0, 0.04, 0.08, 0.06, 0.12, 0.06, 0.0, 0.0);
+    gate(60, false, false, 0.0, 0.0, 0.0, 0.04, 0.06, 0.05, 0.08, 0.05, 0.0, 0.0);
+    gate(63, false, false, 0.0, 0.0, 0.0, 0.05, 0.08, 0.06, 0.12, 0.06, 0.0, 0.0);
+    gate(64, false, false, 0.0, 0.0, 0.0, 0.03, 0.05, 0.04, 0.08, 0.04, 0.0, 0.0);
     gate(11, false, false, 0.53, 90.0, 0.0, 0.0, 0.0, 0.05, 0.10, 0.05, 0.0, 0.0);
     gate(43, true, false, 0.0, 0.0, 0.0, 0.0, 0.12, 0.0, 0.16, 0.06, 0.0, 0.0);
 }
@@ -1374,7 +1413,14 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                techId == 51 ||  // Steam
                techId == 52 ||  // Industrialization
                techId == 54 ||  // Electricity
-               techId == 60;    // Combustion
+               techId == 60 ||  // Combustion
+               techId == 63 ||  // Mass Production
+               techId == 64 ||  // Electronics
+               techId == 69 ||  // Computers
+               techId == 76 ||  // Integrated Circuit
+               techId == 79 ||  // Internet
+               techId == 85 ||  // Artificial Intelligence
+               techId == 91;    // Quantum Computing
     };
 
     auto bridgeTransitionMultiplier = [&](const Technology& t, const CountryTechSignals& s) -> double {
@@ -1419,20 +1465,32 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         } else if (t.id == 41) { // Chemistry
             mult *= 0.76 + 1.18 * clamp01(0.42 * scientificReadiness + 0.33 * s.institution + 0.25 * s.specialization);
         } else if (t.id == 42) { // Metallurgy
-            mult *= 0.78 + 1.05 * clamp01(0.55 * s.oreAvail + 0.45 * s.energyAvail);
+            mult *= 0.84 + 1.45 * clamp01(
+                0.40 * s.oreAvail +
+                0.24 * s.energyAvail +
+                0.22 * engineeringReadiness +
+                0.14 * s.specialization);
         } else if (t.id == 49) { // Scientific Method
-            mult *= 0.74 + 1.18 * clamp01(0.46 * institutions + 0.32 * s.ideaMarketIntegration + 0.22 * scientificReadiness);
+            mult *= 0.76 + 1.36 * clamp01(0.46 * institutions + 0.32 * s.ideaMarketIntegration + 0.22 * scientificReadiness);
         } else if (t.id == 51) { // Steam
-            mult *= 0.72 + 1.55 * clamp01(0.34 * protoIndustrialPressure + 0.24 * s.energyAvail + 0.22 * engineeringReadiness + 0.20 * s.relativeFactorPrice);
+            mult *= 0.90 + 2.80 * clamp01(0.34 * protoIndustrialPressure + 0.24 * s.energyAvail + 0.22 * engineeringReadiness + 0.20 * s.relativeFactorPrice);
         } else if (t.id == 52) { // Industrialization
-            mult *= 0.70 + 1.64 * clamp01(0.30 * protoIndustrialPressure + 0.24 * institutions + 0.22 * s.specialization + 0.14 * engineeringReadiness + 0.10 * s.energyAvail);
+            mult *= 0.80 + 2.25 * clamp01(0.30 * protoIndustrialPressure + 0.24 * institutions + 0.22 * s.specialization + 0.14 * engineeringReadiness + 0.10 * s.energyAvail);
         } else if (t.id == 54) { // Electricity
-            mult *= 0.70 + 1.18 * clamp01(0.34 * institutions + 0.22 * s.energyAvail + 0.24 * s.mediaThroughput + 0.20 * scientificReadiness);
+            mult *= 0.78 + 1.90 * clamp01(0.34 * institutions + 0.22 * s.energyAvail + 0.24 * s.mediaThroughput + 0.20 * scientificReadiness);
         } else if (t.id == 60) { // Combustion
-            mult *= 0.72 + 1.18 * clamp01(0.36 * protoIndustrialPressure + 0.24 * s.energyAvail + 0.24 * s.oreAvail + 0.16 * engineeringReadiness);
+            mult *= 0.92 + 2.80 * clamp01(0.36 * protoIndustrialPressure + 0.24 * s.energyAvail + 0.24 * s.oreAvail + 0.16 * engineeringReadiness);
+        } else if (t.id == 63) { // Mass Production
+            mult *= 0.74 + 1.28 * clamp01(0.30 * protoIndustrialPressure + 0.28 * s.specialization + 0.22 * institutions + 0.20 * engineeringReadiness);
+        } else if (t.id == 64) { // Electronics
+            mult *= 0.70 + 1.24 * clamp01(0.30 * scientificReadiness + 0.26 * institutions + 0.22 * s.energyAvail + 0.22 * s.mediaThroughput);
+        } else if (t.id == 69 || t.id == 76) { // Computers, Integrated Circuit
+            mult *= 0.70 + 1.32 * clamp01(0.30 * scientificReadiness + 0.26 * institutions + 0.22 * s.mediaThroughput + 0.22 * s.ideaMarketIntegration);
+        } else if (t.id == 79 || t.id == 85 || t.id == 91) { // Internet, AI, Quantum
+            mult *= 0.68 + 1.42 * clamp01(0.34 * scientificReadiness + 0.24 * institutions + 0.22 * s.mediaThroughput + 0.20 * s.ideaMarketIntegration);
         }
         mult *= (1.0 - 0.35 * stressDrag);
-        return std::clamp(mult, 0.38, 4.20);
+        return std::clamp(mult, 0.38, 4.80);
     };
 
     auto frontierTailMultiplier = [&](const Technology& t, const CountryTechSignals& s) -> double {
@@ -1448,8 +1506,48 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
             0.14 * s.competitionFragmentation +
             0.10 * s.relativeFactorPrice +
             0.08 * s.leaderReformism);
-        const double accel = std::max(0.0, 2.45 * readiness - 0.95);
-        return std::clamp(1.0 + tailDepth * accel, 0.58, 2.70);
+        const double accel = std::max(0.0, 2.95 * readiness - 1.02);
+        return std::clamp(1.0 + tailDepth * accel, 0.58, 3.25);
+    };
+
+    auto systemicTakeoffMultiplier = [&](const Technology& t, const CountryTechSignals& s) -> double {
+        const double lateDepth = smooth01((static_cast<double>(t.order) - 940.0) / 520.0);
+        if (lateDepth <= 0.0) {
+            return 1.0;
+        }
+        const double institutionalCore = clamp01(
+            0.28 * s.institution +
+            0.22 * s.credibleCommitment +
+            0.18 * s.marketAccess +
+            0.16 * s.ideaMarketIntegration +
+            0.16 * s.mediaThroughput);
+        const double materialBase = clamp01(
+            0.34 * s.energyAvail +
+            0.28 * s.oreAvail +
+            0.20 * s.constructionAvail +
+            0.18 * s.relativeFactorPrice);
+        const double coordination = clamp01(
+            0.28 * s.connectivity +
+            0.22 * s.specialization +
+            0.18 * s.merchantPower +
+            0.16 * s.leaderCompetence +
+            0.16 * s.leaderReformism);
+        const double stress = clamp01(
+            0.38 * s.famineSeverity +
+            0.24 * (s.atWar ? 1.0 : 0.0) +
+            0.20 * s.eliteDefectionPressure +
+            0.18 * s.autonomyPressure);
+        const double readiness = clamp01(
+            0.48 * institutionalCore +
+            0.30 * materialBase +
+            0.22 * coordination -
+            0.55 * stress);
+        const double takeoff = smooth01((readiness - 0.58) / 0.34);
+        double mult = 1.0 + lateDepth * std::pow(takeoff, 1.35) * (4.8 + 1.4 * readiness);
+        if (t.order >= 1450) {
+            mult *= (0.84 + 0.52 * readiness);
+        }
+        return std::clamp(mult, 0.70, 6.80);
     };
 
     // ---- Discovery pass: new knowledge only (not instant full adoption) ----
@@ -1466,12 +1564,22 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         const double frontierCapacity = smooth01(
             (s.ideaMarketIntegration + s.competitionFragmentation + s.mediaThroughput - 0.90) / 1.40);
         const double worldTailPush = std::clamp((globalInnovationBias * worldTechClimate - 1.0) * 2.0, 0.0, 2.0);
+        const double frontierTakeoff = clamp01(
+            0.24 * s.institution +
+            0.18 * s.marketAccess +
+            0.14 * s.connectivity +
+            0.12 * s.ideaMarketIntegration +
+            0.12 * s.credibleCommitment +
+            0.10 * s.mediaThroughput +
+            0.10 * s.merchantPower -
+            0.22 * s.famineSeverity -
+            0.16 * (s.atWar ? 1.0 : 0.0));
         int maxDiscoveries = std::max(
             1,
-            std::min(12, cfg.tech.maxDiscoveriesPerYear +
+            std::min(18, cfg.tech.maxDiscoveriesPerYear +
                         (s.specialization > 0.10 ? 1 : 0) +
                         static_cast<int>(std::floor(discoveryCadence)) +
-                        static_cast<int>(std::floor(2.0 * frontierCapacity + worldTailPush))));
+                        static_cast<int>(std::floor(2.4 * frontierCapacity + worldTailPush + 4.0 * frontierTakeoff))));
 
         struct DiscoveryHit {
             int id = -1;
@@ -1519,18 +1627,30 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                     bridgeFloor = std::max(bridgeFloor, 0.28 * clamp01(0.62 * engineeringReadiness + 0.38 * s.relativeFactorPrice));
                 } else if (t.id == 41) { // Chemistry
                     bridgeFloor = std::max(bridgeFloor, 0.28 * scientificReadiness);
+                } else if (t.id == 42) { // Metallurgy
+                    bridgeFloor = std::max(
+                        bridgeFloor,
+                        0.30 * clamp01(
+                            0.42 * engineeringReadiness +
+                            0.28 * s.oreAvail +
+                            0.18 * s.energyAvail +
+                            0.12 * s.specialization));
                 } else if (t.id == 49) { // Scientific Method
                     bridgeFloor = std::max(bridgeFloor, 0.30 * scientificReadiness);
                 } else if (t.id == 51 || t.id == 52) { // Steam, Industrialization
                     bridgeFloor = std::max(
                         bridgeFloor,
-                        0.36 * clamp01(
+                        0.46 * clamp01(
                             0.34 * engineeringReadiness +
                             0.28 * s.relativeFactorPrice +
                             0.20 * s.energyAvail +
                             0.18 * s.specialization));
                 } else if (t.id == 54 || t.id == 60) { // Electricity, Combustion
                     bridgeFloor = std::max(bridgeFloor, 0.30 * clamp01(0.52 * scientificReadiness + 0.48 * engineeringReadiness));
+                } else if (t.id == 63 || t.id == 64) { // Mass production, electronics
+                    bridgeFloor = std::max(bridgeFloor, 0.32 * clamp01(0.42 * engineeringReadiness + 0.30 * scientificReadiness + 0.28 * s.specialization));
+                } else if (t.id == 69 || t.id == 76 || t.id == 79 || t.id == 85 || t.id == 91) { // Digital frontier
+                    bridgeFloor = std::max(bridgeFloor, 0.34 * clamp01(0.50 * scientificReadiness + 0.30 * s.mediaThroughput + 0.20 * s.ideaMarketIntegration));
                 }
                 domainFactor = std::max(domainFactor, bridgeFloor);
             }
@@ -1553,6 +1673,7 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
             const double inducedBias = inducedInnovationBias(t, s);
             const double bridgeMultiplier = bridgeTransitionMultiplier(t, s);
             const double tailMultiplier = frontierTailMultiplier(t, s);
+            const double takeoffMultiplier = systemicTakeoffMultiplier(t, s);
             const double bridgeReadinessMultiplier = bridgeTech
                 ? std::clamp(0.70 + 1.90 * clamp01((bridgeMultiplier - 0.40) / 2.80), 0.70, 2.60)
                 : 1.0;
@@ -1570,11 +1691,72 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
             const double inertia =
                 1.0 + std::clamp(cfg.tech.institutionalInertiaPenalty, 0.0, 1.0) *
                 (0.65 * s.eliteDefectionPressure + 0.35 * s.autonomyPressure);
+            const auto adoptedLevel = [&](int tid) {
+                const int td = getTechDenseIndex(tid);
+                return (td >= 0) ? static_cast<double>(c.adoptionDense(td)) : 0.0;
+            };
+            double industrialChainBoost = 1.0;
+            if (t.id == 51) {
+                industrialChainBoost *= (0.90 + 1.65 * clamp01(0.55 * adoptedLevel(29) + 0.45 * adoptedLevel(49)));
+            } else if (t.id == 52) {
+                industrialChainBoost *= (0.88 + 1.75 * clamp01(0.78 * adoptedLevel(51) + 0.22 * adoptedLevel(49)));
+            } else if (t.id == 54) {
+                industrialChainBoost *= (0.88 + 1.55 * clamp01(0.30 * adoptedLevel(49) + 0.70 * adoptedLevel(52)));
+            } else if (t.id == 60) {
+                industrialChainBoost *= (0.90 + 2.20 * clamp01(0.52 * adoptedLevel(52) + 0.48 * adoptedLevel(54)));
+            } else if (t.id == 63) {
+                industrialChainBoost *= (0.82 + 1.90 * clamp01(0.60 * adoptedLevel(60) + 0.40 * adoptedLevel(54)));
+            } else if (t.id == 64) {
+                industrialChainBoost *= (0.82 + 1.90 * clamp01(0.55 * adoptedLevel(54) + 0.45 * adoptedLevel(63)));
+            } else if (t.id == 69) {
+                industrialChainBoost *= (0.82 + 1.90 * clamp01(0.45 * adoptedLevel(60) + 0.35 * adoptedLevel(64) + 0.20 * adoptedLevel(69)));
+            } else if (t.id == 70) {
+                industrialChainBoost *= (0.84 + 2.20 * clamp01(0.55 * adoptedLevel(69) + 0.45 * adoptedLevel(64)));
+            } else if (t.id == 76) {
+                industrialChainBoost *= (0.84 + 2.30 * clamp01(0.55 * adoptedLevel(70) + 0.45 * adoptedLevel(69)));
+            } else if (t.id == 79) {
+                industrialChainBoost *= (0.82 + 2.40 * clamp01(0.50 * adoptedLevel(76) + 0.30 * adoptedLevel(73) + 0.20 * adoptedLevel(69)));
+            } else if (t.id >= 85) {
+                industrialChainBoost *= (0.80 + 2.60 * clamp01(0.50 * adoptedLevel(79) + 0.30 * adoptedLevel(76) + 0.20 * adoptedLevel(70)));
+            }
+            const double frontierState = clamp01(
+                0.22 * s.institution +
+                0.17 * s.marketAccess +
+                0.14 * s.connectivity +
+                0.12 * s.ideaMarketIntegration +
+                0.12 * s.mediaThroughput +
+                0.10 * s.specialization +
+                0.07 * s.energyAvail +
+                0.06 * s.oreAvail);
+            const double platformCount =
+                adoptedLevel(51) + adoptedLevel(52) + adoptedLevel(54) + adoptedLevel(60) +
+                adoptedLevel(63) + adoptedLevel(64) + adoptedLevel(69) + adoptedLevel(70) +
+                adoptedLevel(76) + adoptedLevel(79);
+            const double combinatorialTakeoff = smooth01((platformCount - 2.0) / 4.0);
+            if (t.order >= 980 && (adoptedLevel(49) > 0.60 || adoptedLevel(29) > 0.75)) {
+                industrialChainBoost *= (0.80 + 2.60 * frontierState);
+            }
+            if (t.order >= 1040 && adoptedLevel(51) > 0.60) {
+                industrialChainBoost *= (0.76 + 3.00 * frontierState);
+            }
+            if (t.id == 60 && adoptedLevel(52) > 0.60 && adoptedLevel(54) > 0.60) {
+                industrialChainBoost *= (0.70 + 3.80 * frontierState);
+            }
+            if (t.order >= 1240 && adoptedLevel(60) > 0.55) {
+                industrialChainBoost *= (0.70 + 4.20 * frontierState);
+            }
+            if (t.order >= 1240 && combinatorialTakeoff > 0.0) {
+                industrialChainBoost *= (0.82 + 5.40 * std::pow(combinatorialTakeoff, 1.25) * frontierState);
+            }
+            if (t.order >= 1460 && adoptedLevel(79) > 0.55 && combinatorialTakeoff > 0.0) {
+                industrialChainBoost *= (0.70 + 6.20 * std::pow(combinatorialTakeoff, 1.15) * frontierState);
+            }
             const double hazard =
                 std::max(0.0, cfg.tech.discoveryBase) *
                 popFactor * orgFactor * domainFactor *
                 mechanismBoost * inducedBias * bridgeMultiplier * bridgeReadinessMultiplier *
-                tailMultiplier * regimeShock * leadershipBoost *
+                tailMultiplier * takeoffMultiplier * regimeShock * leadershipBoost *
+                industrialChainBoost *
                 regionalDiscoveryMultiplier[static_cast<size_t>(i)] *
                 globalInnovationBias *
                 worldTechClimate *
@@ -1650,10 +1832,18 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         const CountryTechSignals& st = signals[static_cast<size_t>(to)];
         const double dist = traitDistance(source, target);
         const double friction = std::exp(-std::max(0.0, cfg.tech.culturalFrictionStrength) * dist);
-        const double topK = std::max(2, std::min(16, cfg.tech.knownDiffusionTopK));
+        const int topK = std::clamp(
+            cfg.tech.knownDiffusionTopK +
+                static_cast<int>(std::lround(
+                    8.0 * clamp01(
+                        0.38 * sf.ideaMarketIntegration +
+                        0.30 * sf.merchantPower +
+                        0.32 * sf.connectivity))),
+            2,
+            28);
 
         const auto& known = knownDense[static_cast<size_t>(from)];
-        const int limit = std::min<int>(static_cast<int>(known.size()), static_cast<int>(topK));
+        const int limit = std::min<int>(static_cast<int>(known.size()), topK);
         for (int offset = 0; offset < limit; ++offset) {
             const int dense = known[known.size() - 1u - static_cast<size_t>(offset)];
             if (dense < 0 || dense >= getTechCount()) continue;
@@ -1670,6 +1860,8 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                 (0.25 + 0.75 * st.leaderCompetence) *
                 (0.25 + 0.75 * st.leaderReformism) *
                 (0.35 + 0.65 * sf.connectivity) *
+                (0.30 + 0.70 * sf.merchantPower) *
+                (0.28 + 0.72 * st.marketAccess) *
                 (0.25 + 0.75 * st.openness) *
                 (1.0 - 0.25 * st.eliteDefectionPressure) *
                 globalDiffusionBias *
@@ -1687,9 +1879,10 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
             const float targetAdopt = target.adoptionDense(dense);
             if (sourceAdopt > 0.80f && targetAdopt < 0.10f && isFeasible(target, t, st)) {
                 const double pSeed = std::clamp(
-                    0.12 * contactW * friction *
+                    0.14 * contactW * friction *
                     (0.30 + 0.70 * sf.ideaMarketIntegration) *
                     (0.30 + 0.70 * sf.mediaThroughput) *
+                    (0.30 + 0.70 * sf.merchantPower) *
                     (0.35 + 0.65 * st.institution) *
                     (0.30 + 0.70 * st.connectivity) *
                     (0.30 + 0.70 * st.leaderReformism) *
@@ -1725,7 +1918,7 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
             for (int b = 0; b < n; ++b) {
                 if (b == a) continue;
                 const float w = (*tradeIntensityMatrix)[static_cast<size_t>(a) * static_cast<size_t>(n) + static_cast<size_t>(b)];
-                if (w <= 0.002f) continue;
+                if (w <= 0.001f) continue;
                 diffuseKnownDirectional(a, b, clamp01(static_cast<double>(w)));
             }
         }
@@ -1773,6 +1966,7 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                 speed *= inducedInnovationBias(t, s);
                 speed *= bridgeTransitionMultiplier(t, s);
                 speed *= frontierTailMultiplier(t, s);
+                speed *= systemicTakeoffMultiplier(t, s);
                 speed *= (0.70 + 0.45 * s.leaderCompetence);
                 speed *= (0.68 + 0.55 * s.leaderReformism);
                 speed *= (1.0 - 0.35 * s.eliteDefectionPressure);
@@ -1791,6 +1985,78 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                             0.12,
                             0.75);
                     speed *= importImplementation;
+                }
+                const auto adoptedLevel = [&](int tid) {
+                    const int td = getTechDenseIndex(tid);
+                    return (td >= 0) ? static_cast<double>(c.adoptionDense(td)) : 0.0;
+                };
+                const double platformCount =
+                    adoptedLevel(51) + adoptedLevel(52) + adoptedLevel(54) + adoptedLevel(60) +
+                    adoptedLevel(63) + adoptedLevel(64) + adoptedLevel(69) + adoptedLevel(70) +
+                    adoptedLevel(76) + adoptedLevel(79);
+                const double combinatorialTakeoff = smooth01((platformCount - 2.0) / 4.0);
+                if (t.id == 51) {
+                    const double chain = clamp01(0.55 * adoptedLevel(29) + 0.45 * adoptedLevel(49));
+                    speed *= (0.85 + 2.15 * chain);
+                } else if (t.id == 52) {
+                    const double chain = clamp01(0.78 * adoptedLevel(51) + 0.22 * adoptedLevel(49));
+                    speed *= (0.90 + 2.20 * chain);
+                } else if (t.id == 54) {
+                    const double chain = clamp01(0.30 * adoptedLevel(49) + 0.70 * adoptedLevel(52));
+                    speed *= (0.90 + 1.90 * chain);
+                } else if (t.id == 60) {
+                    const double chain = clamp01(0.52 * adoptedLevel(52) + 0.48 * adoptedLevel(54));
+                    speed *= (0.95 + 2.80 * chain);
+                } else if (t.id == 63) {
+                    const double chain = clamp01(0.60 * adoptedLevel(60) + 0.40 * adoptedLevel(54));
+                    speed *= (0.80 + 2.10 * chain);
+                } else if (t.id == 64) {
+                    const double chain = clamp01(0.55 * adoptedLevel(54) + 0.45 * adoptedLevel(63));
+                    speed *= (0.80 + 2.10 * chain);
+                } else if (t.id == 69) {
+                    const double chain = clamp01(0.45 * adoptedLevel(60) + 0.35 * adoptedLevel(64) + 0.20 * adoptedLevel(69));
+                    speed *= (0.80 + 2.10 * chain);
+                } else if (t.id == 70) {
+                    const double chain = clamp01(0.55 * adoptedLevel(69) + 0.45 * adoptedLevel(64));
+                    speed *= (0.82 + 2.35 * chain);
+                } else if (t.id == 76) {
+                    const double chain = clamp01(0.55 * adoptedLevel(70) + 0.45 * adoptedLevel(69));
+                    speed *= (0.84 + 2.50 * chain);
+                } else if (t.id == 79) {
+                    const double chain = clamp01(0.50 * adoptedLevel(76) + 0.30 * adoptedLevel(73) + 0.20 * adoptedLevel(69));
+                    speed *= (0.86 + 2.65 * chain);
+                } else if (t.id >= 85) {
+                    const double chain = clamp01(0.50 * adoptedLevel(79) + 0.30 * adoptedLevel(76) + 0.20 * adoptedLevel(70));
+                    speed *= (0.80 + 2.10 * chain);
+                }
+                const double frontierState = clamp01(
+                    0.24 * s.institution +
+                    0.18 * s.marketAccess +
+                    0.14 * s.connectivity +
+                    0.12 * s.ideaMarketIntegration +
+                    0.12 * s.mediaThroughput +
+                    0.12 * s.specialization +
+                    0.08 * s.energyAvail);
+                if (t.order >= 980 && (adoptedLevel(49) > 0.60 || adoptedLevel(29) > 0.75)) {
+                    speed *= (0.80 + 2.80 * frontierState);
+                }
+                if (t.order >= 1040 && adoptedLevel(51) > 0.60) {
+                    speed *= (0.76 + 3.10 * frontierState);
+                }
+                if (t.id == 60 && adoptedLevel(52) > 0.60 && adoptedLevel(54) > 0.60) {
+                    speed *= (0.70 + 3.90 * frontierState);
+                }
+                if (t.order >= 1240 && adoptedLevel(60) > 0.55) {
+                    speed *= (0.70 + 4.60 * frontierState);
+                }
+                if (t.order >= 1240 && combinatorialTakeoff > 0.0) {
+                    speed *= (0.82 + 5.60 * std::pow(combinatorialTakeoff, 1.25) * frontierState);
+                }
+                if (t.order >= 1530 && adoptedLevel(79) > 0.55) {
+                    speed *= (0.65 + 5.40 * frontierState);
+                }
+                if (t.order >= 1530 && adoptedLevel(79) > 0.55 && combinatorialTakeoff > 0.0) {
+                    speed *= (0.72 + 6.40 * std::pow(combinatorialTakeoff, 1.10) * frontierState);
                 }
                 const double dA = speed * (1.0 - A) * yearsD;
                 A += dA;
