@@ -204,6 +204,13 @@ tradeMaxPricePremium = 1.65
 tradeIntensityScale = 18
 tradeIntensityValueNormBase = 1200
 tradeIntensityMemory = 0.72
+marketClearingBaseIterations = 1
+marketClearingMaxIterations = 5
+priceAdjustmentSpeed = 0.24
+priceStickinessBase = 0.38
+tradeSearchFrictionBase = 0.33
+creditFrictionWeight = 0.36
+informationFrictionWeight = 0.30
 useGPU = true
 
 [scoring]

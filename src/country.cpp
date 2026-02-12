@@ -348,6 +348,34 @@ void Country::resetEliteBlocsForEra(int foundingYear) {
     m_eliteBlocs[3] = EliteBlocState{"Merchant Networks", 0.16, 0.58, 0.24, 0.42};
     m_socialClasses.shares = {0.82, 0.18, 0.0, 0.0, 0.0, 0.0};
     m_socialClasses.complexityLevel = 2;
+    for (size_t i = 0; i < m_classAgents.size(); ++i) {
+        ClassAgentState& a = m_classAgents[i];
+        a.sentiment = 0.54;
+        a.influence = std::max(0.0, m_socialClasses.shares[i]);
+        a.tradePreference = 0.45;
+        a.innovationPreference = 0.42;
+        a.redistributionPreference = 0.58;
+        a.externalNetwork = 0.0;
+    }
+    // Structured class priors (no scripted events, only persistent preferences).
+    m_classAgents[static_cast<size_t>(SocialClass::Subsistence)].tradePreference = 0.22;
+    m_classAgents[static_cast<size_t>(SocialClass::Subsistence)].innovationPreference = 0.28;
+    m_classAgents[static_cast<size_t>(SocialClass::Subsistence)].redistributionPreference = 0.80;
+    m_classAgents[static_cast<size_t>(SocialClass::Laborers)].tradePreference = 0.35;
+    m_classAgents[static_cast<size_t>(SocialClass::Laborers)].innovationPreference = 0.45;
+    m_classAgents[static_cast<size_t>(SocialClass::Laborers)].redistributionPreference = 0.68;
+    m_classAgents[static_cast<size_t>(SocialClass::Artisans)].tradePreference = 0.58;
+    m_classAgents[static_cast<size_t>(SocialClass::Artisans)].innovationPreference = 0.65;
+    m_classAgents[static_cast<size_t>(SocialClass::Artisans)].redistributionPreference = 0.42;
+    m_classAgents[static_cast<size_t>(SocialClass::Merchants)].tradePreference = 0.74;
+    m_classAgents[static_cast<size_t>(SocialClass::Merchants)].innovationPreference = 0.62;
+    m_classAgents[static_cast<size_t>(SocialClass::Merchants)].redistributionPreference = 0.30;
+    m_classAgents[static_cast<size_t>(SocialClass::Bureaucrats)].tradePreference = 0.46;
+    m_classAgents[static_cast<size_t>(SocialClass::Bureaucrats)].innovationPreference = 0.57;
+    m_classAgents[static_cast<size_t>(SocialClass::Bureaucrats)].redistributionPreference = 0.50;
+    m_classAgents[static_cast<size_t>(SocialClass::Elite)].tradePreference = 0.50;
+    m_classAgents[static_cast<size_t>(SocialClass::Elite)].innovationPreference = 0.45;
+    m_classAgents[static_cast<size_t>(SocialClass::Elite)].redistributionPreference = 0.20;
     m_eliteBargainingPressure = 0.0;
     m_commonerPressure = 0.0;
 }
@@ -470,24 +498,59 @@ void Country::tickAgenticSociety(int currentYear,
                                  int techCount,
                                  const SimulationConfig& simCfg,
                                  News& news) {
-    (void)simCfg;
     auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
     const double pop = std::max(1.0, static_cast<double>(std::max<long long>(1, m_population)));
     const double urbanShare = clamp01(m_totalCityPopulation / pop);
     const double institution = clamp01(m_macro.institutionCapacity);
+    const double marketAccess = clamp01(m_macro.marketAccess);
+    const double connectivity = clamp01(m_macro.connectivityIndex);
+    const double ideaMarket = clamp01(m_macro.ideaMarketIntegrationIndex);
+    const double merchantPower = clamp01(m_macro.merchantPowerIndex);
+    const double mediaThroughput = clamp01(m_macro.mediaThroughputIndex);
+    const double humanCapital = clamp01(m_macro.humanCapital);
+    const double knowledgeStock = clamp01(m_macro.knowledgeStock);
+    const double credibility = clamp01(m_macro.credibleCommitmentIndex);
+    const double ineq = clamp01(m_macro.inequality);
+    const double famine = clamp01(m_macro.famineSeverity + std::max(0.0, 0.92 - m_macro.foodSecurity));
+    const double warPressure = m_isAtWar ? 1.0 : 0.0;
+    const double debtStress = clamp01(m_polity.debt / std::max(1.0, m_lastTaxTake * 8.0 + 1.0));
+    const double creditStress = clamp01(
+        std::max(0.0, simCfg.economy.creditFrictionWeight) * debtStress +
+        (1.0 - std::max(0.0, simCfg.economy.creditFrictionWeight)) * clamp01(m_macro.leakageRate));
+    const double infoFriction = clamp01(
+        std::max(0.0, simCfg.economy.informationFrictionWeight) *
+            (1.0 - clamp01(0.60 * connectivity + 0.40 * mediaThroughput)));
     const double capability = clamp01(
         0.34 * clamp01(m_polity.adminCapacity) +
         0.24 * clamp01(m_avgControl) +
         0.18 * institution +
-        0.14 * clamp01(m_macro.marketAccess) +
+        0.14 * marketAccess +
         0.10 * urbanShare);
-    const double scienceDepth = clamp01(static_cast<double>(std::max(0, techCount)) / 45.0);
+    const double scienceDepth = clamp01(static_cast<double>(std::max(0, techCount)) / 55.0);
+    const double stateCapacity = clamp01(0.45 * capability + 0.30 * institution + 0.25 * clamp01(m_avgControl));
+    const double commercialDepth = clamp01(
+        0.33 * marketAccess +
+        0.23 * connectivity +
+        0.18 * ideaMarket +
+        0.16 * merchantPower +
+        0.10 * mediaThroughput);
+    const double bourgeoisEmergence = clamp01(
+        0.26 * urbanShare +
+        0.20 * commercialDepth +
+        0.16 * scienceDepth +
+        0.14 * institution +
+        0.12 * humanCapital +
+        0.12 * knowledgeStock -
+        0.18 * famine -
+        0.12 * warPressure -
+        0.08 * creditStress -
+        0.08 * infoFriction);
 
     int targetComplexity = 2;
-    if (capability > 0.16 || techCount >= 8) targetComplexity = 3;
-    if (capability > 0.28 || techCount >= 16) targetComplexity = 4;
-    if (capability > 0.42 || techCount >= 24) targetComplexity = 5;
-    if (capability > 0.58 || techCount >= 36) targetComplexity = 6;
+    if (capability > 0.14 || techCount >= 8 || bourgeoisEmergence > 0.18) targetComplexity = 3;
+    if (capability > 0.24 || techCount >= 15 || bourgeoisEmergence > 0.30) targetComplexity = 4;
+    if (capability > 0.38 || techCount >= 24 || bourgeoisEmergence > 0.44) targetComplexity = 5;
+    if (capability > 0.54 || techCount >= 36 || bourgeoisEmergence > 0.58) targetComplexity = 6;
     targetComplexity = std::max(2, std::min(6, targetComplexity));
     if (targetComplexity > m_socialClasses.complexityLevel && (currentYear % 15 == 0)) {
         m_socialClasses.complexityLevel = targetComplexity;
@@ -495,18 +558,17 @@ void Country::tickAgenticSociety(int currentYear,
     }
 
     std::array<double, 6> targetShares{};
-    const double famine = clamp01(m_macro.famineSeverity + std::max(0.0, 0.92 - m_macro.foodSecurity));
-    targetShares[0] = std::clamp(0.80 - 0.42 * capability - 0.24 * urbanShare + 0.14 * famine, 0.08, 0.92);
-    targetShares[1] = std::clamp(0.14 + 0.16 * urbanShare + 0.08 * capability, 0.05, 0.50);
+    targetShares[0] = std::clamp(0.84 - 0.44 * capability - 0.20 * urbanShare + 0.16 * famine, 0.06, 0.93);
+    targetShares[1] = std::clamp(0.12 + 0.14 * urbanShare + 0.10 * capability - 0.05 * famine, 0.04, 0.54);
     targetShares[2] = (m_socialClasses.complexityLevel >= 3)
-        ? std::clamp(0.03 + 0.10 * capability + 0.10 * urbanShare, 0.0, 0.25) : 0.0;
+        ? std::clamp(0.02 + 0.10 * capability + 0.11 * urbanShare + 0.13 * bourgeoisEmergence + 0.08 * scienceDepth, 0.0, 0.28) : 0.0;
     targetShares[3] = (m_socialClasses.complexityLevel >= 4)
-        ? std::clamp(0.02 + 0.10 * clamp01(m_macro.marketAccess) + 0.07 * clamp01(m_macro.connectivityIndex), 0.0, 0.22) : 0.0;
+        ? std::clamp(0.01 + 0.16 * commercialDepth + 0.14 * bourgeoisEmergence + 0.05 * credibility - 0.04 * famine, 0.0, 0.26) : 0.0;
     targetShares[4] = (m_socialClasses.complexityLevel >= 5)
-        ? std::clamp(0.01 + 0.12 * clamp01(m_polity.adminCapacity) + 0.07 * institution, 0.0, 0.20) : 0.0;
+        ? std::clamp(0.01 + 0.14 * stateCapacity + 0.08 * institution + 0.08 * scienceDepth, 0.0, 0.22) : 0.0;
     targetShares[5] = (m_socialClasses.complexityLevel >= 6)
-        ? std::clamp(0.03 + 0.08 * clamp01(m_macro.inequality) + 0.05 * clamp01(m_polity.adminCapacity), 0.02, 0.16)
-        : std::clamp(0.02 + 0.05 * clamp01(m_macro.inequality), 0.02, 0.10);
+        ? std::clamp(0.03 + 0.09 * ineq + 0.05 * stateCapacity + 0.04 * debtStress, 0.02, 0.16)
+        : std::clamp(0.02 + 0.06 * ineq + 0.03 * debtStress, 0.02, 0.10);
 
     double sumT = 0.0;
     for (double v : targetShares) sumT += std::max(0.0, v);
@@ -516,8 +578,10 @@ void Country::tickAgenticSociety(int currentYear,
     }
     for (double& v : targetShares) v = std::max(0.0, v / sumT);
 
+    const double classAdjust = std::clamp(0.08 + 0.08 * bourgeoisEmergence + 0.06 * famine, 0.06, 0.24);
     for (size_t i = 0; i < m_socialClasses.shares.size(); ++i) {
-        m_socialClasses.shares[i] = 0.90 * m_socialClasses.shares[i] + 0.10 * targetShares[i];
+        m_socialClasses.shares[i] =
+            (1.0 - classAdjust) * m_socialClasses.shares[i] + classAdjust * targetShares[i];
         if (static_cast<int>(i) >= m_socialClasses.complexityLevel) {
             m_socialClasses.shares[i] *= 0.85;
         }
@@ -528,6 +592,58 @@ void Country::tickAgenticSociety(int currentYear,
         for (double& v : m_socialClasses.shares) v = std::max(0.0, v / classSum);
     }
 
+    // Class-level agents: low-dimensional political economy actors.
+    for (size_t ci = 0; ci < m_classAgents.size(); ++ci) {
+        ClassAgentState& agent = m_classAgents[ci];
+        const double share = clamp01(m_socialClasses.shares[ci]);
+        const bool active = static_cast<int>(ci) < m_socialClasses.complexityLevel;
+        const double activeMult = active ? 1.0 : 0.45;
+        const double orgDepth =
+            clamp01(0.28 + 0.30 * stateCapacity + 0.24 * commercialDepth + 0.18 * urbanShare) * activeMult;
+        const double influenceTarget = share * (0.45 + 0.55 * orgDepth);
+        agent.influence = clamp01(0.86 * agent.influence + 0.14 * influenceTarget);
+
+        const double preferenceFit = clamp01(
+            0.34 * (agent.tradePreference * commercialDepth +
+                    (1.0 - agent.tradePreference) * (1.0 - famine)) +
+            0.34 * (agent.innovationPreference * (0.55 * scienceDepth + 0.45 * bourgeoisEmergence) +
+                    (1.0 - agent.innovationPreference) * (0.65 + 0.35 * stateCapacity)) +
+            0.32 * (agent.redistributionPreference * (1.0 - ineq) +
+                    (1.0 - agent.redistributionPreference) * (0.65 * credibility + 0.35 * merchantPower)));
+
+        double hardship = 0.0;
+        if (ci == static_cast<size_t>(SocialClass::Subsistence)) {
+            hardship = clamp01(0.58 * famine + 0.18 * warPressure + 0.14 * ineq + 0.10 * creditStress);
+        } else if (ci == static_cast<size_t>(SocialClass::Laborers)) {
+            hardship = clamp01(0.35 * famine + 0.25 * ineq + 0.18 * warPressure + 0.22 * clamp01(1.0 - m_macro.realWage / 1.2));
+        } else if (ci == static_cast<size_t>(SocialClass::Artisans)) {
+            hardship = clamp01(0.30 * creditStress + 0.26 * infoFriction + 0.22 * warPressure + 0.22 * clamp01(1.0 - commercialDepth));
+        } else if (ci == static_cast<size_t>(SocialClass::Merchants)) {
+            hardship = clamp01(0.38 * clamp01(1.0 - credibility) + 0.24 * warPressure + 0.20 * creditStress + 0.18 * infoFriction);
+        } else if (ci == static_cast<size_t>(SocialClass::Bureaucrats)) {
+            hardship = clamp01(0.32 * clamp01(1.0 - stateCapacity) + 0.28 * clamp01(1.0 - institution) + 0.20 * warPressure + 0.20 * ineq);
+        } else {
+            hardship = clamp01(0.34 * debtStress + 0.28 * clamp01(m_polity.taxRate / 0.45) + 0.22 * warPressure + 0.16 * clamp01(1.0 - credibility));
+        }
+        const double sentimentTarget = clamp01(
+            0.14 +
+            0.40 * preferenceFit +
+            0.18 * agent.externalNetwork +
+            0.10 * stateCapacity +
+            0.08 * m_leader.competence -
+            0.32 * hardship);
+        agent.sentiment = clamp01(0.88 * agent.sentiment + 0.12 * sentimentTarget);
+    }
+    double agentInfluenceSum = 0.0;
+    for (const ClassAgentState& a : m_classAgents) {
+        agentInfluenceSum += std::max(0.0, a.influence);
+    }
+    if (agentInfluenceSum > 1e-9) {
+        for (ClassAgentState& a : m_classAgents) {
+            a.influence = std::max(0.0, a.influence / agentInfluenceSum);
+        }
+    }
+
     const double militarism = clamp01(m_traits[2]);
     const double religiosity = clamp01(m_traits[0]);
     const double hierarchy = clamp01(m_traits[4]);
@@ -536,7 +652,7 @@ void Country::tickAgenticSociety(int currentYear,
         std::clamp(0.42 * m_socialClasses.shares[0] + 0.22 * m_socialClasses.shares[1] + 0.10 * hierarchy, 0.05, 0.55), // landed
         std::clamp(0.20 + 0.22 * militarism + 0.12 * (m_isAtWar ? 1.0 : 0.0), 0.08, 0.50),                               // military
         std::clamp(0.14 + 0.20 * religiosity + 0.06 * hierarchy, 0.06, 0.45),                                              // ritual
-        std::clamp(0.10 + 0.28 * m_socialClasses.shares[3] + 0.12 * mercantile, 0.04, 0.45)                                // merchant
+        std::clamp(0.08 + 0.26 * m_socialClasses.shares[3] + 0.12 * mercantile + 0.18 * getBourgeoisInfluence(), 0.04, 0.50) // merchant
     };
     double inflSum = 0.0;
     for (double v : blocInfluenceTarget) inflSum += std::max(0.0, v);
@@ -544,24 +660,39 @@ void Country::tickAgenticSociety(int currentYear,
         for (double& v : blocInfluenceTarget) v /= inflSum;
     }
 
+    const double commonerSentiment = clamp01(
+        0.58 * m_classAgents[static_cast<size_t>(SocialClass::Subsistence)].sentiment +
+        0.42 * m_classAgents[static_cast<size_t>(SocialClass::Laborers)].sentiment);
     m_commonerPressure = clamp01(
-        0.38 * famine +
-        0.22 * clamp01(m_macro.inequality) +
+        0.32 * famine +
+        0.20 * ineq +
         0.20 * clamp01(m_polity.taxRate / 0.45) +
         0.12 * (1.0 - clamp01(m_avgControl)) +
-        0.08 * (m_isAtWar ? 1.0 : 0.0));
+        0.08 * warPressure +
+        0.08 * (1.0 - commonerSentiment));
+    const double bourgeoisSentiment = clamp01(
+        0.52 * m_classAgents[static_cast<size_t>(SocialClass::Artisans)].sentiment +
+        0.48 * m_classAgents[static_cast<size_t>(SocialClass::Merchants)].sentiment);
+    const double bureaucratSentiment = m_classAgents[static_cast<size_t>(SocialClass::Bureaucrats)].sentiment;
+    const double bourgeoisPressure =
+        clamp01(getBourgeoisInfluence() * (1.0 - bourgeoisSentiment) * (0.70 + 0.30 * commercialDepth));
+    const double bureaucratPressure =
+        clamp01(m_classAgents[static_cast<size_t>(SocialClass::Bureaucrats)].influence * (1.0 - bureaucratSentiment));
 
     m_eliteBargainingPressure = 0.0;
     for (size_t i = 0; i < m_eliteBlocs.size(); ++i) {
         EliteBlocState& bloc = m_eliteBlocs[i];
         bloc.influence = 0.88 * bloc.influence + 0.12 * blocInfluenceTarget[i];
         const double extraction = clamp01(m_polity.taxRate / std::max(0.15, bloc.extractionTolerance));
-        const double eliteStress = clamp01(
+        double eliteStress = clamp01(
             0.30 * clamp01(m_polity.debt / std::max(1.0, m_lastTaxTake * 5.0)) +
             0.25 * extraction +
             0.20 * (1.0 - clamp01(m_polity.legitimacy)) +
             0.15 * m_commonerPressure +
-            0.10 * (m_isAtWar ? 1.0 : 0.0));
+            0.10 * warPressure);
+        if (i == 3) {
+            eliteStress = clamp01(eliteStress + 0.30 * bourgeoisPressure);
+        }
         bloc.grievance = clamp01(0.82 * bloc.grievance + 0.18 * eliteStress);
         const double alignment = clamp01(0.5 + 0.5 * (m_leader.eliteAffinity - 0.5));
         bloc.loyalty = clamp01(
@@ -573,36 +704,74 @@ void Country::tickAgenticSociety(int currentYear,
     }
     m_eliteBargainingPressure = clamp01(m_eliteBargainingPressure);
 
-    const double combinedPressure = clamp01(0.55 * m_eliteBargainingPressure + 0.45 * m_commonerPressure);
+    const double combinedPressure = clamp01(
+        0.42 * m_eliteBargainingPressure +
+        0.33 * m_commonerPressure +
+        0.19 * bourgeoisPressure +
+        0.06 * bureaucratPressure);
     if (combinedPressure > 0.35) {
         m_polity.treasurySpendRate = std::clamp(
             m_polity.treasurySpendRate - 0.05 * combinedPressure + 0.03 * (m_leader.ambition - 0.5),
             0.40, 1.45);
         m_polity.taxRate = std::clamp(
-            m_polity.taxRate + 0.010 * combinedPressure * (0.35 + 0.65 * m_leader.coercion),
+            m_polity.taxRate +
+                0.010 * combinedPressure * (0.35 + 0.65 * m_leader.coercion) -
+                0.004 * bourgeoisPressure * (0.55 + 0.45 * m_leader.reformism),
             0.02, 0.45);
-        m_polity.adminSpendingShare = std::max(0.03, m_polity.adminSpendingShare + 0.015 * combinedPressure);
-        m_polity.infraSpendingShare = std::max(0.03, m_polity.infraSpendingShare + 0.010 * combinedPressure);
+        m_polity.adminSpendingShare = std::max(0.03, m_polity.adminSpendingShare + 0.014 * combinedPressure + 0.008 * bureaucratPressure);
+        m_polity.infraSpendingShare = std::max(0.03, m_polity.infraSpendingShare + 0.009 * combinedPressure + 0.010 * bourgeoisPressure);
         m_polity.militarySpendingShare = std::max(0.03, m_polity.militarySpendingShare + 0.010 * m_eliteBargainingPressure);
+        m_polity.educationSpendingShare = std::max(0.0, m_polity.educationSpendingShare + 0.008 * (bourgeoisPressure + bureaucratPressure));
+        m_polity.rndSpendingShare = std::max(0.0, m_polity.rndSpendingShare + 0.010 * bourgeoisPressure * (0.55 + 0.45 * m_leader.reformism));
     } else if (m_commonerPressure > 0.28) {
         m_polity.taxRate = std::max(0.02, m_polity.taxRate - 0.006 * m_commonerPressure * (0.45 + 0.55 * m_leader.commonerAffinity));
         m_polity.infraSpendingShare = std::max(0.03, m_polity.infraSpendingShare + 0.010 * m_commonerPressure);
+    } else if (bourgeoisPressure > 0.16) {
+        m_polity.taxRate = std::max(0.02, m_polity.taxRate - 0.005 * bourgeoisPressure * (0.45 + 0.55 * m_leader.reformism));
+        m_polity.infraSpendingShare = std::max(0.03, m_polity.infraSpendingShare + 0.012 * bourgeoisPressure);
+        m_polity.educationSpendingShare = std::max(0.0, m_polity.educationSpendingShare + 0.010 * bourgeoisPressure);
+        m_polity.rndSpendingShare = std::max(0.0, m_polity.rndSpendingShare + 0.012 * bourgeoisPressure);
+    }
+
+    if (bourgeoisEmergence > 0.60 &&
+        m_socialClasses.complexityLevel >= 4 &&
+        m_socialClasses.shares[static_cast<size_t>(SocialClass::Merchants)] > 0.10 &&
+        m_socialClasses.shares[static_cast<size_t>(SocialClass::Artisans)] > 0.08 &&
+        (currentYear % 37 == 0)) {
+        news.addEvent(m_name + " sees autonomous urban commercial classes gain political leverage.");
     }
 
     m_leader.age = std::min(95, m_leader.age + 1);
     m_leader.yearsInPower = std::max(0, m_leader.yearsInPower + 1);
+    m_leader.reformism = clamp01(
+        m_leader.reformism +
+        0.010 * bourgeoisPressure +
+        0.006 * bureaucratPressure -
+        0.006 * m_eliteBargainingPressure);
+    m_leader.coercion = clamp01(
+        m_leader.coercion +
+        0.008 * combinedPressure +
+        0.006 * m_eliteBargainingPressure -
+        0.007 * bourgeoisPressure);
+    m_leader.ambition = clamp01(
+        m_leader.ambition +
+        0.006 * m_eliteBargainingPressure +
+        0.004 * (1.0 - commonerSentiment) -
+        0.004 * warPressure);
 
     const double leaderLegitDelta =
         +0.008 * (m_leader.competence - 0.5) +
         +0.006 * (m_leader.commonerAffinity - 0.5) * (1.0 - m_commonerPressure) -
         0.010 * m_commonerPressure * (0.60 + 0.40 * m_leader.coercion) -
-        0.008 * m_eliteBargainingPressure * (0.60 + 0.40 * (1.0 - m_leader.eliteAffinity));
+        0.008 * m_eliteBargainingPressure * (0.60 + 0.40 * (1.0 - m_leader.eliteAffinity)) +
+        0.006 * bourgeoisPressure * (0.45 + 0.55 * m_leader.reformism);
     m_polity.legitimacy = clamp01(m_polity.legitimacy + leaderLegitDelta);
 
     const double leaderStabilityDelta =
         +0.010 * (m_leader.coercion - 0.5) * (0.40 + 0.60 * clamp01(m_polity.adminCapacity)) +
         +0.007 * (m_leader.competence - 0.5) -
-        0.010 * combinedPressure;
+        0.010 * combinedPressure -
+        0.004 * bourgeoisPressure * (0.65 + 0.35 * m_leader.diplomacy);
     m_stability = clamp01(m_stability + leaderStabilityDelta);
 
     maybeRunElection(currentYear, news);
@@ -650,6 +819,32 @@ void Country::tickAgenticSociety(int currentYear,
     if (scienceDepth > 0.45) {
         m_leader.reformism = std::clamp(m_leader.reformism + 0.002 * (scienceDepth - 0.45), 0.05, 0.98);
     }
+}
+
+double Country::getBourgeoisInfluence() const {
+    const auto art = static_cast<size_t>(SocialClass::Artisans);
+    const auto mer = static_cast<size_t>(SocialClass::Merchants);
+    const double mix = 0.48 * m_classAgents[art].influence + 0.52 * m_classAgents[mer].influence;
+    return std::clamp(mix, 0.0, 1.0);
+}
+
+void Country::applyClassNetworkSignals(double artisanSignal,
+                                       double merchantSignal,
+                                       double bureaucratSignal,
+                                       int dtYears) {
+    const double yearsD = std::max(1.0, static_cast<double>(std::max(1, dtYears)));
+    auto clamp01 = [](double v) { return std::max(0.0, std::min(1.0, v)); };
+    const double alpha = std::clamp(0.16 * yearsD, 0.04, 0.42);
+    auto applyOne = [&](SocialClass cls, double signal) {
+        ClassAgentState& a = m_classAgents[static_cast<size_t>(cls)];
+        const double s = clamp01(signal);
+        a.externalNetwork = clamp01((1.0 - alpha) * a.externalNetwork + alpha * s);
+        // Transnational class networks are weak but persistent amplifiers.
+        a.sentiment = clamp01(a.sentiment + 0.05 * (s - 0.50));
+    };
+    applyOne(SocialClass::Artisans, artisanSignal);
+    applyOne(SocialClass::Merchants, merchantSignal);
+    applyOne(SocialClass::Bureaucrats, bureaucratSignal);
 }
 
 void Country::ensureTechStateSize(int techCount) {
@@ -3081,6 +3276,22 @@ void Country::canonicalizeDeterministicScalars(double fineScale, double govScale
     if (classSum > 1.0e-12) {
         for (double& share : m_socialClasses.shares) {
             share /= classSum;
+        }
+    }
+
+    double classInfluenceSum = 0.0;
+    for (ClassAgentState& agent : m_classAgents) {
+        agent.sentiment = clamp01(q(agent.sentiment, govScale));
+        agent.influence = std::max(0.0, q(agent.influence, govScale));
+        agent.tradePreference = clamp01(q(agent.tradePreference, govScale));
+        agent.innovationPreference = clamp01(q(agent.innovationPreference, govScale));
+        agent.redistributionPreference = clamp01(q(agent.redistributionPreference, govScale));
+        agent.externalNetwork = clamp01(q(agent.externalNetwork, govScale));
+        classInfluenceSum += agent.influence;
+    }
+    if (classInfluenceSum > 1.0e-12) {
+        for (ClassAgentState& agent : m_classAgents) {
+            agent.influence /= classInfluenceSum;
         }
     }
 

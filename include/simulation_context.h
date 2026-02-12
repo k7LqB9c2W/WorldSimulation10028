@@ -252,6 +252,13 @@ struct SimulationConfig {
         double tradeIntensityScale = 5.0;
         double tradeIntensityValueNormBase = 2000.0;
         double tradeIntensityMemory = 0.35;
+        int marketClearingBaseIterations = 1;
+        int marketClearingMaxIterations = 4;
+        double priceAdjustmentSpeed = 0.18;
+        double priceStickinessBase = 0.40;
+        double tradeSearchFrictionBase = 0.35;
+        double creditFrictionWeight = 0.35;
+        double informationFrictionWeight = 0.30;
         bool useGPU = true;
     } economy{};
 

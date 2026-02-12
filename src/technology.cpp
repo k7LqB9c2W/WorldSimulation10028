@@ -199,7 +199,7 @@ void TechnologyManager::initializeTechnologies() {
     m_technologies.emplace(38, Technology{"Mechanical Clock", 2200, 38, {29}});
     m_technologies.emplace(39, Technology{"Universities", 2100, 39, {30}});
     m_technologies.emplace(40, Technology{"Astronomy", 2600, 40, {24, 14}});
-    m_technologies.emplace(41, Technology{"Chemistry", 2800, 41, {42, 49}});
+    m_technologies.emplace(41, Technology{"Chemistry", 2800, 41, {42, 25}});
     m_technologies.emplace(42, Technology{"Metallurgy", 3000, 42, {13, 4, 120}});
     m_technologies.emplace(43, Technology{"Navigation", 3200, 43, {26, 40}});
     m_technologies.emplace(44, Technology{"Architecture", 3400, 44, {23, 31}});
@@ -209,16 +209,16 @@ void TechnologyManager::initializeTechnologies() {
     m_technologies.emplace(48, Technology{"Physics", 4200, 48, {40, 49}});
     m_technologies.emplace(49, Technology{"Scientific Method", 4500, 49, {36, 39, 14}});
     m_technologies.emplace(50, Technology{"Rifling", 4800, 50, {47}});
-    m_technologies.emplace(51, Technology{"Steam Engine", 5000, 51, {23, 42}});
-    m_technologies.emplace(52, Technology{"Industrialization", 5500, 52, {42, 51}});
+    m_technologies.emplace(51, Technology{"Steam Engine", 5000, 51, {29, 49}});
+    m_technologies.emplace(52, Technology{"Industrialization", 5500, 52, {51}});
     m_technologies.emplace(53, Technology{"Vaccination", 6500, 53, {41}});
-    m_technologies.emplace(54, Technology{"Electricity", 7000, 54, {48, 41}});
-    m_technologies.emplace(55, Technology{"Railroad", 7500, 55, {50, 51}});
+    m_technologies.emplace(54, Technology{"Electricity", 7000, 54, {49, 41}});
+    m_technologies.emplace(55, Technology{"Railroad", 7500, 55, {51, 52}});
     m_technologies.emplace(56, Technology{"Dynamite", 8000, 56, {41}});
     m_technologies.emplace(57, Technology{"Replaceable Parts", 8500, 57, {51}});
     m_technologies.emplace(58, Technology{"Telegraph", 9000, 58, {54}});
     m_technologies.emplace(59, Technology{"Telephone", 9500, 59, {54}});
-    m_technologies.emplace(60, Technology{"Combustion", 10000, 60, {50, 41}});
+    m_technologies.emplace(60, Technology{"Combustion", 10000, 60, {52, 41}});
     m_technologies.emplace(61, Technology{"Flight", 11000, 61, {60}});
     m_technologies.emplace(62, Technology{"Radio", 12000, 62, {58}});
     m_technologies.emplace(63, Technology{"Mass Production", 13000, 63, {57}});
@@ -264,34 +264,34 @@ void TechnologyManager::initializeTechnologies() {
         const int base = std::max(20, it->second.cost);
         it->second.cost = std::max(20, static_cast<int>(std::lround(base * std::max(0.10, mult))));
     };
-    rescaleCost(23, 0.74); // Engineering
+    rescaleCost(23, 0.62); // Engineering
     rescaleCost(24, 0.84); // Optics
-    rescaleCost(29, 0.74); // Machinery
+    rescaleCost(29, 0.62); // Machinery
     rescaleCost(30, 0.80); // Education
     rescaleCost(31, 0.82); // Acoustics
     rescaleCost(34, 0.80); // Banking
     rescaleCost(35, 0.82); // Markets
     rescaleCost(39, 0.70); // Universities
     rescaleCost(40, 0.72); // Astronomy
-    rescaleCost(41, 0.75); // Chemistry
-    rescaleCost(42, 0.70); // Metallurgy
+    rescaleCost(41, 0.70); // Chemistry
+    rescaleCost(42, 0.60); // Metallurgy
     rescaleCost(43, 0.82); // Navigation
-    rescaleCost(45, 0.82); // Economics
-    rescaleCost(46, 0.82); // Printing Press
+    rescaleCost(45, 0.78); // Economics
+    rescaleCost(46, 0.78); // Printing Press
     rescaleCost(47, 0.82); // Firearms
-    rescaleCost(48, 0.75); // Physics
-    rescaleCost(49, 0.70); // Scientific Method
-    rescaleCost(50, 0.80); // Rifling
-    rescaleCost(51, 0.74); // Steam Engine
-    rescaleCost(52, 0.76); // Industrialization
+    rescaleCost(48, 0.66); // Physics
+    rescaleCost(49, 0.60); // Scientific Method
+    rescaleCost(50, 0.66); // Rifling
+    rescaleCost(51, 0.44); // Steam Engine
+    rescaleCost(52, 0.50); // Industrialization
     rescaleCost(53, 0.82); // Vaccination
-    rescaleCost(54, 0.80); // Electricity
+    rescaleCost(54, 0.58); // Electricity
     rescaleCost(55, 0.82); // Railroad
     rescaleCost(56, 0.85); // Dynamite
     rescaleCost(57, 0.84); // Replaceable Parts
     rescaleCost(58, 0.84); // Telegraph
     rescaleCost(59, 0.86); // Telephone
-    rescaleCost(60, 0.84); // Combustion
+    rescaleCost(60, 0.60); // Combustion
     rescaleCost(61, 0.86); // Flight
     rescaleCost(62, 0.88); // Radio
     rescaleCost(63, 0.84); // Mass Production
@@ -339,17 +339,21 @@ void TechnologyManager::initializeTechnologies() {
     mark(4, 200, 1.2, true);   // Mining
     mark(20, 220, 1.35, true); // Agriculture
     mark(11, 275, 1.7, true);  // Writing
-    mark(23, 520, 1.8, true);  // Engineering
-    mark(29, 650, 2.0, true);  // Machinery
+    mark(23, 500, 1.45, true);  // Engineering
+    mark(29, 620, 1.60, true);  // Machinery
     mark(34, 700, 2.0, true);  // Banking
     mark(35, 730, 2.0, true);  // Markets
-    mark(42, 560, 2.2, true);  // Metallurgy
+    mark(42, 540, 2.0, true);  // Metallurgy
     mark(39, 760, 1.9, true);  // Universities
     mark(40, 820, 2.0, true);  // Astronomy
-    mark(49, 980, 2.2, true);  // Scientific Method
-    mark(51, 1060, 2.3, true); // Steam Engine
-    mark(52, 1110, 2.4, true); // Industrialization
-    mark(54, 1180, 2.5, true); // Electricity
+    mark(41, 860, 1.9, true);  // Chemistry
+    mark(45, 885, 1.9, true);  // Economics
+    mark(46, 900, 1.95, true); // Printing Press
+    mark(49, 910, 1.95, true);  // Scientific Method
+    mark(51, 980, 1.62, true);   // Steam Engine
+    mark(52, 1040, 1.78, true);  // Industrialization
+    mark(54, 1110, 1.94, true);  // Electricity
+    mark(60, 1180, 2.00, true);  // Combustion
 
     for (auto& kv : m_technologies) {
         Technology& t = kv.second;
@@ -409,7 +413,8 @@ void TechnologyManager::initializeTechnologies() {
     gate(118, false, false, 0.50, 100.0, 0.0, 0.0, 0.0, 0.03, 0.09, 0.05, 0.0, 0.0);
     gate(119, false, false, 0.0, 0.0, 0.0, 0.22, 0.12, 0.08, 0.04, 0.02, 0.0, 0.0);
     gate(120, false, false, 0.0, 0.0, 0.0, 0.26, 0.18, 0.10, 0.06, 0.03, 0.0, 0.0);
-    gate(42, false, false, 0.0, 0.0, 0.0, 0.30, 0.24, 0.12, 0.10, 0.06, 0.0, 0.0);
+    gate(42, false, false, 0.0, 0.0, 0.0, 0.18, 0.14, 0.08, 0.07, 0.04, 0.0, 0.0);
+    gate(52, false, false, 0.0, 0.0, 0.0, 0.08, 0.22, 0.10, 0.24, 0.16, 0.0, 0.0);
     gate(11, false, false, 0.53, 90.0, 0.0, 0.0, 0.0, 0.05, 0.10, 0.05, 0.0, 0.0);
     gate(43, true, false, 0.0, 0.0, 0.0, 0.0, 0.12, 0.0, 0.16, 0.06, 0.0, 0.0);
 }
@@ -940,6 +945,12 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         adv *= (0.30 + 0.70 * clamp01(m.institutionCapacity));
         adv *= (1.0 - 0.45 * clamp01(m.inequality));
         adv *= (0.28 + 0.72 * resourceGate);
+        const double inducedDemandForMechanization = clamp01(
+            0.36 * clamp01(m.relativeFactorPriceIndex) +
+            0.24 * clamp01(m.merchantPowerIndex) +
+            0.20 * clamp01(m.ideaMarketIntegrationIndex) +
+            0.20 * clamp01(m.credibleCommitmentIndex));
+        adv *= (0.76 + 0.70 * inducedDemandForMechanization);
 
         const double volatility = std::clamp(cfg.tech.innovationVolatility, 0.0, 0.95);
         const double wave =
@@ -985,19 +996,53 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         w[4] += 0.6 * clamp01(c.getAdminSpendingShare());
         w[6] += 1.8 * eduShare;
         w[5] += 1.2 * healthShare;
-        if (TechnologyManager::hasTech(*this, c, 16) || TechnologyManager::hasTech(*this, c, 17)) {
-            w[2] += 1.3; // Existing construction + roads create practical engineering demand.
+        const bool hasConstruction = TechnologyManager::hasTech(*this, c, 16);
+        const bool hasRoads = TechnologyManager::hasTech(*this, c, 17);
+        const bool hasEngineering = TechnologyManager::hasTech(*this, c, 23);
+        const bool hasMachinery = TechnologyManager::hasTech(*this, c, 29);
+        const bool hasMetallurgy = TechnologyManager::hasTech(*this, c, 42);
+        const bool hasMarkets = TechnologyManager::hasTech(*this, c, 35);
+        const bool hasBanking = TechnologyManager::hasTech(*this, c, 34);
+        const bool hasUniversities = TechnologyManager::hasTech(*this, c, 39);
+        if (hasConstruction || hasRoads) {
+            w[2] += 1.4; // Monument/logistics states build a practical engineering tradition.
+        }
+        if (hasConstruction && hasRoads) {
+            w[2] += 1.0;
+        }
+        if (hasEngineering) {
+            w[2] += 1.3;
+            w[1] += 0.5;
+        }
+        if (hasMachinery) {
+            w[1] += 0.9;
+            w[2] += 0.9;
         }
         if (TechnologyManager::hasTech(*this, c, 4) ||
             TechnologyManager::hasTech(*this, c, 13) ||
             TechnologyManager::hasTech(*this, c, 120)) {
             w[1] += 1.1; // Mining/metalworking deepens materials knowledge accumulation.
         }
-        if (TechnologyManager::hasTech(*this, c, 34) || TechnologyManager::hasTech(*this, c, 35)) {
-            w[4] += 0.8;
+        if (hasMetallurgy) {
+            w[1] += 1.0;
+            w[2] += 0.4;
         }
-        if (TechnologyManager::hasTech(*this, c, 36) || TechnologyManager::hasTech(*this, c, 39)) {
+        if (hasBanking || hasMarkets) {
+            w[4] += 0.8;
+            w[2] += 0.5;
+        }
+        if (TechnologyManager::hasTech(*this, c, 36) || hasUniversities) {
             w[6] += 0.8;
+        }
+        if (hasUniversities) {
+            w[2] += 0.4;
+        }
+        if (urban > 0.08 && clamp01(c.getMarketAccess()) > 0.45) {
+            w[2] += 0.7;
+        }
+        if (clamp01(m.relativeFactorPriceIndex) > 0.32) {
+            w[2] += 0.5;
+            w[1] += 0.4;
         }
 
         double sumW = 0.0;
@@ -1320,6 +1365,93 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
         return std::clamp(mult, 0.35, 2.20);
     };
 
+    auto isBridgeTech = [](int techId) {
+        return techId == 23 ||  // Engineering
+               techId == 29 ||  // Machinery
+               techId == 41 ||  // Chemistry
+               techId == 42 ||  // Metallurgy
+               techId == 49 ||  // Scientific Method
+               techId == 51 ||  // Steam
+               techId == 52 ||  // Industrialization
+               techId == 54 ||  // Electricity
+               techId == 60;    // Combustion
+    };
+
+    auto bridgeTransitionMultiplier = [&](const Technology& t, const CountryTechSignals& s) -> double {
+        const bool bridge = isBridgeTech(t.id);
+        if (!bridge) {
+            return 1.0;
+        }
+        const double protoIndustrialPressure = clamp01(
+            0.32 * s.relativeFactorPrice +
+            0.18 * s.energyAvail +
+            0.15 * s.oreAvail +
+            0.10 * s.marketAccess +
+            0.09 * s.connectivity +
+            0.08 * s.ideaMarketIntegration +
+            0.08 * s.merchantPower);
+        const double institutions = clamp01(
+            0.38 * s.institution +
+            0.24 * s.credibleCommitment +
+            0.20 * s.leaderReformism +
+            0.18 * s.mediaThroughput);
+        const double stressDrag = clamp01(
+            0.45 * s.famineSeverity +
+            0.30 * (s.atWar ? 1.0 : 0.0) +
+            0.25 * s.eliteDefectionPressure);
+        const double engineeringReadiness = clamp01(
+            0.33 * s.constructionAvail +
+            0.19 * s.connectivity +
+            0.17 * s.marketAccess +
+            0.16 * s.institution +
+            0.15 * s.specialization);
+        const double scientificReadiness = clamp01(
+            0.31 * s.ideaMarketIntegration +
+            0.27 * s.mediaThroughput +
+            0.22 * s.credibleCommitment +
+            0.20 * s.institution);
+
+        double mult = 1.0;
+        if (t.id == 23) { // Engineering
+            mult *= 0.84 + 1.20 * engineeringReadiness;
+        } else if (t.id == 29) { // Machinery
+            mult *= 0.78 + 1.30 * clamp01(0.42 * protoIndustrialPressure + 0.32 * s.specialization + 0.26 * engineeringReadiness);
+        } else if (t.id == 41) { // Chemistry
+            mult *= 0.76 + 1.18 * clamp01(0.42 * scientificReadiness + 0.33 * s.institution + 0.25 * s.specialization);
+        } else if (t.id == 42) { // Metallurgy
+            mult *= 0.78 + 1.05 * clamp01(0.55 * s.oreAvail + 0.45 * s.energyAvail);
+        } else if (t.id == 49) { // Scientific Method
+            mult *= 0.74 + 1.18 * clamp01(0.46 * institutions + 0.32 * s.ideaMarketIntegration + 0.22 * scientificReadiness);
+        } else if (t.id == 51) { // Steam
+            mult *= 0.72 + 1.55 * clamp01(0.34 * protoIndustrialPressure + 0.24 * s.energyAvail + 0.22 * engineeringReadiness + 0.20 * s.relativeFactorPrice);
+        } else if (t.id == 52) { // Industrialization
+            mult *= 0.70 + 1.64 * clamp01(0.30 * protoIndustrialPressure + 0.24 * institutions + 0.22 * s.specialization + 0.14 * engineeringReadiness + 0.10 * s.energyAvail);
+        } else if (t.id == 54) { // Electricity
+            mult *= 0.70 + 1.18 * clamp01(0.34 * institutions + 0.22 * s.energyAvail + 0.24 * s.mediaThroughput + 0.20 * scientificReadiness);
+        } else if (t.id == 60) { // Combustion
+            mult *= 0.72 + 1.18 * clamp01(0.36 * protoIndustrialPressure + 0.24 * s.energyAvail + 0.24 * s.oreAvail + 0.16 * engineeringReadiness);
+        }
+        mult *= (1.0 - 0.35 * stressDrag);
+        return std::clamp(mult, 0.38, 4.20);
+    };
+
+    auto frontierTailMultiplier = [&](const Technology& t, const CountryTechSignals& s) -> double {
+        const double tailDepth =
+            smooth01((static_cast<double>(t.order) - 820.0) / 460.0);
+        if (tailDepth <= 0.0) {
+            return 1.0;
+        }
+        const double readiness = clamp01(
+            0.28 * s.ideaMarketIntegration +
+            0.22 * s.credibleCommitment +
+            0.18 * s.mediaThroughput +
+            0.14 * s.competitionFragmentation +
+            0.10 * s.relativeFactorPrice +
+            0.08 * s.leaderReformism);
+        const double accel = std::max(0.0, 2.45 * readiness - 0.95);
+        return std::clamp(1.0 + tailDepth * accel, 0.58, 2.70);
+    };
+
     // ---- Discovery pass: new knowledge only (not instant full adoption) ----
     for (int i = 0; i < n; ++i) {
         Country& c = countries[static_cast<size_t>(i)];
@@ -1359,7 +1491,49 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
             if (!isFeasible(c, t, s)) continue;
 
             const double domainK = c.getKnowledgeDomain(t.domainId);
-            const double domainFactor = smooth01((domainK - 0.30 * t.threshold) / std::max(1.0, 0.75 * t.threshold));
+            const double domainAnchor = (t.order >= 500) ? 0.24 : 0.30;
+            const double domainScale = (t.order >= 500) ? 0.62 : 0.75;
+            double domainFactor = smooth01((domainK - domainAnchor * t.threshold) / std::max(1.0, domainScale * t.threshold));
+            const bool bridgeTech = isBridgeTech(t.id);
+            if (bridgeTech) {
+                const double bridgeReadiness = clamp01(
+                    0.30 * s.relativeFactorPrice +
+                    0.22 * s.ideaMarketIntegration +
+                    0.20 * s.credibleCommitment +
+                    0.16 * s.mediaThroughput +
+                    0.12 * s.specialization);
+                const double engineeringReadiness = clamp01(
+                    0.38 * s.constructionAvail +
+                    0.22 * s.connectivity +
+                    0.20 * s.marketAccess +
+                    0.20 * s.institution);
+                const double scientificReadiness = clamp01(
+                    0.34 * s.ideaMarketIntegration +
+                    0.26 * s.mediaThroughput +
+                    0.22 * s.credibleCommitment +
+                    0.18 * s.institution);
+                double bridgeFloor = 0.16 * bridgeReadiness;
+                if (t.id == 23) { // Engineering
+                    bridgeFloor = std::max(bridgeFloor, 0.34 * engineeringReadiness);
+                } else if (t.id == 29) { // Machinery
+                    bridgeFloor = std::max(bridgeFloor, 0.28 * clamp01(0.62 * engineeringReadiness + 0.38 * s.relativeFactorPrice));
+                } else if (t.id == 41) { // Chemistry
+                    bridgeFloor = std::max(bridgeFloor, 0.28 * scientificReadiness);
+                } else if (t.id == 49) { // Scientific Method
+                    bridgeFloor = std::max(bridgeFloor, 0.30 * scientificReadiness);
+                } else if (t.id == 51 || t.id == 52) { // Steam, Industrialization
+                    bridgeFloor = std::max(
+                        bridgeFloor,
+                        0.36 * clamp01(
+                            0.34 * engineeringReadiness +
+                            0.28 * s.relativeFactorPrice +
+                            0.20 * s.energyAvail +
+                            0.18 * s.specialization));
+                } else if (t.id == 54 || t.id == 60) { // Electricity, Combustion
+                    bridgeFloor = std::max(bridgeFloor, 0.30 * clamp01(0.52 * scientificReadiness + 0.48 * engineeringReadiness));
+                }
+                domainFactor = std::max(domainFactor, bridgeFloor);
+            }
             if (domainFactor <= 0.0) continue;
 
             const double popFactor = std::clamp(0.35 + 0.20 * std::log1p(s.pop / 25000.0), 0.20, 2.4);
@@ -1377,6 +1551,11 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                 (0.75 + 0.25 * s.credibleCommitment) *
                 (0.80 + 0.20 * s.mediaThroughput);
             const double inducedBias = inducedInnovationBias(t, s);
+            const double bridgeMultiplier = bridgeTransitionMultiplier(t, s);
+            const double tailMultiplier = frontierTailMultiplier(t, s);
+            const double bridgeReadinessMultiplier = bridgeTech
+                ? std::clamp(0.70 + 1.90 * clamp01((bridgeMultiplier - 0.40) / 2.80), 0.70, 2.60)
+                : 1.0;
             const double volatility = std::clamp(cfg.tech.innovationVolatility, 0.0, 0.95);
             const double discoveryWave =
                 2.0 * deterministicUnit(worldSeed, currentYear / 10, i, dense, 0x5445434844495343ull) - 1.0;
@@ -1394,7 +1573,8 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
             const double hazard =
                 std::max(0.0, cfg.tech.discoveryBase) *
                 popFactor * orgFactor * domainFactor *
-                mechanismBoost * inducedBias * regimeShock * leadershipBoost *
+                mechanismBoost * inducedBias * bridgeMultiplier * bridgeReadinessMultiplier *
+                tailMultiplier * regimeShock * leadershipBoost *
                 regionalDiscoveryMultiplier[static_cast<size_t>(i)] *
                 globalInnovationBias *
                 worldTechClimate *
@@ -1568,10 +1748,15 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
             const double oldA = static_cast<double>(c.adoptionDense(dense));
             double A = oldA;
 
-            const bool prereqOk = prerequisitesAdopted(c, t, prereqAdoptScale);
+            const bool prereqAdopted = prerequisitesAdopted(c, t, prereqAdoptScale);
+            const bool prereqKnown = prerequisitesKnown(c, t);
+            const bool bridgeTech = isBridgeTech(t.id);
+            // For bridge transitions, imported knowledge can be implemented before
+            // full domestic mastery, but with a strong institutional penalty.
+            const bool prereqImplementable = prereqAdopted || (bridgeTech && prereqKnown);
             const bool feasible = isFeasible(c, t, s);
 
-            if (prereqOk && feasible) {
+            if (prereqImplementable && feasible) {
                 double speed = std::max(0.0, cfg.tech.adoptionBaseSpeed);
                 speed *= (0.25 + 0.75 * s.institution);
                 speed *= (0.25 + 0.75 * s.stability);
@@ -1586,6 +1771,8 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                 speed *= (0.78 + 0.22 * s.mediaThroughput);
                 speed *= (0.78 + 0.22 * s.competitionFragmentation);
                 speed *= inducedInnovationBias(t, s);
+                speed *= bridgeTransitionMultiplier(t, s);
+                speed *= frontierTailMultiplier(t, s);
                 speed *= (0.70 + 0.45 * s.leaderCompetence);
                 speed *= (0.68 + 0.55 * s.leaderReformism);
                 speed *= (1.0 - 0.35 * s.eliteDefectionPressure);
@@ -1594,6 +1781,17 @@ void TechnologyManager::tickYear(std::vector<Country>& countries,
                 speed *= (1.0 - 0.35 * s.famineSeverity);
                 speed *= regionalAdoptionMultiplier[static_cast<size_t>(i)];
                 speed *= globalAdoptionBias * worldTechClimate;
+                if (!prereqAdopted) {
+                    const double importImplementation =
+                        std::clamp(
+                            0.16 +
+                            0.42 * s.ideaMarketIntegration +
+                            0.24 * s.credibleCommitment +
+                            0.18 * s.institution,
+                            0.12,
+                            0.75);
+                    speed *= importImplementation;
+                }
                 const double dA = speed * (1.0 - A) * yearsD;
                 A += dA;
             } else {

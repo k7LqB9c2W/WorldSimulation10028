@@ -313,6 +313,13 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "economy", "tradeIntensityScale", config.economy.tradeIntensityScale);
         readTomlValue(root, "economy", "tradeIntensityValueNormBase", config.economy.tradeIntensityValueNormBase);
         readTomlValue(root, "economy", "tradeIntensityMemory", config.economy.tradeIntensityMemory);
+        readTomlValue(root, "economy", "marketClearingBaseIterations", config.economy.marketClearingBaseIterations);
+        readTomlValue(root, "economy", "marketClearingMaxIterations", config.economy.marketClearingMaxIterations);
+        readTomlValue(root, "economy", "priceAdjustmentSpeed", config.economy.priceAdjustmentSpeed);
+        readTomlValue(root, "economy", "priceStickinessBase", config.economy.priceStickinessBase);
+        readTomlValue(root, "economy", "tradeSearchFrictionBase", config.economy.tradeSearchFrictionBase);
+        readTomlValue(root, "economy", "creditFrictionWeight", config.economy.creditFrictionWeight);
+        readTomlValue(root, "economy", "informationFrictionWeight", config.economy.informationFrictionWeight);
         readTomlValue(root, "economy", "useGPU", config.economy.useGPU);
 
         if (const toml::array* checkpoints = root["scoring"]["checkpointsYears"].as_array()) {

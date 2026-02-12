@@ -1660,9 +1660,83 @@ void EconomyModelCPU::tickYear(int year,
         edgesByCountry[static_cast<size_t>(e.b)].push_back(ei);
     }
 
+    std::vector<double> marketSophistication(static_cast<size_t>(n), 0.0);
+    std::vector<double> searchFriction(static_cast<size_t>(n), 0.0);
+    std::vector<double> creditFriction(static_cast<size_t>(n), 0.0);
+    std::vector<double> infoFriction(static_cast<size_t>(n), 0.0);
+    std::vector<double> priceStickiness(static_cast<size_t>(n), 0.0);
+    std::vector<double> priceAdjustSpeed(static_cast<size_t>(n), 0.0);
+    double sophisticationSum = 0.0;
+    for (int i = 0; i < n; ++i) {
+        const Country& c = countries[static_cast<size_t>(i)];
+        const auto& m = c.getMacroEconomy();
+        const double bourgeois = clamp01(c.getBourgeoisInfluence());
+        const double merchantSent =
+            clamp01(c.getClassSentiment(Country::SocialClass::Merchants));
+        const double artisanSent =
+            clamp01(c.getClassSentiment(Country::SocialClass::Artisans));
+        const double sophistication = clamp01(
+            0.26 * clamp01(m.marketAccess) +
+            0.22 * clamp01(m.connectivityIndex) +
+            0.20 * clamp01(m.institutionCapacity) +
+            0.14 * clamp01(m.humanCapital) +
+            0.10 * bourgeois +
+            0.08 * clamp01(0.5 * merchantSent + 0.5 * artisanSent));
+        marketSophistication[static_cast<size_t>(i)] = sophistication;
+        sophisticationSum += sophistication;
+
+        const double debtStress =
+            clamp01(c.getDebt() / std::max(1.0, 22.0 * std::max(1.0, m.netRevenue + 0.25 * c.getLastTaxBase())));
+        const double creditWeight = std::clamp(cfg.economy.creditFrictionWeight, 0.0, 1.0);
+        const double infoWeight = std::clamp(cfg.economy.informationFrictionWeight, 0.0, 1.0);
+        const double baseSearch = std::clamp(cfg.economy.tradeSearchFrictionBase, 0.0, 1.0);
+
+        const double credit = clamp01(
+            creditWeight *
+            (0.62 * debtStress + 0.38 * clamp01(m.leakageRate)) *
+            (1.0 - 0.35 * clamp01(m.credibleCommitmentIndex)));
+        const double info = clamp01(
+            infoWeight *
+            (1.0 - (0.45 * clamp01(m.connectivityIndex) +
+                    0.35 * clamp01(m.mediaThroughputIndex) +
+                    0.20 * clamp01(m.ideaMarketIntegrationIndex))));
+
+        creditFriction[static_cast<size_t>(i)] = credit;
+        infoFriction[static_cast<size_t>(i)] = info;
+        searchFriction[static_cast<size_t>(i)] = std::clamp(
+            baseSearch +
+                0.32 * (1.0 - sophistication) +
+                0.25 * credit +
+                0.25 * info +
+                0.18 * (c.isAtWar() ? 1.0 : 0.0),
+            0.05,
+            0.95);
+        const double stickBase = std::clamp(cfg.economy.priceStickinessBase, 0.0, 0.98);
+        priceStickiness[static_cast<size_t>(i)] = std::clamp(
+            stickBase +
+                0.28 * (1.0 - sophistication) +
+                0.22 * credit,
+            0.05,
+            0.96);
+        const double baseAdj = std::clamp(cfg.economy.priceAdjustmentSpeed, 0.01, 1.0);
+        priceAdjustSpeed[static_cast<size_t>(i)] = std::clamp(
+            baseAdj *
+                (0.45 + 0.55 * sophistication) *
+                (1.0 - 0.45 * priceStickiness[static_cast<size_t>(i)]),
+            0.01,
+            0.55);
+    }
+    const double worldMarketSophistication = clamp01(sophisticationSum / std::max(1.0, static_cast<double>(n)));
+    const int baseIterations = std::max(1, cfg.economy.marketClearingBaseIterations);
+    const int maxIterations = std::max(baseIterations, cfg.economy.marketClearingMaxIterations);
+    const int marketIterations = std::clamp(
+        baseIterations + static_cast<int>(std::lround((maxIterations - baseIterations) * worldMarketSophistication)),
+        baseIterations,
+        maxIterations);
+
     auto tradeGood = [&](std::vector<double>& supply,
                          std::vector<double>& demand,
-                         const std::vector<double>& localPrice,
+                         const std::vector<double>& seedPrice,
                          const std::vector<double>& scarcityIndex,
                          bool foodCategory) {
         struct Cand {
@@ -1672,95 +1746,148 @@ void EconomyModelCPU::tickYear(int year,
         };
 
         std::vector<double> net(static_cast<size_t>(n), 0.0);
-        std::vector<int> buyers;
-        buyers.reserve(static_cast<size_t>(n));
-        for (int i = 0; i < n; ++i) {
-            if (countries[static_cast<size_t>(i)].getPopulation() <= 0) continue;
-            if (demand[static_cast<size_t>(i)] > 1e-9) buyers.push_back(i);
-        }
-        std::sort(buyers.begin(), buyers.end(), [&](int a, int b) {
-            const double pa = localPrice[static_cast<size_t>(a)];
-            const double pb = localPrice[static_cast<size_t>(b)];
-            const bool aFinite = std::isfinite(pa);
-            const bool bFinite = std::isfinite(pb);
-            if (aFinite != bFinite) return aFinite;
-            if (aFinite && pa != pb) return pa > pb;
-            return a < b;
-        });
+        std::vector<double> roundPrice = seedPrice;
+        const double basePrice = foodCategory ? 1.0 : 2.0;
+        const double alphaCost = foodCategory ? 0.85 : 0.75;
+        const double minMul = foodCategory ? 0.35 : 0.45;
+        const double maxMul = foodCategory ? 6.5 : 7.0;
 
-        for (int buyer : buyers) {
-            double need = demand[static_cast<size_t>(buyer)];
-            if (need <= 1e-9) continue;
-            const double needInitial = need;
-            const double localSupply = std::max(0.0, supply[static_cast<size_t>(buyer)]);
-            const double basePrice = foodCategory ? 1.0 : 2.0;
-            const double local = std::max(1e-9, localPrice[static_cast<size_t>(buyer)]);
-            const double shortagePressure = clamp01(needInitial / std::max(1e-9, needInitial + localSupply));
-            const double priceStress = clamp01((local / std::max(1e-9, basePrice) - 1.0) / 3.0);
-            const double scarcityStress = (buyer >= 0 && buyer < n)
-                                              ? clamp01(scarcityIndex[static_cast<size_t>(buyer)])
-                                              : 0.0;
-            const double urgency = clamp01(0.55 * shortagePressure + 0.25 * priceStress + 0.20 * scarcityStress);
-            const double maxPremium = std::max(1.0, cfg.economy.tradeMaxPricePremium);
-            const double acceptableDelivered = local * (1.0 + (maxPremium - 1.0) * urgency);
+        for (int iter = 0; iter < marketIterations; ++iter) {
+            bool anyTrade = false;
+            std::vector<int> buyers;
+            buyers.reserve(static_cast<size_t>(n));
+            for (int i = 0; i < n; ++i) {
+                if (countries[static_cast<size_t>(i)].getPopulation() <= 0) continue;
+                if (demand[static_cast<size_t>(i)] <= 1e-9) continue;
+                buyers.push_back(i);
 
-            std::vector<Cand> cands;
-            cands.reserve(edgesByCountry[static_cast<size_t>(buyer)].size());
-            for (int ei : edgesByCountry[static_cast<size_t>(buyer)]) {
-                const Edge& e = edges[static_cast<size_t>(ei)];
-                const int supplier = (e.a == buyer) ? e.b : e.a;
-                if (supplier < 0 || supplier >= n) continue;
-                if (supply[static_cast<size_t>(supplier)] <= 1e-9) continue;
-                const double capRem = foodCategory ? e.capFood : e.capGoods;
-                if (capRem <= 1e-9) continue;
-                cands.push_back(Cand{supplier, ei, localPrice[static_cast<size_t>(supplier)] + e.costPerUnit});
+                const double targetPrice = smoothScarcityPrice(
+                    basePrice,
+                    std::max(1e-9, demand[static_cast<size_t>(i)]),
+                    std::max(1e-9, supply[static_cast<size_t>(i)]),
+                    alphaCost,
+                    minMul,
+                    maxMul);
+                const double stick = priceStickiness[static_cast<size_t>(i)];
+                const double step = priceAdjustSpeed[static_cast<size_t>(i)];
+                double p = roundPrice[static_cast<size_t>(i)];
+                p = (stick * p) + (1.0 - stick) * targetPrice;
+                p = p * (1.0 + step * (targetPrice - p) / std::max(1e-9, p));
+                roundPrice[static_cast<size_t>(i)] = std::clamp(p, basePrice * 0.22, basePrice * 12.0);
             }
-            std::sort(cands.begin(), cands.end(), [&](const Cand& l, const Cand& r) {
-                if (l.deliveredPrice != r.deliveredPrice) return l.deliveredPrice < r.deliveredPrice;
-                if (l.supplier != r.supplier) return l.supplier < r.supplier;
-                return l.edgeIdx < r.edgeIdx;
+            std::sort(buyers.begin(), buyers.end(), [&](int a, int b) {
+                const double pa = roundPrice[static_cast<size_t>(a)];
+                const double pb = roundPrice[static_cast<size_t>(b)];
+                if (pa != pb) return pa > pb;
+                return a < b;
             });
-            if (cands.size() > 6) {
-                cands.resize(6);
-            }
 
-            for (const Cand& cand : cands) {
-                if (need <= 1e-9) break;
-                if (cand.deliveredPrice > acceptableDelivered) break;
+            for (int buyer : buyers) {
+                double need = demand[static_cast<size_t>(buyer)];
+                if (need <= 1e-9) continue;
+                const double needInitial = need;
+                const double localSupply = std::max(0.0, supply[static_cast<size_t>(buyer)]);
+                const double local = std::max(1e-9, roundPrice[static_cast<size_t>(buyer)]);
+                const double shortagePressure = clamp01(needInitial / std::max(1e-9, needInitial + localSupply));
+                const double priceStress = clamp01((local / std::max(1e-9, basePrice) - 1.0) / 3.0);
+                const double scarcityStress =
+                    (buyer >= 0 && buyer < n) ? clamp01(scarcityIndex[static_cast<size_t>(buyer)]) : 0.0;
+                const double urgency = clamp01(0.55 * shortagePressure + 0.25 * priceStress + 0.20 * scarcityStress);
+                const double maxPremium = std::max(1.0, cfg.economy.tradeMaxPricePremium);
+                const double frictionTolerance =
+                    std::clamp(1.0 - 0.60 * searchFriction[static_cast<size_t>(buyer)] - 0.35 * creditFriction[static_cast<size_t>(buyer)],
+                               0.25,
+                               1.0);
+                const double acceptableDelivered =
+                    local * (1.0 + (maxPremium - 1.0) * urgency * frictionTolerance);
 
-                Edge& e = edges[static_cast<size_t>(cand.edgeIdx)];
-                double& capRem = foodCategory ? e.capFood : e.capGoods;
-                const double amount = std::min({need, supply[static_cast<size_t>(cand.supplier)], capRem});
-                if (amount <= 1e-12) continue;
-                need -= amount;
-                supply[static_cast<size_t>(cand.supplier)] -= amount;
-                capRem -= amount;
-                net[static_cast<size_t>(buyer)] += amount;
-                net[static_cast<size_t>(cand.supplier)] -= amount;
-
-                const double value = amount * cand.deliveredPrice;
-                Country::MacroEconomyState& mb = countries[static_cast<size_t>(buyer)].getMacroEconomyMutable();
-                Country::MacroEconomyState& ms = countries[static_cast<size_t>(cand.supplier)].getMacroEconomyMutable();
-                mb.importsValue += value;
-                ms.exportsValue += value;
-                const size_t ti = static_cast<size_t>(cand.supplier) * static_cast<size_t>(n) + static_cast<size_t>(buyer);
-                if (ti < m_tradeIntensity.size()) {
-                    const double normBase = std::max(1.0, cfg.economy.tradeIntensityValueNormBase);
-                    const double popBuyer = static_cast<double>(std::max<long long>(1, countries[static_cast<size_t>(buyer)].getPopulation()));
-                    const Country& cb = countries[static_cast<size_t>(buyer)];
-                    const Country& cs = countries[static_cast<size_t>(cand.supplier)];
-                    const double connectivity =
-                        0.5 * (clamp01(cb.getConnectivityIndex()) + clamp01(cs.getConnectivityIndex()));
-                    const double access =
-                        0.5 * (clamp01(cb.getMacroEconomy().marketAccess) + clamp01(cs.getMacroEconomy().marketAccess));
-                    const double scale = std::max(0.01, cfg.economy.tradeIntensityScale);
-                    const double denom = normBase + popBuyer * 0.10;
-                    const double devMul = (0.20 + 0.80 * connectivity) * (0.30 + 0.70 * access);
-                    const float inc = static_cast<float>(std::min(1.0, (value / denom) * scale * (0.70 + 0.30 * urgency) * devMul));
-                    m_tradeIntensity[ti] = std::min(1.0f, m_tradeIntensity[ti] + inc);
+                std::vector<Cand> cands;
+                cands.reserve(edgesByCountry[static_cast<size_t>(buyer)].size());
+                for (int ei : edgesByCountry[static_cast<size_t>(buyer)]) {
+                    const Edge& e = edges[static_cast<size_t>(ei)];
+                    const int supplier = (e.a == buyer) ? e.b : e.a;
+                    if (supplier < 0 || supplier >= n) continue;
+                    if (supply[static_cast<size_t>(supplier)] <= 1e-9) continue;
+                    const double capRem = foodCategory ? e.capFood : e.capGoods;
+                    if (capRem <= 1e-9) continue;
+                    const double searchMix = 0.5 * (searchFriction[static_cast<size_t>(buyer)] + searchFriction[static_cast<size_t>(supplier)]);
+                    const double creditMix = 0.5 * (creditFriction[static_cast<size_t>(buyer)] + creditFriction[static_cast<size_t>(supplier)]);
+                    const double infoMix = 0.5 * (infoFriction[static_cast<size_t>(buyer)] + infoFriction[static_cast<size_t>(supplier)]);
+                    const double transportCost = e.costPerUnit * (1.0 + 0.70 * searchMix + 0.45 * creditMix + 0.35 * infoMix);
+                    cands.push_back(Cand{
+                        supplier,
+                        ei,
+                        roundPrice[static_cast<size_t>(supplier)] + transportCost});
                 }
+                std::sort(cands.begin(), cands.end(), [&](const Cand& l, const Cand& r) {
+                    if (l.deliveredPrice != r.deliveredPrice) return l.deliveredPrice < r.deliveredPrice;
+                    if (l.supplier != r.supplier) return l.supplier < r.supplier;
+                    return l.edgeIdx < r.edgeIdx;
+                });
+                int maxCand = std::clamp(
+                    2 + static_cast<int>(std::lround(6.0 * (1.0 - searchFriction[static_cast<size_t>(buyer)]) +
+                                                     2.0 * marketSophistication[static_cast<size_t>(buyer)])),
+                    2,
+                    10);
+                if (static_cast<int>(cands.size()) > maxCand) {
+                    cands.resize(static_cast<size_t>(maxCand));
+                }
+
+                for (const Cand& cand : cands) {
+                    if (need <= 1e-9) break;
+                    if (cand.deliveredPrice > acceptableDelivered) break;
+
+                    Edge& e = edges[static_cast<size_t>(cand.edgeIdx)];
+                    double& capRem = foodCategory ? e.capFood : e.capGoods;
+                    const double searchMix = 0.5 * (searchFriction[static_cast<size_t>(buyer)] + searchFriction[static_cast<size_t>(cand.supplier)]);
+                    const double creditMix = 0.5 * (creditFriction[static_cast<size_t>(buyer)] + creditFriction[static_cast<size_t>(cand.supplier)]);
+                    const double tradableCap = capRem * std::clamp(1.0 - 0.55 * searchMix, 0.25, 1.0);
+                    const double execution = std::clamp(1.0 - 0.35 * searchMix - 0.25 * creditMix, 0.25, 1.0);
+                    const double gross = std::min({need, supply[static_cast<size_t>(cand.supplier)], tradableCap});
+                    const double amount = gross * execution;
+                    if (amount <= 1e-12) continue;
+
+                    anyTrade = true;
+                    need -= amount;
+                    supply[static_cast<size_t>(cand.supplier)] -= amount;
+                    capRem -= amount;
+                    net[static_cast<size_t>(buyer)] += amount;
+                    net[static_cast<size_t>(cand.supplier)] -= amount;
+
+                    const double value = amount * cand.deliveredPrice;
+                    Country::MacroEconomyState& mb =
+                        countries[static_cast<size_t>(buyer)].getMacroEconomyMutable();
+                    Country::MacroEconomyState& ms =
+                        countries[static_cast<size_t>(cand.supplier)].getMacroEconomyMutable();
+                    mb.importsValue += value;
+                    ms.exportsValue += value;
+                    const size_t ti = static_cast<size_t>(cand.supplier) * static_cast<size_t>(n) +
+                                      static_cast<size_t>(buyer);
+                    if (ti < m_tradeIntensity.size()) {
+                        const double normBase = std::max(1.0, cfg.economy.tradeIntensityValueNormBase);
+                        const double popBuyer = static_cast<double>(std::max<long long>(
+                            1, countries[static_cast<size_t>(buyer)].getPopulation()));
+                        const Country& cb = countries[static_cast<size_t>(buyer)];
+                        const Country& cs = countries[static_cast<size_t>(cand.supplier)];
+                        const double connectivity =
+                            0.5 * (clamp01(cb.getConnectivityIndex()) + clamp01(cs.getConnectivityIndex()));
+                        const double access =
+                            0.5 * (clamp01(cb.getMacroEconomy().marketAccess) +
+                                   clamp01(cs.getMacroEconomy().marketAccess));
+                        const double scale = std::max(0.01, cfg.economy.tradeIntensityScale);
+                        const double denom = normBase + popBuyer * 0.10;
+                        const double devMul =
+                            (0.20 + 0.80 * connectivity) * (0.30 + 0.70 * access);
+                        const float inc = static_cast<float>(std::min(
+                            1.0, (value / denom) * scale * (0.70 + 0.30 * urgency) * devMul));
+                        m_tradeIntensity[ti] = std::min(1.0f, m_tradeIntensity[ti] + inc);
+                    }
+                }
+                demand[static_cast<size_t>(buyer)] = need;
             }
-            demand[static_cast<size_t>(buyer)] = need;
+            if (!anyTrade) {
+                break;
+            }
         }
 
         for (int i = 0; i < n; ++i) {
@@ -1792,6 +1919,34 @@ void EconomyModelCPU::tickYear(int year,
         }
         tradeRow[static_cast<size_t>(a)] = row;
         maxTradeRow = std::max(maxTradeRow, row);
+    }
+
+    // Class-network spillovers: cross-border merchant/artisan/bureaucratic sentiment transfer.
+    if (m_tradeIntensity.size() >= static_cast<size_t>(n) * static_cast<size_t>(n)) {
+        for (int i = 0; i < n; ++i) {
+            Country& c = countries[static_cast<size_t>(i)];
+            if (c.getPopulation() <= 0) continue;
+            double wSum = 0.0;
+            double artisan = 0.0;
+            double merchant = 0.0;
+            double bureaucrat = 0.0;
+            for (int j = 0; j < n; ++j) {
+                if (j == i) continue;
+                const Country& o = countries[static_cast<size_t>(j)];
+                if (o.getPopulation() <= 0) continue;
+                const double out = static_cast<double>(m_tradeIntensity[static_cast<size_t>(i) * static_cast<size_t>(n) + static_cast<size_t>(j)]);
+                const double in = static_cast<double>(m_tradeIntensity[static_cast<size_t>(j) * static_cast<size_t>(n) + static_cast<size_t>(i)]);
+                const double w = out + 0.60 * in;
+                if (w <= 1e-4) continue;
+                wSum += w;
+                artisan += w * o.getClassSentiment(Country::SocialClass::Artisans);
+                merchant += w * o.getClassSentiment(Country::SocialClass::Merchants);
+                bureaucrat += w * o.getClassSentiment(Country::SocialClass::Bureaucrats);
+            }
+            if (wSum > 1e-8) {
+                c.applyClassNetworkSignals(artisan / wSum, merchant / wSum, bureaucrat / wSum, years);
+            }
+        }
     }
 
     for (int i = 0; i < n; ++i) {
@@ -2032,12 +2187,17 @@ void EconomyModelCPU::tickYear(int year,
         m.relativeFactorPriceIndex = clamp01(wageHigh * (0.60 * energyCheap + 0.40 * materialCheap));
 
         const double portTerm = std::min(1.0, std::sqrt(static_cast<double>(c.getPorts().size()) / 8.0));
+        const double bourgeoisInfluence = clamp01(c.getBourgeoisInfluence());
+        const double merchantSentiment = clamp01(c.getClassSentiment(Country::SocialClass::Merchants));
+        const double artisanSentiment = clamp01(c.getClassSentiment(Country::SocialClass::Artisans));
         m.merchantPowerIndex = clamp01(
-            0.36 * tradeNorm +
+            0.30 * tradeNorm +
             0.24 * urban +
-            0.20 * m.marketAccess +
-            0.12 * portTerm +
-            0.08 * m.ideaMarketIntegrationIndex);
+            0.16 * m.marketAccess +
+            0.10 * portTerm +
+            0.10 * m.ideaMarketIntegrationIndex +
+            0.06 * bourgeoisInfluence +
+            0.04 * clamp01(0.55 * merchantSentiment + 0.45 * artisanSentiment));
 
         const double constraintScore = clamp01(
             0.45 * m.institutionCapacity +

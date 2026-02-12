@@ -504,3 +504,110 @@ Notes for next iteration cycle:
 ### Selection decision for live code at end of this entry
 - Keep **v12-equivalent code path** (v13-only transition boost reverted).
 - This preserves the best combined outcome in this cycle: broader endpoint diversity and higher max unlocked tech without seed-only global bonuses.
+
+## Entry: 2026-02-12 17:05:00 UTC
+
+### Scope
+- Massive realism pass focused on:
+  - dynamic market-clearing with frictions (instead of single-pass heuristic matching),
+  - emergent class-agent political economy (including bourgeois emergence dynamics),
+  - tighter economy-to-technology coupling for bridge transitions.
+
+### Structural Code Changes
+- `src/economy.cpp`
+  - Replaced one-pass trade matching with iterative market-clearing rounds.
+  - Added endogenous frictions: search, information, credit, and price stickiness.
+  - Added adaptive clearing iterations using country/world market sophistication.
+  - Added cross-border class-network spillovers via trade-intensity links.
+- `include/simulation_context.h`, `src/simulation_context.cpp`, `data/sim_config.toml`
+  - Added new economy knobs for iterative clearing and frictions:
+    - `marketClearingBaseIterations`, `marketClearingMaxIterations`
+    - `priceAdjustmentSpeed`, `priceStickinessBase`
+    - `tradeSearchFrictionBase`, `creditFrictionWeight`, `informationFrictionWeight`
+- `include/country.h`, `src/country.cpp`
+  - Added lightweight class-agent state (`sentiment`, `influence`, preferences, external network signal).
+  - Extended `tickAgenticSociety(...)` with endogenous bourgeois/class emergence from urbanization/markets/institutions/scarcity.
+  - Added class-network application API and normalized deterministic canonicalization for new agent state.
+- `src/technology.cpp`
+  - Added structural bridge-transition multipliers tied to factor prices, institutions, media, market integration, and merchant power.
+  - Added frontier-tail multiplier for high-order technologies in high-readiness environments.
+  - Reduced bottlenecks in bridge path calibration:
+    - adjusted feasibility gate for `Metallurgy` (id 42),
+    - changed `Chemistry` prereqs to `{42, 39}`.
+
+### Validation Runs (full horizon: `-5000 -> 2025`, 16 seeds, CPU, 16 workers)
+- Build: `build.bat release` (pass).
+- Main benchmark command: `tools/seed_max_tech_finder.py` with `--seed-start 1 --seed-end 16 --workers 16 --use-gpu 0 --no-reuse`.
+
+#### Run Artifacts
+- `out/seed_max_tech_post16_realism_v14` (after economy+agent+tech pass)
+- `out/seed_max_tech_post16_realism_v15` (tech calibration)
+- `out/seed_max_tech_post16_realism_v16` (bottleneck fixes; selected)
+- `out/seed_max_tech_post16_realism_v17` (aggressive calibration attempt; regression, rolled back)
+
+#### Selected Outcome (v16)
+- `out/seed_max_tech_post16_realism_v16/post_metrics.json`
+  - `max_unlocked`: mean `34.6875`, min `28`, max `46`, stdev `5.9762`.
+  - `top1_max` (largest-empire area share): mean `0.05929`, min `0.04195`, max `0.08829`, stdev `0.01405`.
+  - `top1_final`: mean `0.04063`, min `0.0196`, max `0.073686`, stdev `0.01447`.
+- `out/seed_max_tech_post16_realism_v16/unlock_chain_diagnostics.json`
+  - `Metallurgy (42)`: `7/16` seeds.
+  - `Scientific Method (49)`: `1/16` seeds (first at year `1949`).
+  - `Steam (51)`, `Industrialization (52)`, `Electricity (54)`, `Combustion (60)`: `0/16` in this run.
+
+### Regression/rollback note
+- `v17` over-aggressive bridge re-scaling reduced high-tail progression (`max_unlocked` mean dropped to `32.625`) and removed `Scientific Method` hit.
+- Kept `v16`-equivalent bridge calibration as the better-performing state.
+
+## Entry: 2026-02-12 18:45:00 UTC (v18-v24 bridge-chain follow-up)
+
+### Goal
+- Resolve persistent bridge deadlocks and restore variability without seed-only bonuses, while testing realistic emergence of the industrial chain from `-5000` to `2025` over 16 seeds.
+
+### Additional tech-system changes in this follow-up
+- `src/technology.cpp`
+  - Fixed adoption deadlock where bridge techs required full domestic prereq adoption:
+    - bridge techs can now implement from **known** prerequisites with strong institutional/import frictions.
+  - Expanded bridge set and multipliers:
+    - bridge handling now includes `Chemistry (41)`.
+    - stronger endogenous bridge and frontier multipliers from institutions, connectivity, market access, media, factor prices, and specialization.
+  - Reduced structural bottlenecks in industrial prereq graph:
+    - `Engineering (23)` remained tied to construction path but unlocked reliably via implementation path.
+    - `Chemistry (41)` moved to `{42,25}` to avoid no-overlap deadlock.
+    - `Electricity (54)` moved to `{49,41}`.
+    - `Combustion (60)` moved to `{52,41}`.
+    - `Railroad (55)` moved to `{51,52}`.
+  - Recalibrated bridge costs/difficulties for `51/52/54/60` and bridge domain-floor behavior.
+
+### Validation sets executed (all full horizon, 16 seeds, 16 workers, CPU)
+- `out/seed_max_tech_post16_realism_v18`
+- `out/seed_max_tech_post16_realism_v19`
+- `out/seed_max_tech_post16_realism_v20`
+- `out/seed_max_tech_post16_realism_v21`
+- `out/seed_max_tech_post16_realism_v22`
+- `out/seed_max_tech_post16_realism_v23`
+- `out/seed_max_tech_post16_realism_v24`
+
+### Key outcomes
+- `v18`: restored spread and improved `Scientific Method`, but `Engineering/Machinery` still dead in final adoption (deadlock persisted).
+- `v19`: deadlock resolved:
+  - `Engineering (23)`: `16/16`
+  - `Machinery (29)`: `16/16`
+  - `Scientific Method (49)`: `10/16`
+  - `Chemistry (41)`: `3/16`
+  - `max_unlocked` mean/min/max: `37.875 / 32 / 50`
+- `v20`: produced `Steam (51)` in `16/16` but too early (median year ~`-1036`), rejected as implausible.
+- `v21/v22`: over-tightened gating removed steam entirely (`0/16`), rejected.
+- `v23/v24` (selected calibration):
+  - `Engineering (23)`: `16/16`
+  - `Machinery (29)`: `16/16`
+  - `Scientific Method (49)`: `10/16`
+  - `Chemistry (41)`: `3/16`
+  - `Steam (51)`: `5/16` with first-year min/median/max: `99 / 748 / 1944`
+  - `Industrialization (52)`, `Electricity (54)`, `Combustion (60)`: `0/16` in this tested window.
+  - `max_unlocked` mean/min/max: `38.0625 / 32 / 51`
+
+### Selection decision
+- Keep the `v24` code state.
+- It preserves broad endpoint diversity and removes the prior deterministic `~40` convergence while introducing non-zero steam emergence at plausible historical timing in a subset of timelines.
+- Remaining known gap: downstream deep chain (`52/54/60`) still rare-to-absent under current constraints and likely needs a dedicated next pass on late-stage institutional/energy scaling and cross-domain convergence.

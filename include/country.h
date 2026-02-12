@@ -107,6 +107,15 @@ public:
         int complexityLevel = 2; // active classes from the bottom up
     };
 
+    struct ClassAgentState {
+        double sentiment = 0.50;              // 0..1 satisfaction with regime/economy
+        double influence = 0.0;               // 0..1 normalized by class share + organization
+        double tradePreference = 0.50;        // 0..1 pro-market/open-trade pressure
+        double innovationPreference = 0.50;   // 0..1 pressure for investment/reform
+        double redistributionPreference = 0.50; // 0..1 demand for consumption smoothing
+        double externalNetwork = 0.0;         // 0..1 signal imported from same class abroad
+    };
+
     enum class WarGoal {
         Raid,
         BorderShift,
@@ -516,9 +525,16 @@ public:
     const LeaderAgent& getLeader() const { return m_leader; }
     const std::array<EliteBlocState, 4>& getEliteBlocs() const { return m_eliteBlocs; }
     const SocietalClassState& getSocietalClasses() const { return m_socialClasses; }
+    const std::array<ClassAgentState, 6>& getClassAgents() const { return m_classAgents; }
     double getEliteBargainingPressure() const { return m_eliteBargainingPressure; }
     double getCommonerPressure() const { return m_commonerPressure; }
     double getClassShare(SocialClass cls) const { return m_socialClasses.shares[static_cast<size_t>(cls)]; }
+    double getClassSentiment(SocialClass cls) const { return m_classAgents[static_cast<size_t>(cls)].sentiment; }
+    double getBourgeoisInfluence() const;
+    void applyClassNetworkSignals(double artisanSignal,
+                                  double merchantSignal,
+                                  double bureaucratSignal,
+                                  int dtYears);
     double computeCulturalAffinity(const Country& other) const;
     Type getType() const; // Add a getter for the country type
     bool canFoundCity() const;
@@ -785,6 +801,7 @@ private:
     LeaderAgent m_leader{};
     std::array<EliteBlocState, 4> m_eliteBlocs{};
     SocietalClassState m_socialClasses{};
+    std::array<ClassAgentState, 6> m_classAgents{};
     double m_eliteBargainingPressure = 0.0;
     double m_commonerPressure = 0.0;
     int m_lastLeaderTransitionYear = std::numeric_limits<int>::min();
