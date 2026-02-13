@@ -38,6 +38,8 @@ public:
     static constexpr int kFieldCellSize = 6; // Must match EconomyGPU econCellSize for new field systems.
 
     Map(const sf::Image& baseImage,
+        const sf::Image& landMaskImage,
+        const sf::Image& heightMapImage,
         const sf::Image& resourceImage,
         const sf::Image& coalImage,
         const sf::Image& copperImage,
@@ -65,6 +67,9 @@ public:
     // re-attach automatically in methods that already have a `countries` reference.
     void attachCountriesForOwnershipSync(std::vector<Country>* countries);
     const std::vector<std::vector<bool>>& getIsLandGrid() const;
+    bool isLand(int x, int y) const;
+    float getElevation(int x, int y) const;
+    const std::vector<float>& getElevationGrid() const { return m_elevationGrid; }
     sf::Vector2i pixelToGrid(const sf::Vector2f& pixel) const;
     int getGridCellSize() const;
     std::mutex& getGridMutex();
@@ -196,15 +201,19 @@ public:
     sf::Color m_waterColor;
     std::mutex m_gridMutex;
     sf::Image m_baseImage;
+    sf::Image m_landMaskImage;
+    sf::Image m_heightMapImage;
     sf::Image m_resourceImage;
     sf::Image m_coalImage;
     sf::Image m_copperImage;
     sf::Image m_tinImage;
     sf::Image m_riverlandImage;
+    std::vector<float> m_elevationGrid; // normalized grayscale 0..1 per simulation grid cell
     std::unordered_set<int> m_dirtyRegions;
     std::vector<std::vector<std::unordered_map<Resource::Type, double>>> m_resourceGrid;
     std::unordered_map<sf::Color, Resource::Type> m_resourceColors;
     void initializeResourceGrid();
+    sf::Color sampleImageAtGridCell(const sf::Image& image, int gridX, int gridY) const;
 
     // Cached FOOD values per cell (y * width + x). 0 for non-land.
     std::vector<double> m_cellFood;

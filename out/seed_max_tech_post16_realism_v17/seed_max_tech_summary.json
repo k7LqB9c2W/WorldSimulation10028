@@ -1,0 +1,41 @@
+{
+  "elapsed_sec": 771.5297060012817,
+  "total_seeds": 16,
+  "completed_seeds": 16,
+  "ok_runs": 16,
+  "failed_runs": 0,
+  "canceled_runs": 0,
+  "stopped_early": false,
+  "run_settings": {
+    "start_year": -5000,
+    "end_year": 2025,
+    "checkpoint_every_years": 50,
+    "use_gpu": false
+  },
+  "best_by_unlocked_count": {
+    "seed": 1,
+    "max_total_unlocked_techs": 43,
+    "detail": {
+      "year": 2005,
+      "tech_id": 40,
+      "tech_name": "Astronomy",
+      "country_index": "65",
+      "country_name": "Republic of Kingdom of Great chiitzxoc",
+      "event_type": "unlock"
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_post16_realism_v17/seed_1"
+  },
+  "best_by_tech_id": {
+    "seed": 1,
+    "detail": {
+      "year": -669,
+      "tech_id": 120,
+      "tech_name": "Copper Smelting",
+      "country_index": "147",
+      "country_name": "Arkaleshan Tribe",
+      "event_type": "unlock",
+      "total_unlocked_techs": 13
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_post16_realism_v17/seed_1"
+  }
+}

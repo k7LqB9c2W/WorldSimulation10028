@@ -66,6 +66,7 @@ struct RunOptions {
     std::vector<std::pair<std::string, double>> spawnRegionShareOverrides;
     bool stateDiagnostics = false; // optional: emit per-country state cause diagnostics at checkpoints
     int numCountries = kDefaultNumCountries;
+    bool geoDebug = false; // optional: print geography sample diagnostics and continue
 };
 
 struct MetricsSnapshot {
@@ -226,6 +227,7 @@ void printUsage(const char* argv0) {
               << "       [--world-pop N] [--world-pop-range MIN MAX]\n"
               << "       [--spawn-mask path] [--spawn-disable]\n"
               << "       [--spawn-region-share KEY VALUE] (repeatable)\n"
+              << "       [--geo-debug]\n"
               << "Notes: supported minimum start year is " << kEarliestSupportedStartYear << ".\n";
 }
 
@@ -390,6 +392,8 @@ bool parseArgs(int argc, char** argv, RunOptions& opt) {
             double share = 0.0;
             if (!parseShareValue(value, share)) return false;
             opt.spawnRegionShareOverrides.emplace_back(key, share);
+        } else if (arg == "--geo-debug") {
+            opt.geoDebug = true;
         } else {
             std::cerr << "Unknown flag: " << arg << "\n";
             return false;
@@ -1030,11 +1034,14 @@ bool containsYear(const std::set<int>& years, int y) {
 struct CliRuntime {
     SimulationContext ctx;
     sf::Image baseImage;
+    sf::Image landMaskImage;
+    sf::Image heightMapImage;
     sf::Image resourceImage;
     sf::Image coalImage;
     sf::Image copperImage;
     sf::Image tinImage;
     sf::Image riverlandImage;
+    sf::Image spawnImage;
     std::unique_ptr<Map> map;
     std::vector<Country> countries;
     TechnologyManager technologyManager;
@@ -1150,6 +1157,14 @@ bool loadCommonImages(CliRuntime& rt, std::string* errorOut) {
         if (errorOut) *errorOut = "Could not load map image.";
         return false;
     }
+    if (!loadImageWithFallback(rt.landMaskImage, "assets/images/landmask.png", "landmask.png")) {
+        if (errorOut) *errorOut = "Could not load landmask image.";
+        return false;
+    }
+    if (!loadImageWithFallback(rt.heightMapImage, "assets/images/heightmap.png", "heightmap.png")) {
+        if (errorOut) *errorOut = "Could not load heightmap image.";
+        return false;
+    }
     if (!loadImageWithFallback(rt.resourceImage, "assets/images/resource.png", "resource.png") ||
         !loadImageWithFallback(rt.coalImage, "assets/images/coal.png", "coal.png") ||
         !loadImageWithFallback(rt.copperImage, "assets/images/copper.png", "copper.png") ||
@@ -1158,6 +1173,20 @@ bool loadCommonImages(CliRuntime& rt, std::string* errorOut) {
         if (errorOut) *errorOut = "Could not load one or more resource layer images.";
         return false;
     }
+    if (!loadImageWithFallback(rt.spawnImage, "assets/images/spawn.png", "spawn.png")) {
+        if (errorOut) *errorOut = "Could not load spawn image.";
+        return false;
+    }
+
+    auto logImageDims = [](const char* label, const sf::Image& img) {
+        const sf::Vector2u s = img.getSize();
+        std::cout << "[GeoLayer] " << label << ": " << s.x << "x" << s.y << "\n";
+    };
+    logImageDims("map.png", rt.baseImage);
+    logImageDims("landmask.png", rt.landMaskImage);
+    logImageDims("heightmap.png", rt.heightMapImage);
+    logImageDims("resource.png", rt.resourceImage);
+    logImageDims("spawn.png", rt.spawnImage);
 
     const sf::Vector2u baseSize = rt.baseImage.getSize();
     auto validateLayerSize = [&](const sf::Image& layer, const char* label) -> bool {
@@ -1175,6 +1204,18 @@ bool loadCommonImages(CliRuntime& rt, std::string* errorOut) {
         !validateLayerSize(rt.tinImage, "tin") ||
         !validateLayerSize(rt.riverlandImage, "riverland")) {
         return false;
+    }
+    if (rt.spawnImage.getSize() != rt.resourceImage.getSize()) {
+        if (errorOut) {
+            *errorOut = "spawn/resource size mismatch.";
+        }
+        return false;
+    }
+    if (rt.landMaskImage.getSize() != baseSize) {
+        std::cout << "[GeoLayer] Warning: landmask dimensions differ from map; nearest-neighbor sampling will be used for alignment.\n";
+    }
+    if (rt.heightMapImage.getSize() != baseSize) {
+        std::cout << "[GeoLayer] Warning: heightmap dimensions differ from map; nearest-neighbor sampling will be used for alignment.\n";
     }
     return true;
 }
@@ -1259,6 +1300,8 @@ bool initializeRuntime(CliRuntime& rt,
     const int gridCellSize = 1;
     const int regionSize = 32;
     rt.map = std::make_unique<Map>(rt.baseImage,
+                                   rt.landMaskImage,
+                                   rt.heightMapImage,
                                    rt.resourceImage,
                                    rt.coalImage,
                                    rt.copperImage,
@@ -1288,6 +1331,95 @@ bool initializeRuntime(CliRuntime& rt,
         return false;
     }
     return true;
+}
+
+sf::Color sampleImageAtGridCell(const sf::Image& image, int gridX, int gridY, int gridW, int gridH) {
+    const sf::Vector2u src = image.getSize();
+    if (src.x == 0 || src.y == 0 || gridW <= 0 || gridH <= 0) {
+        return sf::Color(0, 0, 0, 255);
+    }
+    const int gx = std::max(0, std::min(gridW - 1, gridX));
+    const int gy = std::max(0, std::min(gridH - 1, gridY));
+    const int sx = std::clamp(
+        static_cast<int>((static_cast<long long>(gx) * static_cast<long long>(src.x)) / std::max(1, gridW)),
+        0,
+        static_cast<int>(src.x) - 1);
+    const int sy = std::clamp(
+        static_cast<int>((static_cast<long long>(gy) * static_cast<long long>(src.y)) / std::max(1, gridH)),
+        0,
+        static_cast<int>(src.y) - 1);
+    return image.getPixel(static_cast<unsigned int>(sx), static_cast<unsigned int>(sy));
+}
+
+void runGeoDebugSamples(const Map& map, const CliRuntime& runtime, const SimulationContext& ctx) {
+    const auto& land = map.getIsLandGrid();
+    if (land.empty() || land[0].empty()) {
+        std::cout << "[GeoDebug] Map grid is empty.\n";
+        return;
+    }
+
+    const int gridH = static_cast<int>(land.size());
+    const int gridW = static_cast<int>(land[0].size());
+    sf::Image spawnMask = runtime.spawnImage;
+    std::string spawnPath = "assets/images/spawn.png";
+    if (!ctx.config.spawn.maskPath.empty()) {
+        sf::Image configuredSpawn;
+        if (configuredSpawn.loadFromFile(ctx.config.spawn.maskPath)) {
+            spawnMask = configuredSpawn;
+            spawnPath = ctx.config.spawn.maskPath;
+        } else {
+            std::cout << "[GeoDebug] Warning: failed to load configured spawn mask '" << ctx.config.spawn.maskPath
+                      << "', using default spawn.png for debug samples.\n";
+        }
+    }
+
+    std::vector<sf::Vector2i> samples = {
+        sf::Vector2i(0, 0),
+        sf::Vector2i(std::max(0, gridW / 4), std::max(0, gridH / 4)),
+        sf::Vector2i(std::max(0, gridW / 2), std::max(0, gridH / 2)),
+        sf::Vector2i(std::max(0, (gridW * 3) / 4), std::max(0, (gridH * 3) / 4)),
+        sf::Vector2i(std::max(0, gridW - 1), std::max(0, gridH - 1)),
+        sf::Vector2i(std::max(0, gridW / 2), std::max(0, gridH / 4)),
+        sf::Vector2i(std::max(0, gridW / 2), std::max(0, (gridH * 3) / 4)),
+    };
+
+    std::cout << "[GeoDebug] Spawn mask source: " << spawnPath << " size="
+              << spawnMask.getSize().x << "x" << spawnMask.getSize().y << "\n";
+    const auto& resources = map.getResourceGrid();
+    for (const sf::Vector2i& p : samples) {
+        const int x = std::max(0, std::min(gridW - 1, p.x));
+        const int y = std::max(0, std::min(gridH - 1, p.y));
+        const bool isLandCell = map.isLand(x, y);
+        const float elevation = map.getElevation(x, y);
+
+        int nonFoodResourceTypes = 0;
+        double nonFoodTotal = 0.0;
+        if (y >= 0 && y < static_cast<int>(resources.size()) &&
+            x >= 0 && x < static_cast<int>(resources[static_cast<size_t>(y)].size())) {
+            const auto& cell = resources[static_cast<size_t>(y)][static_cast<size_t>(x)];
+            for (const auto& kv : cell) {
+                if ((kv.first == Resource::Type::FOOD) || (kv.first == Resource::Type::CLAY)) {
+                    continue;
+                }
+                if (kv.second > 0.0) {
+                    ++nonFoodResourceTypes;
+                    nonFoodTotal += kv.second;
+                }
+            }
+        }
+
+        const sf::Color spawnPx = sampleImageAtGridCell(spawnMask, x, y, gridW, gridH);
+        const bool spawnFlag = (spawnPx.r != 0 || spawnPx.g != 0 || spawnPx.b != 0);
+        std::cout << "[GeoDebug] sample(" << x << "," << y << ")"
+                  << " is_land=" << (isLandCell ? 1 : 0)
+                  << " elevation=" << std::fixed << std::setprecision(4) << elevation
+                  << " resource_types=" << nonFoodResourceTypes
+                  << " resource_total=" << nonFoodTotal
+                  << " spawn_flag=" << (spawnFlag ? 1 : 0)
+                  << " spawn_rgb=(" << static_cast<int>(spawnPx.r) << ","
+                  << static_cast<int>(spawnPx.g) << ","
+                  << static_cast<int>(spawnPx.b) << ")\n";
+    }
 }
 
 bool isParityRoleValid(const std::string& role) {
@@ -1646,6 +1778,10 @@ int main(int argc, char** argv) {
     TradeManager& tradeManager = runtime.tradeManager;
     EconomyModelCPU& macroEconomy = runtime.macroEconomy;
     News& news = runtime.news;
+
+    if (opt.geoDebug) {
+        runGeoDebugSamples(map, runtime, ctx);
+    }
 
     int worldStartYear = ctx.config.world.startYear;
     int startYear = (opt.startYear == std::numeric_limits<int>::min()) ? worldStartYear : opt.startYear;

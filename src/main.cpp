@@ -357,6 +357,18 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+    sf::Image landMaskImage;
+    if (!loadImageWithFallback(landMaskImage, "assets/images/landmask.png", "landmask.png")) {
+        std::cerr << "Error: Could not load landmask image (assets/images/landmask.png or landmask.png)." << std::endl;
+        return -1;
+    }
+
+    sf::Image heightMapImage;
+    if (!loadImageWithFallback(heightMapImage, "assets/images/heightmap.png", "heightmap.png")) {
+        std::cerr << "Error: Could not load heightmap image (assets/images/heightmap.png or heightmap.png)." << std::endl;
+        return -1;
+    }
+
     sf::Image resourceImage;
     if (!loadImageWithFallback(resourceImage, "assets/images/resource.png", "resource.png")) {
         std::cerr << "Error: Could not load resource image (assets/images/resource.png or resource.png)." << std::endl;
@@ -387,7 +399,23 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+    sf::Image spawnImage;
+    if (!loadImageWithFallback(spawnImage, "assets/images/spawn.png", "spawn.png")) {
+        std::cerr << "Error: Could not load spawn image (assets/images/spawn.png or spawn.png)." << std::endl;
+        return -1;
+    }
+
     const sf::Vector2u baseSize = baseImage.getSize();
+    auto logImageDims = [](const char* label, const sf::Image& img) {
+        const sf::Vector2u s = img.getSize();
+        std::cout << "[GeoLayer] " << label << ": " << s.x << "x" << s.y << std::endl;
+    };
+    logImageDims("map.png", baseImage);
+    logImageDims("landmask.png", landMaskImage);
+    logImageDims("heightmap.png", heightMapImage);
+    logImageDims("resource.png", resourceImage);
+    logImageDims("spawn.png", spawnImage);
+
     auto validateLayerSize = [&](const sf::Image& layer, const char* label) -> bool {
         if (layer.getSize() != baseSize) {
             std::cerr << "Error: " << label << " size mismatch. Expected "
@@ -404,6 +432,21 @@ int main(int argc, char** argv) {
         !validateLayerSize(tinImage, "tin layer") ||
         !validateLayerSize(riverlandImage, "riverland layer")) {
         return -1;
+    }
+    if (spawnImage.getSize() != resourceImage.getSize()) {
+        std::cerr << "Error: spawn/resource size mismatch. spawn="
+                  << spawnImage.getSize().x << "x" << spawnImage.getSize().y
+                  << " resource=" << resourceImage.getSize().x << "x" << resourceImage.getSize().y
+                  << std::endl;
+        return -1;
+    }
+    if (landMaskImage.getSize() != baseSize) {
+        std::cout << "[GeoLayer] Warning: landmask dimensions differ from map; nearest-neighbor sampling will be used for alignment."
+                  << std::endl;
+    }
+    if (heightMapImage.getSize() != baseSize) {
+        std::cout << "[GeoLayer] Warning: heightmap dimensions differ from map; nearest-neighbor sampling will be used for alignment."
+                  << std::endl;
     }
 
 	    sf::Color landColor(0, 58, 0);
@@ -433,7 +476,7 @@ int main(int argc, char** argv) {
 	    
 	    std::cout << "🚀 INITIALIZING MAP..." << std::endl;
 	    auto mapStart = std::chrono::high_resolution_clock::now();
-	    Map map(baseImage, resourceImage, coalImage, copperImage, tinImage, riverlandImage,
+	    Map map(baseImage, landMaskImage, heightMapImage, resourceImage, coalImage, copperImage, tinImage, riverlandImage,
                gridCellSize, landColor, waterColor, regionSize, ctx);
 	    auto mapEnd = std::chrono::high_resolution_clock::now();
     auto mapDuration = std::chrono::duration_cast<std::chrono::milliseconds>(mapEnd - mapStart);
@@ -1170,6 +1213,14 @@ int main(int argc, char** argv) {
 		                    }
 		                    renderingNeedsUpdate = true;
 		                }
+                        else if (event.key.code == sf::Keyboard::H) { // 🗺️ GEOGRAPHY OVERLAY (landmask/heightmap)
+                            if (event.key.shift) {
+                                renderer.cycleGeographyOverlayMode();
+                            } else {
+                                renderer.toggleGeographyOverlay();
+                            }
+                            renderingNeedsUpdate = true;
+                        }
 		                else if (event.key.code == sf::Keyboard::U) { // 🏙️ URBAN DEBUG OVERLAY
 		                    if (event.key.shift) {
 		                        renderer.cycleUrbanOverlayMode();
@@ -2221,6 +2272,20 @@ int main(int argc, char** argv) {
                                 if (ImGui::Checkbox("Trade Routes (Y)", &tradeRoutes)) {
                                     renderer.setTradeRouteOverlay(tradeRoutes);
                                     renderingNeedsUpdate = true;
+                                }
+
+                                bool geography = renderer.geographyOverlayEnabled();
+                                if (ImGui::Checkbox("Geography Overlay (H)", &geography)) {
+                                    renderer.setGeographyOverlay(geography);
+                                    renderingNeedsUpdate = true;
+                                }
+                                if (geography) {
+                                    int mode = renderer.geographyOverlayMode();
+                                    const char* geoModes[] = {"Landmask", "Heightmap"};
+                                    if (ImGui::Combo("Geography Mode", &mode, geoModes, 2)) {
+                                        renderer.setGeographyOverlayMode(mode);
+                                        renderingNeedsUpdate = true;
+                                    }
                                 }
 
 		                        bool climate = renderer.climateOverlayEnabled();

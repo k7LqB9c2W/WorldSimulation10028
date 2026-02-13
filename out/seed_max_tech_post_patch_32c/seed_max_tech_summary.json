@@ -1,0 +1,41 @@
+{
+  "elapsed_sec": 592.1151571273804,
+  "total_seeds": 32,
+  "completed_seeds": 1,
+  "ok_runs": 1,
+  "failed_runs": 0,
+  "canceled_runs": 0,
+  "stopped_early": false,
+  "run_settings": {
+    "start_year": -5000,
+    "end_year": 2025,
+    "checkpoint_every_years": 1000,
+    "use_gpu": false
+  },
+  "best_by_unlocked_count": {
+    "seed": 11,
+    "max_total_unlocked_techs": 29,
+    "detail": {
+      "year": 89,
+      "tech_id": 38,
+      "tech_name": "Mechanical Clock",
+      "country_index": "1",
+      "country_name": "New shasura",
+      "event_type": "unlock"
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_post_patch_32c/seed_11"
+  },
+  "best_by_tech_id": {
+    "seed": 11,
+    "detail": {
+      "year": 157,
+      "tech_id": 120,
+      "tech_name": "Copper Smelting",
+      "country_index": "31",
+      "country_name": "Kingdom of Old sambelan",
+      "event_type": "unlock",
+      "total_unlocked_techs": 14
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_post_patch_32c/seed_11"
+  }
+}

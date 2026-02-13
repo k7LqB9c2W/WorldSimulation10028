@@ -1,0 +1,41 @@
+{
+  "elapsed_sec": 1554.7783346176147,
+  "total_seeds": 32,
+  "completed_seeds": 32,
+  "ok_runs": 32,
+  "failed_runs": 0,
+  "canceled_runs": 0,
+  "stopped_early": false,
+  "run_settings": {
+    "start_year": -5000,
+    "end_year": 2025,
+    "checkpoint_every_years": 1000,
+    "use_gpu": false
+  },
+  "best_by_unlocked_count": {
+    "seed": 5,
+    "max_total_unlocked_techs": 48,
+    "detail": {
+      "year": 1861,
+      "tech_id": 34,
+      "tech_name": "Banking",
+      "country_index": "168",
+      "country_name": "Old mazuchi",
+      "event_type": "unlock"
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_post_patch_32b/seed_5"
+  },
+  "best_by_tech_id": {
+    "seed": 1,
+    "detail": {
+      "year": -674,
+      "tech_id": 120,
+      "tech_name": "Copper Smelting",
+      "country_index": "147",
+      "country_name": "Arkaleshan Tribe",
+      "event_type": "unlock",
+      "total_unlocked_techs": 13
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_post_patch_32b/seed_1"
+  }
+}

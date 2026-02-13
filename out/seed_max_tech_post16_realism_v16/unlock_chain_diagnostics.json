@@ -1,0 +1,119 @@
+{
+  "n": 16,
+  "techs": [
+    {
+      "tech_id": 23,
+      "tech_name": "Engineering",
+      "hit_count": 0,
+      "hit_share": 0.0,
+      "first_year_min": null,
+      "first_year_median": null,
+      "first_year_max": null,
+      "hits": []
+    },
+    {
+      "tech_id": 29,
+      "tech_name": "Machinery",
+      "hit_count": 0,
+      "hit_share": 0.0,
+      "first_year_min": null,
+      "first_year_median": null,
+      "first_year_max": null,
+      "hits": []
+    },
+    {
+      "tech_id": 42,
+      "tech_name": "Metallurgy",
+      "hit_count": 7,
+      "hit_share": 0.4375,
+      "first_year_min": 930,
+      "first_year_median": 1545,
+      "first_year_max": 2020,
+      "hits": [
+        {
+          "seed": 2,
+          "year": 1072
+        },
+        {
+          "seed": 3,
+          "year": 1545
+        },
+        {
+          "seed": 7,
+          "year": 2020
+        },
+        {
+          "seed": 10,
+          "year": 930
+        },
+        {
+          "seed": 12,
+          "year": 1610
+        },
+        {
+          "seed": 14,
+          "year": 1477
+        },
+        {
+          "seed": 15,
+          "year": 1805
+        }
+      ]
+    },
+    {
+      "tech_id": 49,
+      "tech_name": "Scientific Method",
+      "hit_count": 1,
+      "hit_share": 0.0625,
+      "first_year_min": 1949,
+      "first_year_median": 1949,
+      "first_year_max": 1949,
+      "hits": [
+        {
+          "seed": 16,
+          "year": 1949
+        }
+      ]
+    },
+    {
+      "tech_id": 51,
+      "tech_name": "Steam Engine",
+      "hit_count": 0,
+      "hit_share": 0.0,
+      "first_year_min": null,
+      "first_year_median": null,
+      "first_year_max": null,
+      "hits": []
+    },
+    {
+      "tech_id": 52,
+      "tech_name": "Industrialization",
+      "hit_count": 0,
+      "hit_share": 0.0,
+      "first_year_min": null,
+      "first_year_median": null,
+      "first_year_max": null,
+      "hits": []
+    },
+    {
+      "tech_id": 54,
+      "tech_name": "Electricity",
+      "hit_count": 0,
+      "hit_share": 0.0,
+      "first_year_min": null,
+      "first_year_median": null,
+      "first_year_max": null,
+      "hits": []
+    },
+    {
+      "tech_id": 60,
+      "tech_name": "Combustion",
+      "hit_count": 0,
+      "hit_share": 0.0,
+      "first_year_min": null,
+      "first_year_median": null,
+      "first_year_max": null,
+      "hits": []
+    }
+  ]
+}

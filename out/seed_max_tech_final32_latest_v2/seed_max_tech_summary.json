@@ -1,0 +1,41 @@
+{
+  "elapsed_sec": 1560.403448343277,
+  "total_seeds": 32,
+  "completed_seeds": 32,
+  "ok_runs": 32,
+  "failed_runs": 0,
+  "canceled_runs": 0,
+  "stopped_early": false,
+  "run_settings": {
+    "start_year": -5000,
+    "end_year": 2025,
+    "checkpoint_every_years": 1000,
+    "use_gpu": false
+  },
+  "best_by_unlocked_count": {
+    "seed": 31,
+    "max_total_unlocked_techs": 51,
+    "detail": {
+      "year": 869,
+      "tech_id": 38,
+      "tech_name": "Mechanical Clock",
+      "country_index": "49",
+      "country_name": "Empire of North ngozuu",
+      "event_type": "unlock"
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_final32_latest_v2/seed_31"
+  },
+  "best_by_tech_id": {
+    "seed": 1,
+    "detail": {
+      "year": -459,
+      "tech_id": 120,
+      "tech_name": "Copper Smelting",
+      "country_index": "147",
+      "country_name": "Arkaleshan Tribe",
+      "event_type": "unlock",
+      "total_unlocked_techs": 13
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_final32_latest_v2/seed_1"
+  }
+}

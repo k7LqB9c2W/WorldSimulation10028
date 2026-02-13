@@ -307,6 +307,8 @@ std::vector<int> stableUniqueSorted(std::vector<int> values) {
 } // namespace
 
 Map::Map(const sf::Image& baseImage,
+         const sf::Image& landMaskImage,
+         const sf::Image& heightMapImage,
          const sf::Image& resourceImage,
          const sf::Image& coalImage,
          const sf::Image& copperImage,
@@ -323,6 +325,8 @@ Map::Map(const sf::Image& baseImage,
     m_landColor(landColor),
     m_waterColor(waterColor),
     m_baseImage(baseImage),
+    m_landMaskImage(landMaskImage),
+    m_heightMapImage(heightMapImage),
     m_resourceImage(resourceImage),
     m_coalImage(coalImage),
     m_copperImage(copperImage),
@@ -336,12 +340,61 @@ Map::Map(const sf::Image& baseImage,
 
     m_countryGrid.resize(baseImage.getSize().y / gridCellSize, std::vector<int>(baseImage.getSize().x / gridCellSize, -1));
 
-    m_isLandGrid.resize(baseImage.getSize().y / gridCellSize);
-    for (size_t y = 0; y < m_isLandGrid.size(); ++y) {
-        m_isLandGrid[y].resize(baseImage.getSize().x / gridCellSize);
-        for (size_t x = 0; x < m_isLandGrid[y].size(); ++x) {
-            sf::Vector2u pixelPos(static_cast<unsigned int>(x * gridCellSize), static_cast<unsigned int>(y * gridCellSize));
-            m_isLandGrid[y][x] = (baseImage.getPixel(pixelPos.x, pixelPos.y) == landColor);
+    const int gridH = static_cast<int>(baseImage.getSize().y / gridCellSize);
+    const int gridW = static_cast<int>(baseImage.getSize().x / gridCellSize);
+    m_isLandGrid.assign(static_cast<size_t>(gridH), std::vector<bool>(static_cast<size_t>(gridW), false));
+    m_elevationGrid.assign(static_cast<size_t>(gridW) * static_cast<size_t>(gridH), 0.0f);
+
+    std::map<std::uint32_t, std::size_t> invalidLandmaskRgbCounts;
+    std::size_t invalidLandmaskSamples = 0u;
+    for (int y = 0; y < gridH; ++y) {
+        for (int x = 0; x < gridW; ++x) {
+            const sf::Color landPx = sampleImageAtGridCell(m_landMaskImage, x, y);
+            bool isLandCell = false;
+            if (landPx.r == 255 && landPx.g == 255 && landPx.b == 255) {
+                isLandCell = true;
+            } else if (landPx.r == 0 && landPx.g == 0 && landPx.b == 0) {
+                isLandCell = false;
+            } else {
+                isLandCell = (landPx.r != 0 || landPx.g != 0 || landPx.b != 0);
+                ++invalidLandmaskSamples;
+                const std::uint32_t rgbKey =
+                    (static_cast<std::uint32_t>(landPx.r) << 16) |
+                    (static_cast<std::uint32_t>(landPx.g) << 8) |
+                    static_cast<std::uint32_t>(landPx.b);
+                invalidLandmaskRgbCounts[rgbKey]++;
+            }
+            m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)] = isLandCell;
+
+            const sf::Color heightPx = sampleImageAtGridCell(m_heightMapImage, x, y);
+            const float gray01 =
+                static_cast<float>(static_cast<int>(heightPx.r) +
+                                   static_cast<int>(heightPx.g) +
+                                   static_cast<int>(heightPx.b)) /
+                (3.0f * 255.0f);
+            const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(gridW) + static_cast<size_t>(x);
+            if (idx < m_elevationGrid.size()) {
+                m_elevationGrid[idx] = std::max(0.0f, std::min(1.0f, gray01));
+            }
+        }
+    }
+
+    if (!invalidLandmaskRgbCounts.empty()) {
+        std::cout << "[Landmask] Warning: encountered " << invalidLandmaskSamples
+                  << " non-binary sampled pixels; treating non-zero RGB as land.\n";
+        int shown = 0;
+        for (const auto& kv : invalidLandmaskRgbCounts) {
+            if (shown >= 8) {
+                std::cout << "[Landmask] Warning: ... " << (invalidLandmaskRgbCounts.size() - 8)
+                          << " additional non-binary RGB values omitted.\n";
+                break;
+            }
+            const unsigned int r = (kv.first >> 16) & 0xFFu;
+            const unsigned int g = (kv.first >> 8) & 0xFFu;
+            const unsigned int b = kv.first & 0xFFu;
+            std::cout << "[Landmask] Warning: RGB(" << r << ", " << g << ", " << b
+                      << ") sampled " << kv.second << " times.\n";
+            ++shown;
         }
     }
 
@@ -366,7 +419,31 @@ Map::Map(const sf::Image& baseImage,
 	        buildCoastalLandCandidates();
         m_plagueInterval = 4; // Active plague duration in years; recalculated at startPlague.
         m_nextPlagueYear = m_ctx->config.world.startYear + 80; // Earliest year a stochastic outbreak can trigger.
-			}
+				}
+
+sf::Color Map::sampleImageAtGridCell(const sf::Image& image, int gridX, int gridY) const {
+    const sf::Vector2u srcSize = image.getSize();
+    if (srcSize.x == 0 || srcSize.y == 0) {
+        return sf::Color(0, 0, 0, 255);
+    }
+    const int gridH = static_cast<int>(m_countryGrid.size());
+    const int gridW = (gridH > 0) ? static_cast<int>(m_countryGrid[0].size()) : 0;
+    if (gridW <= 0 || gridH <= 0) {
+        return image.getPixel(0u, 0u);
+    }
+
+    const int gx = std::max(0, std::min(gridW - 1, gridX));
+    const int gy = std::max(0, std::min(gridH - 1, gridY));
+    const int sx = std::clamp(
+        static_cast<int>((static_cast<long long>(gx) * static_cast<long long>(srcSize.x)) / std::max(1, gridW)),
+        0,
+        static_cast<int>(srcSize.x) - 1);
+    const int sy = std::clamp(
+        static_cast<int>((static_cast<long long>(gy) * static_cast<long long>(srcSize.y)) / std::max(1, gridH)),
+        0,
+        static_cast<int>(srcSize.y) - 1);
+    return image.getPixel(static_cast<unsigned int>(sx), static_cast<unsigned int>(sy));
+}
 
 // 🔥 NUCLEAR OPTIMIZATION: Lightning-fast resource grid initialization
 void Map::initializeResourceGrid() {
@@ -780,15 +857,34 @@ void Map::ensureClimateGrids() {
 }
 
 void Map::rebuildFieldLandMask() {
-    if (m_fieldW <= 0 || m_fieldH <= 0 || m_fieldFoodPotential.empty()) {
+    if (m_fieldW <= 0 || m_fieldH <= 0 || m_isLandGrid.empty() || m_isLandGrid[0].empty()) {
         return;
     }
+    const int gridH = static_cast<int>(m_isLandGrid.size());
+    const int gridW = static_cast<int>(m_isLandGrid[0].size());
     const size_t n = static_cast<size_t>(m_fieldW) * static_cast<size_t>(m_fieldH);
     if (m_fieldLandMask.size() != n) {
         m_fieldLandMask.assign(n, 0u);
     }
-    for (size_t i = 0; i < n; ++i) {
-        m_fieldLandMask[i] = (i < m_fieldFoodPotential.size() && m_fieldFoodPotential[i] > 0.0f) ? 1u : 0u;
+    for (int fy = 0; fy < m_fieldH; ++fy) {
+        const int y0 = fy * kFieldCellSize;
+        const int y1 = std::min(gridH, (fy + 1) * kFieldCellSize);
+        for (int fx = 0; fx < m_fieldW; ++fx) {
+            const int x0 = fx * kFieldCellSize;
+            const int x1 = std::min(gridW, (fx + 1) * kFieldCellSize);
+            bool anyLand = false;
+            for (int y = y0; y < y1 && !anyLand; ++y) {
+                const auto& row = m_isLandGrid[static_cast<size_t>(y)];
+                for (int x = x0; x < x1; ++x) {
+                    if (row[static_cast<size_t>(x)]) {
+                        anyLand = true;
+                        break;
+                    }
+                }
+            }
+            const size_t idx = static_cast<size_t>(fy) * static_cast<size_t>(m_fieldW) + static_cast<size_t>(fx);
+            m_fieldLandMask[idx] = anyLand ? 1u : 0u;
+        }
     }
 }
 
@@ -2574,14 +2670,20 @@ bool Map::loadSpawnZones(const std::string& filename) {
 }
 
 sf::Vector2i Map::getRandomCellInPreferredZones(std::mt19937_64& gen) {
-    std::uniform_int_distribution<> xDist(0, m_spawnZoneImage.getSize().x - 1);
-    std::uniform_int_distribution<> yDist(0, m_spawnZoneImage.getSize().y - 1);
+    const int gridH = static_cast<int>(m_isLandGrid.size());
+    const int gridW = (gridH > 0) ? static_cast<int>(m_isLandGrid[0].size()) : 0;
+    if (gridW <= 0 || gridH <= 0) {
+        return sf::Vector2i(0, 0);
+    }
+    std::uniform_int_distribution<> xDist(0, gridW - 1);
+    std::uniform_int_distribution<> yDist(0, gridH - 1);
 
     while (true) {
         int x = xDist(gen);
         int y = yDist(gen);
 
-        if (m_spawnZoneImage.getPixel(x, y) == m_spawnZoneColor && m_isLandGrid[y][x]) {
+        if (sampleImageAtGridCell(m_spawnZoneImage, x, y) == m_spawnZoneColor &&
+            m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) {
             return sf::Vector2i(x, y);
         }
     }
@@ -2729,9 +2831,7 @@ void Map::initializeCountries(std::vector<Country>& countries,
         if (!spawnMaskUsable || imgW <= 0 || imgH <= 0) {
             return sf::Color(0, 0, 0, 255);
         }
-        const int sx = std::clamp((x * imgW) / std::max(1, gridW), 0, imgW - 1);
-        const int sy = std::clamp((y * imgH) / std::max(1, gridH), 0, imgH - 1);
-        return m_spawnZoneImage.getPixel(static_cast<unsigned int>(sx), static_cast<unsigned int>(sy));
+        return sampleImageAtGridCell(m_spawnZoneImage, x, y);
     };
     if (spawnMaskUsable) {
         for (int packed : allLandCells) {
@@ -7625,6 +7725,29 @@ void Map::updatePlagueDeaths(long long deaths) {
 
 const std::vector<std::vector<bool>>& Map::getIsLandGrid() const {
     return m_isLandGrid;
+}
+
+bool Map::isLand(int x, int y) const {
+    if (y < 0 || y >= static_cast<int>(m_isLandGrid.size())) {
+        return false;
+    }
+    if (x < 0 || x >= static_cast<int>(m_isLandGrid[static_cast<size_t>(y)].size())) {
+        return false;
+    }
+    return m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)];
+}
+
+float Map::getElevation(int x, int y) const {
+    const int h = static_cast<int>(m_isLandGrid.size());
+    const int w = (h > 0) ? static_cast<int>(m_isLandGrid[0].size()) : 0;
+    if (x < 0 || y < 0 || x >= w || y >= h) {
+        return 0.0f;
+    }
+    const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(w) + static_cast<size_t>(x);
+    if (idx >= m_elevationGrid.size()) {
+        return 0.0f;
+    }
+    return m_elevationGrid[idx];
 }
 
 sf::Vector2i Map::pixelToGrid(const sf::Vector2f& pixel) const {

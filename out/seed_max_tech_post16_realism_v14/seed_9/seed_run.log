@@ -1,0 +1,568 @@
+🏪 Trade & Economic Exchange Framework initialized!
+🚀 INITIALIZING RESOURCES (Optimized)...
+✅ RESOURCES INITIALIZED in 326 ms
+   Resource ingestion: coal=18834, copper=30078, tin=14335, clay=18632, riverland-cells=18632
+[SpawnInit] worldPopTarget=21649763 startYear=-5000
+[StartTech] Applied regional presets at startYear=-5000 countries=100
+  - south_asia: countries=14 techIds=1,2,3,4,6,20,115
+  - east_asia: countries=14 techIds=1,2,3,4,6,20,115
+  - west_asia: countries=11 techIds=1,2,3,4,6,10,20,115,119
+  - se_asia: countries=6 techIds=1,2,3,5,6,20
+  - cn_asia: countries=3 techIds=2,3,4,6
+  - nile_ne_africa: countries=2 techIds=1,2,3,6,10,20,115
+  - north_africa: countries=1 techIds=1,2,3,4,6,20,115
+  - west_africa: countries=2 techIds=1,3,4,6,20
+  - east_africa: countries=2 techIds=1,3,4,6,20
+  - cs_africa: countries=1 techIds=1,3,4,6
+  - se_europe: countries=2 techIds=1,2,3,4,6,20,115,119
+  - med_europe: countries=2 techIds=1,2,3,4,5,6,20,115
+  - central_europe: countries=2 techIds=1,2,3,4,6,20
+  - wnw_europe: countries=2 techIds=1,3,4,6,20
+  - north_europe: countries=1 techIds=3,4,6
+  - mesoamerica: countries=10 techIds=1,3,6,20
+  - andes: countries=7 techIds=1,3,4,6,20
+  - e_na: countries=7 techIds=3,4,6
+  - w_na: countries=8 techIds=3,4,6
+  - caribbean: countries=1 techIds=3,5,6
+  - oceania: countries=2 techIds=3,5,6
+[SpawnInit] Region summary
+  - south_asia targetShare=0.145 actualShare=0.145 targetPop=3139216 actualPop=3139216 countriesPlaced=14
+  - east_asia targetShare=0.145 actualShare=0.145 targetPop=3139216 actualPop=3139216 countriesPlaced=14
+  - west_asia targetShare=0.11 actualShare=0.11 targetPop=2381474 actualPop=2381474 countriesPlaced=11
+  - se_asia targetShare=0.06 actualShare=0.06 targetPop=1298986 actualPop=1298986 countriesPlaced=6
+  - cn_asia targetShare=0.033 actualShare=0.033 targetPop=714442 actualPop=714442 countriesPlaced=3
+  - nile_ne_africa targetShare=0.02 actualShare=0.02 targetPop=432995 actualPop=432995 countriesPlaced=2
+  - north_africa targetShare=0.013 actualShare=0.013 targetPop=281447 actualPop=281447 countriesPlaced=1
+  - west_africa targetShare=0.016 actualShare=0.016 targetPop=346396 actualPop=346396 countriesPlaced=2
+  - east_africa targetShare=0.017 actualShare=0.017 targetPop=368046 actualPop=368046 countriesPlaced=2
+  - cs_africa targetShare=0.01 actualShare=0.01 targetPop=216498 actualPop=216498 countriesPlaced=1
+  - se_europe targetShare=0.02 actualShare=0.02 targetPop=432995 actualPop=432995 countriesPlaced=2
+  - med_europe targetShare=0.018 actualShare=0.018 targetPop=389696 actualPop=389696 countriesPlaced=2
+  - central_europe targetShare=0.02 actualShare=0.02 targetPop=432995 actualPop=432995 countriesPlaced=2
+  - wnw_europe targetShare=0.018 actualShare=0.018 targetPop=389696 actualPop=389696 countriesPlaced=2
+  - north_europe targetShare=0.008 actualShare=0.008 targetPop=173198 actualPop=173198 countriesPlaced=1
+  - mesoamerica targetShare=0.1 actualShare=0.1 targetPop=2164976 actualPop=2164976 countriesPlaced=10
+  - andes targetShare=0.065 actualShare=0.065 targetPop=1407235 actualPop=1407235 countriesPlaced=7
+  - e_na targetShare=0.07 actualShare=0.07 targetPop=1515483 actualPop=1515483 countriesPlaced=7
+  - w_na targetShare=0.078 actualShare=0.078 targetPop=1688681 actualPop=1688681 countriesPlaced=8
+  - caribbean targetShare=0.013 actualShare=0.013 targetPop=281447 actualPop=281447 countriesPlaced=1
+  - oceania targetShare=0.021 actualShare=0.021 targetPop=454645 actualPop=454645 countriesPlaced=2
+worldsim_cli seed=9 config=C:\WS\WorldSimulation10028\data\sim_config.toml hash=642001439d893198 start=-5000 end=2025 gpu=0
+🏛️ New dradranala Tribe changed from Tribal to Chiefdom
+🏛️ Old vivinagar Tribe changed from Tribal to Chiefdom
+🏛️ New kanvivardesh Tribe changed from Tribal to Chiefdom
+🏛️ North mitdravarnagar Tribe changed from Tribal to Chiefdom
+🏛️ North qintai Tribe changed from Tribal to Chiefdom
+🏛️ Taizhominshan Tribe changed from Tribal to Chiefdom
+🏛️ Weiqinzhou Tribe changed from Tribal to Chiefdom
+🏛️ Urninash Tribe changed from Tribal to Chiefdom
+🏛️ Urtamkalad Tribe changed from Tribal to Chiefdom
+🏛️ South bartamarad Tribe changed from Tribal to Chiefdom
+🏛️ South romvialinstan Tribe changed from Tribal to Chiefdom
+🏛️ Old garmarland Tribe changed from Tribal to Chiefdom
+🏛️ Great sesechiu Tribe changed from Tribal to Chiefdom
+🏛️ South romkar Tribe changed from Tribal to Chiefdom
+🏛️ North dorkarbelum Tribe changed from Tribal to Chiefdom
+🏛️ Old belbelselburg Tribe changed from Tribal to Chiefdom
+🏛️ New teoteman Tribe changed from Tribal to Chiefdom
+🏛️ Old belnabel Tribe changed from Tribal to Chiefdom
+🏛️ Great linzenquiia Tribe changed from Tribal to Chiefdom
+🏛️ Great quidusrom Tribe changed from Tribal to Chiefdom
+🏛️ South nuikai Tribe changed from Tribal to Chiefdom
+🏛️ New dradranala Tribe changed from Chiefdom to Kingdom
+🏛️ North qintai Tribe changed from Chiefdom to Kingdom
+🏛️ Great xiaweilishan Tribe changed from Tribal to Chiefdom
+🏛️ Taizhominshan Tribe changed from Chiefdom to Kingdom
+🏛️ New renxiaweizhou Tribe changed from Tribal to Chiefdom
+🏛️ Urninash Tribe changed from Chiefdom to Kingdom
+🏛️ Urtamkalad Tribe changed from Chiefdom to Kingdom
+🏛️ Old vialinromia Tribe changed from Tribal to Chiefdom
+🏛️ North viavia Tribe changed from Tribal to Chiefdom
+🏛️ New ofibartana Tribe changed from Tribal to Chiefdom
+🏛️ Lamngolama Tribe changed from Tribal to Chiefdom
+🏛️ New norromum Tribe changed from Tribal to Chiefdom
+🏛️ Great linzenquiia Tribe changed from Chiefdom to Kingdom
+🏛️ North marnalinstan Tribe changed from Tribal to Chiefdom
+🏛️ South nuikai Tribe changed from Chiefdom to Kingdom
+🏛️ Old vivinagar Tribe changed from Chiefdom to Kingdom
+🏛️ New varvarpur Tribe changed from Tribal to City-State
+🏛️ Vivarkana Tribe changed from Tribal to Chiefdom
+🏛️ New renxiaweizhou Tribe changed from Chiefdom to Kingdom
+🏛️ North samarashad Tribe changed from Tribal to Chiefdom
+🏛️ South nintaman Tribe changed from Tribal to Chiefdom
+🏛️ Old arashurar Tribe changed from Tribal to Chiefdom
+🏛️ Old garmarland Tribe changed from Chiefdom to Kingdom
+🏛️ New garlinbelgrad Tribe changed from Tribal to Chiefdom
+🏛️ South garviaran Tribe changed from Tribal to Chiefdom
+🏛️ South ngobaru Tribe changed from Tribal to Chiefdom
+🏛️ Lamngolama Tribe changed from Chiefdom to Kingdom
+🏛️ New lentarburg Tribe changed from Tribal to Chiefdom
+🏛️ North dorkarbelum Tribe changed from Chiefdom to Kingdom
+🏛️ Aldoralum Tribe changed from Tribal to Chiefdom
+🏛️ North yucchi Tribe changed from Tribal to Chiefdom
+🏛️ Old qoriayayu Tribe changed from Tribal to Chiefdom
+🏛️ Old pachpachyu Tribe changed from Tribal to Chiefdom
+🏛️ Belnaland Tribe changed from Tribal to Chiefdom
+🏛️ Great sollordusstan Tribe changed from Tribal to Chiefdom
+🏛️ New dusviamarstan Tribe changed from Tribal to Chiefdom
+🏛️ Tamarar Tribe changed from Chiefdom to Kingdom
+🏛️ North tansurmita Tribe changed from Tribal to Chiefdom
+🏛️ North linrenzhoshan Tribe changed from Tribal to Chiefdom
+🏛️ Great xiaweilishan Tribe changed from Chiefdom to Kingdom
+🏛️ Kalbel Tribe changed from Tribal to Chiefdom
+🏛️ Old arashurar Tribe changed from Chiefdom to Kingdom
+🏛️ Old vialinromia Tribe changed from Chiefdom to Kingdom
+🏛️ South alkarkarburg Tribe changed from Tribal to Chiefdom
+🏛️ North rombelven Tribe changed from Tribal to Chiefdom
+🏛️ South selbelburg Tribe changed from Chiefdom to Kingdom
+🏛️ South yucxocteman Tribe changed from Tribal to Chiefdom
+🏛️ Great teoitzchico Tribe changed from Tribal to Chiefdom
+🏛️ Belnaland Tribe changed from Chiefdom to Kingdom
+🏛️ Terkingrad Tribe changed from Tribal to Chiefdom
+🏛️ Great quidusrom Tribe changed from Chiefdom to Kingdom
+🏛️ New dusviamarstan Tribe changed from Chiefdom to Kingdom
+🏛️ Rangihanaa Tribe changed from Tribal to Chiefdom
+🏛️ North ofizua Tribe changed from Tribal to Chiefdom
+🏛️ North nalra Tribe changed from Tribal to City-State
+🏛️ North drakanpur Tribe changed from Tribal to Chiefdom
+🏛️ Surnala Tribe changed from Tribal to Chiefdom
+🏛️ New kanvipur Tribe changed from Tribal to Chiefdom
+🏛️ New kankanrapur Tribe changed from Tribal to Chiefdom
+🏛️ Weiqinzhou Tribe changed from Chiefdom to Kingdom
+🏛️ Old ursameshan Tribe changed from Tribal to Chiefdom
+🏛️ Great garbelkingrad Tribe changed from Tribal to Chiefdom
+🏛️ North quidusromia Tribe changed from Tribal to Chiefdom
+🏛️ New ofibartana Tribe changed from Chiefdom to Kingdom
+🏛️ South nahchiyuctan Tribe changed from Tribal to Chiefdom
+🏛️ North ternagargrad Tribe changed from Tribal to Chiefdom
+🏛️ New linviastan Tribe changed from Tribal to Chiefdom
+🏛️ North marsolran Tribe changed from Tribal to Chiefdom
+🏛️ North norvenum Tribe changed from Chiefdom to Kingdom
+🏛️ Old ursameshan Tribe changed from Chiefdom to Kingdom
+🏛️ Great garbelkingrad Tribe changed from Chiefdom to Kingdom
+🏛️ South ngobaru Tribe changed from Chiefdom to Kingdom
+🏛️ South lamngozu Tribe changed from Tribal to Chiefdom
+🏛️ South romkar Tribe changed from Chiefdom to Kingdom
+🏛️ New lentarburg Tribe changed from Chiefdom to Kingdom
+🏛️ Aldoralum Tribe changed from Chiefdom to Kingdom
+🏛️ North yucchi Tribe changed from Chiefdom to Kingdom
+🏛️ Great sumqoriruma Tribe changed from Tribal to Chiefdom
+🏛️ North sumllaqa Tribe changed from Tribal to Chiefdom
+🏛️ Old pachrumna Tribe changed from Tribal to City-State
+🏛️ New kanvivardesh Tribe changed from Chiefdom to Kingdom
+🏛️ New kankanrapur Tribe changed from Chiefdom to Kingdom
+🏛️ North linrenzhoshan Tribe changed from Chiefdom to Kingdom
+🏛️ Great hanrenlinling Tribe changed from Tribal to Chiefdom
+🏛️ Great linminguo Tribe changed from Tribal to Chiefdom
+🏛️ Kalbel Tribe changed from Chiefdom to Kingdom
+🏛️ South romvialinstan Tribe changed from Chiefdom to Kingdom
+🏛️ South alkarkarburg Tribe changed from Chiefdom to Kingdom
+🏛️ Belbelum Tribe changed from Tribal to Chiefdom
+🏛️ Great sumqoriruma Tribe changed from Chiefdom to Kingdom
+🏛️ North intipach Tribe changed from Tribal to City-State
+🏛️ Terlinland Tribe changed from Tribal to City-State
+🏛️ Great kankandesh Tribe changed from Tribal to Chiefdom
+🏛️ South teotolco Tribe changed from Chiefdom to Kingdom
+🏛️ North kannal Tribe changed from Tribal to City-State
+🏛️ New dramitpur Tribe changed from Tribal to Chiefdom
+🏛️ Great hanrenlinling Tribe changed from Chiefdom to Kingdom
+🏛️ North kamaofi Tribe changed from Tribal to Chiefdom
+🏛️ Belbelum Tribe changed from Chiefdom to Kingdom
+🏛️ Great calxocmixpan Tribe changed from Tribal to Chiefdom
+🏛️ Great teoitzchico Tribe changed from Chiefdom to Kingdom
+🏛️ Great yucyucpan Tribe changed from Tribal to Chiefdom
+🏛️ Great pachtupyu Tribe changed from Tribal to Chiefdom
+🏛️ Old pachpachyu Tribe changed from Chiefdom to Kingdom
+🏛️ New linviastan Tribe changed from Chiefdom to Kingdom
+🏛️ New viamargrad Tribe changed from Tribal to Chiefdom
+🏛️ South dravartannagar Tribe changed from Tribal to Chiefdom
+🏛️ North qinweixiazhou Tribe changed from Tribal to Chiefdom
+🏛️ Great linminguo Tribe changed from Chiefdom to Kingdom
+🏛️ Old urninum Tribe changed from Tribal to Chiefdom
+🏛️ Great calxocmixpan Tribe changed from Chiefdom to Kingdom
+🏛️ North ranbelgrad Tribe changed from Tribal to City-State
+🏛️ Old garromland Tribe changed from Tribal to City-State
+🏛️ North viabelstan Tribe changed from Tribal to City-State
+🏛️ Viaromstan Tribe changed from Chiefdom to Kingdom
+🏛️ New kanvipur Tribe changed from Chiefdom to Kingdom
+🏛️ New dramitpur Tribe changed from Chiefdom to Kingdom
+🏛️ North mitdravarnagar Tribe changed from Chiefdom to Kingdom
+🏛️ Old taiweiling Tribe changed from Tribal to Chiefdom
+🏛️ Great quibelranstan Tribe changed from Tribal to Chiefdom
+🏛️ South barbarmaara Tribe changed from Tribal to Chiefdom
+🏛️ South lamngozu Tribe changed from Chiefdom to Kingdom
+🏛️ North rombelven Tribe changed from Chiefdom to Kingdom
+🏛️ South nahchiyuctan Tribe changed from Chiefdom to Kingdom
+🏛️ Great yucyucpan Tribe changed from Chiefdom to Kingdom
+🏛️ North sumaya Tribe changed from Tribal to Chiefdom
+🏛️ South solbelzen Tribe changed from Tribal to Chiefdom
+🏛️ New viamargrad Tribe changed from Chiefdom to Kingdom
+🏛️ Great kinmarnaland Tribe changed from Tribal to City-State
+🏛️ Great kinlinland Tribe changed from Tribal to Chiefdom
+🏛️ Surnala Tribe changed from Chiefdom to Kingdom
+🏛️ North qinweixiazhou Tribe changed from Chiefdom to Kingdom
+🏛️ Old urninum Tribe changed from Chiefdom to Kingdom
+🏛️ Great quibelranstan Tribe changed from Chiefdom to Kingdom
+🏛️ New teoteman Tribe changed from Chiefdom to Kingdom
+🏛️ North calmix Tribe changed from Tribal to Chiefdom
+🏛️ Terkingrad Tribe changed from Chiefdom to Kingdom
+🏛️ North marnalinstan Tribe changed from Chiefdom to Kingdom
+🏛️ South tamashbar Tribe changed from Tribal to City-State
+🏛️ North drakanpur Tribe changed from Chiefdom to Kingdom
+🏛️ North albel Tribe changed from Chiefdom to Kingdom
+🏛️ North tansurmita Tribe changed from Chiefdom to Kingdom
+🏛️ Great ararurad Tribe changed from Tribal to City-State
+🏛️ Old belbelselburg Tribe changed from Chiefdom to Kingdom
+🏛️ Great pachtupyu Tribe changed from Chiefdom to Kingdom
+🏛️ Old belnabel Tribe changed from Chiefdom to Kingdom
+🏛️ Great kinlinland Tribe changed from Chiefdom to Kingdom
+🏛️ Great tersolia Tribe changed from Tribal to City-State
+🏛️ South urninarad Kingdom changed from Tribal to Chiefdom
+🏛️ Old ureshkalar Tribe changed from Chiefdom to Kingdom
+🏛️ Old machiseara Tribe changed from Tribal to Chiefdom
+🏛️ Mixtemxocco Tribe changed from Tribal to Chiefdom
+🏛️ North calmix Tribe changed from Chiefdom to Kingdom
+🏛️ Suyuaya Tribe changed from Tribal to Chiefdom
+🏛️ North ternagargrad Tribe changed from Chiefdom to Kingdom
+🏛️ North linrenzhoshan Tribe changed from Kingdom to Empire
+🏛️ Old taiweiling Tribe changed from Chiefdom to Kingdom
+🏛️ North samarashad Tribe changed from Chiefdom to Kingdom
+🏛️ South garviaran Tribe changed from Chiefdom to Kingdom
+🏛️ Xocitzcalpan Tribe changed from Tribal to Chiefdom
+🏛️ South solbelzen Tribe changed from Chiefdom to Kingdom
+🏛️ North ofizua Tribe changed from Chiefdom to Kingdom
+🏛️ Great sollordusstan Tribe changed from Chiefdom to Kingdom
+🏛️ New garlinbelgrad Tribe changed from Chiefdom to Kingdom
+🏛️ North sumaya Tribe changed from Chiefdom to Kingdom
+🏛️ South hivatanuimoa Tribe changed from Chiefdom to Kingdom
+🏛️ Old tameshurar Tribe changed from Tribal to City-State
+🏛️ North zhorenzho Tribe changed from Tribal to Chiefdom
+🏛️ South yucxocteman Tribe changed from Chiefdom to Kingdom
+🏛️ Suyuaya Tribe changed from Chiefdom to Kingdom
+🏛️ South urninarad Kingdom changed from Chiefdom to Kingdom
+🏛️ New tamurum Kingdom changed from Chiefdom to Kingdom
+🏛️ Great kankandesh Tribe changed from Chiefdom to Kingdom
+🏛️ North sumllaqa Tribe changed from Chiefdom to Kingdom
+🏛️ South kabarse Tribe changed from Chiefdom to Kingdom
+🏛️ North zhorenzho Tribe changed from Chiefdom to Kingdom
+🏛️ South barbarmaara Tribe changed from Chiefdom to Kingdom
+🏛️ Great sesechiu Tribe changed from Chiefdom to Kingdom
+🏛️ Xocitzcalpan Tribe changed from Chiefdom to Kingdom
+🏛️ North ternagargrad Tribe changed from Kingdom to Empire
+🏛️ Old machiseara Tribe changed from Chiefdom to Kingdom
+🏛️ Mixtemxocco Tribe changed from Chiefdom to Kingdom
+🏛️ Old tameshan Kingdom changed from Kingdom to Empire
+🏛️ Mixtemxocco Tribe changed from Kingdom to Empire
+🏛️ Old ashsamad Tribe changed from Chiefdom to Kingdom
+🏛️ Great nalshanagar Tribe changed from Chiefdom to Kingdom
+🏛️ New belbarum Tribe changed from Tribal to City-State
+🏛️ North mitdravarnagar Tribe changed from Kingdom to Empire
+🏛️ South lamngozu Tribe changed from Kingdom to Empire
+🗡️💀 North ternagargrad Tribe COMPLETELY ANNIHILATES Terlinland Tribe!
+   📊 Absorbed 14638 people and 688 territory!
+🏛️ South taililing Tribe changed from Kingdom to Empire
+🏛️ Kingdom of Lamngoene changed from Kingdom to Empire
+🛣️ New garlinbelgrad Tribe built roads to Old terkingrad Tribe (63 pixels)
+🛣️ Old shara Tribe built roads to North kannal Tribe (247 pixels)
+🛣️ Old shara Tribe built roads to Kingdom of Kanvia (42 pixels)
+🏛️ New surdrasur Tribe changed from Chiefdom to Kingdom
+🛣️ Old shara Tribe built roads to North mitdravarnagar Tribe (66 pixels)
+🛣️ Kingdom of Kanvia built roads to Empire of New kannalnala (128 pixels)
+🏛️ Old garmarland Tribe changed from Kingdom to Empire
+🏛️ South romvialinstan Tribe changed from Kingdom to Empire
+🏛️ South barbarmaara Tribe changed from Kingdom to Empire
+🛣️ Great quibelranstan Tribe built roads to Great tersolia Tribe (39 pixels)
+🏛️ South ngobaru Tribe changed from Kingdom to Empire
+🛣️ Old temyucan Tribe built roads to Kingdom of North tolnahteoan (37 pixels)
+🛣️ Kingdom of Tanrapur built roads to New kankanpur Tribe (117 pixels)
+🛣️ Kingdom of Great chitem built roads to Kingdom of Old itzmixteotan (50 pixels)
+🛣️ Kingdom of Tanrapur built roads to Empire of New rashaa (56 pixels)
+🛣️ Kingdom of Old chiteomixtan built roads to South teotolco Tribe (24 pixels)
+🏛️ North mixitzmixco Tribe changed from Kingdom to Empire
+🏛️ South nagargrad changed from Chiefdom to Kingdom
+🛣️ South romvialinstan Tribe built roads to New naromland Tribe (85 pixels)
+🛣️ Kingdom of Old chiteomixtan built roads to Empire of North mixtolpan Kingdom (35 pixels)
+🛣️ Kingdom of North tolnahteoan built roads to Empire of North mixtolpan Kingdom (15 pixels)
+🛣️ Empire of North mixtolpan Kingdom built roads to South teotolco Tribe (53 pixels)
+🛣️ Kingdom of North temitzco built roads to Empire of North mixtolpan Kingdom (23 pixels)
+🛣️ South ngobaru Tribe built roads to Kingdom of Old chitanofi (204 pixels)
+🛣️ Old temyucan Tribe built roads to Empire of North mixtolpan Kingdom (31 pixels)
+🛣️ Kingdom of Old chiteomixtan built roads to New tolmixmixpan Tribe (100 pixels)
+🛣️ South malama Tribe built roads to Empire of South kachitana (108 pixels)
+🛣️ Kingdom of North calxocmix built roads to Empire of North mixtolpan Kingdom (29 pixels)
+🛣️ Kingdom of New temchipan built roads to Empire of North mixtolpan Kingdom (82 pixels)
+🛣️ South barbarmaara Tribe built roads to Empire of Old ofikaene (170 pixels)
+🛣️ Kingdom of North tolnahteoan built roads to Kingdom of New temchipan (35 pixels)
+🛣️ Empire of South kachitana built roads to South chingoara Kingdom (135 pixels)
+🛣️ South barbarmaara Tribe built roads to Great eshurar Tribe (175 pixels)
+🛣️ Empire of South kachitana built roads to New tanmaa Kingdom (211 pixels)
+🛣️ Empire of North tanbarara built roads to South barbarmaara Tribe (93 pixels)
+🏛️ North viamarland Kingdom changed from Chiefdom to Kingdom
+🛣️ South lamzuofia Tribe built roads to South barbarmaara Tribe (130 pixels)
+🛣️ South barbarmaara Tribe built roads to New barzuzu Tribe (90 pixels)
+🛣️ Empire of North mixtolpan Kingdom built roads to Empire of New tolmixco (53 pixels)
+🛣️ Empire of Old ofikaene built roads to Empire of North ofikaene (68 pixels)
+🏛️ New ngolamu Tribe changed from Chiefdom to Kingdom
+🛣️ New ngoofiara Kingdom built roads to Empire of South kachitana (86 pixels)
+🛣️ South malama Tribe built roads to Empire of South kachitana (108 pixels)
+🛣️ South lamzuofia Tribe built roads to Empire of Old ofikaene (108 pixels)
+🛣️ Empire of North tanbarara built roads to Empire of Old ofikaene (108 pixels)
+🛣️ Empire of Old ofikaene built roads to North zuchia Kingdom (103 pixels)
+🛣️ Empire of North tanbarara built roads to Empire of North ofikaene (69 pixels)
+🛣️ South malama Tribe built roads to South lamzuofia Tribe (296 pixels)
+🛣️ New ngoofiara Kingdom built roads to South malama Tribe (216 pixels)
+🛣️ Sengolam Kingdom built roads to South barbarmaara Kingdom (304 pixels)
+🛣️ Empire of South kachitana built roads to Kingdom of Great ofitanlamu (204 pixels)
+🛣️ New ngoofiara Kingdom built roads to Kingdom of Makangoene (144 pixels)
+🛣️ Empire of North tanbarara built roads to North zuchia Kingdom (7 pixels)
+🛣️ New ngoofiara Kingdom built roads to Sengolam Kingdom (168 pixels)
+🛣️ South lamzuofia Tribe built roads to South barbarmaara Kingdom (130 pixels)
+🛣️ South barbarmaara Kingdom built roads to Empire of Old ofikaene (170 pixels)
+🛣️ Sengolam Kingdom built roads to Empire of South kachitana (95 pixels)
+🛣️ North tankaara Kingdom built roads to South malama Tribe (137 pixels)
+🛣️ New ngoofiara Kingdom built roads to South kalamu Tribe (132 pixels)
+🛣️ South barbarmaara Kingdom built roads to Great eshurar Tribe (175 pixels)
+🛣️ Empire of South katanara built roads to South chingoara Kingdom (135 pixels)
+🛣️ South malama Tribe built roads to Sengolam Kingdom (120 pixels)
+🛣️ South barbarmaara Kingdom built roads to Empire of North tanbarara (84 pixels)
+🛣️ Empire of South katanara built roads to Kingdom of New ngozulamara (211 pixels)
+🛣️ South lamzuofia Tribe built roads to Empire of Old ofikaene (108 pixels)
+🛣️ Sengolam Kingdom built roads to Empire of South barbarchi (333 pixels)
+🛣️ Kalamu Kingdom built roads to South barbarmaara Kingdom (101 pixels)
+🛣️ South barbarmaara Kingdom built roads to Empire of South barbarchi (90 pixels)
+🛣️ North tankaara Kingdom built roads to South lamzuofia Tribe (139 pixels)
+🛣️ Empire of Sengoara built roads to South ofiofia Kingdom (159 pixels)
+🛣️ South malama Tribe built roads to Empire of Old tanchingoa (108 pixels)
+🛣️ South lamzuofia Tribe built roads to Sengolam Kingdom (276 pixels)
+🛣️ Kingdom of Temchiyucan built roads to Empire of New calchicalan (55 pixels)
+🛣️ South zutanmau Kingdom built roads to South malama Tribe (120 pixels)
+🛣️ North sekabarara Kingdom built roads to Empire of Great chichingoa (247 pixels)
+🛣️ Sengolam Kingdom built roads to Empire of Old tanchingoa (95 pixels)
+🛣️ South malama Tribe built roads to South lamzuofia Tribe (296 pixels)
+🛣️ Kalamu Kingdom built roads to Empire of Great chichingoa (150 pixels)
+🛣️ Empire of New lamsengou built roads to North sekabarara Kingdom (180 pixels)
+🛣️ South malama Tribe built roads to Empire of New lamsengou (216 pixels)
+🛣️ North tankaara Kingdom built roads to South malama Tribe (137 pixels)
+🛣️ Empire of Old ofikaene built roads to New zutanse Kingdom (156 pixels)
+🛣️ South lamzuofia Kingdom built roads to South barbarmaara Kingdom (130 pixels)
+🛣️ North sekabarara Kingdom built roads to Sengolam Kingdom (108 pixels)
+🛣️ Old ofisechia Kingdom built roads to Great ngoofilamara Tribe (84 pixels)
+🛣️ New zutanse Kingdom built roads to South lamzuofia Kingdom (96 pixels)
+🛣️ Kingdom of Old chiteomixtan built roads to Great chicalco Kingdom (54 pixels)
+🛣️ Sengolam Kingdom built roads to South malama Tribe (67 pixels)
+🛣️ North sekabarara Kingdom built roads to Kalamu Kingdom (96 pixels)
+🛣️ Sengolam Kingdom built roads to Empire of Barchia (168 pixels)
+🛣️ Kalamu Kingdom built roads to South lamzuofia Kingdom (168 pixels)
+🛣️ Old ofisechia Kingdom built roads to North zutanara Kingdom (48 pixels)
+🛣️ South malama Tribe built roads to Empire of South chitanene (108 pixels)
+🛣️ North tankaara Kingdom built roads to South lamzuofia Kingdom (139 pixels)
+🛣️ New zutanse Kingdom built roads to North ofichia Kingdom (180 pixels)
+🛣️ Kalamu Kingdom built roads to Sengolam Kingdom (204 pixels)
+🛣️ Sengolam Kingdom built roads to Empire of South chitanene (95 pixels)
+🛣️ Empire of South sengo built roads to Lamkachiu Tribe (108 pixels)
+🛣️ South lamzuofia Kingdom built roads to Empire of South machisea (108 pixels)
+🛣️ South ngoseara Kingdom built roads to South malama Tribe (53 pixels)
+🛣️ North mazutana Kingdom built roads to South lamzuofia Kingdom (192 pixels)
+🛣️ Old ofisechia Kingdom built roads to Zulamngoene Kingdom (48 pixels)
+🛣️ Kalamu Kingdom built roads to Great ofise Kingdom (84 pixels)
+🛣️ Sengolam Kingdom built roads to South malama Tribe (67 pixels)
+🏛️ Old ofisechia Kingdom changed from Kingdom to Empire
+🛣️ New ofibarofi Kingdom built roads to Empire of Zuchi (175 pixels)
+🛣️ South malama Tribe built roads to Empire of New sezuchiu (216 pixels)
+🛣️ Empire of New sezuchiu built roads to New ofibarofi Kingdom (180 pixels)
+🛣️ North tankaara Kingdom built roads to Empire of North zungobaru (133 pixels)
+🛣️ North sekabarara Kingdom built roads to Empire of North tanmaara (247 pixels)
+🛣️ South ngoseara Kingdom built roads to Sengolam Kingdom (108 pixels)
+🛣️ South lamzuofia Kingdom built roads to South barbarmaara Kingdom (130 pixels)
+🛣️ North tankaara Kingdom built roads to South lamzuofia Kingdom (139 pixels)
+🛣️ Kalamu Kingdom built roads to New ofibarofi Kingdom (120 pixels)
+🛣️ Empire of North mixtolpan Kingdom built roads to South teonahxoctan Kingdom (53 pixels)
+🛣️ Kingdom of Old chiteomixtan built roads to South teonahxoctan Kingdom (24 pixels)
+🛣️ North zuse Kingdom built roads to Great ngoofilamara Tribe (60 pixels)
+🛣️ Great ofise Kingdom built roads to South lamzuofia Kingdom (108 pixels)
+🛣️ North mazutana Kingdom built roads to Sengolam Kingdom (84 pixels)
+🛣️ South lamzuofia Kingdom built roads to Empire of South machisea (108 pixels)
+🛣️ North sekabarara Kingdom built roads to Empire of New sezuchiu (72 pixels)
+🛣️ Sengolam Kingdom built roads to Empire of North tanngoa (168 pixels)
+🛣️ North mazutana Kingdom built roads to South ngoseara Kingdom (48 pixels)
+🛣️ New barngokau Kingdom built roads to South lamzuofia Kingdom (142 pixels)
+🛣️ South malama Tribe built roads to Empire of Great lamofiene (120 pixels)
+🛣️ Empire of South machisea built roads to Great barkaara Kingdom (216 pixels)
+🛣️ South ngoseara Kingdom built roads to North tankaara Kingdom (120 pixels)
+🛣️ North tankaara Kingdom built roads to Empire of Ofimatana (84 pixels)
+🛣️ Empire of Old tantana built roads to Empire of Great ofisezua (175 pixels)
+🛣️ Great barkaara Kingdom built roads to Empire of Ofimatana (120 pixels)
+🛣️ North sekabarara Kingdom built roads to Sengolam Kingdom (108 pixels)
+🛣️ Empire of New calchicalan built roads to Kingdom of Great yucmix (27 pixels)
+🛣️ South malama Tribe built roads to Empire of Ofimatana (120 pixels)
+🛣️ Great ofise Kingdom built roads to Sengolam Kingdom (168 pixels)
+🛣️ New zutanse Kingdom built roads to Empire of South machisea (133 pixels)
+🛣️ North zuse Kingdom built roads to South chingoara Kingdom (24 pixels)
+🛣️ South lamzuofia Kingdom built roads to Kalamu Kingdom (168 pixels)
+🛣️ Empire of New calchicalan built roads to Kingdom of Great yucmix (27 pixels)
+🛣️ North mazutana Kingdom built roads to Great ofise Kingdom (108 pixels)
+🛣️ New barngokau Kingdom built roads to North tankaara Kingdom (48 pixels)
+🛣️ Kalamu Kingdom built roads to Great ngolammaara Kingdom (132 pixels)
+🛣️ South lamzuofia Kingdom built roads to South barbarmaara Kingdom (130 pixels)
+🛣️ New barngokau Kingdom built roads to Empire of Ofimatana (84 pixels)
+🛣️ Empire of Old tantana built roads to Old semangoa Tribe (60 pixels)
+🛣️ Great ngolammaara Kingdom built roads to Empire of Great ofisezua (210 pixels)
+🛣️ Great barkaara Kingdom built roads to New zutanse Kingdom (60 pixels)
+🛣️ New zutanse Kingdom built roads to South lamzuofia Kingdom (96 pixels)
+🛣️ North tankaara Kingdom built roads to Great ofise Kingdom (84 pixels)
+🛣️ South ngoseara Kingdom built roads to Great ofise Kingdom (156 pixels)
+🛣️ New barngokau Kingdom built roads to North malama Kingdom (84 pixels)
+🛣️ Great ofise Kingdom built roads to North malama Kingdom (24 pixels)
+🛣️ North sekabarara Kingdom built roads to Empire of Old tantana (72 pixels)
+🛣️ Sengolam Kingdom built roads to Great ngolammaara Kingdom (144 pixels)
+🛣️ South lamzuofia Kingdom built roads to Empire of South machisea (108 pixels)
+🛣️ Great ngolammaara Kingdom built roads to Empire of Old tantana (36 pixels)
+🛣️ New tolteotolco Kingdom built roads to Chinahmixpan Kingdom (60 pixels)
+🛣️ South malama Tribe built roads to South katana Kingdom (120 pixels)
+🛣️ New zutanse Kingdom built roads to Empire of Ofimatana (180 pixels)
+🛣️ Kalamu Kingdom built roads to Empire of North lamchia (120 pixels)
+🛣️ North tankaara Kingdom built roads to North malama Kingdom (60 pixels)
+🛣️ Empire of New calchicalan built roads to Chinahmixpan Kingdom (86 pixels)
+🛣️ South itzchitemtan Kingdom built roads to Empire of New calchicalan (44 pixels)
+🛣️ North malama Kingdom built roads to South lamzuofia Kingdom (84 pixels)
+🛣️ New tolteotolco Kingdom built roads to Great xoctemtan Kingdom (43 pixels)
+🛣️ Empire of North lamchia built roads to South barbarmaara Kingdom (165 pixels)
+🛣️ North sekabarara Kingdom built roads to Sengolam Kingdom (108 pixels)
+🛣️ South lamzuofia Kingdom built roads to Kalamu Kingdom (168 pixels)
+🛣️ Great ngolammaara Kingdom built roads to North sekabarara Kingdom (36 pixels)
+🛣️ Empire of North zungou built roads to Empire of Great ofisezua (156 pixels)
+🛣️ New tolteotolco Kingdom built roads to Old chitemteo Kingdom (24 pixels)
+🛣️ South itzchitemtan Kingdom built roads to Chinahmixpan Kingdom (60 pixels)
+🛣️ North malama Kingdom built roads to Empire of Ofimatana (144 pixels)
+🛣️ South lamzuofia Kingdom built roads to Empire of Ofimatana (228 pixels)
+🛣️ North sekabarara Kingdom built roads to Kalamu Kingdom (96 pixels)
+🛣️ New zutanse Kingdom built roads to North malama Kingdom (180 pixels)
+🛣️ Empire of New calchicalan built roads to Great caltoltolco Kingdom (168 pixels)
+🛣️ Empire of New rashaa Kingdom built roads to South kandratanpur (190 pixels)
+🛣️ North tolxocan Kingdom built roads to Great xoctemtan Kingdom (76 pixels)
+🛣️ North ofiofiseara Kingdom built roads to Sengolam Kingdom (132 pixels)
+🛣️ South lamzuofia Kingdom built roads to Great ofise Kingdom (108 pixels)
+🛣️ Kalamu Kingdom built roads to North ofiofiseara Kingdom (120 pixels)
+🛣️ North sekabarara Kingdom built roads to Empire of North lamchia (72 pixels)
+🛣️ South xocitzyuctan Kingdom built roads to Kingdom of New kusllaqmarca (108 pixels)
+🛣️ Great barkaara Kingdom built roads to New zutanlama Kingdom (108 pixels)
+🛣️ North malama Kingdom built roads to New zutanlama Kingdom (132 pixels)
+🛣️ Empire of New calchicalan built roads to South xocitzyuctan Kingdom (108 pixels)
+🛣️ North sekabarara Kingdom built roads to Sengolam Kingdom (108 pixels)
+🛣️ North ofiofiseara Kingdom built roads to North sekabarara Kingdom (24 pixels)
+🛣️ South xocitzyuctan Kingdom built roads to Great caltoltolco Kingdom (60 pixels)
+🛣️ New barngokau Kingdom built roads to New zutanlama Kingdom (48 pixels)
+🛣️ New zutanse Kingdom built roads to New zutanlama Kingdom (120 pixels)
+🛣️ South chingoara Kingdom built roads to Kingdom of Ofiofi (84 pixels)
+🛣️ Empire of New rashaa Kingdom built roads to Kingdom of South vardradranagar (174 pixels)
+🛣️ South lamzuofia Kingdom built roads to New zutanlama Kingdom (168 pixels)
+🛣️ North tolxocan Kingdom built roads to Intillaqmarca Kingdom (84 pixels)
+🛣️ North ofiofiseara Kingdom built roads to Great ngolammaara Kingdom (12 pixels)
+🛣️ North sekabarara Kingdom built roads to Great ngolammaara Kingdom (36 pixels)
+🛣️ Great itztolpan Kingdom built roads to Great xoctemtan Kingdom (61 pixels)
+🛣️ South xocitzyuctan Kingdom built roads to North itznahcalco Kingdom (37 pixels)
+🛣️ Empire of Old ofise built roads to Old tanzutana Kingdom (156 pixels)
+🛣️ North itznahcalco Kingdom built roads to Kingdom of Kusllaqyu Kingdom (102 pixels)
+🛣️ Great itztolpan Kingdom built roads to Great caltoltolco Kingdom (72 pixels)
+🛣️ Empire of New calchicalan built roads to North itznahcalco Kingdom (47 pixels)
+🛣️ Empire of North lamofi built roads to Old tantanene Kingdom (36 pixels)
+🛣️ Kingdom of New zuchimaa built roads to Kingdom of South tanzuu (84 pixels)
+🛣️ Empire of North lamofi built roads to Barseene Kingdom (108 pixels)
+🛣️ Great itztolpan Kingdom built roads to Old suyuqoriintiyu Kingdom (144 pixels)
+🛣️ South xocitzyuctan Kingdom built roads to South yucyucpan Kingdom (72 pixels)
+🛣️ Empire of North lamofi built roads to Old tanzutana Kingdom (180 pixels)
+🛣️ North tolxocan Kingdom built roads to South llaqintimarca Kingdom (84 pixels)
+🛣️ Empire of New rashaa Kingdom built roads to South shakannagar Kingdom (154 pixels)
+🛣️ North itznahcalco Kingdom built roads to Kingdom of New kusllaqmarca (108 pixels)
+🛣️ Great itztolpan Kingdom built roads to South yucyucpan Kingdom (60 pixels)
+🛣️ Old ofisechia Kingdom built roads to Ngolamene Kingdom (84 pixels)
+🛣️ Empire of New calchicalan built roads to South yucyucpan Kingdom (108 pixels)
+🛣️ Empire of North mixtolpan Kingdom built roads to North temnahteoan Kingdom (57 pixels)
+🛣️ North tolxocan Kingdom built roads to North xoctempan Kingdom (48 pixels)
+🛣️ New tolteotolco Kingdom built roads to Old nahnahco Kingdom (72 pixels)
+🛣️ Empire of New mazu built roads to Old selamlam Kingdom (24 pixels)
+🛣️ Empire of New rashaa Kingdom built roads to Kingdom of Old surnalnalnagar (174 pixels)
+🛣️ Empire of New calchicalan built roads to Old chitemteo Kingdom (107 pixels)
+🛣️ Kalamu Kingdom built roads to Old selamlam Kingdom (120 pixels)
+🛣️ Empire of New rashaa Kingdom built roads to Kingdom of Drakanvipur (118 pixels)
+🛣️ Great itztolpan Kingdom built roads to Old chitemteo Kingdom (55 pixels)
+🛣️ North ofiofiseara Kingdom built roads to Old selamlam Kingdom (24 pixels)
+🏛️ Empire of North mixtolpan Kingdom changed from Kingdom to Empire
+🛣️ Great itztolpan Kingdom built roads to Old qoriqorisumna Kingdom (96 pixels)
+🛣️ Empire of Great kachiara built roads to North sese Kingdom (144 pixels)
+🛣️ New zutanse Kingdom built roads to South kazuma Kingdom (36 pixels)
+🛣️ North xoctempan Kingdom built roads to Great xoctemtan Kingdom (45 pixels)
+🛣️ South kazuma Kingdom built roads to Empire of South machisea Kingdom (127 pixels)
+🛣️ South kazuma Kingdom built roads to Empire of North ngotanbaru (72 pixels)
+🛣️ Old ofisechia Kingdom built roads to Ofizumau Kingdom (72 pixels)
+🛣️ Empire of South machisea Kingdom built roads to South barbarmaara Kingdom (172 pixels)
+🛣️ Old chitemteo Kingdom built roads to Chinahmixpan Kingdom (60 pixels)
+🛣️ Great itztolpan Kingdom built roads to North xoctempan Kingdom (63 pixels)
+🛣️ North xoctempan Kingdom built roads to Old suyuqoriintiyu Kingdom (120 pixels)
+🛣️ Great itztolpan Kingdom built roads to Old nahnahco Kingdom (59 pixels)
+🛣️ Empire of Great kachiara built roads to Old ngoofibara Kingdom (146 pixels)
+🛣️ North xoctempan Kingdom built roads to Intillaqmarca Kingdom (60 pixels)
+🛣️ Empire of South machisea Kingdom built roads to Empire of North ofikaene (68 pixels)
+🛣️ Old chitemteo Kingdom built roads to Great caltoltolco Kingdom (108 pixels)
+🛣️ South yucyucpan Kingdom built roads to Great caltoltolco Kingdom (60 pixels)
+🛣️ North xoctempan Kingdom built roads to Old nahnahco Kingdom (60 pixels)
+🛣️ Old chitemteo Kingdom built roads to South yucyucpan Kingdom (72 pixels)
+🛣️ Kingdom of Ofitantana built roads to Empire of North tanbarara (92 pixels)
+🛣️ Kingdom of Ofitantana Kingdom built roads to North zuchia Kingdom (103 pixels)
+🛣️ Old chitemteo Kingdom built roads to Old nahnahco Kingdom (48 pixels)
+🛣️ Kingdom of New sechitanu Kingdom built roads to Kingdom of Old kaofilam Kingdom (108 pixels)
+🛣️ Kingdom of New sechitanu Kingdom built roads to New zutanse Kingdom (156 pixels)
+🛣️ Kingdom of Old romzengrad built roads to Kingdom of Zendussolland (106 pixels)
+🛣️ Kingdom of Old ngochiara built roads to Empire of North ngotanbaru (144 pixels)
+🛣️ Kingdom of New belviaia built roads to Kingdom of North solmarlinstan (11 pixels)
+🛣️ Empire of Great liqintaizhou built roads to Kingdom of North zenrom (95 pixels)
+🛣️ Old nahnahco Kingdom built roads to Great xoctemtan Kingdom (31 pixels)
+🛣️ Kingdom of New belviaia built roads to New vianastan Kingdom (36 pixels)
+🛣️ Empire of Great liqintaizhou built roads to North kinzenlorstan Kingdom (58 pixels)
+🛣️ Kingdom of Old romzengrad built roads to Kingdom of New solrania (33 pixels)
+🛣️ Empire of Great liqintaizhou built roads to Empire of Great qinminhanzhou (57 pixels)
+🛣️ Kingdom of Old romzengrad built roads to New duslinland (88 pixels)
+🛣️ Empire of Great liqintaizhou built roads to Linrenminguo Kingdom (71 pixels)
+🛣️ Kingdom of South tanzuu built roads to Republic of North zuzuofi (72 pixels)
+🛣️ Kingdom of Old romzengrad built roads to Kingdom of Rantersolstan (56 pixels)
+🛣️ Kingdom of South tanzuu built roads to Zulamngoene Kingdom (36 pixels)
+🛣️ Empire of Great liqintaizhou built roads to New renzholiguo Kingdom (26 pixels)
+🛣️ Kingdom of Great kalninbelad built roads to Kingdom of Great barninum (56 pixels)
+🛣️ Great norromburg Tribe built roads to Kingdom of North alromrom (42 pixels)
+🛣️ Great xoctemtan Kingdom built roads to Empire of South yucnah (69 pixels)
+🛣️ Kingdom of Great kalninbelad built roads to Kingdom of North urkaluran (47 pixels)
+🛣️ Great xoctemtan Kingdom built roads to Empire of North tolchiitzan (108 pixels)
+🛣️ Kingdom of Great kalninbelad built roads to Kingdom of Old kalashbelad (22 pixels)
+🛣️ Empire of Ngokazuu built roads to Empire of Barofikaara (22 pixels)
+🛣️ Empire of Ngokazuu built roads to Empire of New ngotantan (36 pixels)
+🏛️ New margarland Tribe changed from Chiefdom to Kingdom
+🏛️ Kingdom of Old ngotanara changed from Kingdom to Empire
+🛣️ Empire of Ngokazuu built roads to South ofilamene Kingdom (30 pixels)
+🛣️ Kingdom of Old artamtaman built roads to Old arashurar Tribe (28 pixels)
+🛣️ Kingdom of Old artamtaman built roads to Kingdom of Barashtaman (47 pixels)
+🏛️ Kingdom of Solromgrad Kingdom changed from Kingdom to Empire
+🛣️ Empire of Barofikaara built roads to Empire of Great maofitanu (12 pixels)
+🏛️ Ranbelbel Tribe changed from Chiefdom to Kingdom
+🛣️ Empire of Barofikaara built roads to Empire of South zutana (72 pixels)
+🛣️ Empire of Great hanminliguo built roads to Empire of Minrenlinguo (78 pixels)
+🛣️ Empire of Barofikaara built roads to South ofilamene Kingdom (54 pixels)
+🛣️ Empire of Great hanminliguo built roads to Empire of New weihanzhou (122 pixels)
+🛣️ Kingdom of Old urtamum built roads to Kingdom of Eshbelkalar (28 pixels)
+🛣️ Empire of Great hanminliguo built roads to Empire of South linlinlinshan (28 pixels)
+🛣️ Kingdom of Old urbelkalum built roads to Kingdom of Barashtaman (66 pixels)
+🛣️ Kingdom of New pachrumayayu built roads to Kingdom of South intipachna (36 pixels)
+🛣️ Kingdom of New pachrumayayu built roads to Kingdom of South tupqoria (48 pixels)
+🛣️ Kingdom of Old urtamum built roads to Kingdom of South tamninbelum (42 pixels)
+🛣️ Empire of Great hanminliguo built roads to Empire of Great xiataiminling (16 pixels)
+🛣️ Kingdom of Old urbelkalum built roads to Kingdom of Great belararad (29 pixels)
+🛣️ Kingdom of Old urtamum built roads to Kingdom of Great belararad (107 pixels)
+🛣️ Empire of Great hanminliguo built roads to Empire of Linqinqinzhou (104 pixels)
+🛣️ Kingdom of Old urtamum built roads to Kingdom of Sambelan (72 pixels)
+🛣️ Old drasurnaldesh Kingdom built roads to Kingdom of South naldravipur (42 pixels)
+🛣️ Kingdom of Old urtamum built roads to Kingdom of Old tamninarad (68 pixels)
+🛣️ Old drasurnaldesh Kingdom built roads to Kingdom of North shasursurnagar (2 pixels)
+🛣️ Kingdom of Old urtamum built roads to Kingdom of Great barsamar (48 pixels)
+Wrote C:\WS\WorldSimulation10028\out\seed_max_tech_post16_realism_v14\seed_9\run_summary.json, C:\WS\WorldSimulation10028\out\seed_max_tech_post16_realism_v14\seed_9\timeseries.csv, C:\WS\WorldSimulation10028\out\seed_max_tech_post16_realism_v14\seed_9\run_meta.json, C:\WS\WorldSimulation10028\out\seed_max_tech_post16_realism_v14\seed_9\violations.json
+COMMAND:
+/mnt/c/WS/WorldSimulation10028/out/cmake/release/bin/worldsim_cli.exe --seed 9 --config C:\WS\WorldSimulation10028\data\sim_config.toml --startYear -5000 --endYear 2025 --checkpointEveryYears 50 --outDir C:\WS\WorldSimulation10028\out\seed_max_tech_post16_realism_v14\seed_9 --techUnlockLog C:\WS\WorldSimulation10028\out\seed_max_tech_post16_realism_v14\seed_9\tech_unlocks.csv --techUnlockLogIncludeInitial 1 --useGPU 0
+

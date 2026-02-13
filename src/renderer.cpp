@@ -341,6 +341,11 @@ void Renderer::render(const std::vector<Country>& countries,
 	    worldTarget->setView(drawView);
 	    worldTarget->draw(m_baseSprite); // Draw the base map (map.png)
 
+        if (m_showGeographyOverlay) {
+            updateGeographyOverlayTexture(map);
+            worldTarget->draw(m_geographySprite);
+        }
+
         if (m_showClimateOverlay) {
             updateClimateOverlayTexture(map);
             worldTarget->draw(m_climateSprite);
@@ -866,6 +871,24 @@ void Renderer::toggleWealthLeaderboard() {
     m_showWealthLeaderboard = !m_showWealthLeaderboard;
 }
 
+void Renderer::toggleGeographyOverlay() {
+    m_showGeographyOverlay = !m_showGeographyOverlay;
+}
+
+void Renderer::cycleGeographyOverlayMode() {
+    m_showGeographyOverlay = true;
+    m_geographyOverlayMode = (m_geographyOverlayMode + 1) % 2;
+}
+
+void Renderer::setGeographyOverlay(bool enabled) {
+    m_showGeographyOverlay = enabled;
+}
+
+void Renderer::setGeographyOverlayMode(int mode) {
+    m_showGeographyOverlay = true;
+    m_geographyOverlayMode = std::max(0, std::min(mode, 1));
+}
+
 void Renderer::toggleClimateOverlay() {
     m_showClimateOverlay = !m_showClimateOverlay;
 }
@@ -934,6 +957,64 @@ void Renderer::toggleTradeRouteOverlay() {
 
 void Renderer::setTradeRouteOverlay(bool enabled) {
     m_showTradeRoutes = enabled;
+}
+
+void Renderer::updateGeographyOverlayTexture(const Map& map) {
+    const auto& isLand = map.getIsLandGrid();
+    if (isLand.empty() || isLand[0].empty()) {
+        return;
+    }
+    const int h = static_cast<int>(isLand.size());
+    const int w = static_cast<int>(isLand[0].size());
+    const bool sizeChanged = (w != m_geographyW) || (h != m_geographyH);
+    const bool modeChanged = (m_geographyOverlayMode != m_geographyOverlayLastMode);
+    if (!sizeChanged && !modeChanged && !m_geographyPixels.empty()) {
+        return;
+    }
+
+    m_geographyW = w;
+    m_geographyH = h;
+    m_geographyOverlayLastMode = m_geographyOverlayMode;
+    const size_t n = static_cast<size_t>(w) * static_cast<size_t>(h);
+    m_geographyPixels.assign(n * 4u, 0u);
+
+    if (m_geographyOverlayMode == 0) {
+        for (int y = 0; y < h; ++y) {
+            for (int x = 0; x < w; ++x) {
+                const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(w) + static_cast<size_t>(x);
+                const bool landCell = isLand[static_cast<size_t>(y)][static_cast<size_t>(x)];
+                const sf::Uint8 v = landCell ? 255u : 0u;
+                const size_t out = idx * 4u;
+                m_geographyPixels[out + 0u] = v;
+                m_geographyPixels[out + 1u] = v;
+                m_geographyPixels[out + 2u] = v;
+                m_geographyPixels[out + 3u] = 130u;
+            }
+        }
+    } else {
+        const auto& elevation = map.getElevationGrid();
+        for (size_t idx = 0; idx < n; ++idx) {
+            const float e01 = (idx < elevation.size()) ? std::max(0.0f, std::min(1.0f, elevation[idx])) : 0.0f;
+            const sf::Uint8 g = static_cast<sf::Uint8>(std::round(e01 * 255.0f));
+            const size_t out = idx * 4u;
+            m_geographyPixels[out + 0u] = g;
+            m_geographyPixels[out + 1u] = g;
+            m_geographyPixels[out + 2u] = g;
+            m_geographyPixels[out + 3u] = 165u;
+        }
+    }
+
+    if (sizeChanged ||
+        m_geographyTex.getSize().x != static_cast<unsigned int>(w) ||
+        m_geographyTex.getSize().y != static_cast<unsigned int>(h)) {
+        m_geographyTex.create(static_cast<unsigned int>(w), static_cast<unsigned int>(h));
+        m_geographyTex.setSmooth(false);
+        m_geographySprite.setTexture(m_geographyTex, true);
+        m_geographySprite.setPosition(0.f, 0.f);
+    }
+    m_geographyTex.update(m_geographyPixels.data());
+    m_geographySprite.setScale(static_cast<float>(map.getGridCellSize()), static_cast<float>(map.getGridCellSize()));
+    m_geographySprite.setColor(sf::Color(255, 255, 255, 255));
 }
 
 void Renderer::updateClimateOverlayTexture(const Map& map) {

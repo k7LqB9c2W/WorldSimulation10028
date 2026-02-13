@@ -1,0 +1,41 @@
+{
+  "elapsed_sec": 434.1826310157776,
+  "total_seeds": 8,
+  "completed_seeds": 1,
+  "ok_runs": 1,
+  "failed_runs": 0,
+  "canceled_runs": 0,
+  "stopped_early": false,
+  "run_settings": {
+    "start_year": -5000,
+    "end_year": 2025,
+    "checkpoint_every_years": 200,
+    "use_gpu": false
+  },
+  "best_by_unlocked_count": {
+    "seed": 6,
+    "max_total_unlocked_techs": 29,
+    "detail": {
+      "year": -378,
+      "tech_id": 38,
+      "tech_name": "Mechanical Clock",
+      "country_index": "0",
+      "country_name": "South kanvivi Tribe",
+      "event_type": "unlock"
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_post_patch_calib8b/seed_6"
+  },
+  "best_by_tech_id": {
+    "seed": 6,
+    "detail": {
+      "year": 1590,
+      "tech_id": 120,
+      "tech_name": "Copper Smelting",
+      "country_index": "31",
+      "country_name": "South belkalan",
+      "event_type": "unlock",
+      "total_unlocked_techs": 14
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_post_patch_calib8b/seed_6"
+  }
+}

@@ -37,6 +37,12 @@ public:
     bool climateOverlayEnabled() const { return m_showClimateOverlay; }
     int climateOverlayMode() const { return m_climateOverlayMode; }
     void setClimateOverlayMode(int mode);
+    void toggleGeographyOverlay();
+    void cycleGeographyOverlayMode();
+    void setGeographyOverlay(bool enabled);
+    bool geographyOverlayEnabled() const { return m_showGeographyOverlay; }
+    int geographyOverlayMode() const { return m_geographyOverlayMode; }
+    void setGeographyOverlayMode(int mode);
     void toggleUrbanOverlay();
     void cycleUrbanOverlayMode();
     void setUrbanOverlay(bool enabled);
@@ -193,6 +199,7 @@ private:
 	    void drawWarArrows(sf::RenderTarget& target, const std::vector<Country>& countries, const Map& map, const sf::FloatRect& visibleArea);
 
         // Phase 6: climate debug overlay (field-grid texture).
+        void updateGeographyOverlayTexture(const Map& map);
         void updateClimateOverlayTexture(const Map& map);
         void updateUrbanOverlayTexture(const Map& map);
         void updateOverseasOverlayTexture(const Map& map);
@@ -204,6 +211,16 @@ private:
                                                        const std::vector<Country>& countries,
                                                        const TradeManager& tradeManager,
                                                        int observerIndex) const;
+
+        // Geography overlay (map-grid texture): 0=landmask,1=heightmap.
+        bool m_showGeographyOverlay = false;
+        int m_geographyOverlayMode = 0;
+        int m_geographyOverlayLastMode = -1;
+        int m_geographyW = 0;
+        int m_geographyH = 0;
+        std::vector<sf::Uint8> m_geographyPixels;
+        sf::Texture m_geographyTex;
+        sf::Sprite m_geographySprite;
 
         bool m_showClimateOverlay = false;
         int m_climateOverlayMode = 0; // 0=zone,1=biome,2=tempMean,3=precMean
