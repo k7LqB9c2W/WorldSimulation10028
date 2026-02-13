@@ -1,0 +1,259 @@
+# Equations extracted from: "Making a 5000 BCE World Simulation Substantially More Realistic"
+# Format:
+# - id: stable label
+#   page: PDF page number
+#   section: nearest section header in the PDF
+#   context: short description of intended meaning
+#   source: "typeset" | "pseudocode"
+#   latex: LaTeX equation (parseable)
+
+- id: Eq01
+  page: 4
+  section: "Settlement growth and fission"
+  context: "Per-settlement population change with density dependence and shocks."
+  source: "typeset"
+  latex: |
+    \Delta P_i = P_i \, r(\mathrm{cal}_i)\left(1 - \frac{P_i}{K_i}\right) - \mathrm{shock}_i
+
+- id: Eq02
+  page: 4
+  section: "Settlement growth and fission"
+  context: "Carrying capacity as baseline times multiplicative constraint factors."
+  source: "typeset"
+  latex: |
+    K_i = K_{0,i}\, f(\mathrm{tech})\, f(\mathrm{soil})\, f(\mathrm{water})\, f(\mathrm{storage})
+
+- id: Eq03
+  page: 4
+  section: "Settlement growth and fission"
+  context: "Fission trigger condition for spawning a new settlement."
+  source: "typeset"
+  latex: |
+    P_i > P_{\mathrm{split}}
+
+- id: Eq04
+  page: 4
+  section: "Settlement growth and fission"
+  context: "Calories available to a settlement after trade flows."
+  source: "pseudocode"
+  latex: |
+    \mathrm{cal}_i = \mathrm{food\_produced}(i) + \mathrm{food\_imported}(i) - \mathrm{food\_exported}(i)
+
+- id: Eq05
+  page: 4
+  section: "Settlement growth and fission"
+  context: "Net growth rate as a sigmoid of per-capita calories relative to a reference."
+  source: "pseudocode"
+  latex: |
+    r_i = r_{\min} + (r_{\max} - r_{\min})\,
+    \sigma\!\left(\frac{\mathrm{cal}_i/P_i - \mathrm{cal}_0}{\mathrm{cal\_slope}}\right)
+
+- id: Eq06
+  page: 4
+  section: "Settlement growth and fission"
+  context: "Carrying capacity in code form as a product of multipliers."
+  source: "pseudocode"
+  latex: |
+    K_i = \mathrm{base\_K}(i)\,
+    \mathrm{tech\_multiplier}(i)\,
+    \mathrm{water\_multiplier}(i)\,
+    \mathrm{soil\_multiplier}(i)
+
+- id: Eq07
+  page: 4
+  section: "Settlement growth and fission"
+  context: "Discrete-time population update with logistic term and shock deaths."
+  source: "pseudocode"
+  latex: |
+    P_i \leftarrow P_i + P_i\, r_i\left(1 - \frac{P_i}{K_i}\right) - \mathrm{shock\_deaths}(i)
+
+- id: Eq08
+  page: 4
+  section: "Settlement growth and fission"
+  context: "Fission allocation of population between parent and new settlement."
+  source: "pseudocode"
+  latex: |
+    P_j = \alpha P_i
+    \quad\text{and}\quad
+    P_i \leftarrow (1-\alpha)P_i
+
+- id: Eq09
+  page: 5
+  section: "Households, elites, and extraction capacity"
+  context: "Extraction rate bounded by admin capacity and legitimacy."
+  source: "typeset"
+  latex: |
+    \tau_i \le \tau_{\max}(A_i, L_i)
+
+- id: Eq10
+  page: 5
+  section: "Households, elites, and extraction capacity"
+  context: "Revenue as extraction rate times surplus."
+  source: "typeset"
+  latex: |
+    \mathrm{revenue}_i = \tau_i \cdot \mathrm{surplus}_i
+
+- id: Eq11
+  page: 5
+  section: "Households, elites, and extraction capacity"
+  context: "Legitimacy update from public goods, inequality, tax burden, and defeat."
+  source: "typeset"
+  latex: |
+    L_{t+1} = L_t
+      + \beta_1 \cdot \mathrm{public\_goods}
+      - \beta_2 \cdot \mathrm{inequality}
+      - \beta_3 \cdot \mathrm{tax\_burden}
+      - \beta_4 \cdot \mathrm{defeat}
+
+- id: Eq12
+  page: 5
+  section: "Migration and mobility regimes"
+  context: "Net migration flow from i to j as population-scaled utility gap with distance and corridor effects."
+  source: "typeset"
+  latex: |
+    M_{ij} = m_0 \, P_i \, g(\Delta U_{ij}) \, e^{-c\, d_{ij}} \, h(\mathrm{corridor}_{ij})
+
+- id: Eq13
+  page: 6
+  section: "Trade caravans, ports, and craft specialists"
+  context: "Gravity trade flow from i to j with cost exponent."
+  source: "typeset"
+  latex: |
+    F_{ij} = \kappa \, \frac{S_i^{\alpha} S_j^{\beta}}{(C_{ij})^{\gamma}}
+
+- id: Eq14
+  page: 6
+  section: "Trade caravans, ports, and craft specialists"
+  context: "Change in specialist share from market potential minus subsistence risk."
+  source: "typeset"
+  latex: |
+    \Delta s_i = \eta \cdot \mathrm{market\_potential}_i - \lambda \cdot \mathrm{subsistence\_risk}_i
+
+- id: Eq15
+  page: 6
+  section: "Disease transmission at settlement scale"
+  context: "Susceptible dynamics with within-settlement and imported infection pressure."
+  source: "typeset"
+  latex: |
+    \frac{dS_i}{dt}
+      = -\beta_i \frac{S_i I_i}{N_i}
+        - \sum_j \phi_{ji}\, \beta_j \frac{S_i I_j}{N_j}
+
+- id: Eq16
+  page: 6
+  section: "Disease transmission at settlement scale"
+  context: "Infected dynamics with recovery and imported infection pressure."
+  source: "typeset"
+  latex: |
+    \frac{dI_i}{dt}
+      = \beta_i \frac{S_i I_i}{N_i}
+        + \sum_j \phi_{ji}\, \beta_j \frac{S_i I_j}{N_j}
+        - \gamma I_i
+
+- id: Eq17
+  page: 7
+  section: "Disease transmission at settlement scale"
+  context: "Recovered dynamics (standard SIR recovery flow)."
+  source: "typeset"
+  latex: |
+    \frac{dR_i}{dt} = \gamma I_i
+
+- id: Eq18
+  page: 7
+  section: "Multi-year climate regimes, soil fertility, and irrigation"
+  context: "Regime-switching climate expressed as a Markov transition probability."
+  source: "typeset"
+  latex: |
+    P(\mathrm{regime}_{t+1} \mid \mathrm{regime}_t)
+
+- id: Eq19
+  page: 7
+  section: "Multi-year climate regimes, soil fertility, and irrigation"
+  context: "Soil fertility update with regeneration minus depletion from intensity."
+  source: "typeset"
+  latex: |
+    F_{t+1} = F_t + r_{\mathrm{regen}}(B) - r_{\mathrm{deplete}} \cdot I_{\mathrm{intensity}}
+
+- id: Eq20
+  page: 7
+  section: "Disease transmission at settlement scale"
+  context: "Imported infected fraction from travelers (code-level approximation)."
+  source: "pseudocode"
+  latex: |
+    \mathrm{inflow\_I} = \sum_j \mathrm{flow}_{j\to i}\, \frac{I_j}{N_j}
+
+- id: Eq21
+  page: 7
+  section: "Disease transmission at settlement scale"
+  context: "Effective transmission rate scaled by density and climate."
+  source: "pseudocode"
+  latex: |
+    \beta_{\mathrm{eff}} = \beta_0 \cdot \mathrm{density\_factor}(i) \cdot \mathrm{climate\_factor}(i)
+
+- id: Eq22
+  page: 7
+  section: "Disease transmission at settlement scale"
+  context: "New infections from local prevalence plus imported prevalence."
+  source: "pseudocode"
+  latex: |
+    \mathrm{new\_inf} = \beta_{\mathrm{eff}}\, S_i \left(\frac{I_i}{N_i} + \mathrm{inflow\_I}\right)
+
+- id: Eq23
+  page: 7
+  section: "Disease transmission at settlement scale"
+  context: "New recoveries in a timestep."
+  source: "pseudocode"
+  latex: |
+    \mathrm{new\_rec} = \gamma I_i
+
+- id: Eq24
+  page: 8
+  section: "State formation from settlement systems"
+  context: "Join-rule comparing utility of joining versus staying independent."
+  source: "typeset"
+  latex: |
+    U_{\mathrm{join}}
+      = \mathrm{security\_gain} + \mathrm{trade\_gain} + \mathrm{public\_goods}
+        - \mathrm{tax} - \mathrm{oppression}
+      > U_{\mathrm{stay}}
+
+- id: Eq25
+  page: 9
+  section: "Warfare and campaign logistics"
+  context: "Campaign effective strength as base strength times attrition and morale."
+  source: "typeset"
+  latex: |
+    \mathrm{effective\_strength}_t
+      = \mathrm{base\_strength}\, e^{-a\, \mathrm{attrition}(k,t)}\,
+        \mathrm{morale}(L,\mathrm{recent\_outcomes})
+
+- id: Eq26
+  page: 9
+  section: "Institutions and technology diffusion as network processes"
+  context: "Adoption probability as a sigmoid of neighbor adoption and local conditions."
+  source: "typeset"
+  latex: |
+    p(\mathrm{adopt}_{i,t})
+      = \sigma\!\left(
+          \theta_0
+          + \theta_1 \cdot \mathrm{neighbor\_adoption}
+          + \theta_2 \cdot \mathrm{suitability}
+          + \theta_3 \cdot \mathrm{elite\_capacity}
+          - \theta_4 \cdot \mathrm{risk}
+        \right)
+
+- id: Eq27
+  page: 9
+  section: "Warfare and campaign logistics"
+  context: "Supply deficit along a route segment (used to drive attrition)."
+  source: "pseudocode"
+  latex: |
+    \mathrm{deficit} = \max\!\left(0,\ \mathrm{demand}(\mathrm{strength}) - (\mathrm{supply} + \mathrm{forage})\right)
+
+- id: Eq28
+  page: 9
+  section: "Warfare and campaign logistics"
+  context: "Strength decay from deficit-driven attrition."
+  source: "pseudocode"
+  latex: |
+    \mathrm{strength} \leftarrow \mathrm{strength} \cdot \exp\!\left(-\mathrm{attrition\_rate}\cdot \mathrm{deficit}\right)

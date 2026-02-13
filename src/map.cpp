@@ -345,18 +345,19 @@ Map::Map(const sf::Image& baseImage,
     m_isLandGrid.assign(static_cast<size_t>(gridH), std::vector<bool>(static_cast<size_t>(gridW), false));
     m_elevationGrid.assign(static_cast<size_t>(gridW) * static_cast<size_t>(gridH), 0.0f);
 
+    constexpr sf::Uint8 kLandMinRgb = 250u;
     std::map<std::uint32_t, std::size_t> invalidLandmaskRgbCounts;
     std::size_t invalidLandmaskSamples = 0u;
     for (int y = 0; y < gridH; ++y) {
         for (int x = 0; x < gridW; ++x) {
             const sf::Color landPx = sampleImageAtGridCell(m_landMaskImage, x, y);
             bool isLandCell = false;
-            if (landPx.r == 255 && landPx.g == 255 && landPx.b == 255) {
+            if (landPx.r >= kLandMinRgb && landPx.g >= kLandMinRgb && landPx.b >= kLandMinRgb) {
                 isLandCell = true;
             } else if (landPx.r == 0 && landPx.g == 0 && landPx.b == 0) {
                 isLandCell = false;
             } else {
-                isLandCell = (landPx.r != 0 || landPx.g != 0 || landPx.b != 0);
+                isLandCell = false;
                 ++invalidLandmaskSamples;
                 const std::uint32_t rgbKey =
                     (static_cast<std::uint32_t>(landPx.r) << 16) |
@@ -381,7 +382,9 @@ Map::Map(const sf::Image& baseImage,
 
     if (!invalidLandmaskRgbCounts.empty()) {
         std::cout << "[Landmask] Warning: encountered " << invalidLandmaskSamples
-                  << " non-binary sampled pixels; treating non-zero RGB as land.\n";
+                  << " sampled pixels outside accepted land/water colors; "
+                  << "accepted land is RGB(250..255,250..255,250..255), water is RGB(0,0,0). "
+                  << "Out-of-range colors are treated as water.\n";
         int shown = 0;
         for (const auto& kv : invalidLandmaskRgbCounts) {
             if (shown >= 8) {
@@ -7831,6 +7834,19 @@ bool Map::setCountryOwnerAssumingLockedImpl(int x, int y, int newOwner) {
     const int width = static_cast<int>(m_countryGrid[0].size());
     if (x < 0 || x >= width) {
         return false;
+    }
+    // Hard safety invariant: no country may own non-land cells.
+    // Allow clearing ownership (newOwner < 0) so stale bad cells can still be removed.
+    if (newOwner >= 0) {
+        if (y < 0 || y >= static_cast<int>(m_isLandGrid.size())) {
+            return false;
+        }
+        if (x < 0 || x >= static_cast<int>(m_isLandGrid[static_cast<size_t>(y)].size())) {
+            return false;
+        }
+        if (!m_isLandGrid[static_cast<size_t>(y)][static_cast<size_t>(x)]) {
+            return false;
+        }
     }
 
     const int oldOwner = m_countryGrid[y][x];
