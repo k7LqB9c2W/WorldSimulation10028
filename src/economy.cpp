@@ -1044,6 +1044,27 @@ std::uint64_t EconomyModelCPU::pairKey(int a, int b) {
     return (static_cast<std::uint64_t>(hi) << 32) | static_cast<std::uint64_t>(lo);
 }
 
+void EconomyModelCPU::setExternalTradeIntensityHint(const std::vector<float>& hint, int n, float blend) {
+    m_externalTradeHintN = std::max(0, n);
+    m_externalTradeHintBlend = std::clamp(blend, 0.0f, 1.0f);
+    const size_t need = static_cast<size_t>(std::max(0, n)) * static_cast<size_t>(std::max(0, n));
+    if (need == 0 || hint.size() < need || m_externalTradeHintBlend <= 0.0f) {
+        m_externalTradeHint.clear();
+        m_externalTradeHintN = 0;
+        m_externalTradeHintBlend = 0.0f;
+        return;
+    }
+    const auto count = static_cast<std::vector<float>::difference_type>(need);
+    m_externalTradeHint.assign(hint.begin(), hint.begin() + count);
+    for (float& v : m_externalTradeHint) {
+        if (!std::isfinite(v) || v < 0.0f) {
+            v = 0.0f;
+        } else if (v > 1.0f) {
+            v = 1.0f;
+        }
+    }
+}
+
 void EconomyModelCPU::tickYear(int year,
                                int dtYears,
                                const Map& map,
@@ -1073,6 +1094,14 @@ void EconomyModelCPU::tickYear(int year,
         const float memory = static_cast<float>(std::clamp(cfg.economy.tradeIntensityMemory, 0.0, 0.98));
         for (float& v : m_tradeIntensity) {
             v *= memory;
+        }
+    }
+    if (m_externalTradeHintN == n &&
+        m_externalTradeHint.size() >= tradeNeed &&
+        m_externalTradeHintBlend > 0.0f) {
+        const float b = std::clamp(m_externalTradeHintBlend, 0.0f, 1.0f);
+        for (size_t i = 0; i < tradeNeed; ++i) {
+            m_tradeIntensity[i] = std::clamp(m_tradeIntensity[i] + b * m_externalTradeHint[i], 0.0f, 1.0f);
         }
     }
 

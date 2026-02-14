@@ -322,6 +322,57 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "economy", "informationFrictionWeight", config.economy.informationFrictionWeight);
         readTomlValue(root, "economy", "useGPU", config.economy.useGPU);
 
+        readTomlValue(root, "settlements", "enabled", config.settlements.enabled);
+        readTomlValue(root, "settlements", "initNodeMinPop", config.settlements.initNodeMinPop);
+        readTomlValue(root, "settlements", "maxNodesGlobal", config.settlements.maxNodesGlobal);
+        readTomlValue(root, "settlements", "maxNodesPerCountry", config.settlements.maxNodesPerCountry);
+        readTomlValue(root, "settlements", "splitPopThreshold", config.settlements.splitPopThreshold);
+        readTomlValue(root, "settlements", "splitAlphaMin", config.settlements.splitAlphaMin);
+        readTomlValue(root, "settlements", "splitAlphaMax", config.settlements.splitAlphaMax);
+        readTomlValue(root, "settlements", "splitCooldownYears", config.settlements.splitCooldownYears);
+        readTomlValue(root, "settlements", "splitMinSpacingFields", config.settlements.splitMinSpacingFields);
+        readTomlValue(root, "settlements", "growthRMin", config.settlements.growthRMin);
+        readTomlValue(root, "settlements", "growthRMax", config.settlements.growthRMax);
+        readTomlValue(root, "settlements", "cal0", config.settlements.cal0);
+        readTomlValue(root, "settlements", "calSlope", config.settlements.calSlope);
+        readTomlValue(root, "settlements", "kBasePerFoodUnit", config.settlements.kBasePerFoodUnit);
+        readTomlValue(root, "settlements", "transportRebuildIntervalYears", config.settlements.transportRebuildIntervalYears);
+
+        readTomlValue(root, "subsistence", "mixAdaptRate", config.subsistence.mixAdaptRate);
+        readTomlValue(root, "subsistence", "riskPenaltyWeight", config.subsistence.riskPenaltyWeight);
+        readTomlValue(root, "subsistence", "craftFromMarketWeight", config.subsistence.craftFromMarketWeight);
+
+        readTomlValue(root, "packages", "enabled", config.packages.enabled);
+        readTomlValue(root, "packages", "adoptionBase", config.packages.adoptionBase);
+        readTomlValue(root, "packages", "diffusionWeight", config.packages.diffusionWeight);
+        readTomlValue(root, "packages", "environmentWeight", config.packages.environmentWeight);
+
+        readTomlValue(root, "transport", "kNearest", config.transport.kNearest);
+        readTomlValue(root, "transport", "maxEdgeCost", config.transport.maxEdgeCost);
+        readTomlValue(root, "transport", "landCostMult", config.transport.landCostMult);
+        readTomlValue(root, "transport", "seaCostMult", config.transport.seaCostMult);
+        readTomlValue(root, "transport", "borderFriction", config.transport.borderFriction);
+        readTomlValue(root, "transport", "warRiskMult", config.transport.warRiskMult);
+        readTomlValue(root, "transport", "migrationM0", config.transport.migrationM0);
+        readTomlValue(root, "transport", "migrationDistDecay", config.transport.migrationDistDecay);
+        readTomlValue(root, "transport", "gravityKappa", config.transport.gravityKappa);
+        readTomlValue(root, "transport", "gravityAlpha", config.transport.gravityAlpha);
+        readTomlValue(root, "transport", "gravityBeta", config.transport.gravityBeta);
+        readTomlValue(root, "transport", "gravityGamma", config.transport.gravityGamma);
+        readTomlValue(root, "transport", "specialistEta", config.transport.specialistEta);
+        readTomlValue(root, "transport", "specialistLambda", config.transport.specialistLambda);
+        readTomlValue(root, "transport", "tradeHintBlend", config.transport.tradeHintBlend);
+
+        readTomlValue(root, "research_gpu", "enabled", config.researchGpu.enabled);
+        readTomlValue(root, "research_gpu", "startupDiagnostics", config.researchGpu.startupDiagnostics);
+        readTomlValue(root, "research_gpu", "accelerateTransport", config.researchGpu.accelerateTransport);
+        readTomlValue(root, "research_gpu", "accelerateFlows", config.researchGpu.accelerateFlows);
+        readTomlValue(root, "research_gpu", "settlementDisease", config.researchGpu.settlementDisease);
+        readTomlValue(root, "research_gpu", "climateFertility", config.researchGpu.climateFertility);
+        readTomlValue(root, "research_gpu", "adoptionKernel", config.researchGpu.adoptionKernel);
+        readTomlValue(root, "research_gpu", "warfareLogistics", config.researchGpu.warfareLogistics);
+        readTomlValue(root, "research_gpu", "joinStayUtility", config.researchGpu.joinStayUtility);
+
         if (const toml::array* checkpoints = root["scoring"]["checkpointsYears"].as_array()) {
             std::vector<int> parsed;
             parsed.reserve(checkpoints->size());
@@ -436,6 +487,49 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
                 r.worldShare /= shareSum;
             }
         }
+
+        config.settlements.initNodeMinPop = std::max(1.0, config.settlements.initNodeMinPop);
+        config.settlements.maxNodesGlobal = std::max(64, config.settlements.maxNodesGlobal);
+        config.settlements.maxNodesPerCountry = std::max(1, config.settlements.maxNodesPerCountry);
+        config.settlements.splitPopThreshold = std::max(1000.0, config.settlements.splitPopThreshold);
+        config.settlements.splitAlphaMin = std::clamp(config.settlements.splitAlphaMin, 0.05, 0.90);
+        config.settlements.splitAlphaMax = std::clamp(config.settlements.splitAlphaMax, 0.05, 0.90);
+        if (config.settlements.splitAlphaMax < config.settlements.splitAlphaMin) {
+            std::swap(config.settlements.splitAlphaMax, config.settlements.splitAlphaMin);
+        }
+        config.settlements.splitCooldownYears = std::max(1, config.settlements.splitCooldownYears);
+        config.settlements.splitMinSpacingFields = std::max(1, config.settlements.splitMinSpacingFields);
+        if (config.settlements.growthRMax < config.settlements.growthRMin) {
+            std::swap(config.settlements.growthRMax, config.settlements.growthRMin);
+        }
+        config.settlements.cal0 = std::max(1.0e-9, config.settlements.cal0);
+        config.settlements.calSlope = std::max(1.0e-9, config.settlements.calSlope);
+        config.settlements.kBasePerFoodUnit = std::max(1.0, config.settlements.kBasePerFoodUnit);
+        config.settlements.transportRebuildIntervalYears = std::max(1, config.settlements.transportRebuildIntervalYears);
+
+        config.subsistence.mixAdaptRate = std::clamp(config.subsistence.mixAdaptRate, 0.0, 1.0);
+        config.subsistence.riskPenaltyWeight = std::max(0.0, config.subsistence.riskPenaltyWeight);
+        config.subsistence.craftFromMarketWeight = std::max(0.0, config.subsistence.craftFromMarketWeight);
+
+        config.packages.adoptionBase = std::clamp(config.packages.adoptionBase, 0.0, 1.0);
+        config.packages.diffusionWeight = std::max(0.0, config.packages.diffusionWeight);
+        config.packages.environmentWeight = std::max(0.0, config.packages.environmentWeight);
+
+        config.transport.kNearest = std::max(1, config.transport.kNearest);
+        config.transport.maxEdgeCost = std::max(1.0, config.transport.maxEdgeCost);
+        config.transport.landCostMult = std::max(0.01, config.transport.landCostMult);
+        config.transport.seaCostMult = std::max(0.01, config.transport.seaCostMult);
+        config.transport.borderFriction = std::max(0.01, config.transport.borderFriction);
+        config.transport.warRiskMult = std::max(0.01, config.transport.warRiskMult);
+        config.transport.migrationM0 = std::max(0.0, config.transport.migrationM0);
+        config.transport.migrationDistDecay = std::max(0.0, config.transport.migrationDistDecay);
+        config.transport.gravityKappa = std::max(0.0, config.transport.gravityKappa);
+        config.transport.gravityAlpha = std::max(0.0, config.transport.gravityAlpha);
+        config.transport.gravityBeta = std::max(0.0, config.transport.gravityBeta);
+        config.transport.gravityGamma = std::max(0.0, config.transport.gravityGamma);
+        config.transport.specialistEta = std::max(0.0, config.transport.specialistEta);
+        config.transport.specialistLambda = std::max(0.0, config.transport.specialistLambda);
+        config.transport.tradeHintBlend = std::clamp(config.transport.tradeHintBlend, 0.0, 1.0);
 
         configHash = hashFileFNV1a(path);
         return true;

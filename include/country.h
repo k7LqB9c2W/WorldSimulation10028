@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <array>
+#include <atomic>
 #include <mutex>
 #include <random>
 #include <cstdint>
@@ -666,6 +667,8 @@ public:
     Ideology getIdeology() const { return m_ideology; }
     void setIdeology(Ideology ideology) { m_ideology = ideology; }
     std::string getIdeologyString() const;
+    static void setIdeologyTransitionConsoleLogging(bool enabled);
+    static bool ideologyTransitionConsoleLoggingEnabled();
     void checkIdeologyChange(int currentYear, News& news, const class TechnologyManager& techManager);
     void forceLeaderTransition(int currentYear, bool crisis, News& news);
     bool canChangeToIdeology(Ideology newIdeology) const;
@@ -810,6 +813,7 @@ private:
     
     // Science generation scaler system
     static double s_scienceScaler; // Global scaler for balancing
+    static std::atomic<bool> s_logIdeologyTransitions;
     double m_traitScienceMultiplier = 1.0;
     double m_policyScienceMultiplier = 1.0;
     double m_situationScienceMultiplier = 1.0;

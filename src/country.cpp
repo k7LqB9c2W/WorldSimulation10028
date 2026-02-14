@@ -18,6 +18,7 @@
 
 // Initialize static science scaler (tuned for realistic science progression)
 double Country::s_scienceScaler = 0.1;
+std::atomic<bool> Country::s_logIdeologyTransitions{false};
 
 namespace {
 double clamp01d(double v) {
@@ -3948,6 +3949,14 @@ std::string Country::getIdeologyString() const {
     }
 }
 
+void Country::setIdeologyTransitionConsoleLogging(bool enabled) {
+    s_logIdeologyTransitions.store(enabled, std::memory_order_relaxed);
+}
+
+bool Country::ideologyTransitionConsoleLoggingEnabled() {
+    return s_logIdeologyTransitions.load(std::memory_order_relaxed);
+}
+
 bool Country::canChangeToIdeology(Ideology newIdeology) const {
     // Define valid ideology transitions
     switch(m_ideology) {
@@ -4134,7 +4143,9 @@ void Country::checkIdeologyChange(int currentYear, News& news, const TechnologyM
             news.addEvent("🏛️ POLITICAL REVOLUTION: " + m_name + " transforms from " + 
                          oldIdeologyStr + " to " + newIdeologyStr + "!");
             
-            std::cout << "🏛️ " << m_name << " changed from " << oldIdeologyStr << " to " << newIdeologyStr << std::endl;
+            if (Country::ideologyTransitionConsoleLoggingEnabled()) {
+                std::cout << "🏛️ " << m_name << " changed from " << oldIdeologyStr << " to " << newIdeologyStr << std::endl;
+            }
         }
     }
 }

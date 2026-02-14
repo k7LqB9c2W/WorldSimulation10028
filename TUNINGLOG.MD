@@ -675,3 +675,16 @@ Notes for next iteration cycle:
 ### Interpretation
 - The prior near-uniform ceiling behavior is broken: endpoint spread is materially wider, and a rare high-tail trajectory reaches deep frontier tech (`91`) under endogenous rules.
 - Remaining gap for a future pass: a full-tree unlock in a single run is still not observed; upper digital/late branches are now reachable but remain rare.
+
+## Entry: 2026-02-14 05:21:07 UTC (settlement default enable)
+
+### Change
+- Flipped settlement-system default to enabled so new settlement/fission/subsistence/transport layer runs without manual config edits.
+
+### Files
+- `include/simulation_context.h`: `SimulationConfig::Settlements::enabled` default `false -> true`.
+- `data/sim_config.toml`: `[settlements].enabled = true`.
+
+### Rationale
+- Product decision: make the newly implemented settlement research stack active by default.
+- Backward compatibility remains available by setting `[settlements].enabled = false` in runtime config.

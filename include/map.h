@@ -168,6 +168,9 @@ public:
     int getFieldHeight() const { return m_fieldH; }
     const std::vector<int>& getFieldOwnerId() const { return m_fieldOwnerId; }     // size = fieldW*fieldH, -1 for none
     const std::vector<float>& getFieldControl() const { return m_fieldControl; }  // size = fieldW*fieldH, 0..1
+    const std::vector<float>& getFieldMoveCost() const { return m_fieldMoveCost; } // size = fieldW*fieldH
+    const std::vector<float>& getFieldCorridorWeight() const { return m_fieldCorridorWeight; } // size = fieldW*fieldH
+    const std::vector<uint8_t>& getFieldLandMask() const { return m_fieldLandMask; } // 0/1
     const std::vector<float>& getFieldFoodPotential() const { return m_fieldFoodPotential; } // size = fieldW*fieldH
     bool isPopulationGridActive() const { return !m_fieldPopulation.empty(); }
     const std::vector<float>& getFieldPopulation() const { return m_fieldPopulation; } // size = fieldW*fieldH

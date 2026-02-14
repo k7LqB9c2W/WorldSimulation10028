@@ -13,13 +13,14 @@
 #include "culture.h"
 
 class TradeManager;
+class SettlementSystem;
 
 enum class ViewMode { Flat2D, Globe };
 
 class Renderer {
 public:
     Renderer(sf::RenderWindow& window, const Map& map, const sf::Color& waterColor);
-    void render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const CultureManager& cultureManager, const TradeManager& tradeManager, const Country* selectedCountry, bool showCountryInfo, ViewMode viewMode);
+    void render(const std::vector<Country>& countries, const Map& map, News& news, const TechnologyManager& technologyManager, const CultureManager& cultureManager, const TradeManager& tradeManager, const SettlementSystem& settlementSystem, const Country* selectedCountry, bool showCountryInfo, ViewMode viewMode);
     void setGuiVisible(bool visible);
     bool isGuiVisible() const { return m_guiVisible; }
     void toggleWarmongerHighlights();
@@ -52,6 +53,12 @@ public:
     void toggleOverseasOverlay();
     void setOverseasOverlay(bool enabled);
     bool overseasOverlayEnabled() const { return m_showOverseasOverlay; }
+    void toggleSettlementOverlay();
+    void cycleSettlementOverlayMode();
+    void setSettlementOverlay(bool enabled);
+    bool settlementOverlayEnabled() const { return m_showSettlementOverlay; }
+    int settlementOverlayMode() const { return m_settlementOverlayMode; }
+    void setSettlementOverlayMode(int mode);
     void toggleCountryPovOverlay();
     void setCountryPovOverlay(bool enabled);
     bool countryPovOverlayEnabled() const { return m_showCountryPovOverlay; }
@@ -203,6 +210,7 @@ private:
         void updateClimateOverlayTexture(const Map& map);
         void updateUrbanOverlayTexture(const Map& map);
         void updateOverseasOverlayTexture(const Map& map);
+        void updateSettlementOverlayTexture(const Map& map, const SettlementSystem& settlementSystem);
         void updateCountryPovFogTexture(const Map& map,
                                         const std::vector<Country>& countries,
                                         const TradeManager& tradeManager,
@@ -251,6 +259,18 @@ private:
         std::vector<sf::Uint8> m_overseasPixels;
         sf::Texture m_overseasTex;
         sf::Sprite m_overseasSprite;
+
+        // Settlement debug overlay (field-grid texture):
+        // 0=node population, 1=dominant subsistence mode, 2=transport density/cost.
+        bool m_showSettlementOverlay = false;
+        int m_settlementOverlayMode = 0;
+        int m_settlementOverlayLastYear = -9999999;
+        int m_settlementOverlayLastMode = -1;
+        int m_settlementW = 0;
+        int m_settlementH = 0;
+        std::vector<sf::Uint8> m_settlementPixels;
+        sf::Texture m_settlementTex;
+        sf::Sprite m_settlementSprite;
 
         // Country POV overlay (known states/geography; unknown masked by fog).
         bool m_showCountryPovOverlay = false;

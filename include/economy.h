@@ -165,6 +165,10 @@ public:
                   TradeManager& tradeManager,
                   News& news);
 
+    // Optional settlement-layer trade intensity prior (n*n row-major, 0..1).
+    // Applied at the start of tickYear and then blended with endogenous flows.
+    void setExternalTradeIntensityHint(const std::vector<float>& hint, int n, float blend);
+
     int getLastTradeYear() const { return m_lastTradeYear; }
     const std::vector<float>& getLastTradeIntensity() const { return m_tradeIntensity; } // n*n, row-major
 
@@ -174,6 +178,9 @@ private:
     int m_lastTradeYear = -9999999;
     int m_lastTradeN = 0;
     std::vector<float> m_tradeIntensity; // n*n, reset yearly
+    std::vector<float> m_externalTradeHint; // n*n, row-major
+    int m_externalTradeHintN = 0;
+    float m_externalTradeHintBlend = 0.0f;
 
     static std::uint64_t pairKey(int a, int b);
 };

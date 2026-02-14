@@ -35,6 +35,7 @@
 #include "economy.h"
 #include "simulation_context.h"
 #include "simulation_runner.h"
+#include "settlement_system.h"
 
 // 🚨 CRASH DETECTION SYSTEM
 void crashHandler(int signal) {
@@ -473,6 +474,8 @@ int main(int argc, char** argv) {
         std::cout << "World seed: " << worldSeed << std::endl;
         SimulationContext ctx(worldSeed, runtimeConfigPath);
         std::cout << "Config: " << ctx.configPath << " (hash=" << ctx.configHash << ")" << std::endl;
+        bool logIdeologyTransitions = false;
+        Country::setIdeologyTransitionConsoleLogging(logIdeologyTransitions);
 	    
 	    std::cout << "🚀 INITIALIZING MAP..." << std::endl;
 	    auto mapStart = std::chrono::high_resolution_clock::now();
@@ -526,6 +529,9 @@ int main(int argc, char** argv) {
 	    
 		    // Initialize the Trade Manager
 			    TradeManager tradeManager(ctx);
+
+            // Settlement meso-layer (optional via config).
+            SettlementSystem settlementSystem(ctx);
 
             // Phase 4: CPU-authoritative macro economy + directed trade.
             EconomyModelCPU macroEconomy(ctx);
@@ -1172,7 +1178,7 @@ int main(int argc, char** argv) {
                     fastForwardText.setString("FAST FORWARD COMPLETE!");
                     fastForwardText.setFillColor(sf::Color::Green);
                     window.clear();
-                    renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo, viewMode);
+                    renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, settlementSystem, selectedCountry, showCountryInfo, viewMode);
                     withUiView([&] {
                         window.draw(fastForwardText);
                     });
@@ -1229,6 +1235,14 @@ int main(int argc, char** argv) {
 		                    }
 		                    renderingNeedsUpdate = true;
 		                }
+                        else if (event.key.code == sf::Keyboard::V) { // 🧱 SETTLEMENT OVERLAY
+                            if (event.key.shift) {
+                                renderer.cycleSettlementOverlayMode();
+                            } else {
+                                renderer.toggleSettlementOverlay();
+                            }
+                            renderingNeedsUpdate = true;
+                        }
 		                else if (event.key.code == sf::Keyboard::O) { // 🌍 OVERSEAS VIEW (Phase 7 debug)
 		                    renderer.toggleOverseasOverlay();
 		                    renderingNeedsUpdate = true;
@@ -1847,6 +1861,7 @@ int main(int argc, char** argv) {
                     macroEconomy,
                     tradeManager,
                     greatPeopleManager,
+                    settlementSystem,
                     news
                 };
                 runGuiHeadlessAuthoritativeYearStep(currentYear, stepCtx);
@@ -2255,6 +2270,9 @@ int main(int argc, char** argv) {
 		                        if (ImGui::Checkbox("News (5)", &showNews)) {
 		                            news.setWindowVisible(showNews);
 		                        }
+                                if (ImGui::Checkbox("Log Ideology Transitions", &logIdeologyTransitions)) {
+                                    Country::setIdeologyTransitionConsoleLogging(logIdeologyTransitions);
+                                }
 		                        ImGui::Checkbox("Leaderboards (L)", &guiShowLeaderboard);
 		                        ImGui::Separator();
 
@@ -2315,6 +2333,20 @@ int main(int argc, char** argv) {
 		                                renderingNeedsUpdate = true;
 		                            }
 		                        }
+
+                                bool settlement = renderer.settlementOverlayEnabled();
+                                if (ImGui::Checkbox("Settlement Overlay (V)", &settlement)) {
+                                    renderer.setSettlementOverlay(settlement);
+                                    renderingNeedsUpdate = true;
+                                }
+                                if (settlement) {
+                                    int mode = renderer.settlementOverlayMode();
+                                    const char* modes[] = {"Nodes", "Subsistence", "Transport"};
+                                    if (ImGui::Combo("Settlement Mode", &mode, modes, 3)) {
+                                        renderer.setSettlementOverlayMode(mode);
+                                        renderingNeedsUpdate = true;
+                                    }
+                                }
 
 		                        bool overseas = renderer.overseasOverlayEnabled();
 		                        if (ImGui::Checkbox("Overseas Overlay (O)", &overseas)) {
@@ -2969,7 +3001,7 @@ int main(int argc, char** argv) {
 		            window.setView(enableZoom ? zoomedView : defaultView);
                     renderer.setGuiVisible(guiVisible || megaTimeJumpMode || simulationStartYearPromptMode);
 
-		            renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, selectedCountry, showCountryInfo, viewMode);
+		            renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, settlementSystem, selectedCountry, showCountryInfo, viewMode);
 
 		            renderedFrame = true;
 		            renderingNeedsUpdate = false;

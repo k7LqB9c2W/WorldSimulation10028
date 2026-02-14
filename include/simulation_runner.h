@@ -10,6 +10,7 @@ class EconomyModelCPU;
 class TradeManager;
 class GreatPeopleManager;
 class News;
+class SettlementSystem;
 
 struct SimulationStepContext {
     Map& map;
@@ -19,6 +20,7 @@ struct SimulationStepContext {
     EconomyModelCPU& macroEconomy;
     TradeManager& tradeManager;
     GreatPeopleManager& greatPeopleManager;
+    SettlementSystem& settlementSystem;
     News& news;
 };
 

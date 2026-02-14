@@ -23,6 +23,8 @@ set(CORE_SOURCES
   src/resource.cpp
   src/trade.cpp
   src/economy.cpp
+  src/domestic_packages.cpp
+  src/settlement_system.cpp
   src/simulation_runner.cpp
   src/simulation_context.cpp
 )

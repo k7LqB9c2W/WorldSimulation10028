@@ -262,6 +262,72 @@ struct SimulationConfig {
         bool useGPU = true;
     } economy{};
 
+    // Settlement meso-layer (Eq01-08): enabled by default.
+    struct Settlements {
+        bool enabled = true;
+        double initNodeMinPop = 1200.0;
+        int maxNodesGlobal = 6000;
+        int maxNodesPerCountry = 24;
+        double splitPopThreshold = 110000.0;
+        double splitAlphaMin = 0.28;
+        double splitAlphaMax = 0.42;
+        int splitCooldownYears = 14;
+        int splitMinSpacingFields = 3;
+        double growthRMin = -0.020;
+        double growthRMax = 0.028;
+        double cal0 = 0.00105;
+        double calSlope = 0.00025;
+        double kBasePerFoodUnit = 950.0;
+        int transportRebuildIntervalYears = 5;
+    } settlements{};
+
+    // Subsistence composition (Eq14 coupling through risk/market terms).
+    struct Subsistence {
+        double mixAdaptRate = 0.10;
+        double riskPenaltyWeight = 0.80;
+        double craftFromMarketWeight = 0.55;
+    } subsistence{};
+
+    // Domestic technology/institution bundles.
+    struct Packages {
+        bool enabled = true;
+        double adoptionBase = 0.10;
+        double diffusionWeight = 0.55;
+        double environmentWeight = 0.45;
+    } packages{};
+
+    // Generalized transport-cost network (Eq12/Eq13 support).
+    struct Transport {
+        int kNearest = 5;
+        double maxEdgeCost = 36.0;
+        double landCostMult = 1.0;
+        double seaCostMult = 0.62;
+        double borderFriction = 1.20;
+        double warRiskMult = 1.40;
+        double migrationM0 = 0.0025;
+        double migrationDistDecay = 0.08;
+        double gravityKappa = 0.12;
+        double gravityAlpha = 0.90;
+        double gravityBeta = 0.90;
+        double gravityGamma = 1.10;
+        double specialistEta = 0.045;
+        double specialistLambda = 0.032;
+        double tradeHintBlend = 0.30;
+    } transport{};
+
+    // GPU-accelerated research mechanics toggles (with CPU fallback).
+    struct ResearchGpu {
+        bool enabled = true;
+        bool startupDiagnostics = true;
+        bool accelerateTransport = true;
+        bool accelerateFlows = true;
+        bool settlementDisease = true;
+        bool climateFertility = true;
+        bool adoptionKernel = true;
+        bool warfareLogistics = true;
+        bool joinStayUtility = true;
+    } researchGpu{};
+
     struct Scoring {
         std::vector<int> checkpointsYears = {-5000, -3000, -1000, 0, 1000, 1500, 2025};
         double weightFoodSecurityStability = 1.0;

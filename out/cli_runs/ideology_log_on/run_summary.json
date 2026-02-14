@@ -1,0 +1,48 @@
+{
+  "seed": 1,
+  "configPath": "data/sim_config.toml",
+  "configHash": "4b1bd4b78ec7e7b5",
+  "startYear": -5000,
+  "endYear": -5000,
+  "stoppedOnTargetTech": false,
+  "stoppedOnTargetTechYear": null,
+  "worldStartYear": -5000,
+  "useGPU": false,
+  "stateDiagnostics": false,
+  "total_score": 0.0,
+  "gates": {
+    "metric_availability": true,
+    "canary_pass": false,
+    "backend_parity_pass": false,
+    "hardfail": ""
+  },
+  "top_violations": [],
+  "invariants": {
+    "ok": true,
+    "message": ""
+  },
+  "checkpoints": [
+    {
+      "year": -5000,
+      "world_pop_total": 21406089.000000,
+      "world_food_adequacy_index": 1.000000,
+      "world_trade_intensity": 0.001011,
+      "world_urban_share_proxy": 0.026369,
+      "world_tech_capability_index_median": 0.280106,
+      "world_state_capacity_index_median": 0.679736,
+      "competition_fragmentation_index_median": 0.091139,
+      "idea_market_integration_index_median": 0.184192,
+      "credible_commitment_index_median": 0.668041,
+      "relative_factor_price_index_median": 0.001445,
+      "major_war_count": 0.000000,
+      "election_count": 0,
+      "famine_wave_count": 0,
+      "epidemic_wave_count": 0,
+      "migration_rate_t": 0.027296,
+      "founder_state_count": 96,
+      "founder_state_share": 1.000000,
+      "median_state_age_years": 0.000000,
+      "p90_state_age_years": 0.000000
+    }
+  ]
+}

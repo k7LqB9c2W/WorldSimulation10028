@@ -31,6 +31,7 @@
 #include "news.h"
 #include "simulation_context.h"
 #include "simulation_runner.h"
+#include "settlement_system.h"
 #include "technology.h"
 #include "trade.h"
 
@@ -67,6 +68,8 @@ struct RunOptions {
     bool stateDiagnostics = false; // optional: emit per-country state cause diagnostics at checkpoints
     int numCountries = kDefaultNumCountries;
     bool geoDebug = false; // optional: print geography sample diagnostics and continue
+    bool settlementDebug = false; // optional: print sampled settlement nodes yearly
+    bool logIdeologyTransitions = false; // optional: emit regime-transition console logs
 };
 
 struct MetricsSnapshot {
@@ -228,6 +231,8 @@ void printUsage(const char* argv0) {
               << "       [--spawn-mask path] [--spawn-disable]\n"
               << "       [--spawn-region-share KEY VALUE] (repeatable)\n"
               << "       [--geo-debug]\n"
+              << "       [--settlement-debug]\n"
+              << "       [--log-ideology-transitions[=0|1]]\n"
               << "Notes: supported minimum start year is " << kEarliestSupportedStartYear << ".\n";
 }
 
@@ -394,6 +399,14 @@ bool parseArgs(int argc, char** argv, RunOptions& opt) {
             opt.spawnRegionShareOverrides.emplace_back(key, share);
         } else if (arg == "--geo-debug") {
             opt.geoDebug = true;
+        } else if (arg == "--settlement-debug") {
+            opt.settlementDebug = true;
+        } else if (arg == "--log-ideology-transitions") {
+            opt.logIdeologyTransitions = true;
+        } else if (arg.rfind("--log-ideology-transitions=", 0) == 0) {
+            bool parsed = false;
+            if (!parseBool01(arg.substr(std::string("--log-ideology-transitions=").size()), parsed)) return false;
+            opt.logIdeologyTransitions = parsed;
         } else {
             std::cerr << "Unknown flag: " << arg << "\n";
             return false;
@@ -538,7 +551,8 @@ bool isFiniteNonNegative(double v) {
 
 std::string checkInvariants(const std::vector<Country>& countries,
                             const Map& map,
-                            const std::vector<float>& tradeIntensity) {
+                            const std::vector<float>& tradeIntensity,
+                            const SettlementSystem* settlementSystem) {
     for (size_t i = 0; i < countries.size(); ++i) {
         const Country& c = countries[i];
         if (c.getPopulation() < 0) {
@@ -583,6 +597,14 @@ std::string checkInvariants(const std::vector<Country>& countries,
     for (float v : tradeIntensity) {
         if (!std::isfinite(v)) {
             return "non-finite trade intensity";
+        }
+    }
+
+    if (settlementSystem != nullptr) {
+        const std::string settlementInv =
+            settlementSystem->validateInvariants(map, static_cast<int>(countries.size()));
+        if (!settlementInv.empty()) {
+            return std::string("settlement invariant: ") + settlementInv;
         }
     }
     return std::string();
@@ -1048,6 +1070,7 @@ struct CliRuntime {
     CultureManager cultureManager;
     GreatPeopleManager greatPeopleManager;
     TradeManager tradeManager;
+    SettlementSystem settlementSystem;
     EconomyModelCPU macroEconomy;
     News news;
 
@@ -1059,6 +1082,7 @@ struct CliRuntime {
           cultureManager(),
           greatPeopleManager(ctx),
           tradeManager(ctx),
+          settlementSystem(ctx),
           macroEconomy(ctx),
           news() {}
 };
@@ -1291,6 +1315,8 @@ bool initializeRuntime(CliRuntime& rt,
         }
     }
 
+    Country::setIdeologyTransitionConsoleLogging(opt.logIdeologyTransitions);
+
     if (!loadCommonImages(rt, errorOut)) {
         return false;
     }
@@ -1499,6 +1525,7 @@ bool collectParityChecksums(const RunOptions& opt,
             runtime.macroEconomy,
             runtime.tradeManager,
             runtime.greatPeopleManager,
+            runtime.settlementSystem,
             runtime.news
         };
         if (useGuiPath) {
@@ -1685,6 +1712,9 @@ int runParityCheck(const RunOptions& opt, const std::string& argv0) {
         if (opt.useGPU >= 0) {
             cmd << " --useGPU " << (opt.useGPU != 0 ? 1 : 0);
         }
+        if (opt.logIdeologyTransitions) {
+            cmd << " --log-ideology-transitions";
+        }
         cmd << " > " << shellQuote(logPath.string()) << " 2>&1";
 
         const int rc = std::system(cmd.str().c_str());
@@ -1776,6 +1806,7 @@ int main(int argc, char** argv) {
     CultureManager& cultureManager = runtime.cultureManager;
     GreatPeopleManager& greatPeopleManager = runtime.greatPeopleManager;
     TradeManager& tradeManager = runtime.tradeManager;
+    SettlementSystem& settlementSystem = runtime.settlementSystem;
     EconomyModelCPU& macroEconomy = runtime.macroEconomy;
     News& news = runtime.news;
 
@@ -1864,6 +1895,7 @@ int main(int argc, char** argv) {
               << " start=" << startYear
               << " end=" << endYear
               << " gpu=" << (ctx.config.economy.useGPU ? 1 : 0)
+              << " ideologyLogs=" << (opt.logIdeologyTransitions ? 1 : 0)
               << "\n";
 
     auto maybeLogTechEvents = [&](int year) {
@@ -1947,9 +1979,13 @@ int main(int argc, char** argv) {
             macroEconomy,
             tradeManager,
             greatPeopleManager,
+            settlementSystem,
             news
         };
         runCliAuthoritativeYearStep(year, stepCtx);
+        if (opt.settlementDebug) {
+            settlementSystem.printDebugSample(year, countries, 8);
+        }
     };
 
     // Warm-up from world start to requested range start.
@@ -2245,7 +2281,7 @@ int main(int argc, char** argv) {
             if (migrationEvt) eventsWindow.mass_migration_count++;
         }
 
-        const std::string inv = checkInvariants(countries, map, macroEconomy.getLastTradeIntensity());
+        const std::string inv = checkInvariants(countries, map, macroEconomy.getLastTradeIntensity(), &settlementSystem);
         if (!inv.empty()) {
             invariantsOk = false;
             invariantError = "year " + std::to_string(y) + ": " + inv;
@@ -2431,6 +2467,7 @@ int main(int argc, char** argv) {
         meta << "  \"start_year\": " << startYear << ",\n";
         meta << "  \"end_year\": " << endYear << ",\n";
         meta << "  \"state_diagnostics\": " << (stateDiagnosticsEnabled ? "true" : "false") << ",\n";
+        meta << "  \"ideology_transition_logs\": " << (opt.logIdeologyTransitions ? "true" : "false") << ",\n";
         meta << "  \"stopped_on_target_tech\": " << (stoppedOnTargetTech ? "true" : "false") << ",\n";
         meta << "  \"stopped_on_target_tech_year\": " << (stoppedOnTargetTech ? std::to_string(stoppedOnTargetTechYear) : std::string("null")) << ",\n";
         meta << "  \"map_hash\": \"" << jsonEscape(SimulationContext::hashFileFNV1a("assets/images/map.png")) << "\",\n";

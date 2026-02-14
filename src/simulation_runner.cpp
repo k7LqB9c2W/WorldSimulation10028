@@ -5,6 +5,7 @@
 #include "great_people.h"
 #include "map.h"
 #include "news.h"
+#include "settlement_system.h"
 #include "technology.h"
 #include "trade.h"
 
@@ -54,6 +55,7 @@ std::uint64_t computeStateHash(const SimulationStepContext& ctx) {
         h = mixHash(h, hashDouble(m.foodSecurity, 1.0e6));
         h = mixHash(h, hashDouble(m.marketAccess, 1.0e6));
     }
+    h = mixHash(h, ctx.settlementSystem.getLastDeterminismHash());
     return h;
 }
 
@@ -180,6 +182,12 @@ void runAuthoritativeYearStep(int year, SimulationStepContext& ctx) {
     maybeTraceDeterminismStage("updateCountries", year, ctx);
     ctx.map.tickWeather(year, 1);
     maybeTraceDeterminismStage("tickWeather", year, ctx);
+    ctx.settlementSystem.tickYear(year, ctx.map, ctx.countries, ctx.tradeManager);
+    ctx.macroEconomy.setExternalTradeIntensityHint(
+        ctx.settlementSystem.getCountryTradeHintMatrix(),
+        static_cast<int>(ctx.countries.size()),
+        ctx.settlementSystem.getCountryTradeHintBlend());
+    maybeTraceDeterminismStage("settlements", year, ctx);
     ctx.macroEconomy.tickYear(year, 1, ctx.map, ctx.countries, ctx.technologyManager, ctx.tradeManager, ctx.news);
     maybeTraceDeterminismStage("macroEconomy", year, ctx);
     ctx.map.tickDemographyAndCities(ctx.countries, year, 1, ctx.news, &ctx.macroEconomy.getLastTradeIntensity(), &ctx.technologyManager);

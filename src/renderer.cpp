@@ -1,6 +1,7 @@
 // renderer.cpp
 
 #include "renderer.h"
+#include "settlement_system.h"
 #include "trade.h"
 #include <string>
 #include <algorithm>
@@ -310,6 +311,7 @@ void Renderer::render(const std::vector<Country>& countries,
                       const TechnologyManager& technologyManager,
                       const CultureManager& cultureManager,
                       const TradeManager& tradeManager,
+                      const SettlementSystem& settlementSystem,
                       const Country* selectedCountry,
                       bool showCountryInfo,
                       ViewMode viewMode) {
@@ -359,6 +361,11 @@ void Renderer::render(const std::vector<Country>& countries,
         if (m_showUrbanOverlay) {
             updateUrbanOverlayTexture(map);
             worldTarget->draw(m_urbanSprite);
+        }
+
+        if (m_showSettlementOverlay) {
+            updateSettlementOverlayTexture(map, settlementSystem);
+            worldTarget->draw(m_settlementSprite);
         }
 
 	    if (m_needsUpdate) {
@@ -933,6 +940,24 @@ void Renderer::setOverseasOverlay(bool enabled) {
     m_showOverseasOverlay = enabled;
 }
 
+void Renderer::toggleSettlementOverlay() {
+    m_showSettlementOverlay = !m_showSettlementOverlay;
+}
+
+void Renderer::cycleSettlementOverlayMode() {
+    m_showSettlementOverlay = true;
+    m_settlementOverlayMode = (m_settlementOverlayMode + 1) % 3;
+}
+
+void Renderer::setSettlementOverlay(bool enabled) {
+    m_showSettlementOverlay = enabled;
+}
+
+void Renderer::setSettlementOverlayMode(int mode) {
+    m_showSettlementOverlay = true;
+    m_settlementOverlayMode = std::max(0, std::min(mode, 2));
+}
+
 void Renderer::toggleCountryPovOverlay() {
     m_showCountryPovOverlay = !m_showCountryPovOverlay;
     if (!m_showCountryPovOverlay) {
@@ -1260,6 +1285,99 @@ void Renderer::updateOverseasOverlayTexture(const Map& map) {
     const float scale = static_cast<float>(map.getGridCellSize() * Map::kFieldCellSize);
     m_overseasSprite.setScale(scale, scale);
     m_overseasSprite.setColor(sf::Color(255, 255, 255, 140));
+}
+
+void Renderer::updateSettlementOverlayTexture(const Map& map, const SettlementSystem& settlementSystem) {
+    const int w = settlementSystem.getFieldWidth();
+    const int h = settlementSystem.getFieldHeight();
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+
+    const bool sizeChanged = (w != m_settlementW) || (h != m_settlementH);
+    const bool modeChanged = (m_settlementOverlayMode != m_settlementOverlayLastMode);
+    const bool yearChanged = (m_currentYear != m_settlementOverlayLastYear);
+    if (!sizeChanged && !modeChanged && !yearChanged && !m_settlementPixels.empty()) {
+        return;
+    }
+
+    m_settlementW = w;
+    m_settlementH = h;
+    m_settlementOverlayLastMode = m_settlementOverlayMode;
+    m_settlementOverlayLastYear = m_currentYear;
+
+    const size_t n = static_cast<size_t>(w) * static_cast<size_t>(h);
+    m_settlementPixels.assign(n * 4u, 0u);
+
+    const auto& nodePop = settlementSystem.getNodePopulationOverlay();
+    const auto& domMode = settlementSystem.getDominantSubsistenceOverlay();
+    const auto& edgeDensity = settlementSystem.getTransportDensityOverlay();
+
+    float maxNode = 1.0f;
+    float maxEdge = 1.0f;
+    if (!nodePop.empty()) {
+        maxNode = *std::max_element(nodePop.begin(), nodePop.end());
+        maxNode = std::max(1.0f, maxNode);
+    }
+    if (!edgeDensity.empty()) {
+        maxEdge = *std::max_element(edgeDensity.begin(), edgeDensity.end());
+        maxEdge = std::max(1.0f, maxEdge);
+    }
+
+    for (size_t i = 0; i < n; ++i) {
+        sf::Color c(0, 0, 0, 0);
+
+        if (m_settlementOverlayMode == 0) {
+            const float p = (i < nodePop.size()) ? std::max(0.0f, nodePop[i]) : 0.0f;
+            if (p > 0.0f) {
+                const double v = std::clamp(std::log1p(static_cast<double>(p)) / std::log1p(static_cast<double>(maxNode)), 0.0, 1.0);
+                c = sf::Color(
+                    static_cast<sf::Uint8>(255.0 * std::min(1.0, 0.35 + 0.65 * v)),
+                    static_cast<sf::Uint8>(200.0 * (1.0 - v) + 55.0),
+                    static_cast<sf::Uint8>(40.0 + 110.0 * (1.0 - v)),
+                    static_cast<sf::Uint8>(70.0 + 180.0 * v));
+            }
+        } else if (m_settlementOverlayMode == 1) {
+            const std::uint8_t mode = (i < domMode.size()) ? domMode[i] : 255u;
+            if (mode != 255u) {
+                switch (mode) {
+                    case 0u: c = sf::Color(120, 205, 80, 200); break;  // foraging
+                    case 1u: c = sf::Color(240, 190, 60, 210); break;  // farming
+                    case 2u: c = sf::Color(198, 160, 110, 200); break; // pastoral
+                    case 3u: c = sf::Color(70, 170, 230, 205); break;  // fishing
+                    case 4u: c = sf::Color(210, 95, 170, 210); break;  // craft
+                    default: c = sf::Color(180, 180, 180, 180); break;
+                }
+            }
+        } else {
+            const float e = (i < edgeDensity.size()) ? std::max(0.0f, edgeDensity[i]) : 0.0f;
+            if (e > 0.0f) {
+                const double v = std::clamp(std::sqrt(static_cast<double>(e / maxEdge)), 0.0, 1.0);
+                c = sf::Color(
+                    static_cast<sf::Uint8>(35.0 + 220.0 * v),
+                    static_cast<sf::Uint8>(45.0 + 175.0 * (1.0 - v)),
+                    static_cast<sf::Uint8>(210.0 - 180.0 * v),
+                    static_cast<sf::Uint8>(60.0 + 190.0 * v));
+            }
+        }
+
+        m_settlementPixels[i * 4u + 0u] = c.r;
+        m_settlementPixels[i * 4u + 1u] = c.g;
+        m_settlementPixels[i * 4u + 2u] = c.b;
+        m_settlementPixels[i * 4u + 3u] = c.a;
+    }
+
+    if (sizeChanged || m_settlementTex.getSize().x != static_cast<unsigned>(w) || m_settlementTex.getSize().y != static_cast<unsigned>(h)) {
+        m_settlementTex.create(static_cast<unsigned>(w), static_cast<unsigned>(h));
+        m_settlementTex.setSmooth(false);
+        m_settlementSprite.setTexture(m_settlementTex, true);
+        m_settlementSprite.setPosition(0.f, 0.f);
+    }
+    m_settlementTex.update(m_settlementPixels.data());
+
+    const float scale = static_cast<float>(map.getGridCellSize() * Map::kFieldCellSize);
+    m_settlementSprite.setScale(scale, scale);
+    m_settlementSprite.setColor(sf::Color(255, 255, 255, 180));
 }
 
 std::vector<uint8_t> Renderer::buildCountryKnowledgeMask(const Map& map,

@@ -258,17 +258,6 @@ specialistEta = 0.045
 specialistLambda = 0.032
 tradeHintBlend = 0.30
 
-[research_gpu]
-enabled = true
-startupDiagnostics = true
-accelerateTransport = true
-accelerateFlows = true
-settlementDisease = true
-climateFertility = true
-adoptionKernel = true
-warfareLogistics = true
-joinStayUtility = true
-
 [scoring]
 checkpointsYears = [-5000, -3000, -1000, 0, 1000, 1500, 2025]
 weightFoodSecurityStability = 1
