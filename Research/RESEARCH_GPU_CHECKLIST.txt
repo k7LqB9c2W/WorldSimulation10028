@@ -58,6 +58,22 @@ Sources used:
   - data/sim_config.toml
 - Date: 2026-02-14
 
+[x] Remaining six SimulationResearch mechanics bundle
+- Added:
+  - pastoral seasonal mobility routes
+  - settlement households/elites/extraction capacity loop
+  - explicit settlement polity-choice reassignment
+  - route-segment campaign logistics/attrition
+  - soil fertility + irrigation-capital coupling
+  - full field/path transport rebuild mode
+- Code:
+  - include/simulation_context.h
+  - src/simulation_context.cpp
+  - data/sim_config.toml
+  - include/settlement_system.h
+  - src/settlement_system.cpp
+- Date: 2026-02-14
+
 ================================================================
 2) Coverage status vs equation set (Eq01..Eq28)
 ================================================================
@@ -65,9 +81,8 @@ Sources used:
 [Done] Eq01..Eq08
 - Settlement growth/fission loop is implemented.
 
-[Partial] Eq09, Eq10, Eq11
-- Extraction/revenue/legitimacy exists mainly at country macro layer.
-- Missing for full match: tighter settlement-level fiscal linkage and explicit settlement-to-polity aggregation in equation form.
+[Done] Eq09, Eq10, Eq11
+- Settlement-level extraction/revenue/legitimacy/admin loop is implemented and aggregated back to country macro.
 
 [Done] Eq12, Eq13
 - Settlement migration/trade over transport-cost graph is implemented.
@@ -80,17 +95,15 @@ Sources used:
 - Settlement-scale network-coupled SIR with imported infection is implemented (GPU + CPU fallback).
 - Still simplified versus full research detail/calibration.
 
-[Partial/Done] Eq18, Eq19
+[Done] Eq18, Eq19
 - Climate-regime transitions and fertility stock updates are implemented (GPU + CPU fallback).
-- Still simplified versus full irrigation-capital and agronomy detail.
+- Irrigation-capital stock coupling is implemented in the same yearly loop.
 
-[Partial] Eq24
-- Settlement-level join/stay utility is implemented and fed into polity legitimacy/control.
-- Missing for full match: explicit multi-polity assignment optimization.
+[Done] Eq24
+- Settlement-level join/stay utility plus explicit multi-polity assignment is implemented.
 
-[Partial] Eq25, Eq27, Eq28
-- Edge-level logistics attenuation and war-risk effects are implemented (GPU + CPU fallback).
-- Missing for full match: campaign route-segment cumulative deficit/attrition.
+[Done] Eq25, Eq27, Eq28
+- Campaign route-segment supply deficit/attrition is implemented with edge-level cumulative loads.
 
 [Partial/Done] Eq26
 - Settlement-network adoption probability pass is implemented (GPU + CPU fallback).
@@ -103,14 +116,14 @@ Sources used:
 [Done] Settlement nodes and fission
 [Done] Subsistence mixes and domesticate package mechanics
 [Done] Transport-cost interaction network (trade/migration)
-[Partial] Households/elites/extraction capacity
+[Done] Households/elites/extraction capacity
 [Partial/Done] Institutions and technology diffusion as network process
-[Partial] State formation from settlement systems (join/stay implemented; explicit polity-choice layer still missing)
-[Partial] Warfare and campaign logistics (edge logistics done; full route-segment deficit model pending)
+[Done] State formation from settlement systems (join/stay + polity-choice reassignment)
+[Done] Warfare and campaign logistics (route-segment deficit/attrition enabled)
 [Partial/Done] Settlement-scale network-coupled epidemics
 [Partial/Done] Multi-year climate regimes (Markov-like) as explicit regime state
-[Partial] Soil fertility stock + irrigation capital loop in explicit form
-[Missing] Pastoral mobility routes (seasonal route layer)
+[Done] Soil fertility stock + irrigation capital loop in explicit form
+[Done] Pastoral mobility routes (seasonal route layer)
 
 ================================================================
 4) GPU candidate backlog (refined from SimulationResearch + equations)
@@ -124,9 +137,8 @@ Priority P1
 [x] P1-B Settlement flow kernel acceleration (Eq12/Eq13 edge terms)
 - Implemented.
 
-[Partial] P1-C Transport-cost recompute acceleration
-- Edge-kernel acceleration is implemented.
-- Full field-level path/graph rebuild acceleration is still pending.
+[x] P1-C Transport-cost recompute acceleration
+- Full field/path rebuild mode is implemented (deterministic bounded shortest-path transport graph build).
 
 Priority P2
 
@@ -138,25 +150,23 @@ Priority P2
 
 Priority P3
 
-[Partial] P3-A Warfare route logistics kernel (Eq25, Eq27, Eq28)
-- Edge-level attenuation is implemented.
-- Route-segment campaign supply model remains.
+[x] P3-A Warfare route logistics kernel (Eq25, Eq27, Eq28)
+- Route-segment campaign supply/attrition model is implemented.
 
-[Partial] P3-B Settlement join/stay polity kernel (Eq24)
-- Join/stay utility kernel and macro feedback are implemented.
-- Explicit polity assignment optimization remains.
+[x] P3-B Settlement join/stay polity kernel (Eq24)
+- Join/stay utility + explicit polity reassignment is implemented.
 
-[ ] P3-C Pastoral seasonal mobility routes
-- Not implemented.
+[x] P3-C Pastoral seasonal mobility routes
+- Implemented.
 
 ================================================================
 5) Practical next build order
 ================================================================
 
 Recommended sequence:
-1. P1-C full transport recompute acceleration (field/path rebuild)
-2. P3-A full warfare route logistics (route-segment campaign supply)
-3. P3-B full polity assignment optimization on top of join/stay utility
-4. P3-C pastoral seasonal mobility routes
+1. Calibrate Eq09-Eq11 / Eq24 / Eq25-Eq28 coefficients by region and era windows
+2. Add dedicated diagnostics dashboards for new settlement polity/logistics states
+3. Tune runtime hot spots in full path-rebuild mode for very high node counts
+4. Expand migration/polity constraints using additional archaeology benchmark datasets
 
 This sequence keeps risk low and focuses remaining realism/performance gaps.

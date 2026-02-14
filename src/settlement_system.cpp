@@ -12,6 +12,7 @@
 #include <iostream>
 #include <limits>
 #include <numeric>
+#include <queue>
 #include <sstream>
 #include <tuple>
 
@@ -430,13 +431,17 @@ void SettlementSystem::tickYear(int year,
     syncNodeTotalsToCountryPopulation(countries);
     updateSubsistenceMixAndPackages(year, map, countries);
     updateClimateRegimesAndFertility(year, map);
+    updatePastoralMobilityRoutes(year, map, countries);
     recomputeFoodCaloriesAndCapacity(map, countries);
+    updateHouseholdsElitesExtraction(year, countries);
     rebuildTransportGraph(year, map, countries);
     computeFlowsAndMigration(map, countries);
+    updateCampaignLogisticsAndAttrition(year, countries);
     updateSettlementDisease(year, map, countries);
     applyGrowthAndSpecialization(year, countries);
     applyFission(year, map, countries);
     updateAdoptionAndJoinUtility(year, countries);
+    applyPolityChoiceAssignment(year, countries);
     aggregateToCountries(countries);
     buildCountryTradeHintMatrix(static_cast<int>(countries.size()));
     rebuildOverlays();
@@ -473,6 +478,13 @@ void SettlementSystem::tickYear(int year,
                   << " mix(f,farm,past,fish,craft)="
                   << std::fixed << std::setprecision(3)
                   << meanMix[0] << "," << meanMix[1] << "," << meanMix[2] << "," << meanMix[3] << "," << meanMix[4]
+                  << std::endl;
+        std::cout << "[ResearchSettlement] pastoral=" << (m_ctx->config.researchSettlement.pastoralMobility ? 1 : 0)
+                  << " extraction=" << (m_ctx->config.researchSettlement.householdsExtraction ? 1 : 0)
+                  << " polityChoice=" << (m_ctx->config.researchSettlement.polityChoiceAssignment ? 1 : 0)
+                  << " campaignLogistics=" << (m_ctx->config.researchSettlement.campaignLogistics ? 1 : 0)
+                  << " irrigation=" << (m_ctx->config.researchSettlement.irrigationLoop ? 1 : 0)
+                  << " pathRebuild=" << (m_ctx->config.researchSettlement.transportPathRebuild ? 1 : 0)
                   << std::endl;
     }
 
@@ -511,6 +523,7 @@ void SettlementSystem::ensureInitialized(int year, const Map& map, const std::ve
     m_countryAgg.clear();
     m_fieldFertility.clear();
     m_fieldRegime.clear();
+    m_fieldIrrigationCapital.clear();
     m_nodeS.clear();
     m_nodeI.clear();
     m_nodeR.clear();
@@ -519,6 +532,10 @@ void SettlementSystem::ensureInitialized(int year, const Map& map, const std::ve
     m_nodeAdoptionPressure.clear();
     m_nodeJoinUtility.clear();
     m_edgeLogisticsAttenuation.clear();
+    m_nodeWarAttrition.clear();
+    m_nodePastoralSeasonGain.clear();
+    m_nodeExtractionRevenue.clear();
+    m_nodePolitySwitchGain.clear();
 
     initializeNodesFromFieldPopulation(year, map, countries);
     m_initialized = true;
@@ -602,6 +619,11 @@ void SettlementSystem::initializeNodesFromFieldPopulation(int year,
         node.waterFactor = 1.0;
         node.soilFactor = 1.0;
         node.techFactor = 0.80 + 0.40 * m.knowledgeStock;
+        node.irrigationCapital = clamp01(0.10 + 0.35 * m.institutionCapacity + 0.15 * m.marketAccess);
+        node.eliteShare = clamp01(0.08 + 0.26 * m.inequality);
+        node.localLegitimacy = clamp01(0.35 + 0.45 * country.getLegitimacy());
+        node.localAdminCapacity = clamp01(0.22 + 0.48 * country.getAdminCapacity());
+        node.extractionRate = clamp01(0.04 + 0.12 * m.institutionCapacity);
         node.foundedYear = year;
         node.lastSplitYear = -9999999;
 
@@ -653,6 +675,11 @@ void SettlementSystem::initializeNodesFromFieldPopulation(int year,
         node.specialistShare = 0.02;
         node.storageStock = 0.08;
         node.techFactor = 0.90;
+        node.irrigationCapital = 0.08;
+        node.eliteShare = 0.12;
+        node.localLegitimacy = clamp01(0.35 + 0.45 * c.getLegitimacy());
+        node.localAdminCapacity = clamp01(0.20 + 0.45 * c.getAdminCapacity());
+        node.extractionRate = 0.06;
         node.foundedYear = year;
         node.lastSplitYear = -9999999;
         m_nodes.push_back(node);
@@ -830,6 +857,9 @@ void SettlementSystem::updateClimateRegimesAndFertility(int year, const Map& map
     if (m_fieldRegime.size() != static_cast<size_t>(nField)) {
         m_fieldRegime.assign(static_cast<size_t>(nField), static_cast<std::uint8_t>(kRegimeNormal));
     }
+    if (m_fieldIrrigationCapital.size() != static_cast<size_t>(nField)) {
+        m_fieldIrrigationCapital.assign(static_cast<size_t>(nField), 0.0f);
+    }
 
     const auto& precip = map.getFieldPrecipMean();
     const auto& temp = map.getFieldTempMean();
@@ -961,12 +991,42 @@ void SettlementSystem::updateClimateRegimesAndFertility(int year, const Map& map
         }
     }
 
+    // Eq19 extension: irrigation-capital stock update on the same field grid.
+    if (m_ctx->config.researchSettlement.irrigationLoop) {
+        std::vector<double> invest(static_cast<size_t>(nField), 0.0);
+        for (const SettlementNode& n : m_nodes) {
+            const int fi = fieldIndex(n.fieldX, n.fieldY);
+            if (fi < 0 || fi >= nField) continue;
+            const double farmShare = clamp01(n.mix[static_cast<size_t>(SubsistenceMode::Farming)]);
+            invest[static_cast<size_t>(fi)] += std::max(0.0, n.irrigationCapital) * (0.0015 + 0.0025 * farmShare);
+        }
+        const double depr = std::clamp(m_ctx->config.researchSettlement.irrigationDepreciation, 0.0, 0.40);
+        const double shield = std::max(0.0, m_ctx->config.researchSettlement.irrigationFertilityShield);
+        for (int fi = 0; fi < nField; ++fi) {
+            if (static_cast<size_t>(fi) >= landMask.size() || landMask[static_cast<size_t>(fi)] == 0u) {
+                m_fieldIrrigationCapital[static_cast<size_t>(fi)] = 0.0f;
+                continue;
+            }
+            double irr = static_cast<double>(m_fieldIrrigationCapital[static_cast<size_t>(fi)]);
+            irr = std::clamp((1.0 - depr) * irr + invest[static_cast<size_t>(fi)], 0.0, 1.0);
+            if (static_cast<int>(m_fieldRegime[static_cast<size_t>(fi)]) == kRegimeDrought) {
+                const double fert = static_cast<double>(m_fieldFertility[static_cast<size_t>(fi)]);
+                m_fieldFertility[static_cast<size_t>(fi)] = static_cast<float>(std::clamp(fert + 0.018 * shield * irr, 0.05, 1.0));
+            }
+            m_fieldIrrigationCapital[static_cast<size_t>(fi)] = static_cast<float>(irr);
+        }
+    }
+
     // Push climate/fertility multipliers into node productivity factors.
-    for (SettlementNode& n : m_nodes) {
+    for (size_t i = 0; i < m_nodes.size(); ++i) {
+        SettlementNode& n = m_nodes[i];
         const int fi = fieldIndex(n.fieldX, n.fieldY);
         if (fi < 0 || fi >= nField) continue;
         const double fert = clamp01(static_cast<double>(m_fieldFertility[static_cast<size_t>(fi)]));
         const int regime = static_cast<int>(m_fieldRegime[static_cast<size_t>(fi)]);
+        const double irr = (static_cast<size_t>(fi) < m_fieldIrrigationCapital.size())
+            ? clamp01(static_cast<double>(m_fieldIrrigationCapital[static_cast<size_t>(fi)]))
+            : 0.0;
         const double pMean = (static_cast<size_t>(fi) < precip.size()) ? clamp01(static_cast<double>(precip[static_cast<size_t>(fi)])) : 0.50;
 
         double regimeWater = 1.0;
@@ -974,11 +1034,201 @@ void SettlementSystem::updateClimateRegimesAndFertility(int year, const Map& map
         if (regime == kRegimePluvial) regimeWater = 1.08;
         if (regime == kRegimeCold) regimeWater = 0.86;
 
-        n.soilFactor *= (0.65 + 0.75 * fert);
-        n.waterFactor *= (0.72 + 0.56 * pMean) * regimeWater;
+        const double irrWaterBoost = std::max(0.0, m_ctx->config.researchSettlement.irrigationWaterBoost);
+        n.soilFactor *= (0.65 + 0.75 * fert) * (1.0 + 0.18 * irr);
+        n.waterFactor *= (0.72 + 0.56 * pMean) * regimeWater * (1.0 + irrWaterBoost * irr);
         n.soilFactor = std::clamp(n.soilFactor, 0.25, 2.0);
         n.waterFactor = std::clamp(n.waterFactor, 0.25, 2.0);
+        n.irrigationCapital = std::clamp(0.92 * n.irrigationCapital + 0.08 * irr, 0.0, 1.0);
     }
+}
+
+void SettlementSystem::updatePastoralMobilityRoutes(int year,
+                                                    const Map& map,
+                                                    const std::vector<Country>& countries) {
+    const int nNode = static_cast<int>(m_nodes.size());
+    m_nodePastoralSeasonGain.assign(static_cast<size_t>(nNode), 0.0);
+    if (!m_ctx->config.researchSettlement.pastoralMobility || nNode <= 0) {
+        return;
+    }
+
+    const auto& landMask = map.getFieldLandMask();
+    const auto& precip = map.getFieldPrecipMean();
+    const auto& temp = map.getFieldTempMean();
+    const auto& corridor = map.getFieldCorridorWeight();
+
+    const int routeRadius = std::max(2, m_ctx->config.researchSettlement.pastoralRouteRadius);
+    const double moveShare = std::clamp(m_ctx->config.researchSettlement.pastoralMoveShare, 0.0, 0.25);
+    const int season = ((year % 2) + 2) % 2; // 0=spring/summer, 1=autumn/winter
+
+    std::vector<double> delta(static_cast<size_t>(nNode), 0.0);
+
+    auto landScoreAt = [&](int fi, int seasonPhase) -> double {
+        if (fi < 0 || static_cast<size_t>(fi) >= landMask.size() || landMask[static_cast<size_t>(fi)] == 0u) {
+            return -1.0e9;
+        }
+        const double p = (static_cast<size_t>(fi) < precip.size()) ? clamp01(static_cast<double>(precip[static_cast<size_t>(fi)])) : 0.45;
+        const double t = (static_cast<size_t>(fi) < temp.size()) ? static_cast<double>(temp[static_cast<size_t>(fi)]) : 12.0;
+        const double c = (static_cast<size_t>(fi) < corridor.size()) ? clamp01(static_cast<double>(corridor[static_cast<size_t>(fi)]) / 2.0) : 0.5;
+        const double temperate = 1.0 - clamp01(std::abs(t - 11.0) / 18.0);
+        const double summerBias = clamp01((t - 8.0) / 18.0);
+        const double winterBias = clamp01((14.0 - t) / 20.0);
+        const double seasonTerm = (seasonPhase == 0) ? summerBias : winterBias;
+        return 0.50 * p + 0.35 * temperate + 0.15 * c + 0.18 * seasonTerm;
+    };
+
+    for (int i = 0; i < nNode; ++i) {
+        SettlementNode& src = m_nodes[static_cast<size_t>(i)];
+        const double pastoralShare = clamp01(src.mix[static_cast<size_t>(SubsistenceMode::Pastoral)]);
+        if (pastoralShare < 0.10 || src.population <= 20.0) continue;
+
+        const int srcFi = fieldIndex(src.fieldX, src.fieldY);
+        const double baseScore = landScoreAt(srcFi, season);
+        if (!(baseScore > -1.0e8)) continue;
+
+        double bestScore = baseScore;
+        int bestFi = srcFi;
+        for (int dy = -routeRadius; dy <= routeRadius; ++dy) {
+            for (int dx = -routeRadius; dx <= routeRadius; ++dx) {
+                const int nx = src.fieldX + dx;
+                const int ny = src.fieldY + dy;
+                if (nx < 0 || ny < 0 || nx >= m_fieldW || ny >= m_fieldH) continue;
+                const int fi = fieldIndex(nx, ny);
+                const double sc = landScoreAt(fi, season);
+                if (sc > bestScore || (sc == bestScore && fi < bestFi)) {
+                    bestScore = sc;
+                    bestFi = fi;
+                }
+            }
+        }
+
+        const double gain = clamp01((bestScore - baseScore) + 0.22 * pastoralShare);
+        m_nodePastoralSeasonGain[static_cast<size_t>(i)] = gain;
+
+        const double move = std::max(0.0, src.population * pastoralShare * moveShare * gain);
+        if (move <= 1.0) continue;
+
+        int bestNode = -1;
+        int bestDist = std::numeric_limits<int>::max();
+        const int bfx = bestFi % std::max(1, m_fieldW);
+        const int bfy = bestFi / std::max(1, m_fieldW);
+        for (int j = 0; j < nNode; ++j) {
+            if (j == i) continue;
+            const SettlementNode& dst = m_nodes[static_cast<size_t>(j)];
+            if (dst.ownerCountry != src.ownerCountry) continue;
+            const int d = std::abs(dst.fieldX - bfx) + std::abs(dst.fieldY - bfy);
+            if (d < bestDist || (d == bestDist && dst.id < m_nodes[static_cast<size_t>(bestNode < 0 ? j : bestNode)].id)) {
+                bestDist = d;
+                bestNode = j;
+            }
+        }
+        if (bestNode < 0) continue;
+
+        const double capped = std::min(move, 0.04 * src.population);
+        delta[static_cast<size_t>(i)] -= capped;
+        delta[static_cast<size_t>(bestNode)] += capped;
+    }
+
+    for (int i = 0; i < nNode; ++i) {
+        SettlementNode& n = m_nodes[static_cast<size_t>(i)];
+        n.population = std::max(0.0, n.population + delta[static_cast<size_t>(i)]);
+        const double gain = (static_cast<size_t>(i) < m_nodePastoralSeasonGain.size()) ? m_nodePastoralSeasonGain[static_cast<size_t>(i)] : 0.0;
+        n.waterFactor = std::clamp(n.waterFactor * (1.0 + 0.12 * gain), 0.25, 2.0);
+        n.soilFactor = std::clamp(n.soilFactor * (1.0 + 0.08 * gain), 0.25, 2.0);
+        if (n.ownerCountry >= 0 && static_cast<size_t>(n.ownerCountry) < countries.size()) {
+            const double war = countries[static_cast<size_t>(n.ownerCountry)].isAtWar() ? 1.0 : 0.0;
+            n.waterFactor = std::clamp(n.waterFactor * (1.0 - 0.05 * war), 0.25, 2.0);
+        }
+    }
+}
+
+void SettlementSystem::updateHouseholdsElitesExtraction(int year, std::vector<Country>& countries) {
+    const int nNode = static_cast<int>(m_nodes.size());
+    m_nodeExtractionRevenue.assign(static_cast<size_t>(nNode), 0.0);
+    if (!m_ctx->config.researchSettlement.householdsExtraction || nNode <= 0) {
+        return;
+    }
+
+    const int nCountry = static_cast<int>(countries.size());
+    const double cal0 = std::max(1.0e-9, m_ctx->config.settlements.cal0);
+    const double baseTau = std::clamp(m_ctx->config.researchSettlement.extractionBase, 0.0, 0.40);
+    const double wAdmin = std::max(0.0, m_ctx->config.researchSettlement.extractionAdminWeight);
+    const double wLegit = std::max(0.0, m_ctx->config.researchSettlement.extractionLegitimacyWeight);
+
+    const double sShare = clamp01(m_ctx->config.researchSettlement.extractionStorageInvestShare);
+    const double iShare = clamp01(m_ctx->config.researchSettlement.extractionIrrigationInvestShare);
+    const double rShare = clamp01(m_ctx->config.researchSettlement.extractionRoadInvestShare);
+    const double denom = std::max(1.0e-9, sShare + iShare + rShare);
+    const double sAlloc = sShare / denom;
+    const double iAlloc = iShare / denom;
+    const double rAlloc = rShare / denom;
+
+    std::vector<double> revByCountry(static_cast<size_t>(nCountry), 0.0);
+    std::vector<double> popByCountry(static_cast<size_t>(nCountry), 0.0);
+    std::vector<double> legitDelta(static_cast<size_t>(nCountry), 0.0);
+    std::vector<double> controlDelta(static_cast<size_t>(nCountry), 0.0);
+
+    for (int i = 0; i < nNode; ++i) {
+        SettlementNode& n = m_nodes[static_cast<size_t>(i)];
+        const double pop = std::max(0.0, n.population);
+        if (pop <= 1.0) continue;
+        const double subsistenceNeed = pop * cal0;
+        const double surplus = std::max(0.0, n.calories - subsistenceNeed);
+
+        double cAdmin = 0.30;
+        double cLegit = 0.45;
+        if (n.ownerCountry >= 0 && static_cast<size_t>(n.ownerCountry) < countries.size()) {
+            cAdmin = clamp01(countries[static_cast<size_t>(n.ownerCountry)].getAdminCapacity());
+            cLegit = clamp01(countries[static_cast<size_t>(n.ownerCountry)].getLegitimacy());
+        }
+
+        const double admin = clamp01(0.65 * n.localAdminCapacity + 0.35 * cAdmin);
+        const double legit = clamp01(0.60 * n.localLegitimacy + 0.40 * cLegit);
+        const double tauCap = std::clamp(baseTau + wAdmin * admin + wLegit * legit, 0.0, 0.55);
+        const double targetTau = std::clamp(tauCap * (0.55 + 0.45 * (0.4 + n.eliteShare)), 0.0, 0.55);
+        n.extractionRate = std::clamp(0.80 * n.extractionRate + 0.20 * targetTau, 0.0, 0.60);
+
+        const double revenue = n.extractionRate * surplus;
+        m_nodeExtractionRevenue[static_cast<size_t>(i)] = revenue;
+
+        const double investStorage = revenue * sAlloc;
+        const double investIrr = revenue * iAlloc;
+        const double investRoad = revenue * rAlloc;
+        const double eliteCons = std::max(0.0, revenue - investStorage - investIrr - investRoad);
+
+        n.storageStock = std::clamp(n.storageStock + 0.0018 * investStorage, 0.0, 1.9);
+        n.irrigationCapital = std::clamp(n.irrigationCapital + 0.0023 * investIrr, 0.0, 1.0);
+        n.localAdminCapacity = std::clamp(n.localAdminCapacity + 0.00065 * investRoad - 0.00022 * eliteCons, 0.0, 1.0);
+        n.localLegitimacy = std::clamp(
+            n.localLegitimacy +
+            0.00055 * (investStorage + investIrr + 0.5 * investRoad) -
+            0.00065 * eliteCons -
+            0.00045 * revenue,
+            0.0, 1.0);
+        n.eliteShare = std::clamp(0.96 * n.eliteShare + 0.04 * clamp01(0.35 + 0.7 * (eliteCons / std::max(1.0, revenue))), 0.02, 0.95);
+
+        if (n.ownerCountry >= 0 && static_cast<size_t>(n.ownerCountry) < revByCountry.size()) {
+            revByCountry[static_cast<size_t>(n.ownerCountry)] += revenue;
+            popByCountry[static_cast<size_t>(n.ownerCountry)] += pop;
+            legitDelta[static_cast<size_t>(n.ownerCountry)] += pop * (n.localLegitimacy - 0.5);
+            controlDelta[static_cast<size_t>(n.ownerCountry)] += pop * (n.localAdminCapacity - 0.45);
+        }
+    }
+
+    for (int ci = 0; ci < nCountry; ++ci) {
+        const double popW = std::max(1.0, popByCountry[static_cast<size_t>(ci)]);
+        Country& c = countries[static_cast<size_t>(ci)];
+        Country::MacroEconomyState& m = c.getMacroEconomyMutable();
+        m.netRevenue += revByCountry[static_cast<size_t>(ci)];
+        m.institutionCapacity = clamp01(m.institutionCapacity + 1.0e-7 * revByCountry[static_cast<size_t>(ci)]);
+        const double avgLeg = legitDelta[static_cast<size_t>(ci)] / popW;
+        const double avgCtl = controlDelta[static_cast<size_t>(ci)] / popW;
+        c.setLegitimacy(c.getLegitimacy() + 0.010 * avgLeg);
+        c.setAvgControl(c.getAvgControl() + 0.012 * avgCtl);
+        c.setTaxRate(c.getTaxRate() + 0.0015 * clamp01(revByCountry[static_cast<size_t>(ci)] / popW));
+    }
+
+    (void)year;
 }
 
 void SettlementSystem::recomputeFoodCaloriesAndCapacity(const Map& map,
@@ -990,7 +1240,8 @@ void SettlementSystem::recomputeFoodCaloriesAndCapacity(const Map& map,
     const auto& pkgs = getDefaultDomesticPackages();
     const double kBasePerFood = std::max(1.0, m_ctx->config.settlements.kBasePerFoodUnit);
 
-    for (SettlementNode& n : m_nodes) {
+    for (size_t i = 0; i < m_nodes.size(); ++i) {
+        SettlementNode& n = m_nodes[i];
         const int fi = fieldIndex(n.fieldX, n.fieldY);
         const double baseFood = (fi >= 0 && static_cast<size_t>(fi) < food.size()) ? std::max(0.0, static_cast<double>(food[static_cast<size_t>(fi)])) : 0.0;
         const double water = (fi >= 0 && static_cast<size_t>(fi) < precip.size()) ? clamp01(0.20 + static_cast<double>(precip[static_cast<size_t>(fi)])) : 0.50;
@@ -1002,6 +1253,9 @@ void SettlementSystem::recomputeFoodCaloriesAndCapacity(const Map& map,
             n.mix[static_cast<size_t>(SubsistenceMode::Pastoral)] * 0.95 +
             n.mix[static_cast<size_t>(SubsistenceMode::Fishing)] * 1.08 +
             n.mix[static_cast<size_t>(SubsistenceMode::Craft)] * 0.24;
+        const double pastoralSeasonGain =
+            (i < m_nodePastoralSeasonGain.size()) ? clamp01(m_nodePastoralSeasonGain[i]) : 0.0;
+        const double irrigationBoost = 1.0 + 0.30 * clamp01(n.irrigationCapital);
 
         double pkgModeMul = 1.0;
         double pkgStorage = 0.0;
@@ -1023,12 +1277,12 @@ void SettlementSystem::recomputeFoodCaloriesAndCapacity(const Map& map,
 
         n.carryingCapacity = std::max(
             80.0,
-            baseFood * kBasePerFood * n.techFactor * n.soilFactor * n.waterFactor * storageFactor);
+            baseFood * kBasePerFood * n.techFactor * n.soilFactor * n.waterFactor * storageFactor * irrigationBoost);
 
         n.foodProduced =
             baseFood * std::max(0.15, modeMul) * std::max(0.2, pkgModeMul) *
             std::max(0.1, n.techFactor) * std::max(0.1, n.soilFactor) * std::max(0.1, n.waterFactor) *
-            std::max(0.2, 1.0 - 0.22 * cold) *
+            std::max(0.2, 1.0 - 0.22 * cold) * (1.0 + 0.12 * pastoralSeasonGain) *
             0.045;
 
         n.foodImported = 0.0;
@@ -1233,12 +1487,15 @@ void SettlementSystem::applyGrowthAndSpecialization(int year, const std::vector<
         double shockFrac = 0.0;
         const double localDisease =
             (i < m_nodeDiseaseBurden.size()) ? clamp01(m_nodeDiseaseBurden[i]) : 0.0;
+        const double localWarAttr =
+            (i < m_nodeWarAttrition.size()) ? clamp01(m_nodeWarAttrition[i]) : 0.0;
         if (n.ownerCountry >= 0 && static_cast<size_t>(n.ownerCountry) < countries.size()) {
             const Country& c = countries[static_cast<size_t>(n.ownerCountry)];
             const auto& m = c.getMacroEconomy();
             shockFrac += 0.06 * clamp01(m.famineSeverity);
             shockFrac += 0.03 * clamp01(m.diseaseBurden);
             shockFrac += 0.05 * localDisease;
+            shockFrac += std::max(0.0, m_ctx->config.researchSettlement.campaignNodeShockScale) * localWarAttr;
             if (c.isAtWar()) {
                 shockFrac += 0.03;
             }
@@ -1427,25 +1684,12 @@ void SettlementSystem::rebuildTransportGraph(int year,
     const auto& corridor = map.getFieldCorridorWeight();
     const auto& landMask = map.getFieldLandMask();
 
-    const int bucketSize = 8;
-    const int bxCount = std::max(1, (m_fieldW + bucketSize - 1) / bucketSize);
-    const int byCount = std::max(1, (m_fieldH + bucketSize - 1) / bucketSize);
-    std::vector<std::vector<int>> buckets(static_cast<size_t>(bxCount * byCount));
-    for (int i = 0; i < n; ++i) {
-        const int bx = std::clamp(m_nodes[static_cast<size_t>(i)].fieldX / bucketSize, 0, bxCount - 1);
-        const int by = std::clamp(m_nodes[static_cast<size_t>(i)].fieldY / bucketSize, 0, byCount - 1);
-        buckets[static_cast<size_t>(by * bxCount + bx)].push_back(i);
-    }
-
     const int kNearest = std::max(1, m_ctx->config.transport.kNearest);
     const double maxEdgeCost = std::max(1.0, m_ctx->config.transport.maxEdgeCost);
     const double landMult = std::max(0.01, m_ctx->config.transport.landCostMult);
     const double seaMult = std::max(0.01, m_ctx->config.transport.seaCostMult);
     const double borderFriction = std::max(0.01, m_ctx->config.transport.borderFriction);
     const double warRiskMult = std::max(0.01, m_ctx->config.transport.warRiskMult);
-
-    const double maxGeomDist = maxEdgeCost / std::min(landMult, seaMult);
-    const int bucketRange = std::max(1, static_cast<int>(std::ceil(maxGeomDist / static_cast<double>(bucketSize))));
 
     std::vector<std::vector<CandidateLink>> cand(static_cast<size_t>(n));
     std::vector<uint8_t> coastal(static_cast<size_t>(n), 0u);
@@ -1468,71 +1712,209 @@ void SettlementSystem::rebuildTransportGraph(int year,
         coastal[static_cast<size_t>(i)] = isCoastal ? 1u : 0u;
     }
 
-    for (int i = 0; i < n; ++i) {
-        const SettlementNode& a = m_nodes[static_cast<size_t>(i)];
-        const int bx = std::clamp(a.fieldX / bucketSize, 0, bxCount - 1);
-        const int by = std::clamp(a.fieldY / bucketSize, 0, byCount - 1);
+    const bool pathRebuild = m_ctx->config.researchSettlement.transportPathRebuild;
+    if (pathRebuild) {
+        const int nField = std::max(0, m_fieldW * m_fieldH);
+        std::vector<int> nodeByField(static_cast<size_t>(nField), -1);
+        for (int i = 0; i < n; ++i) {
+            const int fi = fieldIndex(m_nodes[static_cast<size_t>(i)].fieldX, m_nodes[static_cast<size_t>(i)].fieldY);
+            if (fi < 0 || fi >= nField) continue;
+            const int old = nodeByField[static_cast<size_t>(fi)];
+            if (old < 0 ||
+                m_nodes[static_cast<size_t>(i)].population > m_nodes[static_cast<size_t>(old)].population ||
+                (m_nodes[static_cast<size_t>(i)].population == m_nodes[static_cast<size_t>(old)].population &&
+                 m_nodes[static_cast<size_t>(i)].id < m_nodes[static_cast<size_t>(old)].id)) {
+                nodeByField[static_cast<size_t>(fi)] = i;
+            }
+        }
 
-        for (int dy = -bucketRange; dy <= bucketRange; ++dy) {
-            for (int dx = -bucketRange; dx <= bucketRange; ++dx) {
-                const int nbx = bx + dx;
-                const int nby = by + dy;
-                if (nbx < 0 || nby < 0 || nbx >= bxCount || nby >= byCount) continue;
-                const auto& bNodes = buckets[static_cast<size_t>(nby * bxCount + nbx)];
-                for (int j : bNodes) {
-                    if (j <= i) continue;
-                    const SettlementNode& b = m_nodes[static_cast<size_t>(j)];
-                    const double dfx = static_cast<double>(a.fieldX - b.fieldX);
-                    const double dfy = static_cast<double>(a.fieldY - b.fieldY);
-                    const double dist = std::sqrt(dfx * dfx + dfy * dfy);
-                    if (dist <= kEps || dist > maxGeomDist * 1.05) continue;
+        struct QItem {
+            double d = 0.0;
+            int fi = -1;
+        };
+        struct QCmp {
+            bool operator()(const QItem& a, const QItem& b) const {
+                if (a.d != b.d) return a.d > b.d;
+                return a.fi > b.fi;
+            }
+        };
+        const std::array<int, 8> dx{{1, -1, 0, 0, 1, 1, -1, -1}};
+        const std::array<int, 8> dy{{0, 0, 1, -1, 1, -1, 1, -1}};
 
-                    const int fia = fieldIndex(a.fieldX, a.fieldY);
-                    const int fib = fieldIndex(b.fieldX, b.fieldY);
-                    const double ma = (fia >= 0 && static_cast<size_t>(fia) < move.size()) ? finiteOr(static_cast<double>(move[static_cast<size_t>(fia)]), 2.0) : 2.0;
-                    const double mb = (fib >= 0 && static_cast<size_t>(fib) < move.size()) ? finiteOr(static_cast<double>(move[static_cast<size_t>(fib)]), 2.0) : 2.0;
-                    if (!std::isfinite(ma) || !std::isfinite(mb)) continue;
-                    const double ca = (fia >= 0 && static_cast<size_t>(fia) < corridor.size()) ? std::max(0.01, static_cast<double>(corridor[static_cast<size_t>(fia)])) : 1.0;
-                    const double cb = (fib >= 0 && static_cast<size_t>(fib) < corridor.size()) ? std::max(0.01, static_cast<double>(corridor[static_cast<size_t>(fib)])) : 1.0;
+        for (int i = 0; i < n; ++i) {
+            const SettlementNode& a = m_nodes[static_cast<size_t>(i)];
+            const int srcFi = fieldIndex(a.fieldX, a.fieldY);
+            if (srcFi < 0 || srcFi >= nField) continue;
+            if (static_cast<size_t>(srcFi) >= landMask.size() || landMask[static_cast<size_t>(srcFi)] == 0u) continue;
 
-                    double landCost = dist * landMult * 0.5 * (ma + mb) / std::max(0.10, 0.5 * (ca + cb));
-                    double seaCost = std::numeric_limits<double>::infinity();
-                    bool sea = false;
-                    if (coastal[static_cast<size_t>(i)] != 0u && coastal[static_cast<size_t>(j)] != 0u) {
-                        seaCost = dist * seaMult;
+            std::vector<double> dist(static_cast<size_t>(nField), std::numeric_limits<double>::infinity());
+            std::vector<double> bestToNode(static_cast<size_t>(n), std::numeric_limits<double>::infinity());
+            std::priority_queue<QItem, std::vector<QItem>, QCmp> pq;
+            dist[static_cast<size_t>(srcFi)] = 0.0;
+            pq.push(QItem{0.0, srcFi});
+
+            while (!pq.empty()) {
+                const QItem q = pq.top();
+                pq.pop();
+                if (q.fi < 0 || q.fi >= nField) continue;
+                if (q.d > dist[static_cast<size_t>(q.fi)] + 1.0e-12) continue;
+                if (q.d > maxEdgeCost * 1.05) break;
+
+                const int nodeJ = nodeByField[static_cast<size_t>(q.fi)];
+                if (nodeJ >= 0 && nodeJ != i) {
+                    if (q.d < bestToNode[static_cast<size_t>(nodeJ)]) {
+                        bestToNode[static_cast<size_t>(nodeJ)] = q.d;
                     }
+                }
 
-                    if (a.ownerCountry != b.ownerCountry) {
-                        landCost *= borderFriction;
-                        if (a.ownerCountry >= 0 && b.ownerCountry >= 0 &&
-                            static_cast<size_t>(a.ownerCountry) < countries.size() &&
-                            static_cast<size_t>(b.ownerCountry) < countries.size()) {
-                            const Country& caCountry = countries[static_cast<size_t>(a.ownerCountry)];
-                            const Country& cbCountry = countries[static_cast<size_t>(b.ownerCountry)];
-                            if (isAtWarPair(caCountry, cbCountry) || isAtWarPair(cbCountry, caCountry)) {
-                                landCost *= warRiskMult;
-                                if (std::isfinite(seaCost)) {
-                                    seaCost *= warRiskMult;
+                const int fx = q.fi % m_fieldW;
+                const int fy = q.fi / m_fieldW;
+                const double c0 = (static_cast<size_t>(q.fi) < move.size()) ? finiteOr(static_cast<double>(move[static_cast<size_t>(q.fi)]), 2.0) : 2.0;
+                const double w0 = (static_cast<size_t>(q.fi) < corridor.size()) ? std::max(0.01, static_cast<double>(corridor[static_cast<size_t>(q.fi)])) : 1.0;
+                if (!std::isfinite(c0)) continue;
+
+                for (int k = 0; k < 8; ++k) {
+                    const int nx = fx + dx[static_cast<size_t>(k)];
+                    const int ny = fy + dy[static_cast<size_t>(k)];
+                    if (nx < 0 || ny < 0 || nx >= m_fieldW || ny >= m_fieldH) continue;
+                    const int nfi = fieldIndex(nx, ny);
+                    if (nfi < 0 || nfi >= nField) continue;
+                    if (static_cast<size_t>(nfi) >= landMask.size() || landMask[static_cast<size_t>(nfi)] == 0u) continue;
+                    const double c1 = (static_cast<size_t>(nfi) < move.size()) ? finiteOr(static_cast<double>(move[static_cast<size_t>(nfi)]), 2.0) : 2.0;
+                    const double w1 = (static_cast<size_t>(nfi) < corridor.size()) ? std::max(0.01, static_cast<double>(corridor[static_cast<size_t>(nfi)])) : 1.0;
+                    if (!std::isfinite(c1)) continue;
+                    const double geom = (k < 4) ? 1.0 : 1.41421356237;
+                    const double step = geom * landMult * 0.5 * (c0 + c1) / std::max(0.10, 0.5 * (w0 + w1));
+                    const double nd = q.d + step;
+                    if (nd + 1.0e-12 < dist[static_cast<size_t>(nfi)] && nd <= maxEdgeCost * 1.05) {
+                        dist[static_cast<size_t>(nfi)] = nd;
+                        pq.push(QItem{nd, nfi});
+                    }
+                }
+            }
+
+            for (int j = i + 1; j < n; ++j) {
+                double landCost = bestToNode[static_cast<size_t>(j)];
+                if (!std::isfinite(landCost)) continue;
+                const SettlementNode& b = m_nodes[static_cast<size_t>(j)];
+                const double dfx = static_cast<double>(a.fieldX - b.fieldX);
+                const double dfy = static_cast<double>(a.fieldY - b.fieldY);
+                const double distGeom = std::sqrt(dfx * dfx + dfy * dfy);
+                double seaCost = std::numeric_limits<double>::infinity();
+                bool sea = false;
+                if (coastal[static_cast<size_t>(i)] != 0u && coastal[static_cast<size_t>(j)] != 0u) {
+                    seaCost = distGeom * seaMult;
+                }
+
+                if (a.ownerCountry != b.ownerCountry) {
+                    landCost *= borderFriction;
+                    if (a.ownerCountry >= 0 && b.ownerCountry >= 0 &&
+                        static_cast<size_t>(a.ownerCountry) < countries.size() &&
+                        static_cast<size_t>(b.ownerCountry) < countries.size()) {
+                        const Country& caCountry = countries[static_cast<size_t>(a.ownerCountry)];
+                        const Country& cbCountry = countries[static_cast<size_t>(b.ownerCountry)];
+                        if (isAtWarPair(caCountry, cbCountry) || isAtWarPair(cbCountry, caCountry)) {
+                            landCost *= warRiskMult;
+                            if (std::isfinite(seaCost)) seaCost *= warRiskMult;
+                        }
+                    }
+                }
+
+                double cost = landCost;
+                if (std::isfinite(seaCost) && seaCost < cost) {
+                    cost = seaCost;
+                    sea = true;
+                }
+                if (!(cost > 0.0) || cost > maxEdgeCost) continue;
+
+                const double cap =
+                    (24.0 + 0.06 * std::sqrt(std::max(1.0, a.population) * std::max(1.0, b.population))) /
+                    (1.0 + 0.08 * cost);
+                const double rel = std::clamp(1.0 / (1.0 + 0.06 * cost), 0.05, 1.0);
+                cand[static_cast<size_t>(i)].push_back(CandidateLink{j, cost, cap, rel, sea});
+                cand[static_cast<size_t>(j)].push_back(CandidateLink{i, cost, cap, rel, sea});
+            }
+        }
+    } else {
+        const int bucketSize = 8;
+        const int bxCount = std::max(1, (m_fieldW + bucketSize - 1) / bucketSize);
+        const int byCount = std::max(1, (m_fieldH + bucketSize - 1) / bucketSize);
+        std::vector<std::vector<int>> buckets(static_cast<size_t>(bxCount * byCount));
+        for (int i = 0; i < n; ++i) {
+            const int bx = std::clamp(m_nodes[static_cast<size_t>(i)].fieldX / bucketSize, 0, bxCount - 1);
+            const int by = std::clamp(m_nodes[static_cast<size_t>(i)].fieldY / bucketSize, 0, byCount - 1);
+            buckets[static_cast<size_t>(by * bxCount + bx)].push_back(i);
+        }
+
+        const double maxGeomDist = maxEdgeCost / std::min(landMult, seaMult);
+        const int bucketRange = std::max(1, static_cast<int>(std::ceil(maxGeomDist / static_cast<double>(bucketSize))));
+
+        for (int i = 0; i < n; ++i) {
+            const SettlementNode& a = m_nodes[static_cast<size_t>(i)];
+            const int bx = std::clamp(a.fieldX / bucketSize, 0, bxCount - 1);
+            const int by = std::clamp(a.fieldY / bucketSize, 0, byCount - 1);
+
+            for (int dy = -bucketRange; dy <= bucketRange; ++dy) {
+                for (int dx = -bucketRange; dx <= bucketRange; ++dx) {
+                    const int nbx = bx + dx;
+                    const int nby = by + dy;
+                    if (nbx < 0 || nby < 0 || nbx >= bxCount || nby >= byCount) continue;
+                    const auto& bNodes = buckets[static_cast<size_t>(nby * bxCount + nbx)];
+                    for (int j : bNodes) {
+                        if (j <= i) continue;
+                        const SettlementNode& b = m_nodes[static_cast<size_t>(j)];
+                        const double dfx = static_cast<double>(a.fieldX - b.fieldX);
+                        const double dfy = static_cast<double>(a.fieldY - b.fieldY);
+                        const double dist = std::sqrt(dfx * dfx + dfy * dfy);
+                        if (dist <= kEps || dist > maxGeomDist * 1.05) continue;
+
+                        const int fia = fieldIndex(a.fieldX, a.fieldY);
+                        const int fib = fieldIndex(b.fieldX, b.fieldY);
+                        const double ma = (fia >= 0 && static_cast<size_t>(fia) < move.size()) ? finiteOr(static_cast<double>(move[static_cast<size_t>(fia)]), 2.0) : 2.0;
+                        const double mb = (fib >= 0 && static_cast<size_t>(fib) < move.size()) ? finiteOr(static_cast<double>(move[static_cast<size_t>(fib)]), 2.0) : 2.0;
+                        if (!std::isfinite(ma) || !std::isfinite(mb)) continue;
+                        const double ca = (fia >= 0 && static_cast<size_t>(fia) < corridor.size()) ? std::max(0.01, static_cast<double>(corridor[static_cast<size_t>(fia)])) : 1.0;
+                        const double cb = (fib >= 0 && static_cast<size_t>(fib) < corridor.size()) ? std::max(0.01, static_cast<double>(corridor[static_cast<size_t>(fib)])) : 1.0;
+
+                        double landCost = dist * landMult * 0.5 * (ma + mb) / std::max(0.10, 0.5 * (ca + cb));
+                        double seaCost = std::numeric_limits<double>::infinity();
+                        bool sea = false;
+                        if (coastal[static_cast<size_t>(i)] != 0u && coastal[static_cast<size_t>(j)] != 0u) {
+                            seaCost = dist * seaMult;
+                        }
+
+                        if (a.ownerCountry != b.ownerCountry) {
+                            landCost *= borderFriction;
+                            if (a.ownerCountry >= 0 && b.ownerCountry >= 0 &&
+                                static_cast<size_t>(a.ownerCountry) < countries.size() &&
+                                static_cast<size_t>(b.ownerCountry) < countries.size()) {
+                                const Country& caCountry = countries[static_cast<size_t>(a.ownerCountry)];
+                                const Country& cbCountry = countries[static_cast<size_t>(b.ownerCountry)];
+                                if (isAtWarPair(caCountry, cbCountry) || isAtWarPair(cbCountry, caCountry)) {
+                                    landCost *= warRiskMult;
+                                    if (std::isfinite(seaCost)) {
+                                        seaCost *= warRiskMult;
+                                    }
                                 }
                             }
                         }
+
+                        double cost = landCost;
+                        if (std::isfinite(seaCost) && seaCost < cost) {
+                            cost = seaCost;
+                            sea = true;
+                        }
+
+                        if (!(cost > 0.0) || cost > maxEdgeCost) continue;
+
+                        const double cap =
+                            (24.0 + 0.06 * std::sqrt(std::max(1.0, a.population) * std::max(1.0, b.population))) /
+                            (1.0 + 0.08 * cost);
+                        const double rel = std::clamp(1.0 / (1.0 + 0.06 * cost), 0.05, 1.0);
+
+                        cand[static_cast<size_t>(i)].push_back(CandidateLink{j, cost, cap, rel, sea});
+                        cand[static_cast<size_t>(j)].push_back(CandidateLink{i, cost, cap, rel, sea});
                     }
-
-                    double cost = landCost;
-                    if (std::isfinite(seaCost) && seaCost < cost) {
-                        cost = seaCost;
-                        sea = true;
-                    }
-
-                    if (!(cost > 0.0) || cost > maxEdgeCost) continue;
-
-                    const double cap =
-                        (24.0 + 0.06 * std::sqrt(std::max(1.0, a.population) * std::max(1.0, b.population))) /
-                        (1.0 + 0.08 * cost);
-                    const double rel = std::clamp(1.0 / (1.0 + 0.06 * cost), 0.05, 1.0);
-
-                    cand[static_cast<size_t>(i)].push_back(CandidateLink{j, cost, cap, rel, sea});
-                    cand[static_cast<size_t>(j)].push_back(CandidateLink{i, cost, cap, rel, sea});
                 }
             }
         }
@@ -1858,6 +2240,302 @@ void SettlementSystem::computeFlowsAndMigration(const Map& map, const std::vecto
     }
 }
 
+void SettlementSystem::updateCampaignLogisticsAndAttrition(int year, const std::vector<Country>& countries) {
+    const int nNode = static_cast<int>(m_nodes.size());
+    m_nodeWarAttrition.assign(static_cast<size_t>(nNode), 0.0);
+    if (!m_ctx->config.researchSettlement.campaignLogistics || nNode <= 0 || m_edges.empty()) {
+        for (TransportEdge& e : m_edges) {
+            e.campaignLoad = 0.0;
+            e.campaignDeficit = 0.0;
+            e.campaignAttrition = 1.0;
+        }
+        return;
+    }
+
+    const int nCountry = static_cast<int>(countries.size());
+    for (TransportEdge& e : m_edges) {
+        e.campaignLoad = 0.0;
+        e.campaignDeficit = 0.0;
+        e.campaignAttrition = 1.0;
+    }
+
+    std::vector<std::vector<int>> adj(static_cast<size_t>(nNode));
+    for (int ei = 0; ei < static_cast<int>(m_edges.size()); ++ei) {
+        const TransportEdge& e = m_edges[static_cast<size_t>(ei)];
+        if (e.fromNode < 0 || e.toNode < 0 || e.fromNode >= nNode || e.toNode >= nNode) continue;
+        adj[static_cast<size_t>(e.fromNode)].push_back(ei);
+        adj[static_cast<size_t>(e.toNode)].push_back(ei);
+    }
+
+    std::vector<int> sourceByCountry(static_cast<size_t>(nCountry), -1);
+    for (int c = 0; c < nCountry; ++c) {
+        double best = -1.0;
+        int bestNode = -1;
+        for (int i = 0; i < nNode; ++i) {
+            const SettlementNode& n = m_nodes[static_cast<size_t>(i)];
+            if (n.ownerCountry != c) continue;
+            const double score = std::max(0.0, n.population) * (0.35 + 0.35 * n.localAdminCapacity + 0.30 * n.localLegitimacy);
+            if (score > best || (score == best && (bestNode < 0 || n.id < m_nodes[static_cast<size_t>(bestNode)].id))) {
+                best = score;
+                bestNode = i;
+            }
+        }
+        sourceByCountry[static_cast<size_t>(c)] = bestNode;
+    }
+
+    struct Front {
+        int country = -1;
+        int frontierNode = -1;
+    };
+    std::vector<Front> fronts;
+    fronts.reserve(m_edges.size() * 2);
+    for (const TransportEdge& e : m_edges) {
+        if (e.fromNode < 0 || e.toNode < 0 || e.fromNode >= nNode || e.toNode >= nNode) continue;
+        const SettlementNode& a = m_nodes[static_cast<size_t>(e.fromNode)];
+        const SettlementNode& b = m_nodes[static_cast<size_t>(e.toNode)];
+        if (a.ownerCountry < 0 || b.ownerCountry < 0 || a.ownerCountry == b.ownerCountry) continue;
+        if (a.ownerCountry >= nCountry || b.ownerCountry >= nCountry) continue;
+        const bool war =
+            isAtWarPair(countries[static_cast<size_t>(a.ownerCountry)], countries[static_cast<size_t>(b.ownerCountry)]) ||
+            isAtWarPair(countries[static_cast<size_t>(b.ownerCountry)], countries[static_cast<size_t>(a.ownerCountry)]);
+        if (!war) continue;
+        fronts.push_back(Front{a.ownerCountry, e.fromNode});
+        fronts.push_back(Front{b.ownerCountry, e.toNode});
+    }
+    std::sort(fronts.begin(), fronts.end(), [](const Front& x, const Front& y) {
+        if (x.country != y.country) return x.country < y.country;
+        return x.frontierNode < y.frontierNode;
+    });
+    fronts.erase(std::unique(fronts.begin(), fronts.end(), [](const Front& x, const Front& y) {
+        return x.country == y.country && x.frontierNode == y.frontierNode;
+    }), fronts.end());
+
+    struct QItem {
+        double d = 0.0;
+        int node = -1;
+    };
+    struct QCmp {
+        bool operator()(const QItem& a, const QItem& b) const {
+            if (a.d != b.d) return a.d > b.d;
+            return a.node > b.node;
+        }
+    };
+
+    const double baseDemand = std::max(0.0, m_ctx->config.researchSettlement.campaignDemandBase);
+    const double warScale = std::max(0.0, m_ctx->config.researchSettlement.campaignDemandWarScale);
+    const double attrRate = std::max(0.0, m_ctx->config.researchSettlement.campaignAttritionRate);
+
+    std::vector<double> nodeStress(static_cast<size_t>(nNode), 0.0);
+    for (const Front& f : fronts) {
+        if (f.country < 0 || f.country >= nCountry) continue;
+        const int src = sourceByCountry[static_cast<size_t>(f.country)];
+        const int dst = f.frontierNode;
+        if (src < 0 || dst < 0 || src >= nNode || dst >= nNode || src == dst) continue;
+
+        std::vector<double> dist(static_cast<size_t>(nNode), std::numeric_limits<double>::infinity());
+        std::vector<int> prevEdge(static_cast<size_t>(nNode), -1);
+        std::priority_queue<QItem, std::vector<QItem>, QCmp> pq;
+        dist[static_cast<size_t>(src)] = 0.0;
+        pq.push(QItem{0.0, src});
+
+        while (!pq.empty()) {
+            const QItem q = pq.top();
+            pq.pop();
+            if (q.node == dst) break;
+            if (q.d > dist[static_cast<size_t>(q.node)] + 1.0e-12) continue;
+            for (int ei : adj[static_cast<size_t>(q.node)]) {
+                if (ei < 0 || static_cast<size_t>(ei) >= m_edges.size()) continue;
+                const TransportEdge& e = m_edges[static_cast<size_t>(ei)];
+                const int next = (e.fromNode == q.node) ? e.toNode : e.fromNode;
+                if (next < 0 || next >= nNode) continue;
+                const double logistics = (static_cast<size_t>(ei) < m_edgeLogisticsAttenuation.size()) ? m_edgeLogisticsAttenuation[static_cast<size_t>(ei)] : 1.0;
+                const double rel = std::clamp(e.reliability * logistics, 0.05, 1.0);
+                const double step = std::max(0.05, e.cost / rel);
+                const double nd = q.d + step;
+                if (nd + 1.0e-12 < dist[static_cast<size_t>(next)]) {
+                    dist[static_cast<size_t>(next)] = nd;
+                    prevEdge[static_cast<size_t>(next)] = ei;
+                    pq.push(QItem{nd, next});
+                }
+            }
+        }
+        if (!std::isfinite(dist[static_cast<size_t>(dst)])) continue;
+
+        const double srcPop = std::max(1.0, m_nodes[static_cast<size_t>(src)].population);
+        const double dstPop = std::max(1.0, m_nodes[static_cast<size_t>(dst)].population);
+        const double demand = baseDemand + warScale * std::sqrt(srcPop * dstPop);
+
+        int cur = dst;
+        while (cur != src) {
+            const int ei = prevEdge[static_cast<size_t>(cur)];
+            if (ei < 0 || static_cast<size_t>(ei) >= m_edges.size()) break;
+            TransportEdge& e = m_edges[static_cast<size_t>(ei)];
+            e.campaignLoad += demand;
+            cur = (e.fromNode == cur) ? e.toNode : e.fromNode;
+            if (cur < 0 || cur >= nNode) break;
+        }
+    }
+
+    for (size_t ei = 0; ei < m_edges.size(); ++ei) {
+        TransportEdge& e = m_edges[ei];
+        const double logistics = (ei < m_edgeLogisticsAttenuation.size()) ? m_edgeLogisticsAttenuation[ei] : 1.0;
+        const double cap = std::max(0.0, e.capacity * std::clamp(e.reliability * logistics, 0.05, 1.0));
+        e.campaignDeficit = std::max(0.0, e.campaignLoad - cap);
+        const double normDef = e.campaignDeficit / std::max(1.0, cap);
+        e.campaignAttrition = std::exp(-attrRate * normDef);
+        e.reliability = std::clamp(e.reliability * e.campaignAttrition, 0.03, 1.0);
+        if (ei < m_edgeLogisticsAttenuation.size()) {
+            m_edgeLogisticsAttenuation[ei] = std::clamp(m_edgeLogisticsAttenuation[ei] * e.campaignAttrition, 0.0, 1.0);
+        }
+        if (e.fromNode >= 0 && e.fromNode < nNode) {
+            nodeStress[static_cast<size_t>(e.fromNode)] += 0.5 * normDef;
+        }
+        if (e.toNode >= 0 && e.toNode < nNode) {
+            nodeStress[static_cast<size_t>(e.toNode)] += 0.5 * normDef;
+        }
+    }
+
+    for (int i = 0; i < nNode; ++i) {
+        m_nodeWarAttrition[static_cast<size_t>(i)] = clamp01(nodeStress[static_cast<size_t>(i)]);
+    }
+
+    (void)year;
+}
+
+void SettlementSystem::applyPolityChoiceAssignment(int year, std::vector<Country>& countries) {
+    const int nNode = static_cast<int>(m_nodes.size());
+    const int nCountry = static_cast<int>(countries.size());
+    m_nodePolitySwitchGain.assign(static_cast<size_t>(nNode), 0.0);
+    if (!m_ctx->config.researchSettlement.polityChoiceAssignment || nNode <= 0 || nCountry <= 0) {
+        return;
+    }
+
+    std::vector<double> countryStrength(static_cast<size_t>(nCountry), 0.0);
+    for (int c = 0; c < nCountry; ++c) {
+        const Country& country = countries[static_cast<size_t>(c)];
+        const auto& m = country.getMacroEconomy();
+        countryStrength[static_cast<size_t>(c)] = clamp01(
+            0.34 * country.getLegitimacy() +
+            0.28 * country.getAvgControl() +
+            0.18 * country.getAdminCapacity() +
+            0.20 * clamp01(m.marketAccess));
+    }
+
+    std::vector<int> bestCountries;
+    bestCountries.reserve(3);
+    for (int pick = 0; pick < 3; ++pick) {
+        int best = -1;
+        double bestV = -1.0;
+        for (int c = 0; c < nCountry; ++c) {
+            if (std::find(bestCountries.begin(), bestCountries.end(), c) != bestCountries.end()) continue;
+            const double v = countryStrength[static_cast<size_t>(c)];
+            if (v > bestV || (v == bestV && c < best)) {
+                bestV = v;
+                best = c;
+            }
+        }
+        if (best >= 0) bestCountries.push_back(best);
+    }
+
+    struct Proposal {
+        int node = -1;
+        int fromCountry = -1;
+        int toCountry = -1;
+        double gain = 0.0;
+    };
+    std::vector<Proposal> proposals;
+    const double threshold = std::max(0.0, m_ctx->config.researchSettlement.politySwitchThreshold);
+
+    for (int i = 0; i < nNode; ++i) {
+        const SettlementNode& n = m_nodes[static_cast<size_t>(i)];
+        const int from = n.ownerCountry;
+        if (from < 0 || from >= nCountry) continue;
+
+        std::vector<int> candidates;
+        candidates.push_back(from);
+        for (const TransportEdge& e : m_edges) {
+            int other = -1;
+            if (e.fromNode == i) other = e.toNode;
+            else if (e.toNode == i) other = e.fromNode;
+            if (other < 0 || other >= nNode) continue;
+            const int oc = m_nodes[static_cast<size_t>(other)].ownerCountry;
+            if (oc >= 0 && oc < nCountry &&
+                std::find(candidates.begin(), candidates.end(), oc) == candidates.end()) {
+                candidates.push_back(oc);
+            }
+        }
+        for (int bc : bestCountries) {
+            if (std::find(candidates.begin(), candidates.end(), bc) == candidates.end()) {
+                candidates.push_back(bc);
+            }
+        }
+
+        const double join = (static_cast<size_t>(i) < m_nodeJoinUtility.size()) ? m_nodeJoinUtility[static_cast<size_t>(i)] : 0.0;
+        const sf::Vector2i fromStart = countries[static_cast<size_t>(from)].getStartingPixel();
+        const double fromFx = static_cast<double>(fromStart.x / Map::kFieldCellSize);
+        const double fromFy = static_cast<double>(fromStart.y / Map::kFieldCellSize);
+        const double fromDist = std::sqrt((n.fieldX - fromFx) * (n.fieldX - fromFx) + (n.fieldY - fromFy) * (n.fieldY - fromFy));
+        const double baseU = join + 0.45 * countryStrength[static_cast<size_t>(from)] - 0.0012 * fromDist;
+
+        int bestCountry = from;
+        double bestGain = 0.0;
+        for (int c : candidates) {
+            if (c < 0 || c >= nCountry || c == from) continue;
+            const Country& cc = countries[static_cast<size_t>(c)];
+            const sf::Vector2i cStart = cc.getStartingPixel();
+            const double cFx = static_cast<double>(cStart.x / Map::kFieldCellSize);
+            const double cFy = static_cast<double>(cStart.y / Map::kFieldCellSize);
+            const double dist = std::sqrt((n.fieldX - cFx) * (n.fieldX - cFx) + (n.fieldY - cFy) * (n.fieldY - cFy));
+            const double warPenalty = cc.isAtWar() ? 0.10 : 0.0;
+            const double u = join + 0.45 * countryStrength[static_cast<size_t>(c)] - 0.0012 * dist - warPenalty;
+            const double gain = u - baseU;
+            if (gain > bestGain || (gain == bestGain && c < bestCountry)) {
+                bestGain = gain;
+                bestCountry = c;
+            }
+        }
+        if (bestCountry != from && bestGain >= threshold) {
+            proposals.push_back(Proposal{i, from, bestCountry, bestGain});
+        }
+    }
+
+    std::sort(proposals.begin(), proposals.end(), [&](const Proposal& a, const Proposal& b) {
+        if (a.gain != b.gain) return a.gain > b.gain;
+        return m_nodes[static_cast<size_t>(a.node)].id < m_nodes[static_cast<size_t>(b.node)].id;
+    });
+
+    const int maxSwitches = std::max(1, static_cast<int>(std::floor(
+        std::clamp(m_ctx->config.researchSettlement.politySwitchMaxNodeShare, 0.0, 1.0) * static_cast<double>(nNode))));
+    std::vector<uint8_t> switched(static_cast<size_t>(nNode), 0u);
+    std::vector<double> countryDelta(static_cast<size_t>(nCountry), 0.0);
+    int applied = 0;
+    for (const Proposal& p : proposals) {
+        if (applied >= maxSwitches) break;
+        if (p.node < 0 || p.node >= nNode) continue;
+        if (switched[static_cast<size_t>(p.node)] != 0u) continue;
+        SettlementNode& n = m_nodes[static_cast<size_t>(p.node)];
+        if (n.ownerCountry != p.fromCountry) continue;
+        n.ownerCountry = p.toCountry;
+        n.localLegitimacy = std::clamp(0.80 * n.localLegitimacy + 0.20 * countries[static_cast<size_t>(p.toCountry)].getLegitimacy(), 0.0, 1.0);
+        n.localAdminCapacity = std::clamp(0.82 * n.localAdminCapacity + 0.18 * countries[static_cast<size_t>(p.toCountry)].getAdminCapacity(), 0.0, 1.0);
+        m_nodePolitySwitchGain[static_cast<size_t>(p.node)] = p.gain;
+        switched[static_cast<size_t>(p.node)] = 1u;
+        const double pop = std::max(0.0, n.population);
+        countryDelta[static_cast<size_t>(p.toCountry)] += pop * p.gain;
+        countryDelta[static_cast<size_t>(p.fromCountry)] -= pop * p.gain;
+        ++applied;
+    }
+
+    for (int c = 0; c < nCountry; ++c) {
+        if (std::abs(countryDelta[static_cast<size_t>(c)]) <= 1.0e-9) continue;
+        const double nrm = countryDelta[static_cast<size_t>(c)] / std::max(1.0, static_cast<double>(countries[static_cast<size_t>(c)].getPopulation()));
+        countries[static_cast<size_t>(c)].setLegitimacy(countries[static_cast<size_t>(c)].getLegitimacy() + 0.25 * nrm);
+        countries[static_cast<size_t>(c)].setAvgControl(countries[static_cast<size_t>(c)].getAvgControl() + 0.20 * nrm);
+    }
+
+    (void)year;
+}
+
 void SettlementSystem::updateAdoptionAndJoinUtility(int year, std::vector<Country>& countries) {
     const int nNode = static_cast<int>(m_nodes.size());
     if (nNode <= 0) {
@@ -2078,12 +2756,14 @@ void SettlementSystem::aggregateToCountries(std::vector<Country>& countries) {
         const double market = clamp01((i < m_nodeMarketPotential.size()) ? (m_nodeMarketPotential[i] / 70.0) : 0.0);
         const double perCap = n.calories / std::max(1.0, pop);
         const double foodStress = clamp01((cal0 - perCap) / std::max(cal0, 1.0e-9));
+        const double warAttr = (i < m_nodeWarAttrition.size()) ? clamp01(m_nodeWarAttrition[i]) : 0.0;
+        const double extractionRev = (i < m_nodeExtractionRevenue.size()) ? std::max(0.0, m_nodeExtractionRevenue[i]) : 0.0;
 
         a.specialistPopulation += pop * clamp01(n.specialistShare);
         a.marketPotential += pop * market;
-        a.migrationPressureOut += pop * foodStress;
+        a.migrationPressureOut += pop * clamp01(foodStress + 0.45 * warAttr);
         a.migrationAttractiveness += pop * clamp01(0.62 * market + 0.38 * (1.0 - foodStress));
-        a.knowledgeInfraSignal += pop * clamp01(0.55 * n.specialistShare + 0.45 * market);
+        a.knowledgeInfraSignal += pop * clamp01(0.45 * n.specialistShare + 0.35 * market + 0.20 * clamp01(extractionRev / std::max(1.0, pop)));
         popWeight[static_cast<size_t>(n.ownerCountry)] += pop;
     }
 
@@ -2205,6 +2885,11 @@ void SettlementSystem::computeDeterminismHash() {
         h = mixHash(h, hashDouble(n.foodProduced, 1.0e5));
         h = mixHash(h, hashDouble(n.calories, 1.0e5));
         h = mixHash(h, hashDouble(n.specialistShare, 1.0e6));
+        h = mixHash(h, hashDouble(n.irrigationCapital, 1.0e6));
+        h = mixHash(h, hashDouble(n.eliteShare, 1.0e6));
+        h = mixHash(h, hashDouble(n.localLegitimacy, 1.0e6));
+        h = mixHash(h, hashDouble(n.localAdminCapacity, 1.0e6));
+        h = mixHash(h, hashDouble(n.extractionRate, 1.0e6));
         for (double m : n.mix) {
             h = mixHash(h, hashDouble(m, 1.0e6));
         }
@@ -2217,6 +2902,13 @@ void SettlementSystem::computeDeterminismHash() {
         h = mixHash(h, hashDouble(e.capacity, 1.0e6));
         h = mixHash(h, hashDouble(e.reliability, 1.0e6));
         h = mixHash(h, static_cast<std::uint64_t>(e.seaLink ? 1 : 0));
+        h = mixHash(h, hashDouble(e.campaignLoad, 1.0e6));
+        h = mixHash(h, hashDouble(e.campaignDeficit, 1.0e6));
+        h = mixHash(h, hashDouble(e.campaignAttrition, 1.0e6));
+    }
+
+    for (float f : m_fieldIrrigationCapital) {
+        h = mixHash(h, hashDouble(static_cast<double>(f), 1.0e6));
     }
 
     m_lastDeterminismHash = h;
@@ -2262,6 +2954,18 @@ std::string SettlementSystem::validateInvariants(const Map& map, int countryCoun
             oss << "settlement food/calorie non-finite id=" << n.id;
             return oss.str();
         }
+        if (!std::isfinite(n.irrigationCapital) || !std::isfinite(n.eliteShare) ||
+            !std::isfinite(n.localLegitimacy) || !std::isfinite(n.localAdminCapacity) ||
+            !std::isfinite(n.extractionRate)) {
+            std::ostringstream oss;
+            oss << "settlement polity stock non-finite id=" << n.id;
+            return oss.str();
+        }
+        if (n.irrigationCapital < 0.0 || n.eliteShare < 0.0 || n.extractionRate < 0.0) {
+            std::ostringstream oss;
+            oss << "settlement polity stock negative id=" << n.id;
+            return oss.str();
+        }
         double sumMix = 0.0;
         for (double v : n.mix) {
             if (!std::isfinite(v) || v < 0.0) {
@@ -2286,8 +2990,15 @@ std::string SettlementSystem::validateInvariants(const Map& map, int countryCoun
             return "settlement edge endpoint invalid";
         }
         if (!std::isfinite(e.cost) || !std::isfinite(e.capacity) || !std::isfinite(e.reliability) ||
-            e.cost < 0.0 || e.capacity < 0.0 || e.reliability < 0.0) {
+            !std::isfinite(e.campaignLoad) || !std::isfinite(e.campaignDeficit) || !std::isfinite(e.campaignAttrition) ||
+            e.cost < 0.0 || e.capacity < 0.0 || e.reliability < 0.0 || e.campaignLoad < 0.0 || e.campaignDeficit < 0.0 || e.campaignAttrition < 0.0) {
             return "settlement edge non-finite/negative";
+        }
+    }
+
+    for (float irr : m_fieldIrrigationCapital) {
+        if (!std::isfinite(irr) || irr < 0.0f) {
+            return "settlement irrigation field invalid";
         }
     }
 
@@ -2341,6 +3052,8 @@ void SettlementSystem::printDebugSample(int year, const std::vector<Country>& co
             ? countries[static_cast<size_t>(n.ownerCountry)].getName()
             : std::string("<none>");
         const double outFlow = (static_cast<size_t>(r.idx) < m_nodeOutgoingFlow.size()) ? m_nodeOutgoingFlow[static_cast<size_t>(r.idx)] : 0.0;
+        const double warAttr = (static_cast<size_t>(r.idx) < m_nodeWarAttrition.size()) ? m_nodeWarAttrition[static_cast<size_t>(r.idx)] : 0.0;
+        const double rev = (static_cast<size_t>(r.idx) < m_nodeExtractionRevenue.size()) ? m_nodeExtractionRevenue[static_cast<size_t>(r.idx)] : 0.0;
         std::cout << "  node=" << n.id
                   << " owner=" << n.ownerCountry << "(" << ownerName << ")"
                   << " field=(" << n.fieldX << "," << n.fieldY << ")"
@@ -2349,6 +3062,9 @@ void SettlementSystem::printDebugSample(int year, const std::vector<Country>& co
                   << " cal=" << std::fixed << std::setprecision(3) << n.calories
                   << " mix=[" << n.mix[0] << "," << n.mix[1] << "," << n.mix[2] << "," << n.mix[3] << "," << n.mix[4] << "]"
                   << " packages=" << n.adoptedPackages.size()
+                  << " irr=" << n.irrigationCapital
+                  << " extRev=" << rev
+                  << " warAttr=" << warAttr
                   << " outFlow=" << outFlow
                   << std::endl;
     }

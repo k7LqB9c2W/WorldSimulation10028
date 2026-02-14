@@ -269,6 +269,36 @@ adoptionKernel = true
 warfareLogistics = true
 joinStayUtility = true
 
+[research_settlement]
+pastoralMobility = true
+householdsExtraction = true
+polityChoiceAssignment = true
+campaignLogistics = true
+irrigationLoop = true
+transportPathRebuild = true
+
+pastoralMoveShare = 0.055
+pastoralRouteRadius = 9
+
+extractionBase = 0.08
+extractionAdminWeight = 0.30
+extractionLegitimacyWeight = 0.35
+extractionStorageInvestShare = 0.26
+extractionIrrigationInvestShare = 0.24
+extractionRoadInvestShare = 0.18
+
+irrigationDepreciation = 0.035
+irrigationWaterBoost = 0.35
+irrigationFertilityShield = 0.32
+
+politySwitchThreshold = 0.18
+politySwitchMaxNodeShare = 0.10
+
+campaignDemandBase = 12.0
+campaignDemandWarScale = 0.035
+campaignAttritionRate = 0.32
+campaignNodeShockScale = 0.040
+
 [scoring]
 checkpointsYears = [-5000, -3000, -1000, 0, 1000, 1500, 2025]
 weightFoodSecurityStability = 1

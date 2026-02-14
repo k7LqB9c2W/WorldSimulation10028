@@ -33,6 +33,13 @@ struct SettlementNode {
     double waterFactor = 1.0;
     double soilFactor = 1.0;
     double techFactor = 1.0;
+    double irrigationCapital = 0.0;
+
+    // Eq09-Eq11 style local polity-economy state.
+    double eliteShare = 0.10;          // resource-control concentration proxy
+    double localLegitimacy = 0.45;     // 0..1
+    double localAdminCapacity = 0.25;  // 0..1
+    double extractionRate = 0.06;      // 0..1 of surplus
 
     int foundedYear = 0;
     int lastSplitYear = -9999999;
@@ -50,6 +57,10 @@ struct TransportEdge {
     double capacity = 0.0;
     double reliability = 1.0;
     bool seaLink = false;
+    // Eq25/Eq27/Eq28 campaign logistics diagnostics.
+    double campaignLoad = 0.0;
+    double campaignDeficit = 0.0;
+    double campaignAttrition = 1.0;
 };
 
 struct SettlementCountryAggregate {
@@ -127,6 +138,7 @@ private:
     // Eq18/Eq19 climate regime + fertility state (field-grid resolution).
     std::vector<float> m_fieldFertility;         // 0..1
     std::vector<std::uint8_t> m_fieldRegime;     // 0=normal,1=drought,2=pluvial,3=cold
+    std::vector<float> m_fieldIrrigationCapital; // 0..1
 
     // Eq15-17/20-23 settlement disease state.
     std::vector<double> m_nodeS;
@@ -141,6 +153,10 @@ private:
 
     // Eq25/27/28 edge logistics attenuation (capacity/reliability penalty).
     std::vector<double> m_edgeLogisticsAttenuation;
+    std::vector<double> m_nodeWarAttrition;
+    std::vector<double> m_nodePastoralSeasonGain;
+    std::vector<double> m_nodeExtractionRevenue;
+    std::vector<double> m_nodePolitySwitchGain;
 
     std::unique_ptr<SettlementGpuRuntime> m_gpu;
     bool m_gpuStartupLogged = false;
@@ -154,14 +170,18 @@ private:
 
     void updateSubsistenceMixAndPackages(int year, const Map& map, const std::vector<Country>& countries);
     void updateClimateRegimesAndFertility(int year, const Map& map);
+    void updatePastoralMobilityRoutes(int year, const Map& map, const std::vector<Country>& countries);
     void recomputeFoodCaloriesAndCapacity(const Map& map, const std::vector<Country>& countries);
+    void updateHouseholdsElitesExtraction(int year, std::vector<Country>& countries);
     void updateSettlementDisease(int year, const Map& map, const std::vector<Country>& countries);
     void applyGrowthAndSpecialization(int year, const std::vector<Country>& countries);
     void applyFission(int year, const Map& map, const std::vector<Country>& countries);
 
     void rebuildTransportGraph(int year, const Map& map, const std::vector<Country>& countries);
     void computeFlowsAndMigration(const Map& map, const std::vector<Country>& countries);
+    void updateCampaignLogisticsAndAttrition(int year, const std::vector<Country>& countries);
     void updateAdoptionAndJoinUtility(int year, std::vector<Country>& countries);
+    void applyPolityChoiceAssignment(int year, std::vector<Country>& countries);
 
     void aggregateToCountries(std::vector<Country>& countries);
     void buildCountryTradeHintMatrix(int countryCount);

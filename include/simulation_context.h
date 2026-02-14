@@ -328,6 +328,38 @@ struct SimulationConfig {
         bool joinStayUtility = true;
     } researchGpu{};
 
+    // Remaining SimulationResearch settlement mechanics (CPU-first, deterministic).
+    struct ResearchSettlement {
+        bool pastoralMobility = true;
+        bool householdsExtraction = true;
+        bool polityChoiceAssignment = true;
+        bool campaignLogistics = true;
+        bool irrigationLoop = true;
+        bool transportPathRebuild = true;
+
+        double pastoralMoveShare = 0.055;
+        int pastoralRouteRadius = 9;
+
+        double extractionBase = 0.08;
+        double extractionAdminWeight = 0.30;
+        double extractionLegitimacyWeight = 0.35;
+        double extractionStorageInvestShare = 0.26;
+        double extractionIrrigationInvestShare = 0.24;
+        double extractionRoadInvestShare = 0.18;
+
+        double irrigationDepreciation = 0.035;
+        double irrigationWaterBoost = 0.35;
+        double irrigationFertilityShield = 0.32;
+
+        double politySwitchThreshold = 0.18;
+        double politySwitchMaxNodeShare = 0.10;
+
+        double campaignDemandBase = 12.0;
+        double campaignDemandWarScale = 0.035;
+        double campaignAttritionRate = 0.32;
+        double campaignNodeShockScale = 0.040;
+    } researchSettlement{};
+
     struct Scoring {
         std::vector<int> checkpointsYears = {-5000, -3000, -1000, 0, 1000, 1500, 2025};
         double weightFoodSecurityStability = 1.0;

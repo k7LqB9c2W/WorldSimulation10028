@@ -373,6 +373,35 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "research_gpu", "warfareLogistics", config.researchGpu.warfareLogistics);
         readTomlValue(root, "research_gpu", "joinStayUtility", config.researchGpu.joinStayUtility);
 
+        readTomlValue(root, "research_settlement", "pastoralMobility", config.researchSettlement.pastoralMobility);
+        readTomlValue(root, "research_settlement", "householdsExtraction", config.researchSettlement.householdsExtraction);
+        readTomlValue(root, "research_settlement", "polityChoiceAssignment", config.researchSettlement.polityChoiceAssignment);
+        readTomlValue(root, "research_settlement", "campaignLogistics", config.researchSettlement.campaignLogistics);
+        readTomlValue(root, "research_settlement", "irrigationLoop", config.researchSettlement.irrigationLoop);
+        readTomlValue(root, "research_settlement", "transportPathRebuild", config.researchSettlement.transportPathRebuild);
+
+        readTomlValue(root, "research_settlement", "pastoralMoveShare", config.researchSettlement.pastoralMoveShare);
+        readTomlValue(root, "research_settlement", "pastoralRouteRadius", config.researchSettlement.pastoralRouteRadius);
+
+        readTomlValue(root, "research_settlement", "extractionBase", config.researchSettlement.extractionBase);
+        readTomlValue(root, "research_settlement", "extractionAdminWeight", config.researchSettlement.extractionAdminWeight);
+        readTomlValue(root, "research_settlement", "extractionLegitimacyWeight", config.researchSettlement.extractionLegitimacyWeight);
+        readTomlValue(root, "research_settlement", "extractionStorageInvestShare", config.researchSettlement.extractionStorageInvestShare);
+        readTomlValue(root, "research_settlement", "extractionIrrigationInvestShare", config.researchSettlement.extractionIrrigationInvestShare);
+        readTomlValue(root, "research_settlement", "extractionRoadInvestShare", config.researchSettlement.extractionRoadInvestShare);
+
+        readTomlValue(root, "research_settlement", "irrigationDepreciation", config.researchSettlement.irrigationDepreciation);
+        readTomlValue(root, "research_settlement", "irrigationWaterBoost", config.researchSettlement.irrigationWaterBoost);
+        readTomlValue(root, "research_settlement", "irrigationFertilityShield", config.researchSettlement.irrigationFertilityShield);
+
+        readTomlValue(root, "research_settlement", "politySwitchThreshold", config.researchSettlement.politySwitchThreshold);
+        readTomlValue(root, "research_settlement", "politySwitchMaxNodeShare", config.researchSettlement.politySwitchMaxNodeShare);
+
+        readTomlValue(root, "research_settlement", "campaignDemandBase", config.researchSettlement.campaignDemandBase);
+        readTomlValue(root, "research_settlement", "campaignDemandWarScale", config.researchSettlement.campaignDemandWarScale);
+        readTomlValue(root, "research_settlement", "campaignAttritionRate", config.researchSettlement.campaignAttritionRate);
+        readTomlValue(root, "research_settlement", "campaignNodeShockScale", config.researchSettlement.campaignNodeShockScale);
+
         if (const toml::array* checkpoints = root["scoring"]["checkpointsYears"].as_array()) {
             std::vector<int> parsed;
             parsed.reserve(checkpoints->size());
