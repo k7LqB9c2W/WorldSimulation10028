@@ -1852,7 +1852,7 @@ int main(int argc, char** argv) {
             std::cerr << "Could not open tech unlock log: " << techLogPath.string() << "\n";
             return 2;
         }
-        techLog << "year,event_type,country_index,country_name,tech_id,tech_name,total_unlocked_techs\n";
+        techLog << "year,event_type,country_index,country_name,country_culture,tech_id,tech_name,total_unlocked_techs\n";
     }
 
     std::ofstream stateSummaryCsv;
@@ -1917,6 +1917,7 @@ int main(int argc, char** argv) {
                             << ",initial,"
                             << countryId << ","
                             << csvEscape(c.getName()) << ","
+                            << csvEscape(c.getCultureIdentityName()) << ","
                             << techId << ","
                             << csvEscape(techName) << ","
                             << static_cast<int>(unlocked.size())
@@ -1935,6 +1936,7 @@ int main(int argc, char** argv) {
                         << ",unlock,"
                         << countryId << ","
                         << csvEscape(c.getName()) << ","
+                        << csvEscape(c.getCultureIdentityName()) << ","
                         << techId << ","
                         << csvEscape(techName) << ","
                         << static_cast<int>(unlocked.size())

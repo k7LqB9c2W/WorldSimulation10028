@@ -74,6 +74,20 @@ Sources used:
   - src/settlement_system.cpp
 - Date: 2026-02-14
 
+[x] Tier-2 realism add-ons (CPU deterministic)
+- Added:
+  - package diffusion channel split (demic/cultural/coercive)
+  - social-learning biases (prestige + conformist pressure)
+  - specialist/market-threshold knowledge loss + relearning
+  - salinity/drainage soil hazard with fertility/yield penalties
+- Code:
+  - include/simulation_context.h
+  - src/simulation_context.cpp
+  - data/sim_config.toml
+  - include/settlement_system.h
+  - src/settlement_system.cpp
+- Date: 2026-02-14
+
 ================================================================
 2) Coverage status vs equation set (Eq01..Eq28)
 ================================================================

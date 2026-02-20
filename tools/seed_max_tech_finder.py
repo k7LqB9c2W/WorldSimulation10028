@@ -141,8 +141,21 @@ def _load_json(path: Path) -> Optional[dict]:
         return None
 
 
+def tech_log_has_column(tech_log: Path, column_name: str) -> bool:
+    try:
+        with tech_log.open("r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames or []
+            return column_name in fieldnames
+    except Exception:
+        return False
+
+
 def can_reuse_existing_run(seed: int, cfg: SweepConfig, seed_dir: Path, tech_log: Path) -> bool:
     if not tech_log.exists():
+        return False
+    # Require culture column so the sweep can report top-country culture consistently.
+    if not tech_log_has_column(tech_log, "country_culture"):
         return False
 
     meta_path = seed_dir / "run_meta.json"
@@ -229,6 +242,7 @@ def scan_max_tech(tech_log_path: Path) -> dict:
                     "tech_name": row.get("tech_name", ""),
                     "country_index": row.get("country_index", ""),
                     "country_name": row.get("country_name", ""),
+                    "country_culture": row.get("country_culture", ""),
                     "event_type": row.get("event_type", ""),
                 }
 
@@ -240,6 +254,7 @@ def scan_max_tech(tech_log_path: Path) -> dict:
                     "tech_name": row.get("tech_name", ""),
                     "country_index": row.get("country_index", ""),
                     "country_name": row.get("country_name", ""),
+                    "country_culture": row.get("country_culture", ""),
                     "event_type": row.get("event_type", ""),
                     "total_unlocked_techs": total,
                 }
@@ -511,6 +526,7 @@ def write_results(out_root: Path, results: list[dict], summary: dict) -> None:
                 "max_total_year",
                 "max_total_country_index",
                 "max_total_country_name",
+                "max_total_country_culture",
                 "max_total_tech_id",
                 "max_total_tech_name",
                 "max_tech_id",
@@ -518,6 +534,7 @@ def write_results(out_root: Path, results: list[dict], summary: dict) -> None:
                 "max_tech_year",
                 "max_tech_country_index",
                 "max_tech_country_name",
+                "max_tech_country_culture",
                 "rows",
                 "run_dir",
                 "reason",
@@ -538,6 +555,7 @@ def write_results(out_root: Path, results: list[dict], summary: dict) -> None:
                     max_total.get("year", ""),
                     max_total.get("country_index", ""),
                     max_total.get("country_name", ""),
+                    max_total.get("country_culture", ""),
                     max_total.get("tech_id", ""),
                     max_total.get("tech_name", ""),
                     max_tid.get("tech_id", ""),
@@ -545,6 +563,7 @@ def write_results(out_root: Path, results: list[dict], summary: dict) -> None:
                     max_tid.get("year", ""),
                     max_tid.get("country_index", ""),
                     max_tid.get("country_name", ""),
+                    max_tid.get("country_culture", ""),
                     r.get("rows", ""),
                     r.get("run_dir", ""),
                     r.get("reason", ""),
@@ -771,6 +790,28 @@ def run_cli_mode(args: argparse.Namespace) -> int:
     _, summary = run_sweep(cfg, seeds, progress_cb=printer)
     print("\nSummary:")
     print(json.dumps(summary, indent=2))
+    best_total = summary.get("best_by_unlocked_count") or {}
+    best_total_detail = best_total.get("detail") or {}
+    if best_total:
+        print(
+            "Best by unlocked count: "
+            f"seed={best_total.get('seed')} "
+            f"country={best_total_detail.get('country_name', '')} "
+            f"culture={best_total_detail.get('country_culture', '')} "
+            f"tech_id={best_total_detail.get('tech_id', '')} "
+            f"tech_name={best_total_detail.get('tech_name', '')}"
+        )
+    best_tid = summary.get("best_by_tech_id") or {}
+    best_tid_detail = best_tid.get("detail") or {}
+    if best_tid:
+        print(
+            "Best by tech id: "
+            f"seed={best_tid.get('seed')} "
+            f"country={best_tid_detail.get('country_name', '')} "
+            f"culture={best_tid_detail.get('country_culture', '')} "
+            f"tech_id={best_tid_detail.get('tech_id', '')} "
+            f"tech_name={best_tid_detail.get('tech_name', '')}"
+        )
     return 0 if summary["failed_runs"] == 0 else 1
 
 

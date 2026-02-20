@@ -281,6 +281,33 @@ struct SimulationConfig {
         int transportRebuildIntervalYears = 5;
     } settlements{};
 
+    // Density-prior settlement seeding (hard-first realism init).
+    struct DensityInit {
+        bool enabled = true;
+        bool requireLandOwnership = true;
+        double weightPopulation = 0.55;
+        double weightFood = 0.22;
+        double weightCorridor = 0.12;
+        double weightClimate = 0.11;
+        double scoreNoise = 0.04;
+        double minPopFactor = 0.35;
+        std::string priorPath = "";
+        double priorWeight = 0.0;
+    } densityInit{};
+
+    // Transient monthly paleoclimate forcing (5000 BCE onward).
+    struct PaleoClimate {
+        bool enabled = true;
+        bool startupDiagnostics = true;
+        std::string monthlyForcingCsv = "data/climate/paleo_monthly_forcing.csv";
+        bool requireDataFile = false;
+        double tempInfluence = 1.0;
+        double precipInfluence = 1.0;
+        double monsoonVarianceScale = 1.0;
+        double droughtClusterScale = 1.0;
+        double coolingPulseScale = 1.0;
+    } paleoClimate{};
+
     // Subsistence composition (Eq14 coupling through risk/market terms).
     struct Subsistence {
         double mixAdaptRate = 0.10;
@@ -295,6 +322,42 @@ struct SimulationConfig {
         double diffusionWeight = 0.55;
         double environmentWeight = 0.45;
     } packages{};
+
+    // Package diffusion channels + social-learning biases.
+    struct PackageDiffusion {
+        bool enabled = true;
+        double demicWeight = 0.38;
+        double culturalWeight = 0.42;
+        double coerciveWeight = 0.20;
+        double prestigeWeight = 0.32;
+        double conformistThreshold = 0.45;
+        double conformistStrength = 0.75;
+        double coerciveExtractionWeight = 0.60;
+        double coercivePolitySwitchWeight = 0.40;
+    } packageDiffusion{};
+
+    // Knowledge transmission/loss from specialist and network maintenance.
+    struct KnowledgeDynamics {
+        bool enabled = true;
+        double maintenanceSpecialistThreshold = 0.035;
+        double maintenanceMarketThreshold = 0.18;
+        double lossRate = 0.08;
+        double collapseLossScale = 0.30;
+        double recoveryRate = 0.05;
+        double relearnFromNeighbors = 0.28;
+    } knowledgeDynamics{};
+
+    // Soil salinity and drainage hazard extension.
+    struct Salinity {
+        bool enabled = true;
+        double irrigationAccumulation = 0.030;
+        double aridityAccumulation = 0.045;
+        double drainageRecovery = 0.028;
+        double rainfallDrainageWeight = 0.55;
+        double corridorDrainageWeight = 0.20;
+        double infraDrainageWeight = 0.25;
+        double yieldPenaltyMax = 0.36;
+    } salinity{};
 
     // Generalized transport-cost network (Eq12/Eq13 support).
     struct Transport {
@@ -315,6 +378,36 @@ struct SimulationConfig {
         double tradeHintBlend = 0.30;
     } transport{};
 
+    // Endogenous transport regime transitions (no date unlocks).
+    struct TransportRegimes {
+        bool enabled = true;
+        double landMinCostMult = 0.45;
+        double seaMinCostMult = 0.30;
+        double capacityMaxMult = 2.20;
+        double reliabilityMaxAdd = 0.30;
+        double roadInfraWeight = 0.25;
+        double portInfraWeight = 0.30;
+        double logisticsWeight = 0.25;
+        double marketWeight = 0.20;
+        double packThreshold = 0.20;
+        double tractionThreshold = 0.38;
+        double wheelThreshold = 0.56;
+        double maritimeThreshold = 0.42;
+    } transportRegimes{};
+
+    // Settlement knowledge maps + exploration mission layer.
+    struct Exploration {
+        bool enabled = true;
+        int baseMissionsPerCountry = 1;
+        double missionsPerPopMillion = 0.30;
+        double uncertaintyDecayLocal = 0.10;
+        double uncertaintyDecayNeighbor = 0.08;
+        double explorationGain = 0.18;
+        double missionCostCeiling = 85.0;
+        double edgeReliabilityBoost = 0.16;
+        double edgeCostReduction = 0.10;
+    } exploration{};
+
     // GPU-accelerated research mechanics toggles (with CPU fallback).
     struct ResearchGpu {
         bool enabled = true;
@@ -333,6 +426,7 @@ struct SimulationConfig {
         bool pastoralMobility = true;
         bool householdsExtraction = true;
         bool polityChoiceAssignment = true;
+        bool polityControlGraph = true;
         bool campaignLogistics = true;
         bool irrigationLoop = true;
         bool transportPathRebuild = true;
@@ -351,6 +445,15 @@ struct SimulationConfig {
         double irrigationWaterBoost = 0.35;
         double irrigationFertilityShield = 0.32;
 
+        double polityTravelTauBase = 10.0;
+        double polityTravelTauAdminWeight = 8.0;
+        double polityTravelTauLogisticsWeight = 10.0;
+        double polityTravelMaxCost = 120.0;
+        int polityTopCountryCandidates = 3;
+        double polityControlWeight = 0.55;
+        double polityStrengthWeight = 0.30;
+        double polityDistancePenaltyWeight = 0.35;
+        double polityDefectionShockWeight = 0.25;
         double politySwitchThreshold = 0.18;
         double politySwitchMaxNodeShare = 0.10;
 

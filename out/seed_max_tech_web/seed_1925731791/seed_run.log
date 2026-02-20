@@ -1,0 +1,2281 @@
+🏪 Trade & Economic Exchange Framework initialized!
+[GeoLayer] map.png: 1920x1080
+[GeoLayer] landmask.png: 1920x1080
+[GeoLayer] heightmap.png: 1920x1080
+[GeoLayer] resource.png: 1920x1080
+[GeoLayer] spawn.png: 1920x1080
+[Landmask] Warning: encountered 1019313 sampled pixels outside accepted land/water colors; accepted land is RGB(250..255,250..255,250..255), water is RGB(0,0,0). Out-of-range colors are treated as water.
+[Landmask] Warning: RGB(1, 1, 1) sampled 765432 times.
+[Landmask] Warning: RGB(2, 2, 2) sampled 69458 times.
+[Landmask] Warning: RGB(3, 3, 3) sampled 21417 times.
+[Landmask] Warning: RGB(4, 4, 4) sampled 10606 times.
+[Landmask] Warning: RGB(5, 5, 5) sampled 5745 times.
+[Landmask] Warning: RGB(6, 6, 6) sampled 3442 times.
+[Landmask] Warning: RGB(7, 7, 7) sampled 2456 times.
+[Landmask] Warning: RGB(8, 8, 8) sampled 2024 times.
+[Landmask] Warning: ... 241 additional non-binary RGB values omitted.
+🚀 INITIALIZING RESOURCES (Optimized)...
+✅ RESOURCES INITIALIZED in 131 ms
+   Resource ingestion: coal=18269, copper=29020, tin=13953, clay=22000, riverland-cells=22000
+[SpawnInit] worldPopTarget=23210925 startYear=-5000
+[StartTech] Applied regional presets at startYear=-5000 countries=100
+  - south_asia: countries=14 techIds=1,2,3,4,6,20,115
+  - east_asia: countries=14 techIds=1,2,3,4,6,20,115
+  - west_asia: countries=11 techIds=1,2,3,4,6,10,20,115,119
+  - se_asia: countries=6 techIds=1,2,3,5,6,20
+  - cn_asia: countries=3 techIds=2,3,4,6
+  - nile_ne_africa: countries=2 techIds=1,2,3,6,10,20,115
+  - north_africa: countries=1 techIds=1,2,3,4,6,20,115
+  - west_africa: countries=2 techIds=1,3,4,6,20
+  - east_africa: countries=2 techIds=1,3,4,6,20
+  - cs_africa: countries=1 techIds=1,3,4,6
+  - se_europe: countries=2 techIds=1,2,3,4,6,20,115,119
+  - med_europe: countries=2 techIds=1,2,3,4,5,6,20,115
+  - central_europe: countries=2 techIds=1,2,3,4,6,20
+  - wnw_europe: countries=2 techIds=1,3,4,6,20
+  - north_europe: countries=1 techIds=3,4,6
+  - mesoamerica: countries=10 techIds=1,3,6,20
+  - andes: countries=7 techIds=1,3,4,6,20
+  - e_na: countries=7 techIds=3,4,6
+  - w_na: countries=8 techIds=3,4,6
+  - caribbean: countries=1 techIds=3,5,6
+  - oceania: countries=2 techIds=3,5,6
+[SpawnInit] Region summary
+  - south_asia targetShare=0.145 actualShare=0.145 targetPop=3365584 actualPop=3365584 countriesPlaced=14
+  - east_asia targetShare=0.145 actualShare=0.145 targetPop=3365584 actualPop=3365584 countriesPlaced=14
+  - west_asia targetShare=0.11 actualShare=0.11 targetPop=2553202 actualPop=2553202 countriesPlaced=11
+  - se_asia targetShare=0.06 actualShare=0.06 targetPop=1392656 actualPop=1392656 countriesPlaced=6
+  - cn_asia targetShare=0.033 actualShare=0.0331501 targetPop=765961 actualPop=769445 countriesPlaced=3
+  - nile_ne_africa targetShare=0.02 actualShare=0.02 targetPop=464219 actualPop=464219 countriesPlaced=2
+  - north_africa targetShare=0.013 actualShare=0.0129249 targetPop=301742 actualPop=300000 countriesPlaced=1
+  - west_africa targetShare=0.016 actualShare=0.016 targetPop=371375 actualPop=371375 countriesPlaced=2
+  - east_africa targetShare=0.017 actualShare=0.017 targetPop=394586 actualPop=394586 countriesPlaced=2
+  - cs_africa targetShare=0.01 actualShare=0.00999999 targetPop=232109 actualPop=232109 countriesPlaced=1
+  - se_europe targetShare=0.02 actualShare=0.02 targetPop=464218 actualPop=464218 countriesPlaced=2
+  - med_europe targetShare=0.018 actualShare=0.018 targetPop=417797 actualPop=417797 countriesPlaced=2
+  - central_europe targetShare=0.02 actualShare=0.02 targetPop=464218 actualPop=464218 countriesPlaced=2
+  - wnw_europe targetShare=0.018 actualShare=0.018 targetPop=417797 actualPop=417797 countriesPlaced=2
+  - north_europe targetShare=0.008 actualShare=0.00799998 targetPop=185687 actualPop=185687 countriesPlaced=1
+  - mesoamerica targetShare=0.1 actualShare=0.1 targetPop=2321092 actualPop=2321092 countriesPlaced=10
+  - andes targetShare=0.065 actualShare=0.065 targetPop=1508710 actualPop=1508710 countriesPlaced=7
+  - e_na targetShare=0.07 actualShare=0.07 targetPop=1624765 actualPop=1624765 countriesPlaced=7
+  - w_na targetShare=0.078 actualShare=0.078 targetPop=1810452 actualPop=1810452 countriesPlaced=8
+  - caribbean targetShare=0.013 actualShare=0.0129249 targetPop=301742 actualPop=300000 countriesPlaced=1
+  - oceania targetShare=0.021 actualShare=0.021 targetPop=487429 actualPop=487429 countriesPlaced=2
+worldsim_cli seed=1925731791 config=C:\WS\WorldSimulation10028\data\sim_config.toml hash=8097c0c2326f500d start=-5000 end=2025 gpu=0 ideologyLogs=0
+[PaleoClimate] enabled=1 loaded=1 source=synthetic samples=962 file='data/climate/paleo_monthly_forcing.csv'
+[ResearchGPU] requested=1 available=1 climate=1 disease=1 adoptJoin=1 edge=1
+[Settlements] startup nodes=275 edges=515 avgPackages=0.250909 avgInfected=0 avgFertility=0.669874 avgSalinity=0 avgKnowledge=0.192989 boostedEdges=82 mix(f,farm,past,fish,craft)=0.421,0.361,0.103,0.078,0.038
+[ResearchSettlement] pastoral=1 extraction=1 polityChoice=1 controlGraph=1 campaignLogistics=1 irrigation=1 pathRebuild=1
+[DensityInit] enabled=1 priorLoaded=0 priorWeight=0.000
+[PaleoClimate] active=1 sourceSamples=962
+[TransportRegimes] enabled=1 exploration=1
+[ResearchDiffusion] channels=1 knowledgeLoss=1 salinity=1
+🗡️💀 Great lorloria Kingdom COMPLETELY ANNIHILATES Kingdom of New solmargrad!
+   📊 Absorbed 37673 people and 272 territory!
+🗡️💀 North venselnorburg Tribe COMPLETELY ANNIHILATES Kingdom of North karven!
+   📊 Absorbed 84769 people and 1144 territory!
+🗡️💀 Romlenlen Tribe COMPLETELY ANNIHILATES North selnorum Tribe!
+   📊 Absorbed 154812 people and 664 territory!
+🗡️💀 Empire of Great naldramit COMPLETELY ANNIHILATES Great minminweiling Tribe!
+   📊 Absorbed 75207 people and 1262 territory!
+🛣️ Kingdom of Old garzendusland built roads to Kingdom of New kinsolstan (123 pixels)
+🛣️ North ngosengoa Tribe built roads to Empire of Great kabarse (60 pixels)
+🛣️ North ngosengoa Tribe built roads to Great ofilammaene Kingdom (96 pixels)
+🛣️ Kingdom of New maofiu built roads to Great lamzukaara Tribe (120 pixels)
+🛣️ North ngosengoa Tribe built roads to Mabaru Kingdom (108 pixels)
+🛣️ New chilamchiara Tribe built roads to Empire of Great kabarse (240 pixels)
+🛣️ Empire of Great kabarse built roads to North ngosengoa Tribe (60 pixels)
+🛣️ North ngosengoa Tribe built roads to North lamchiu Kingdom (66 pixels)
+🛣️ Mabaru Kingdom built roads to Empire of Great kabarse (48 pixels)
+🛣️ New chilamchiara Tribe built roads to New tanlamara Tribe (84 pixels)
+🛣️ New chilamchiara Tribe built roads to Great ofilammaene Kingdom (160 pixels)
+🛣️ Mabaru Kingdom built roads to New chilamchiara Tribe (106 pixels)
+🛣️ Old tanse Tribe built roads to New ofikamaa Tribe (84 pixels)
+🛣️ South kazubarene Kingdom built roads to North ngosengoa Tribe (84 pixels)
+🛣️ North ngosengoa Tribe built roads to Empire of Lamtana (60 pixels)
+🛣️ New chilamchiara Tribe built roads to North ngosengoa Tribe (300 pixels)
+🛣️ South kazubarene Kingdom built roads to North lamchiu Kingdom (108 pixels)
+🛣️ Old tanse Tribe built roads to North ngolamene Tribe (107 pixels)
+🛣️ Empire of Lamtana built roads to Mabaru Kingdom (48 pixels)
+🛣️ North ngosengoa Tribe built roads to Great ofilammaene Kingdom (96 pixels)
+🛣️ New chilamchiara Tribe built roads to Lamngoara Kingdom (288 pixels)
+🛣️ South kazubarene Kingdom built roads to South chingou Kingdom (96 pixels)
+🛣️ North ngosengoa Tribe built roads to Mabaru Kingdom (108 pixels)
+🛣️ Empire of Lamtana built roads to Lamngoara Kingdom (48 pixels)
+🛣️ North ngosengoa Tribe built roads to North lamchiu Kingdom (66 pixels)
+🛣️ North ngosengoa Tribe built roads to North machichiara Kingdom (108 pixels)
+🛣️ Empire of Lamtana built roads to North ngosengoa Tribe (60 pixels)
+🛣️ South kazubarene Kingdom built roads to North ngosengoa Tribe (84 pixels)
+🛣️ Empire of Lamtana built roads to Mabaru Kingdom (48 pixels)
+🛣️ New chilamchiara Tribe built roads to North machichiara Kingdom (288 pixels)
+🛣️ Empire of North zungotanene built roads to Lamngoara Kingdom (48 pixels)
+🛣️ North lamkaara Kingdom built roads to South kazubarene Kingdom (84 pixels)
+🛣️ South kazubarene Kingdom built roads to North lamchiu Kingdom (108 pixels)
+🛣️ South kazubarene Kingdom built roads to South chingou Kingdom (96 pixels)
+🛣️ Empire of North zungotanene built roads to North machichiara Kingdom (48 pixels)
+🛣️ North lamkaara Kingdom built roads to South chingou Kingdom (129 pixels)
+🛣️ Mabaru Kingdom built roads to Ngobarara Kingdom (36 pixels)
+🛣️ Empire of North zungotanene built roads to North ngosengoa Tribe (60 pixels)
+🛣️ North lamkaara Kingdom built roads to Old mamaara Kingdom (72 pixels)
+🛣️ Empire of North zungotanene built roads to Mabaru Kingdom (48 pixels)
+🛣️ Empire of South barbarofia built roads to Great ofilammaene Kingdom (76 pixels)
+🛣️ Empire of North zungotanene built roads to Empire of South mazu (48 pixels)
+🛣️ New chilamchiara Tribe built roads to Empire of South mazu (288 pixels)
+🛣️ Great lamkabar Tribe built roads to Empire of Old sengoofia (75 pixels)
+🛣️ North lamkaara Kingdom built roads to New barofiara Kingdom (96 pixels)
+🛣️ Empire of Old sengoofia built roads to New ofikamaa Tribe (96 pixels)
+🛣️ South kazubarene Kingdom built roads to North ngosengoa Tribe (84 pixels)
+🛣️ Kalam Kingdom built roads to North ngosengoa Tribe (132 pixels)
+🛣️ North lamkaara Kingdom built roads to South kazubarene Kingdom (84 pixels)
+🛣️ North ngosengoa Tribe built roads to Empire of South mazu (60 pixels)
+🛣️ Great ofilammaene Kingdom built roads to North lamchiu Kingdom (68 pixels)
+🛣️ South kazubarene Kingdom built roads to North lamchiu Kingdom (108 pixels)
+🛣️ Old tanse Tribe built roads to South barkatanu Kingdom (180 pixels)
+🛣️ Kalam Kingdom built roads to North lamchiu Kingdom (61 pixels)
+🛣️ Empire of Old sengoofia built roads to South chingolamene Kingdom (106 pixels)
+🛣️ South kakase Kingdom built roads to South kazubarene Kingdom (132 pixels)
+🛣️ Empire of Great nahnahtan built roads to Empire of Old mixtolteo (84 pixels)
+🛣️ North lamkaara Kingdom built roads to Old mamaara Kingdom (72 pixels)
+🛣️ Great lamkabar Kingdom built roads to Empire of Old sengoofia (75 pixels)
+🛣️ Old tanse Tribe built roads to Empire of Old sengoofia (161 pixels)
+🛣️ South kazubarene Kingdom built roads to Old mamaara Kingdom (132 pixels)
+🛣️ South chingolamene Kingdom built roads to Great lamkabar Kingdom (42 pixels)
+🛣️ Empire of North zungotanene built roads to Empire of Great tanselamu (36 pixels)
+🛣️ North lamkaara Kingdom built roads to New barofiara Kingdom (96 pixels)
+🛣️ South kakase Kingdom built roads to Old tanse Tribe (132 pixels)
+🛣️ Empire of Old sengoofia built roads to Old mamaara Kingdom (312 pixels)
+🛣️ Kalam Kingdom built roads to South kazubarene Kingdom (96 pixels)
+🛣️ North ngosengoa Tribe built roads to New barmabar Kingdom (168 pixels)
+🛣️ Great ofilammaene Kingdom built roads to New barmabar Kingdom (140 pixels)
+🛣️ Old tanse Tribe built roads to New kachichiene Kingdom (252 pixels)
+🛣️ New chilamchiara Tribe built roads to New barmabar Kingdom (213 pixels)
+🛣️ Empire of Great nahnahtan built roads to Kingardus Tribe (108 pixels)
+🛣️ North lamkaara Kingdom built roads to South kakase Kingdom (72 pixels)
+🛣️ Empire of North zungotanene built roads to New barmabar Kingdom (252 pixels)
+🛣️ South kazubarene Kingdom built roads to New barofiara Kingdom (84 pixels)
+🛣️ Empire of Old sengoofia built roads to New kachichiene Kingdom (288 pixels)
+🛣️ North ngosengoa Tribe built roads to North sengokaene Kingdom (108 pixels)
+🛣️ New ofikamaa Tribe built roads to South barsechiara Kingdom (144 pixels)
+🛣️ Empire of Old sengoofia built roads to South barsechiara Kingdom (192 pixels)
+🛣️ Old tanse Tribe built roads to South barsechiara Kingdom (156 pixels)
+🛣️ Empire of Old sengoofia built roads to South chimaene Kingdom (72 pixels)
+🛣️ New chilamchiara Tribe built roads to North sengokaene Kingdom (325 pixels)
+🛣️ South kazubarene Kingdom built roads to New barmabar Kingdom (94 pixels)
+🛣️ South chingolamene Kingdom built roads to South chimaene Kingdom (42 pixels)
+🛣️ Empire of North makau built roads to Old sebarlamene Kingdom (60 pixels)
+🛣️ Empire of North katanngoene built roads to Old sebarlamene Kingdom (48 pixels)
+🛣️ Kingdom of Great llaqllaqsumyu built roads to Kingdom of Old pachrumyu (72 pixels)
+🛣️ North lamkaara Kingdom built roads to Selamu Kingdom (96 pixels)
+🛣️ New chilamchiara Tribe built roads to New zulambar Kingdom (252 pixels)
+🛣️ Empire of Old sengoofia built roads to North kaseene Kingdom (264 pixels)
+🛣️ Kingdom of Great llaqllaqsumyu built roads to New pachpach Kingdom (108 pixels)
+🛣️ Great lamkabar Kingdom built roads to Empire of Old sengoofia (80 pixels)
+🛣️ Empire of North katanngoene built roads to New zulambar Kingdom (60 pixels)
+🛣️ South chimaene Kingdom built roads to Great lamkabar Kingdom (15 pixels)
+🛣️ Great lamkabar Kingdom built roads to South chingolamene Kingdom (115 pixels)
+🛣️ South kazubarene Kingdom built roads to Empire of New mabarlamara (132 pixels)
+🛣️ Empire of North kalamu built roads to Empire of New mabarlamara (72 pixels)
+🛣️ Empire of North makau built roads to New sekaa Kingdom (96 pixels)
+🛣️ Empire of Old sengoofia built roads to North sengomaara Kingdom (292 pixels)
+🛣️ Empire of North kalamu built roads to Lamsebara Tribe (88 pixels)
+🛣️ Kingdom of Great albelburg built roads to Empire of Great venkarvenland (48 pixels)
+🛣️ Kingdom of Great albelburg built roads to Empire of South lenromnorburg (116 pixels)
+🛣️ Empire of Zumase built roads to Great ofilammaene Kingdom (68 pixels)
+🛣️ Kingdom of Great albelburg built roads to Kingdom of North lenlenalum (60 pixels)
+🛣️ Empire of North makau built roads to New lamchibara Kingdom (169 pixels)
+🛣️ South kazubarene Kingdom built roads to New lamchibara Kingdom (191 pixels)
+🛣️ Kingdom of New kalur built roads to Kingdom of New belninbarum (49 pixels)
+🛣️ Kingdom of North tarkarburg built roads to North allendorland Tribe (20 pixels)
+🛣️ Empire of Zumase built roads to Empire of North makau (120 pixels)
+🛣️ Kingdom of North tarkarburg built roads to Kingdom of New belbelland (158 pixels)
+🛣️ Empire of Zumase built roads to South kazubarene Kingdom (204 pixels)
+🛣️ Empire of Old sengoofia built roads to New ofibarngoa Kingdom (336 pixels)
+🛣️ Kingdom of New kalur built roads to Kingdom of New belbelashar (60 pixels)
+🛣️ New barofiara Kingdom built roads to Old mamaara Kingdom (72 pixels)
+🛣️ Empire of North makau built roads to North chimaofia Kingdom (180 pixels)
+🛣️ Kingdom of Varnal built roads to Empire of Great naldramit (192 pixels)
+🛣️ Empire of Zumase built roads to Kalam Kingdom (97 pixels)
+🛣️ South kazubarene Kingdom built roads to North chimaofia Kingdom (144 pixels)
+🛣️ Kingdom of South surtanvipur built roads to Kingdom of Varnal (58 pixels)
+🛣️ Empire of Zumase built roads to New matanu Kingdom (113 pixels)
+🛣️ Kingdom of Varnal built roads to Kingdom of North radravia (96 pixels)
+🛣️ New barmabar Kingdom built roads to Empire of Zumase (72 pixels)
+🛣️ Kingdom of Varnal built roads to New ratan Tribe (48 pixels)
+🛣️ Kingdom of Great ayasumsum built roads to Kingdom of New sumtupna (56 pixels)
+🛣️ New barmabar Kingdom built roads to North ngokamaara Kingdom (60 pixels)
+🛣️ Kingdom of South surtanvipur built roads to Kingdom of Kandranalnagar (198 pixels)
+🛣️ New barmabar Kingdom built roads to Old mamaara Kingdom (192 pixels)
+🛣️ Kingdom of South surtanvipur built roads to Kingdom of North radravia (106 pixels)
+🛣️ Kingdom of New tupllaqmarca built roads to New pachpach Kingdom (60 pixels)
+🛣️ Kingdom of South lenaldorburg built roads to Kingdom of North karven (132 pixels)
+🛣️ Kingdom of Varnal built roads to Vimit Kingdom (60 pixels)
+🛣️ Kingdom of Great ayasumsum built roads to Kingdom of New suyurumna (34 pixels)
+🛣️ New barmabar Kingdom built roads to New matanu Kingdom (48 pixels)
+🛣️ Kingdom of South surtanvipur built roads to Kingdom of North vidrapur (102 pixels)
+🛣️ Kingdom of Great ayasumsum built roads to Empire of North sumtup (71 pixels)
+🛣️ Kingdom of South lenaldorburg built roads to Kingdom of North lenvenbelland (60 pixels)
+🛣️ Kingdom of Great ayasumsum built roads to Old qorisuma Tribe (62 pixels)
+🛣️ Kingdom of South surtanvipur built roads to Kingdom of North viraa (52 pixels)
+🛣️ Kingdom of Great ayasumsum built roads to Kingdom of Rumintiyu (56 pixels)
+🛣️ Kingdom of South surtanvipur built roads to New ratan Tribe (90 pixels)
+🛣️ Kingdom of South surtanvipur built roads to Empire of South kansurvipur (96 pixels)
+🛣️ Kingdom of South surtanvipur built roads to New surkannaldesh (50 pixels)
+🛣️ South barsechiara Kingdom built roads to Empire of North kachiofia (128 pixels)
+🛣️ South barsechiara Kingdom built roads to Empire of South ngoseofiu (168 pixels)
+🛣️ New matanu Kingdom built roads to North ngokamaara Kingdom (12 pixels)
+🛣️ Empire of Old sengoofia Kingdom built roads to North malamngoara Kingdom (246 pixels)
+🛣️ Empire of Great xiazho built roads to Empire of New shavivar (60 pixels)
+🛣️ New matanu Kingdom built roads to Empire of Great barlamofiara (84 pixels)
+🛣️ South chingolamene Kingdom built roads to North barseofiene Kingdom (104 pixels)
+🛣️ South barsechiara Kingdom built roads to New kachichiene Kingdom (96 pixels)
+🛣️ North kaseene Kingdom built roads to North maofibarene Kingdom (120 pixels)
+🛣️ Kingdom of New suyurumna built roads to Kingdom of New sumtupna (104 pixels)
+🛣️ New matanu Kingdom built roads to Empire of Old lamlamkaa (48 pixels)
+🛣️ Empire of Old sengoofia Kingdom built roads to Old tanse Tribe (180 pixels)
+🛣️ North barseofiene Kingdom built roads to Empire of Old sengoofia Kingdom (133 pixels)
+🛣️ New matanu Kingdom built roads to New tanzuene Tribe (144 pixels)
+🛣️ Empire of Old sengoofia Kingdom built roads to Empire of South zuchiseara (96 pixels)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to activate render texture (failed to create backup context)
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Failed to activate OpenGL context: The operation completed successfully. 
+Impossible to create render texture (failed to link the target texture to the frame buffer)
+Impossible to create render texture (failed to link the target texture to the frame buffer)
+🛣️ Kingdom of North vidrapur built roads to Kingdom of North radravia (48 pixels)
+🛣️ South barsechiara Kingdom built roads to Empire of Great zuofi (60 pixels)
+🛣️ New barzu Kingdom built roads to Old ngomaara Kingdom (60 pixels)
+🛣️ North kaseene Kingdom built roads to New kachichiene Kingdom (72 pixels)
+🛣️ New surkannaldesh built roads to Kingdom of Kandranalnagar (168 pixels)
+🛣️ Kingdom of New suyurumna built roads to Empire of North sumtup (48 pixels)
+🛣️ Kingdom of Tanngobar Kingdom built roads to Great lamkabar Kingdom (52 pixels)
+🛣️ New barzu Kingdom built roads to North maofibarene Kingdom (48 pixels)
+🛣️ Kingdom of North vidrapur built roads to Kingdom of North varkansura (108 pixels)
+🛣️ South barsechiara Kingdom built roads to Great chiofimau Kingdom (108 pixels)
+🛣️ North barseofiene Kingdom built roads to New kachichiene Kingdom (124 pixels)
+🛣️ Old tanse Kingdom built roads to Great chiofimau Kingdom (168 pixels)
+🛣️ Kingdom of New suyurumna built roads to Kingdom of Rumintiyu (80 pixels)
+🛣️ Kingdom of Tanngobar Kingdom built roads to South chingolamene Kingdom (106 pixels)
+🛣️ North kaseene Kingdom built roads to Great ofiofiofiene Kingdom (120 pixels)
+🛣️ Empire of South zuchiseara built roads to Great chiofimau Kingdom (156 pixels)
+🛣️ New surkannaldesh built roads to Kingdom of Great nalmitvipur (46 pixels)
+🛣️ Kingdom of Old llaqkusruma built roads to New rumsumyu Tribe (48 pixels)
+🛣️ North kaseene Kingdom built roads to North barseofiene Kingdom (100 pixels)
+🛣️ New surkannaldesh built roads to Empire of South kansurvipur (46 pixels)
+🛣️ North barseofiene Kingdom built roads to North sengomaara Kingdom (128 pixels)
+🛣️ North kaseene Kingdom built roads to Great chiofimau Kingdom (60 pixels)
+🛣️ New barzu Kingdom built roads to Empire of Old lamlamkaa (83 pixels)
+🛣️ North sengomaara Kingdom built roads to Kingdom of Chizuu Kingdom (268 pixels)
+🛣️ Kingdom of Chizuu Kingdom built roads to Empire of Old makalam (288 pixels)
+🛣️ Empire of North chingosea built roads to South tanzuara Kingdom (72 pixels)
+🛣️ New barzu Kingdom built roads to Empire of South tanofimaene (48 pixels)
+🛣️ Empire of South chizuu built roads to South tanzuara Kingdom (132 pixels)
+🛣️ North barseofiene Kingdom built roads to New ofibarngoa Kingdom (164 pixels)
+🛣️ Kingdom of Chizuu Kingdom built roads to South barsechiara Kingdom (192 pixels)
+🛣️ Republic of Old tanse built roads to South tanzuara Kingdom (156 pixels)
+🛣️ Kingdom of Great nalmitvipur built roads to Kingdom of Kandranalnagar (146 pixels)
+🛣️ North tairentailing Tribe built roads to Kingdom of Old qinqinzhou (105 pixels)
+🛣️ Kingdom of Great nalmitvipur built roads to Empire of South kansurvipur (92 pixels)
+🛣️ North sengomaara Kingdom built roads to Great ofiofiofiene Kingdom (72 pixels)
+🛣️ Kingdom of Chizuu Kingdom built roads to Kingdom of Zuchiara (72 pixels)
+🛣️ New barzu Kingdom built roads to Great sechiofi Kingdom (72 pixels)
+🛣️ Kingdom of North radravia built roads to Kingdom of North varkansura (156 pixels)
+🛣️ Kingdom of Chizuu Kingdom built roads to New ofibarngoa Kingdom (336 pixels)
+🛣️ North barseofiene Kingdom built roads to North malamngoara Kingdom (128 pixels)
+🛣️ Kingdom of Great qorisumyu built roads to New rumsumyu Tribe (48 pixels)
+🛣️ Kingdom of Chizuu Kingdom built roads to Great chiofimau Kingdom (204 pixels)
+🛣️ Old sumsuyumarca Kingdom built roads to Kingdom of Great qorisumyu (36 pixels)
+🛣️ Kingdom of Great nalmitvipur built roads to Kingdom of New surmitra (98 pixels)
+🛣️ South ngosechiene Kingdom built roads to Empire of Old zuchiene (81 pixels)
+🛣️ Kingdom of South qintaimin built roads to Kingdom of Renliguo (42 pixels)
+🛣️ Kingdom of North radravia built roads to Vimit Kingdom (36 pixels)
+🛣️ North tairentailing Tribe built roads to Old hanminling (48 pixels)
+🛣️ North sengomaara Kingdom built roads to New ofibarngoa Kingdom (72 pixels)
+🛣️ Republic of Old tanse built roads to Great zuka Kingdom (108 pixels)
+🛣️ North barseofiene Kingdom built roads to Great chiofimau Kingdom (112 pixels)
+🛣️ Kingdom of New belbelashar built roads to Kingdom of New kalarar (24 pixels)
+🛣️ Kingdom of Nakinia built roads to Empire of New temtemitz (60 pixels)
+🛣️ Great ofiofiofiene Kingdom built roads to North maofibarene Kingdom (72 pixels)
+🛣️ Kingdom of North nadusstan built roads to Kingdom of Rommarland (50 pixels)
+🛣️ Empire of South lamngokaara built roads to Kingdom of Great beleshar (191 pixels)
+🛣️ Kingdom of Belterland Kingdom built roads to Empire of North ranranland (50 pixels)
+🛣️ Empire of Old chilamara built roads to Great sechiofi Kingdom (144 pixels)
+🛣️ North tairentailing Tribe built roads to Minhanxiashan (18 pixels)
+🛣️ South ngosechiene Kingdom built roads to Empire of North tanseene (96 pixels)
+🛣️ Kingdom of North radravia built roads to Kingdom of Vivishapur (72 pixels)
+🛣️ Kingdom of New belbelland built roads to Kingdom of Taral (59 pixels)
+🛣️ South barsechiara Kingdom built roads to Great zuka Kingdom (48 pixels)
+🛣️ Empire of New romvennorum built roads to Empire of North altarburg (70 pixels)
+🛣️ Kingdom of New belbelashar built roads to New kalsamad Kingdom (24 pixels)
+🛣️ Kingdom of Nakinia built roads to Kingdom of New garlorquistan (96 pixels)
+🛣️ Kingdom of North radravia built roads to Kingdom of Great surraa (72 pixels)
+🛣️ Kingdom of New belbelland built roads to North allendorland Tribe (59 pixels)
+🛣️ Kingdom of North nadusstan built roads to Kingdom of New duszenstan (122 pixels)
+🛣️ Republic of Old tanse built roads to South katanzuene Kingdom (106 pixels)
+🛣️ South ngosechiene Kingdom built roads to Empire of Old makalam (84 pixels)
+🛣️ Kingdom of Great kabarofiu Kingdom built roads to South chitanbarara Kingdom (240 pixels)
+🛣️ Empire of New tantanlamara built roads to South chitanbarara Kingdom (48 pixels)
+🛣️ Empire of New kamangoara built roads to South katanzuene Kingdom (122 pixels)
+🛣️ Empire of New romvennorum built roads to South nortar Kingdom (19 pixels)
+🛣️ North tairentailing Tribe built roads to Kingdom of Great linhanguo (48 pixels)
+🛣️ South ngosechiene Kingdom built roads to Empire of South lamseofiu (48 pixels)
+🛣️ Great pachsumtup Kingdom built roads to New rumsumyu Tribe (48 pixels)
+🛣️ North barseofiene Kingdom built roads to South chitanbarara Kingdom (100 pixels)
+🛣️ Kingdom of North nadusstan built roads to Old nalormar Tribe (50 pixels)
+🛣️ Kingdom of Nakinia built roads to Dusgarland Tribe (138 pixels)
+🛣️ Empire of Old chiofi built roads to South ngozuofiene Kingdom (60 pixels)
+🛣️ Kingdom of New belbelland built roads to South nortar Kingdom (53 pixels)
+🛣️ Kingdom of New belbelland built roads to Romromland Kingdom (54 pixels)
+🛣️ Empire of New romvennorum built roads to Romromland Kingdom (12 pixels)
+🛣️ South ngosechiene Kingdom built roads to Great tanofima Kingdom (144 pixels)
+🛣️ Kingdom of North nadusstan built roads to New zendusterland Tribe (84 pixels)
+🗡️💀 Empire of South lamngokaara COMPLETELY ANNIHILATES Kingdom of Great beleshar!
+   📊 Absorbed 123350 people and 76 territory!
+🛣️ Empire of South lamngokaara built roads to Kingdom of North nintamad (72 pixels)
+🛣️ Kingdom of Nakinia built roads to South belvialand Tribe (72 pixels)
+🛣️ Great tailirenshan Kingdom built roads to Kingdom of South qintaimin (94 pixels)
+🛣️ Kingdom of South qintaimin built roads to Kingdom of Renliguo (42 pixels)
+🛣️ Kingdom of New sumtupna built roads to Kingdom of Great pachrummarca (24 pixels)
+🛣️ Kingdom of Nakinia built roads to New zenmarvialand Tribe (72 pixels)
+🛣️ Kingdom of North karven built roads to Kingdom of South alseltarum (48 pixels)
+🛣️ Kingdom of North lenvenbelland built roads to Kingdom of North karven (120 pixels)
+🛣️ Empire of Old kazutanu built roads to Empire of Old zuchiene (180 pixels)
+🛣️ Kingdom of North lenvenbelland built roads to Kingdom of Great tarselselburg (50 pixels)
+🛣️ Kingdom of North karven built roads to Kingdom of Great tarselselburg (40 pixels)
+🛣️ Empire of Old chiofi built roads to Old lamngoara Kingdom (24 pixels)
+🛣️ Empire of Great suyusumsuyu built roads to Empire of New kustupmarca (76 pixels)
+🛣️ Empire of Old kazutanu built roads to Empire of Old chilamara (12 pixels)
+🛣️ Kingdom of North karven built roads to Kingdom of Great karromia (78 pixels)
+🛣️ Empire of Barlamu built roads to South matan Tribe (50 pixels)
+🛣️ Great chiofimau Kingdom built roads to Empire of Old makalam (84 pixels)
+🛣️ Empire of Old kazutanu built roads to Empire of Old ngoofikau (72 pixels)
+🛣️ North maofibarene Kingdom built roads to Empire of South lamchimaara (84 pixels)
+🛣️ Empire of Old kazutanu built roads to New barmabar Kingdom (60 pixels)
+🛣️ Great chiofimau Kingdom built roads to Empire of Old ngolam (96 pixels)
+🛣️ Great tanofima Kingdom built roads to Empire of Old kazutanu (52 pixels)
+🛣️ South chitanbarara Kingdom built roads to Empire of Old makalam (48 pixels)
+🛣️ Great chiofimau Kingdom built roads to South chitanbarara Kingdom (36 pixels)
+🛣️ Great tanofima Kingdom built roads to Empire of Great ofisebara (132 pixels)
+🛣️ South chitanbarara Kingdom built roads to Empire of Old ngolam (108 pixels)
+🛣️ North maofibarene Kingdom built roads to Empire of Old makalam (96 pixels)
+🛣️ Kingdom of New minhanling built roads to Empire of New shavivar (230 pixels)
+🛣️ Great xialiling Kingdom built roads to Kingdom of New minhanling (78 pixels)
+🛣️ Great tailirenshan Kingdom built roads to Great xialiling Kingdom (216 pixels)
+🛣️ Kingdom of Great kaleshurum built roads to Republic of South arbelum (44 pixels)
+🛣️ Great tanofima Kingdom built roads to Empire of South lamchimaara (48 pixels)
+🛣️ North maofibarene Kingdom built roads to Empire of Sekaene (94 pixels)
+🛣️ Empire of Old ngolam built roads to Empire of Great ofisebara (84 pixels)
+🛣️ Kingdom of New minhanling built roads to Kingdom of Renliguo (42 pixels)
+🛣️ Kingdom of New minhanling built roads to Great tailirenshan Kingdom (80 pixels)
+🛣️ North tairentailing Tribe built roads to Great lintaishan Tribe (110 pixels)
+🛣️ Kingdom of Great kaleshurum built roads to Kingdom of South artambarad (28 pixels)
+🛣️ Great tanofima Kingdom built roads to Empire of Old ngoofikau (24 pixels)
+Wrote C:\WS\WorldSimulation10028\out\seed_max_tech_web\seed_1925731791\run_summary.json, C:\WS\WorldSimulation10028\out\seed_max_tech_web\seed_1925731791\timeseries.csv, C:\WS\WorldSimulation10028\out\seed_max_tech_web\seed_1925731791\run_meta.json, C:\WS\WorldSimulation10028\out\seed_max_tech_web\seed_1925731791\violations.json
+COMMAND:
+C:\WS\WorldSimulation10028\out\cmake\release\bin\worldsim_cli.exe --seed 1925731791 --config C:\WS\WorldSimulation10028\data\sim_config.toml --startYear -5000 --endYear 2025 --checkpointEveryYears 50 --outDir C:\WS\WorldSimulation10028\out\seed_max_tech_web\seed_1925731791 --techUnlockLog C:\WS\WorldSimulation10028\out\seed_max_tech_web\seed_1925731791\tech_unlocks.csv --techUnlockLogIncludeInitial 1 --useGPU 0
+

@@ -1,0 +1,76 @@
+🏪 Trade & Economic Exchange Framework initialized!
+[GeoLayer] map.png: 1920x1080
+[GeoLayer] landmask.png: 1920x1080
+[GeoLayer] heightmap.png: 1920x1080
+[GeoLayer] resource.png: 1920x1080
+[GeoLayer] spawn.png: 1920x1080
+[Landmask] Warning: encountered 1019313 sampled pixels outside accepted land/water colors; accepted land is RGB(250..255,250..255,250..255), water is RGB(0,0,0). Out-of-range colors are treated as water.
+[Landmask] Warning: RGB(1, 1, 1) sampled 765432 times.
+[Landmask] Warning: RGB(2, 2, 2) sampled 69458 times.
+[Landmask] Warning: RGB(3, 3, 3) sampled 21417 times.
+[Landmask] Warning: RGB(4, 4, 4) sampled 10606 times.
+[Landmask] Warning: RGB(5, 5, 5) sampled 5745 times.
+[Landmask] Warning: RGB(6, 6, 6) sampled 3442 times.
+[Landmask] Warning: RGB(7, 7, 7) sampled 2456 times.
+[Landmask] Warning: RGB(8, 8, 8) sampled 2024 times.
+[Landmask] Warning: ... 241 additional non-binary RGB values omitted.
+🚀 INITIALIZING RESOURCES (Optimized)...
+✅ RESOURCES INITIALIZED in 27359 ms
+   Resource ingestion: coal=18269, copper=29020, tin=13953, clay=22000, riverland-cells=22000
+[SpawnInit] worldPopTarget=16914891 startYear=-5000
+[StartTech] Applied regional presets at startYear=-5000 countries=100
+  - south_asia: countries=14 techIds=1,2,3,4,6,20,115
+  - east_asia: countries=14 techIds=1,2,3,4,6,20,115
+  - west_asia: countries=11 techIds=1,2,3,4,6,10,20,115,119
+  - se_asia: countries=6 techIds=1,2,3,5,6,20
+  - cn_asia: countries=3 techIds=2,3,4,6
+  - nile_ne_africa: countries=2 techIds=1,2,3,6,10,20,115
+  - north_africa: countries=1 techIds=1,2,3,4,6,20,115
+  - west_africa: countries=2 techIds=1,3,4,6,20
+  - east_africa: countries=2 techIds=1,3,4,6,20
+  - cs_africa: countries=1 techIds=1,3,4,6
+  - se_europe: countries=2 techIds=1,2,3,4,6,20,115,119
+  - med_europe: countries=2 techIds=1,2,3,4,5,6,20,115
+  - central_europe: countries=2 techIds=1,2,3,4,6,20
+  - wnw_europe: countries=2 techIds=1,3,4,6,20
+  - north_europe: countries=1 techIds=3,4,6
+  - mesoamerica: countries=10 techIds=1,3,6,20
+  - andes: countries=7 techIds=1,3,4,6,20
+  - e_na: countries=7 techIds=3,4,6
+  - w_na: countries=8 techIds=3,4,6
+  - caribbean: countries=1 techIds=3,5,6
+  - oceania: countries=2 techIds=3,5,6
+[SpawnInit] Region summary
+  - south_asia targetShare=0.145 actualShare=0.145 targetPop=2452659 actualPop=2452659 countriesPlaced=14
+  - east_asia targetShare=0.145 actualShare=0.145 targetPop=2452659 actualPop=2452659 countriesPlaced=14
+  - west_asia targetShare=0.11 actualShare=0.11 targetPop=1860638 actualPop=1860638 countriesPlaced=11
+  - se_asia targetShare=0.06 actualShare=0.06 targetPop=1014893 actualPop=1014893 countriesPlaced=6
+  - cn_asia targetShare=0.033 actualShare=0.033 targetPop=558191 actualPop=558191 countriesPlaced=3
+  - nile_ne_africa targetShare=0.02 actualShare=0.02 targetPop=338298 actualPop=338298 countriesPlaced=2
+  - north_africa targetShare=0.013 actualShare=0.013 targetPop=219894 actualPop=219894 countriesPlaced=1
+  - west_africa targetShare=0.016 actualShare=0.016 targetPop=270638 actualPop=270638 countriesPlaced=2
+  - east_africa targetShare=0.017 actualShare=0.017 targetPop=287553 actualPop=287553 countriesPlaced=2
+  - cs_africa targetShare=0.01 actualShare=0.01 targetPop=169149 actualPop=169149 countriesPlaced=1
+  - se_europe targetShare=0.02 actualShare=0.02 targetPop=338298 actualPop=338298 countriesPlaced=2
+  - med_europe targetShare=0.018 actualShare=0.018 targetPop=304468 actualPop=304468 countriesPlaced=2
+  - central_europe targetShare=0.02 actualShare=0.02 targetPop=338298 actualPop=338298 countriesPlaced=2
+  - wnw_europe targetShare=0.018 actualShare=0.018 targetPop=304468 actualPop=304468 countriesPlaced=2
+  - north_europe targetShare=0.008 actualShare=0.00799999 targetPop=135319 actualPop=135319 countriesPlaced=1
+  - mesoamerica targetShare=0.1 actualShare=0.1 targetPop=1691489 actualPop=1691489 countriesPlaced=10
+  - andes targetShare=0.065 actualShare=0.065 targetPop=1099468 actualPop=1099468 countriesPlaced=7
+  - e_na targetShare=0.07 actualShare=0.07 targetPop=1184042 actualPop=1184042 countriesPlaced=7
+  - w_na targetShare=0.078 actualShare=0.078 targetPop=1319362 actualPop=1319362 countriesPlaced=8
+  - caribbean targetShare=0.013 actualShare=0.013 targetPop=219894 actualPop=219894 countriesPlaced=1
+  - oceania targetShare=0.021 actualShare=0.021 targetPop=355213 actualPop=355213 countriesPlaced=2
+worldsim_cli seed=46389331 config=C:\WS\WorldSimulation10028\data\sim_config.toml hash=8097c0c2326f500d start=-5000 end=2025 gpu=0 ideologyLogs=0
+[PaleoClimate] enabled=1 loaded=1 source=synthetic samples=962 file='data/climate/paleo_monthly_forcing.csv'
+[ResearchGPU] requested=1 available=1 climate=1 disease=1 adoptJoin=1 edge=1
+[Settlements] startup nodes=233 edges=466 avgPackages=0.266094 avgInfected=0 avgFertility=0.669885 avgSalinity=0 avgKnowledge=0.207751 boostedEdges=88 mix(f,farm,past,fish,craft)=0.421,0.360,0.103,0.078,0.038
+[ResearchSettlement] pastoral=1 extraction=1 polityChoice=1 controlGraph=1 campaignLogistics=1 irrigation=1 pathRebuild=1
+[DensityInit] enabled=1 priorLoaded=0 priorWeight=0.000
+[PaleoClimate] active=1 sourceSamples=962
+[TransportRegimes] enabled=1 exploration=1
+[ResearchDiffusion] channels=1 knowledgeLoss=1 salinity=1
+COMMAND:
+C:\WS\WorldSimulation10028\out\cmake\release\bin\worldsim_cli.exe --seed 46389331 --config C:\WS\WorldSimulation10028\data\sim_config.toml --startYear -5000 --endYear 2025 --checkpointEveryYears 50 --outDir C:\WS\WorldSimulation10028\out\seed_max_tech_web\seed_46389331 --techUnlockLog C:\WS\WorldSimulation10028\out\seed_max_tech_web\seed_46389331\tech_unlocks.csv --techUnlockLogIncludeInitial 1 --useGPU 0
+

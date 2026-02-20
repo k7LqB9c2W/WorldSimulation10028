@@ -338,6 +338,27 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "settlements", "kBasePerFoodUnit", config.settlements.kBasePerFoodUnit);
         readTomlValue(root, "settlements", "transportRebuildIntervalYears", config.settlements.transportRebuildIntervalYears);
 
+        readTomlValue(root, "density_init", "enabled", config.densityInit.enabled);
+        readTomlValue(root, "density_init", "requireLandOwnership", config.densityInit.requireLandOwnership);
+        readTomlValue(root, "density_init", "weightPopulation", config.densityInit.weightPopulation);
+        readTomlValue(root, "density_init", "weightFood", config.densityInit.weightFood);
+        readTomlValue(root, "density_init", "weightCorridor", config.densityInit.weightCorridor);
+        readTomlValue(root, "density_init", "weightClimate", config.densityInit.weightClimate);
+        readTomlValue(root, "density_init", "scoreNoise", config.densityInit.scoreNoise);
+        readTomlValue(root, "density_init", "minPopFactor", config.densityInit.minPopFactor);
+        readTomlValue(root, "density_init", "priorPath", config.densityInit.priorPath);
+        readTomlValue(root, "density_init", "priorWeight", config.densityInit.priorWeight);
+
+        readTomlValue(root, "paleo_climate", "enabled", config.paleoClimate.enabled);
+        readTomlValue(root, "paleo_climate", "startupDiagnostics", config.paleoClimate.startupDiagnostics);
+        readTomlValue(root, "paleo_climate", "monthlyForcingCsv", config.paleoClimate.monthlyForcingCsv);
+        readTomlValue(root, "paleo_climate", "requireDataFile", config.paleoClimate.requireDataFile);
+        readTomlValue(root, "paleo_climate", "tempInfluence", config.paleoClimate.tempInfluence);
+        readTomlValue(root, "paleo_climate", "precipInfluence", config.paleoClimate.precipInfluence);
+        readTomlValue(root, "paleo_climate", "monsoonVarianceScale", config.paleoClimate.monsoonVarianceScale);
+        readTomlValue(root, "paleo_climate", "droughtClusterScale", config.paleoClimate.droughtClusterScale);
+        readTomlValue(root, "paleo_climate", "coolingPulseScale", config.paleoClimate.coolingPulseScale);
+
         readTomlValue(root, "subsistence", "mixAdaptRate", config.subsistence.mixAdaptRate);
         readTomlValue(root, "subsistence", "riskPenaltyWeight", config.subsistence.riskPenaltyWeight);
         readTomlValue(root, "subsistence", "craftFromMarketWeight", config.subsistence.craftFromMarketWeight);
@@ -346,6 +367,33 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "packages", "adoptionBase", config.packages.adoptionBase);
         readTomlValue(root, "packages", "diffusionWeight", config.packages.diffusionWeight);
         readTomlValue(root, "packages", "environmentWeight", config.packages.environmentWeight);
+
+        readTomlValue(root, "package_diffusion", "enabled", config.packageDiffusion.enabled);
+        readTomlValue(root, "package_diffusion", "demicWeight", config.packageDiffusion.demicWeight);
+        readTomlValue(root, "package_diffusion", "culturalWeight", config.packageDiffusion.culturalWeight);
+        readTomlValue(root, "package_diffusion", "coerciveWeight", config.packageDiffusion.coerciveWeight);
+        readTomlValue(root, "package_diffusion", "prestigeWeight", config.packageDiffusion.prestigeWeight);
+        readTomlValue(root, "package_diffusion", "conformistThreshold", config.packageDiffusion.conformistThreshold);
+        readTomlValue(root, "package_diffusion", "conformistStrength", config.packageDiffusion.conformistStrength);
+        readTomlValue(root, "package_diffusion", "coerciveExtractionWeight", config.packageDiffusion.coerciveExtractionWeight);
+        readTomlValue(root, "package_diffusion", "coercivePolitySwitchWeight", config.packageDiffusion.coercivePolitySwitchWeight);
+
+        readTomlValue(root, "knowledge_dynamics", "enabled", config.knowledgeDynamics.enabled);
+        readTomlValue(root, "knowledge_dynamics", "maintenanceSpecialistThreshold", config.knowledgeDynamics.maintenanceSpecialistThreshold);
+        readTomlValue(root, "knowledge_dynamics", "maintenanceMarketThreshold", config.knowledgeDynamics.maintenanceMarketThreshold);
+        readTomlValue(root, "knowledge_dynamics", "lossRate", config.knowledgeDynamics.lossRate);
+        readTomlValue(root, "knowledge_dynamics", "collapseLossScale", config.knowledgeDynamics.collapseLossScale);
+        readTomlValue(root, "knowledge_dynamics", "recoveryRate", config.knowledgeDynamics.recoveryRate);
+        readTomlValue(root, "knowledge_dynamics", "relearnFromNeighbors", config.knowledgeDynamics.relearnFromNeighbors);
+
+        readTomlValue(root, "salinity", "enabled", config.salinity.enabled);
+        readTomlValue(root, "salinity", "irrigationAccumulation", config.salinity.irrigationAccumulation);
+        readTomlValue(root, "salinity", "aridityAccumulation", config.salinity.aridityAccumulation);
+        readTomlValue(root, "salinity", "drainageRecovery", config.salinity.drainageRecovery);
+        readTomlValue(root, "salinity", "rainfallDrainageWeight", config.salinity.rainfallDrainageWeight);
+        readTomlValue(root, "salinity", "corridorDrainageWeight", config.salinity.corridorDrainageWeight);
+        readTomlValue(root, "salinity", "infraDrainageWeight", config.salinity.infraDrainageWeight);
+        readTomlValue(root, "salinity", "yieldPenaltyMax", config.salinity.yieldPenaltyMax);
 
         readTomlValue(root, "transport", "kNearest", config.transport.kNearest);
         readTomlValue(root, "transport", "maxEdgeCost", config.transport.maxEdgeCost);
@@ -363,6 +411,30 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "transport", "specialistLambda", config.transport.specialistLambda);
         readTomlValue(root, "transport", "tradeHintBlend", config.transport.tradeHintBlend);
 
+        readTomlValue(root, "transport_regimes", "enabled", config.transportRegimes.enabled);
+        readTomlValue(root, "transport_regimes", "landMinCostMult", config.transportRegimes.landMinCostMult);
+        readTomlValue(root, "transport_regimes", "seaMinCostMult", config.transportRegimes.seaMinCostMult);
+        readTomlValue(root, "transport_regimes", "capacityMaxMult", config.transportRegimes.capacityMaxMult);
+        readTomlValue(root, "transport_regimes", "reliabilityMaxAdd", config.transportRegimes.reliabilityMaxAdd);
+        readTomlValue(root, "transport_regimes", "roadInfraWeight", config.transportRegimes.roadInfraWeight);
+        readTomlValue(root, "transport_regimes", "portInfraWeight", config.transportRegimes.portInfraWeight);
+        readTomlValue(root, "transport_regimes", "logisticsWeight", config.transportRegimes.logisticsWeight);
+        readTomlValue(root, "transport_regimes", "marketWeight", config.transportRegimes.marketWeight);
+        readTomlValue(root, "transport_regimes", "packThreshold", config.transportRegimes.packThreshold);
+        readTomlValue(root, "transport_regimes", "tractionThreshold", config.transportRegimes.tractionThreshold);
+        readTomlValue(root, "transport_regimes", "wheelThreshold", config.transportRegimes.wheelThreshold);
+        readTomlValue(root, "transport_regimes", "maritimeThreshold", config.transportRegimes.maritimeThreshold);
+
+        readTomlValue(root, "exploration", "enabled", config.exploration.enabled);
+        readTomlValue(root, "exploration", "baseMissionsPerCountry", config.exploration.baseMissionsPerCountry);
+        readTomlValue(root, "exploration", "missionsPerPopMillion", config.exploration.missionsPerPopMillion);
+        readTomlValue(root, "exploration", "uncertaintyDecayLocal", config.exploration.uncertaintyDecayLocal);
+        readTomlValue(root, "exploration", "uncertaintyDecayNeighbor", config.exploration.uncertaintyDecayNeighbor);
+        readTomlValue(root, "exploration", "explorationGain", config.exploration.explorationGain);
+        readTomlValue(root, "exploration", "missionCostCeiling", config.exploration.missionCostCeiling);
+        readTomlValue(root, "exploration", "edgeReliabilityBoost", config.exploration.edgeReliabilityBoost);
+        readTomlValue(root, "exploration", "edgeCostReduction", config.exploration.edgeCostReduction);
+
         readTomlValue(root, "research_gpu", "enabled", config.researchGpu.enabled);
         readTomlValue(root, "research_gpu", "startupDiagnostics", config.researchGpu.startupDiagnostics);
         readTomlValue(root, "research_gpu", "accelerateTransport", config.researchGpu.accelerateTransport);
@@ -376,6 +448,7 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "research_settlement", "pastoralMobility", config.researchSettlement.pastoralMobility);
         readTomlValue(root, "research_settlement", "householdsExtraction", config.researchSettlement.householdsExtraction);
         readTomlValue(root, "research_settlement", "polityChoiceAssignment", config.researchSettlement.polityChoiceAssignment);
+        readTomlValue(root, "research_settlement", "polityControlGraph", config.researchSettlement.polityControlGraph);
         readTomlValue(root, "research_settlement", "campaignLogistics", config.researchSettlement.campaignLogistics);
         readTomlValue(root, "research_settlement", "irrigationLoop", config.researchSettlement.irrigationLoop);
         readTomlValue(root, "research_settlement", "transportPathRebuild", config.researchSettlement.transportPathRebuild);
@@ -394,6 +467,15 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         readTomlValue(root, "research_settlement", "irrigationWaterBoost", config.researchSettlement.irrigationWaterBoost);
         readTomlValue(root, "research_settlement", "irrigationFertilityShield", config.researchSettlement.irrigationFertilityShield);
 
+        readTomlValue(root, "research_settlement", "polityTravelTauBase", config.researchSettlement.polityTravelTauBase);
+        readTomlValue(root, "research_settlement", "polityTravelTauAdminWeight", config.researchSettlement.polityTravelTauAdminWeight);
+        readTomlValue(root, "research_settlement", "polityTravelTauLogisticsWeight", config.researchSettlement.polityTravelTauLogisticsWeight);
+        readTomlValue(root, "research_settlement", "polityTravelMaxCost", config.researchSettlement.polityTravelMaxCost);
+        readTomlValue(root, "research_settlement", "polityTopCountryCandidates", config.researchSettlement.polityTopCountryCandidates);
+        readTomlValue(root, "research_settlement", "polityControlWeight", config.researchSettlement.polityControlWeight);
+        readTomlValue(root, "research_settlement", "polityStrengthWeight", config.researchSettlement.polityStrengthWeight);
+        readTomlValue(root, "research_settlement", "polityDistancePenaltyWeight", config.researchSettlement.polityDistancePenaltyWeight);
+        readTomlValue(root, "research_settlement", "polityDefectionShockWeight", config.researchSettlement.polityDefectionShockWeight);
         readTomlValue(root, "research_settlement", "politySwitchThreshold", config.researchSettlement.politySwitchThreshold);
         readTomlValue(root, "research_settlement", "politySwitchMaxNodeShare", config.researchSettlement.politySwitchMaxNodeShare);
 
@@ -536,6 +618,20 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         config.settlements.kBasePerFoodUnit = std::max(1.0, config.settlements.kBasePerFoodUnit);
         config.settlements.transportRebuildIntervalYears = std::max(1, config.settlements.transportRebuildIntervalYears);
 
+        config.densityInit.weightPopulation = std::max(0.0, config.densityInit.weightPopulation);
+        config.densityInit.weightFood = std::max(0.0, config.densityInit.weightFood);
+        config.densityInit.weightCorridor = std::max(0.0, config.densityInit.weightCorridor);
+        config.densityInit.weightClimate = std::max(0.0, config.densityInit.weightClimate);
+        config.densityInit.scoreNoise = std::clamp(config.densityInit.scoreNoise, 0.0, 0.5);
+        config.densityInit.minPopFactor = std::clamp(config.densityInit.minPopFactor, 0.0, 2.0);
+        config.densityInit.priorWeight = std::max(0.0, config.densityInit.priorWeight);
+
+        config.paleoClimate.tempInfluence = std::max(0.0, config.paleoClimate.tempInfluence);
+        config.paleoClimate.precipInfluence = std::max(0.0, config.paleoClimate.precipInfluence);
+        config.paleoClimate.monsoonVarianceScale = std::max(0.0, config.paleoClimate.monsoonVarianceScale);
+        config.paleoClimate.droughtClusterScale = std::max(0.0, config.paleoClimate.droughtClusterScale);
+        config.paleoClimate.coolingPulseScale = std::max(0.0, config.paleoClimate.coolingPulseScale);
+
         config.subsistence.mixAdaptRate = std::clamp(config.subsistence.mixAdaptRate, 0.0, 1.0);
         config.subsistence.riskPenaltyWeight = std::max(0.0, config.subsistence.riskPenaltyWeight);
         config.subsistence.craftFromMarketWeight = std::max(0.0, config.subsistence.craftFromMarketWeight);
@@ -543,6 +639,30 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         config.packages.adoptionBase = std::clamp(config.packages.adoptionBase, 0.0, 1.0);
         config.packages.diffusionWeight = std::max(0.0, config.packages.diffusionWeight);
         config.packages.environmentWeight = std::max(0.0, config.packages.environmentWeight);
+
+        config.packageDiffusion.demicWeight = std::max(0.0, config.packageDiffusion.demicWeight);
+        config.packageDiffusion.culturalWeight = std::max(0.0, config.packageDiffusion.culturalWeight);
+        config.packageDiffusion.coerciveWeight = std::max(0.0, config.packageDiffusion.coerciveWeight);
+        config.packageDiffusion.prestigeWeight = std::clamp(config.packageDiffusion.prestigeWeight, 0.0, 1.0);
+        config.packageDiffusion.conformistThreshold = std::clamp(config.packageDiffusion.conformistThreshold, 0.0, 1.0);
+        config.packageDiffusion.conformistStrength = std::max(0.0, config.packageDiffusion.conformistStrength);
+        config.packageDiffusion.coerciveExtractionWeight = std::max(0.0, config.packageDiffusion.coerciveExtractionWeight);
+        config.packageDiffusion.coercivePolitySwitchWeight = std::max(0.0, config.packageDiffusion.coercivePolitySwitchWeight);
+
+        config.knowledgeDynamics.maintenanceSpecialistThreshold = std::max(1.0e-4, config.knowledgeDynamics.maintenanceSpecialistThreshold);
+        config.knowledgeDynamics.maintenanceMarketThreshold = std::max(1.0e-4, config.knowledgeDynamics.maintenanceMarketThreshold);
+        config.knowledgeDynamics.lossRate = std::clamp(config.knowledgeDynamics.lossRate, 0.0, 1.0);
+        config.knowledgeDynamics.collapseLossScale = std::max(0.0, config.knowledgeDynamics.collapseLossScale);
+        config.knowledgeDynamics.recoveryRate = std::clamp(config.knowledgeDynamics.recoveryRate, 0.0, 1.0);
+        config.knowledgeDynamics.relearnFromNeighbors = std::clamp(config.knowledgeDynamics.relearnFromNeighbors, 0.0, 1.0);
+
+        config.salinity.irrigationAccumulation = std::max(0.0, config.salinity.irrigationAccumulation);
+        config.salinity.aridityAccumulation = std::max(0.0, config.salinity.aridityAccumulation);
+        config.salinity.drainageRecovery = std::max(0.0, config.salinity.drainageRecovery);
+        config.salinity.rainfallDrainageWeight = std::max(0.0, config.salinity.rainfallDrainageWeight);
+        config.salinity.corridorDrainageWeight = std::max(0.0, config.salinity.corridorDrainageWeight);
+        config.salinity.infraDrainageWeight = std::max(0.0, config.salinity.infraDrainageWeight);
+        config.salinity.yieldPenaltyMax = std::clamp(config.salinity.yieldPenaltyMax, 0.0, 0.95);
 
         config.transport.kNearest = std::max(1, config.transport.kNearest);
         config.transport.maxEdgeCost = std::max(1.0, config.transport.maxEdgeCost);
@@ -559,6 +679,38 @@ bool SimulationContext::loadConfig(const std::string& path, std::string* errorMe
         config.transport.specialistEta = std::max(0.0, config.transport.specialistEta);
         config.transport.specialistLambda = std::max(0.0, config.transport.specialistLambda);
         config.transport.tradeHintBlend = std::clamp(config.transport.tradeHintBlend, 0.0, 1.0);
+
+        config.transportRegimes.landMinCostMult = std::clamp(config.transportRegimes.landMinCostMult, 0.05, 1.0);
+        config.transportRegimes.seaMinCostMult = std::clamp(config.transportRegimes.seaMinCostMult, 0.05, 1.0);
+        config.transportRegimes.capacityMaxMult = std::max(1.0, config.transportRegimes.capacityMaxMult);
+        config.transportRegimes.reliabilityMaxAdd = std::clamp(config.transportRegimes.reliabilityMaxAdd, 0.0, 1.0);
+        config.transportRegimes.roadInfraWeight = std::max(0.0, config.transportRegimes.roadInfraWeight);
+        config.transportRegimes.portInfraWeight = std::max(0.0, config.transportRegimes.portInfraWeight);
+        config.transportRegimes.logisticsWeight = std::max(0.0, config.transportRegimes.logisticsWeight);
+        config.transportRegimes.marketWeight = std::max(0.0, config.transportRegimes.marketWeight);
+        config.transportRegimes.packThreshold = std::clamp(config.transportRegimes.packThreshold, 0.0, 1.0);
+        config.transportRegimes.tractionThreshold = std::clamp(config.transportRegimes.tractionThreshold, 0.0, 1.0);
+        config.transportRegimes.wheelThreshold = std::clamp(config.transportRegimes.wheelThreshold, 0.0, 1.0);
+        config.transportRegimes.maritimeThreshold = std::clamp(config.transportRegimes.maritimeThreshold, 0.0, 1.0);
+
+        config.exploration.baseMissionsPerCountry = std::clamp(config.exploration.baseMissionsPerCountry, 0, 12);
+        config.exploration.missionsPerPopMillion = std::max(0.0, config.exploration.missionsPerPopMillion);
+        config.exploration.uncertaintyDecayLocal = std::clamp(config.exploration.uncertaintyDecayLocal, 0.0, 1.0);
+        config.exploration.uncertaintyDecayNeighbor = std::clamp(config.exploration.uncertaintyDecayNeighbor, 0.0, 1.0);
+        config.exploration.explorationGain = std::clamp(config.exploration.explorationGain, 0.0, 1.0);
+        config.exploration.missionCostCeiling = std::max(1.0, config.exploration.missionCostCeiling);
+        config.exploration.edgeReliabilityBoost = std::clamp(config.exploration.edgeReliabilityBoost, 0.0, 1.0);
+        config.exploration.edgeCostReduction = std::clamp(config.exploration.edgeCostReduction, 0.0, 0.9);
+
+        config.researchSettlement.polityTravelTauBase = std::max(0.5, config.researchSettlement.polityTravelTauBase);
+        config.researchSettlement.polityTravelTauAdminWeight = std::max(0.0, config.researchSettlement.polityTravelTauAdminWeight);
+        config.researchSettlement.polityTravelTauLogisticsWeight = std::max(0.0, config.researchSettlement.polityTravelTauLogisticsWeight);
+        config.researchSettlement.polityTravelMaxCost = std::max(1.0, config.researchSettlement.polityTravelMaxCost);
+        config.researchSettlement.polityTopCountryCandidates = std::clamp(config.researchSettlement.polityTopCountryCandidates, 1, 8);
+        config.researchSettlement.polityControlWeight = std::max(0.0, config.researchSettlement.polityControlWeight);
+        config.researchSettlement.polityStrengthWeight = std::max(0.0, config.researchSettlement.polityStrengthWeight);
+        config.researchSettlement.polityDistancePenaltyWeight = std::max(0.0, config.researchSettlement.polityDistancePenaltyWeight);
+        config.researchSettlement.polityDefectionShockWeight = std::max(0.0, config.researchSettlement.polityDefectionShockWeight);
 
         configHash = hashFileFNV1a(path);
         return true;

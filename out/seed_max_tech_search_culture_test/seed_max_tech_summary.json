@@ -1,0 +1,43 @@
+{
+  "elapsed_sec": 2.2882049083709717,
+  "total_seeds": 1,
+  "completed_seeds": 1,
+  "ok_runs": 1,
+  "failed_runs": 0,
+  "canceled_runs": 0,
+  "stopped_early": false,
+  "run_settings": {
+    "start_year": -5000,
+    "end_year": -4999,
+    "checkpoint_every_years": 1,
+    "use_gpu": false
+  },
+  "best_by_unlocked_count": {
+    "seed": 7,
+    "max_total_unlocked_techs": 22,
+    "detail": {
+      "year": -5000,
+      "tech_id": 100,
+      "tech_name": "Cordage and Knots",
+      "country_index": "58",
+      "country_name": "Great allenland Tribe",
+      "country_culture": "Mediterranean Urban",
+      "event_type": "initial"
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_search_culture_test/seed_7"
+  },
+  "best_by_tech_id": {
+    "seed": 7,
+    "detail": {
+      "year": -5000,
+      "tech_id": 119,
+      "tech_name": "Native Copper Working",
+      "country_index": "28",
+      "country_name": "Old ninuresh Tribe",
+      "country_culture": "Fertile Crescent",
+      "event_type": "initial",
+      "total_unlocked_techs": 21
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_search_culture_test/seed_7"
+  }
+}

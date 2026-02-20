@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -112,6 +113,23 @@ private:
         bool seaLink = false;
     };
 
+    struct PaleoYearSample {
+        int year = 0;
+        std::array<double, 12> tempAnom{};
+        std::array<double, 12> precipAnom{};
+    };
+
+    struct PaleoYearForcing {
+        std::array<double, 12> tempAnom{};
+        std::array<double, 12> precipAnom{};
+        double tempMean = 0.0;
+        double precipMean = 0.0;
+        double precipStd = 0.0;
+        double monsoonPulse = 0.0;
+        double droughtPulse = 0.0;
+        double coolingPulse = 0.0;
+    };
+
     SimulationContext* m_ctx = nullptr;
     bool m_initialized = false;
     bool m_startupLogged = false;
@@ -139,6 +157,9 @@ private:
     std::vector<float> m_fieldFertility;         // 0..1
     std::vector<std::uint8_t> m_fieldRegime;     // 0=normal,1=drought,2=pluvial,3=cold
     std::vector<float> m_fieldIrrigationCapital; // 0..1
+    std::vector<float> m_fieldSalinity;          // 0..1
+    std::vector<float> m_fieldPaleoTempAdj;      // additive deg C signal
+    std::vector<float> m_fieldPaleoPrecipAdj;    // additive 0..1 signal
 
     // Eq15-17/20-23 settlement disease state.
     std::vector<double> m_nodeS;
@@ -150,6 +171,12 @@ private:
     // Eq24/Eq26 auxiliary settlement-state vectors.
     std::vector<double> m_nodeAdoptionPressure;
     std::vector<double> m_nodeJoinUtility;
+    std::vector<double> m_nodeKnowledgeCoverage;
+    std::vector<double> m_nodeUncertainty;
+    std::vector<double> m_nodeExplorationValue;
+    std::vector<double> m_nodeKnowledgeErosion;
+    std::vector<double> m_nodePrevMarketPotential;
+    std::vector<double> m_edgeExplorationBoost;
 
     // Eq25/27/28 edge logistics attenuation (capacity/reliability penalty).
     std::vector<double> m_edgeLogisticsAttenuation;
@@ -160,16 +187,28 @@ private:
 
     std::unique_ptr<SettlementGpuRuntime> m_gpu;
     bool m_gpuStartupLogged = false;
+    bool m_paleoStartupLogged = false;
+    bool m_densityPriorLogged = false;
+    bool m_densityPriorTried = false;
+    bool m_densityPriorLoaded = false;
+
+    std::vector<float> m_densityPriorField;
+    std::vector<PaleoYearSample> m_paleoSeries;
+    int m_cachedPaleoYear = std::numeric_limits<int>::min();
+    PaleoYearForcing m_cachedPaleoForcing{};
 
     std::uint64_t m_lastDeterminismHash = 0;
     double m_lastFissionConservationError = 0.0;
 
     void ensureInitialized(int year, const Map& map, const std::vector<Country>& countries);
     void initializeNodesFromFieldPopulation(int year, const Map& map, const std::vector<Country>& countries);
+    void ensureDensityPriorLoaded();
+    void ensurePaleoSeriesLoaded();
+    PaleoYearForcing evaluatePaleoForcing(int year);
     void syncNodeTotalsToCountryPopulation(const std::vector<Country>& countries);
 
     void updateSubsistenceMixAndPackages(int year, const Map& map, const std::vector<Country>& countries);
-    void updateClimateRegimesAndFertility(int year, const Map& map);
+    void updateClimateRegimesAndFertility(int year, const Map& map, const std::vector<Country>& countries);
     void updatePastoralMobilityRoutes(int year, const Map& map, const std::vector<Country>& countries);
     void recomputeFoodCaloriesAndCapacity(const Map& map, const std::vector<Country>& countries);
     void updateHouseholdsElitesExtraction(int year, std::vector<Country>& countries);
@@ -178,6 +217,7 @@ private:
     void applyFission(int year, const Map& map, const std::vector<Country>& countries);
 
     void rebuildTransportGraph(int year, const Map& map, const std::vector<Country>& countries);
+    void updateKnowledgeAndExploration(int year, const std::vector<Country>& countries);
     void computeFlowsAndMigration(const Map& map, const std::vector<Country>& countries);
     void updateCampaignLogisticsAndAttrition(int year, const std::vector<Country>& countries);
     void updateAdoptionAndJoinUtility(int year, std::vector<Country>& countries);

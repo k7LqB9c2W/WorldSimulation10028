@@ -1,0 +1,173 @@
+Realism.md Feature Checklist (Hard-First Order)
+Date: 2026-02-14
+Source: Research/Realism.md
+Goal: Add missing realism features in a sequence that minimizes regressions by implementing hard/foundational systems first, then medium, then easier integration and validation tasks.
+
+Legend
+[ ] not started
+[~] partial in codebase
+[x] complete
+
+Stability rule for all items
+- Add behind config flags first, default OFF in development branch.
+- Land each item with determinism hash update + invariants + smoke test.
+- Only flip defaults ON after benchmark deltas and no invariant regressions.
+
+================================================================
+Tier 1 (Hardest, foundational, highest priority)
+================================================================
+
+1) [ ] Historical density-field initialization replacing region-share spawning
+Complexity: Very High
+Why first: Current start conditions strongly shape all downstream outcomes.
+Dependencies: none
+Acceptance:
+- Spawn uses density field prior + stochastic sampling, not fixed region shares.
+- Optional priors from HYDE grids at start year.
+- Existing spawn controls preserved as fallback.
+
+2) [ ] Transient monthly paleoclimate forcing pipeline (5000 BCE onward)
+Complexity: Very High
+Why first: Climate forcing drives yields, shocks, disease, migration, and conflict.
+Dependencies: #1 (for calibration coupling)
+Acceptance:
+- Monthly forcing ingest + interpolation by sim year.
+- Scenario perturbation knobs (monsoon variance, drought clustering, cooling pulses).
+- Climate state cached and deterministic across runs.
+
+3) [ ] Travel-time control graph as primary polity emergence model
+Complexity: Very High
+Why first: Moves macro causality from country labels to settlement control physics.
+Dependencies: #1, #2
+Acceptance:
+- Control decays by travel time (not Euclidean distance).
+- Emergence/fusion/fission driven by extraction stability + enforcement reach.
+- Periphery defection under shock and low control implemented.
+
+4) [ ] Endogenous transport regime transitions (pack animals, traction, wheels, maritime tiers)
+Complexity: Very High
+Why first: This is the main lever for diffusion speed, war radius, and state cohesion.
+Dependencies: #2, #3
+Acceptance:
+- Friction/capacity shifts happen by prerequisite satisfaction (no date unlocks).
+- River/coast/open-sea movement separated with explicit capability tiers.
+- Route costs feed trade, migration, and control graph directly.
+
+5) [ ] Resource-to-production DAG for energy/material chains
+Complexity: Very High
+Why first: Prevents unrealistic "surplus -> instant tech" behavior.
+Dependencies: #3, #4
+Acceptance:
+- Directed production chains with hard input bottlenecks (fuel, ore, tools, skills).
+- Regionally heterogeneous emergence due to resource co-location.
+- Specialist/labor constraints coupled to settlement populations.
+
+6) [ ] Settlement knowledge maps + exploration mission system
+Complexity: High
+Why first: Required for non-scripted discovery and path-dependent expansion.
+Dependencies: #3, #4
+Acceptance:
+- Explicit uncertainty map per polity/settlement.
+- Exploration missions spawned from value-of-information logic.
+- Discoveries reduce uncertainty and alter route/resource decisions.
+
+================================================================
+Tier 2 (High impact, medium-hard)
+================================================================
+
+7) [ ] Vector ecology disease layer (temperature/moisture nonlinear burden)
+Complexity: High
+Why now: Leverages climate pipeline and improves realism where productivity is disease-limited.
+Dependencies: #2
+Acceptance:
+- Ecological transmission potential field coupled to climate seasonality.
+- Chronic productivity and mortality burden by ecology zone.
+- Intervention pathways (drainage/housing/health tech) reduce burden over time.
+
+8) [x] Domesticates package diffusion calibration and social-learning rules
+Complexity: High
+Current state: Implemented channel split (demic/cultural/coercive) and social-learning biases (prestige + conformist). Added 2026-02-14.
+Dependencies: #4, #6
+Acceptance:
+- Distinguish demic vs cultural vs coercive diffusion channels.
+- Benchmark spread rates by corridor and region class (still recommended calibration pass).
+- Add social learning biases (prestige/conformist thresholds).
+
+9) [x] Knowledge transmission and loss by specialist-maintenance thresholds
+Complexity: Medium-High
+Current state: Implemented maintenance-threshold loss + collapse-sensitive erosion + neighborhood relearning. Added 2026-02-14.
+Dependencies: #5, #6
+Acceptance:
+- Domain-specific loss when specialist base collapses.
+- Recovery lag and relearning cost included.
+- Trade collapse causes measurable knowledge fragmentation.
+
+10) [x] Soil/irrigation hazard extension (salinity and drainage failure)
+Complexity: Medium-High
+Current state: Implemented field salinity stock with irrigation/aridity accumulation, rainfall/corridor/infra drainage, and yield penalties. Added 2026-02-14.
+Dependencies: #2
+Acceptance:
+- Irrigation intensity + drainage -> salinity accumulation state.
+- Yield penalties and restoration dynamics implemented.
+- Long-run maintenance burden visible in settlements.
+
+================================================================
+Tier 3 (Integration, benchmarking, easier but essential)
+================================================================
+
+11) [ ] Pattern-oriented multi-target calibration harness (ensemble-first)
+Complexity: Medium
+Dependencies: Tier 1 and Tier 2 core states present
+Acceptance:
+- Multi-pattern objective suite (settlement sizes, polity dynamics, diffusion rates, population envelopes).
+- No single-run calibration accepted.
+- Seed ensembles and uncertainty intervals reported by default.
+
+12) [ ] History-matching / ABC-style parameter filtering workflow
+Complexity: Medium
+Dependencies: #11
+Acceptance:
+- Reject implausible parameter regions automatically.
+- Preserve deterministic replay for accepted candidates.
+- Export posterior/accepted ranges for config.
+
+13) [ ] Benchmark data adapters and validation dashboards
+Complexity: Medium
+Dependencies: #11
+Acceptance:
+- Dataset adapters for historical comparison windows.
+- Automated benchmark report per run batch.
+- Pass/fail thresholds for major realism metrics.
+
+14) [ ] Ablation suite and regression gates
+Complexity: Medium-Low
+Dependencies: #11
+Acceptance:
+- Toggle-off tests for each major subsystem.
+- Quantified realism degradation expectation per ablation.
+- CI/CLI gate to prevent silent realism regressions.
+
+15) [ ] UX/diagnostics polish for new systems
+Complexity: Low
+Dependencies: all prior
+Acceptance:
+- Debug overlays for control graph, climate forcing, disease ecology, chain bottlenecks.
+- Startup and yearly summary diagnostics are concise and toggleable.
+- Documentation updated for all new config blocks.
+
+================================================================
+Verified External Data Sources (for planned ingestion/validation)
+================================================================
+
+- TraCE-21ka (NCAR RDA): https://rda.ucar.edu/datasets/d651050/
+- CHELSA-TraCE21k datasets: https://www.chelsa-climate.org/datasets/chelsa-trace21k-centennial
+- PMIP4 project site: https://pmip4.lsce.ipsl.fr/
+- HYDE portal info: https://acc.pbl.nl/en/hyde-history-database-of-the-global-environment
+- HYDE listing (UU link hub): https://dcehn.sites.uu.nl/datasets/
+- Seshat downloads: https://seshat-db.com/downloads_page/
+- Neotoma Paleoecology DB: https://www.neotomadb.org/
+- BIOME 6000 NOAA record: https://www.ncei.noaa.gov/metadata/geoportal/rest/metadata/item/noaa-recon-6246/html
+- ERA5 time-series dataset: https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels-timeseries
+- GHCN-Daily (NOAA): https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily
+- UN WPP 2024: https://www.un.org/development/desa/pd/content/World-Population-Prospects-2024
+- Maddison Project Database 2023: https://www.rug.nl/ggdc/historicaldevelopment/maddison/releases/maddison-project-database-2023

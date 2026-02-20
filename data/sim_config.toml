@@ -230,6 +230,29 @@ calSlope = 0.00025
 kBasePerFoodUnit = 950
 transportRebuildIntervalYears = 5
 
+[density_init]
+enabled = true
+requireLandOwnership = true
+weightPopulation = 0.55
+weightFood = 0.22
+weightCorridor = 0.12
+weightClimate = 0.11
+scoreNoise = 0.04
+minPopFactor = 0.35
+priorPath = ""
+priorWeight = 0.0
+
+[paleo_climate]
+enabled = true
+startupDiagnostics = true
+monthlyForcingCsv = "data/climate/paleo_monthly_forcing.csv"
+requireDataFile = false
+tempInfluence = 1.0
+precipInfluence = 1.0
+monsoonVarianceScale = 1.0
+droughtClusterScale = 1.0
+coolingPulseScale = 1.0
+
 [subsistence]
 mixAdaptRate = 0.10
 riskPenaltyWeight = 0.80
@@ -240,6 +263,36 @@ enabled = true
 adoptionBase = 0.10
 diffusionWeight = 0.55
 environmentWeight = 0.45
+
+[package_diffusion]
+enabled = true
+demicWeight = 0.38
+culturalWeight = 0.42
+coerciveWeight = 0.20
+prestigeWeight = 0.32
+conformistThreshold = 0.45
+conformistStrength = 0.75
+coerciveExtractionWeight = 0.60
+coercivePolitySwitchWeight = 0.40
+
+[knowledge_dynamics]
+enabled = true
+maintenanceSpecialistThreshold = 0.035
+maintenanceMarketThreshold = 0.18
+lossRate = 0.08
+collapseLossScale = 0.30
+recoveryRate = 0.05
+relearnFromNeighbors = 0.28
+
+[salinity]
+enabled = true
+irrigationAccumulation = 0.030
+aridityAccumulation = 0.045
+drainageRecovery = 0.028
+rainfallDrainageWeight = 0.55
+corridorDrainageWeight = 0.20
+infraDrainageWeight = 0.25
+yieldPenaltyMax = 0.36
 
 [transport]
 kNearest = 5
@@ -258,6 +311,32 @@ specialistEta = 0.045
 specialistLambda = 0.032
 tradeHintBlend = 0.30
 
+[transport_regimes]
+enabled = true
+landMinCostMult = 0.45
+seaMinCostMult = 0.30
+capacityMaxMult = 2.20
+reliabilityMaxAdd = 0.30
+roadInfraWeight = 0.25
+portInfraWeight = 0.30
+logisticsWeight = 0.25
+marketWeight = 0.20
+packThreshold = 0.20
+tractionThreshold = 0.38
+wheelThreshold = 0.56
+maritimeThreshold = 0.42
+
+[exploration]
+enabled = true
+baseMissionsPerCountry = 1
+missionsPerPopMillion = 0.30
+uncertaintyDecayLocal = 0.10
+uncertaintyDecayNeighbor = 0.08
+explorationGain = 0.18
+missionCostCeiling = 85.0
+edgeReliabilityBoost = 0.16
+edgeCostReduction = 0.10
+
 [research_gpu]
 enabled = true
 startupDiagnostics = true
@@ -273,6 +352,7 @@ joinStayUtility = true
 pastoralMobility = true
 householdsExtraction = true
 polityChoiceAssignment = true
+polityControlGraph = true
 campaignLogistics = true
 irrigationLoop = true
 transportPathRebuild = true
@@ -291,6 +371,15 @@ irrigationDepreciation = 0.035
 irrigationWaterBoost = 0.35
 irrigationFertilityShield = 0.32
 
+polityTravelTauBase = 10.0
+polityTravelTauAdminWeight = 8.0
+polityTravelTauLogisticsWeight = 10.0
+polityTravelMaxCost = 120.0
+polityTopCountryCandidates = 3
+polityControlWeight = 0.55
+polityStrengthWeight = 0.30
+polityDistancePenaltyWeight = 0.35
+polityDefectionShockWeight = 0.25
 politySwitchThreshold = 0.18
 politySwitchMaxNodeShare = 0.10
 
