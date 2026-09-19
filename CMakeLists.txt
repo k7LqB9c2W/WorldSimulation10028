@@ -104,6 +104,22 @@ set_target_properties(worldsim_cli PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+include(CTest)
+if(BUILD_TESTING)
+  add_executable(food_accounting_test tests/food_accounting.cpp ${CORE_SOURCES})
+  target_include_directories(food_accounting_test PRIVATE include third_party/tomlplusplus/include)
+  get_target_property(WORLDSIM_TEST_LIBRARIES worldsim_cli LINK_LIBRARIES)
+  target_link_libraries(food_accounting_test PRIVATE ${WORLDSIM_TEST_LIBRARIES})
+  if(MSVC)
+    target_compile_options(food_accounting_test PRIVATE /W3 /EHsc)
+  endif()
+  set_target_properties(food_accounting_test PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+  add_dependencies(food_accounting_test worldsim_cli)
+  add_test(NAME food_accounting COMMAND food_accounting_test)
+  set_tests_properties(food_accounting PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+endif()
+
 # Asset-only GIS updates must also ship when no C++ target needs relinking.
 add_custom_target(stage_world_assets ALL
   COMMAND ${CMAKE_COMMAND} -E copy_directory

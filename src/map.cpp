@@ -3997,9 +3997,13 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
         double popNow = oldPop;
         int substeps = std::max(1, years);
         const double subDt = yearsD / static_cast<double>(substeps);
-        double foodStock = std::max(0.0, m.foodStock);
-        double cumulativeShortage = 0.0;
-        double cumulativeRequired = 0.0;
+        // The economy has already settled this interval's food production,
+        // physical trade, losses, consumption and closing stock. Use its ration
+        // coverage throughout the demographic substeps; do not spend that stock
+        // or count production/import values a second time. Migration and aging
+        // affect the next economy tick's demand, not this settled food balance.
+        const double nutrition = clamp01(m.foodSecurity);
+        const double shortageRatio = 1.0 - nutrition;
         double cumulativeBirths = 0.0;
         double cumulativeDeathsBase = 0.0;
         double cumulativeDeathsFamine = 0.0;
@@ -4010,32 +4014,7 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
         double chronicBurdenWeight = 0.0;
 
         for (int step = 0; step < substeps; ++step) {
-            const double requiredStep =
-                (cohorts[0] * 0.00085 +
-                 cohorts[1] * 0.00100 +
-                 cohorts[2] * 0.00120 +
-                 cohorts[3] * 0.00110 +
-                 cohorts[4] * 0.00095) * subDt;
-            cumulativeRequired += requiredStep;
-
-            const double prodStep = std::max(0.0, m.lastFoodOutput) * subDt;
-            const double impQtyAnnual = (m.priceFood > 1e-9) ? (m.importsValue / m.priceFood) : 0.0;
-            const double impStep = std::max(0.0, impQtyAnnual) * subDt;
-            const double spoilStep = foodStock * (1.0 - std::pow(std::max(0.0, 1.0 - std::clamp(m.spoilageRate, 0.0, 0.95)), subDt));
-            foodStock = std::max(0.0, foodStock - spoilStep);
-
-            const double baseAvail = prodStep + impStep;
-            const double draw = std::min(foodStock, std::max(0.0, requiredStep - baseAvail));
-            const double avail = baseAvail + draw;
-            foodStock = std::max(0.0, foodStock - draw);
-            if (avail > requiredStep) {
-                foodStock = std::min(std::max(1.0, m.foodStockCap), foodStock + (avail - requiredStep));
-            }
-
-            const double shortage = std::max(0.0, requiredStep - avail);
-            cumulativeShortage += shortage;
-            const double nutrition = clamp01((requiredStep > 1e-9) ? (avail / requiredStep) : 1.0);
-            const double famine = 1.0 - nutrition;
+            const double famine = shortageRatio;
             nutritionPopWeighted += nutrition * popNow;
             nutritionPopWeight += popNow;
 
@@ -4187,10 +4166,6 @@ void Map::tickDemographyAndCities(std::vector<Country>& countries,
             }
         }
 
-        const double shortageRatio = (cumulativeRequired > 1e-9) ? clamp01(cumulativeShortage / cumulativeRequired) : 0.0;
-        m.famineSeverity = shortageRatio;
-        m.foodSecurity = clamp01(1.0 - shortageRatio);
-        m.foodStock = foodStock;
         const double chronicBurdenMean = (chronicBurdenWeight > 1e-9) ? (chronicBurdenAccum / chronicBurdenWeight) : 0.0;
         m.diseaseBurden = clamp01(0.60 * epi.i + 12.0 * chronicBurdenMean);
         m.lastBirths = std::max(0.0, cumulativeBirths);

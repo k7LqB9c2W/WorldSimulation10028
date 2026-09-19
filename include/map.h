@@ -56,6 +56,8 @@ public:
     void updateCountries(std::vector<Country>& countries, int currentYear, News& news, class TechnologyManager& technologyManager);
     // Phase 4 integration: run demography/migration + city updates as a separate step so
     // shortages computed by the macro economy can affect births/deaths in the same year.
+    // Call after EconomyModelCPU::tickYear for the same interval. Demography reads
+    // its settled foodSecurity; only the economy consumes food and updates storage.
     void tickDemographyAndCities(std::vector<Country>& countries,
                                  int currentYear,
                                  int dtYears,

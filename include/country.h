@@ -202,7 +202,7 @@ public:
         double lastFoodAvailableBeforeLosses = 0.0;
         double lastFoodSpoilageLoss = 0.0;
         double lastFoodStorageLoss = 0.0;
-        double lastFoodCons = 0.0;
+        double lastFoodCons = 0.0; // Annual food requirement (including unmet demand).
         double lastNonFoodCons = 0.0;
         double lastInvestment = 0.0;
         double lastDepreciation = 0.0;
