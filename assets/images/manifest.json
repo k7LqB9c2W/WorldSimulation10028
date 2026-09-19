@@ -1,0 +1,174 @@
+{
+  "version": 1,
+  "crs": "EPSG:4326",
+  "width": 1920,
+  "height": 960,
+  "bounds": [
+    -180,
+    -90,
+    180,
+    90
+  ],
+  "pixel_size_degrees": 0.1875,
+  "sources": {
+    "natural_earth.zip": "https://naciscdn.org/naturalearth/10m/raster/NE2_LR_LC_SR_W.zip",
+    "land.zip": "https://naciscdn.org/naturalearth/10m/physical/ne_10m_land.zip",
+    "countries.zip": "https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_0_countries.zip",
+    "etopo.tif": "https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO2022/data/60s/60s_surface_elev_gtif/ETOPO_2022_v1_60s_N90W180_surface.tif",
+    "rivers.zip": "https://data.hydrosheds.org/file/HydroRIVERS/HydroRIVERS_v10_shp.zip",
+    "mrds.zip": "https://mrdata.usgs.gov/mrds/mrds-csv.zip",
+    "lakes.zip": "https://naciscdn.org/naturalearth/10m/physical/ne_10m_lakes.zip",
+    "wocqi.xls": "https://pubs.usgs.gov/of/2010/1196/data/WoCQI_v1_1.xls"
+  },
+  "environment": {
+    "climate": [
+      {
+        "century": -200,
+        "variable": "bio01",
+        "url": "https://os.zhdk.cloud.switch.ch/chelsa01/chelsa_trace21k/global/bioclim/bio01/CHELSA_TraCE21k_bio01_-200_V.1.0.tif"
+      },
+      {
+        "century": -200,
+        "variable": "bio12",
+        "url": "https://os.zhdk.cloud.switch.ch/chelsa01/chelsa_trace21k/global/bioclim/bio12/CHELSA_TraCE21k_bio12_-200_V.1.0.tif"
+      },
+      {
+        "century": -150,
+        "variable": "bio01",
+        "url": "https://os.zhdk.cloud.switch.ch/chelsa01/chelsa_trace21k/global/bioclim/bio01/CHELSA_TraCE21k_bio01_-150_V.1.0.tif"
+      },
+      {
+        "century": -150,
+        "variable": "bio12",
+        "url": "https://os.zhdk.cloud.switch.ch/chelsa01/chelsa_trace21k/global/bioclim/bio12/CHELSA_TraCE21k_bio12_-150_V.1.0.tif"
+      },
+      {
+        "century": -100,
+        "variable": "bio01",
+        "url": "https://os.zhdk.cloud.switch.ch/chelsa01/chelsa_trace21k/global/bioclim/bio01/CHELSA_TraCE21k_bio01_-100_V.1.0.tif"
+      },
+      {
+        "century": -100,
+        "variable": "bio12",
+        "url": "https://os.zhdk.cloud.switch.ch/chelsa01/chelsa_trace21k/global/bioclim/bio12/CHELSA_TraCE21k_bio12_-100_V.1.0.tif"
+      },
+      {
+        "century": -50,
+        "variable": "bio01",
+        "url": "https://os.zhdk.cloud.switch.ch/chelsa01/chelsa_trace21k/global/bioclim/bio01/CHELSA_TraCE21k_bio01_-050_V.1.0.tif"
+      },
+      {
+        "century": -50,
+        "variable": "bio12",
+        "url": "https://os.zhdk.cloud.switch.ch/chelsa01/chelsa_trace21k/global/bioclim/bio12/CHELSA_TraCE21k_bio12_-050_V.1.0.tif"
+      },
+      {
+        "century": 0,
+        "variable": "bio01",
+        "url": "https://os.zhdk.cloud.switch.ch/chelsa01/chelsa_trace21k/global/bioclim/bio01/CHELSA_TraCE21k_bio01_0000_V.1.0.tif"
+      },
+      {
+        "century": 0,
+        "variable": "bio12",
+        "url": "https://os.zhdk.cloud.switch.ch/chelsa01/chelsa_trace21k/global/bioclim/bio12/CHELSA_TraCE21k_bio12_0000_V.1.0.tif"
+      },
+      {
+        "century": 20,
+        "variable": "bio01",
+        "url": "https://os.zhdk.cloud.switch.ch/chelsa01/chelsa_trace21k/global/bioclim/bio01/CHELSA_TraCE21k_bio01_0020_V.1.0.tif"
+      },
+      {
+        "century": 20,
+        "variable": "bio12",
+        "url": "https://os.zhdk.cloud.switch.ch/chelsa01/chelsa_trace21k/global/bioclim/bio12/CHELSA_TraCE21k_bio12_0020_V.1.0.tif"
+      }
+    ],
+    "soils": {
+      "soil_clay.tif": "https://maps.isric.org/mapserv?map=%2Fmap%2Fclay.map&SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&COVERAGE=clay_0-5cm_mean&CRS=EPSG%3A4326&RESPONSE_CRS=EPSG%3A4326&BBOX=-180%2C-60%2C180%2C85&WIDTH=1920&HEIGHT=774&FORMAT=GEOTIFF_INT16",
+      "soil_phh2o.tif": "https://maps.isric.org/mapserv?map=%2Fmap%2Fphh2o.map&SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&COVERAGE=phh2o_0-5cm_mean&CRS=EPSG%3A4326&RESPONSE_CRS=EPSG%3A4326&BBOX=-180%2C-60%2C180%2C85&WIDTH=1920&HEIGHT=774&FORMAT=GEOTIFF_INT16"
+    }
+  },
+  "land_cells": 605726,
+  "river_cells": 141995,
+  "river_min_discharge_m3_s": 10,
+  "minerals": {
+    "gold": {
+      "source_records": 84406,
+      "land_cells": 9567,
+      "unplaced_records": 45
+    },
+    "iron": {
+      "source_records": 22342,
+      "land_cells": 5226,
+      "unplaced_records": 13
+    },
+    "salt": {
+      "source_records": 917,
+      "land_cells": 555,
+      "unplaced_records": 6
+    },
+    "copper": {
+      "source_records": 44936,
+      "land_cells": 8715,
+      "unplaced_records": 63
+    },
+    "tin": {
+      "source_records": 2863,
+      "land_cells": 1208,
+      "unplaced_records": 7
+    },
+    "coal": {
+      "source_records": 1742,
+      "land_cells": 737,
+      "unplaced_records": 1
+    }
+  },
+  "spawn_cells": {
+    "south_asia": 17449,
+    "east_asia": 33967,
+    "west_asia": 11900,
+    "se_asia": 10516,
+    "cn_asia": 86574,
+    "nile_ne_africa": 10029,
+    "north_africa": 12475,
+    "west_africa": 14488,
+    "east_africa": 13225,
+    "cs_africa": 22129,
+    "se_europe": 1914,
+    "med_europe": 3229,
+    "central_europe": 14064,
+    "wnw_europe": 4014,
+    "north_europe": 8953,
+    "mesoamerica": 6131,
+    "andes": 43503,
+    "e_na": 54949,
+    "w_na": 41718,
+    "caribbean": 564,
+    "oceania": 21815
+  },
+  "soil_known_cells": 419652,
+  "notes": [
+    "Modern coastline and elevation; not reconstructed ancient shorelines.",
+    "Mineral points are incomplete survey observations, not reserves or ancient mine accessibility.",
+    "Horse habitat and spawn regions are scenario approximations, not archaeological datasets.",
+    "Climate is interpolated between six nominal century-labelled snapshots; no annual precision is implied.",
+    "Soil WCS extracts are coarse samples of modern predictions, not ancient soil reconstructions."
+  ],
+  "sha256": {
+    "climate.bin": "6179e149370735b64db2bdff8195abdfad32e06cf24bf7b990c6b4c7dfbe60c6",
+    "coal.png": "ee56d091c6ad5576a292565b27616e3203a7a45358c3deb81d883dcccf1be257",
+    "copper.png": "9a273016968212b5edb13051252e7d0e7ddfc6e568ee27723da38e005e082728",
+    "elevation_m.tif": "336a5e1505f6f48bc4a7348cf8f82685c5323c7f2885d9a955e9c05cc776fcf3",
+    "gold.png": "ab2be8fd090fd13d2350a8b762aaf23f959c24aafd09c80639d8d879e803a7e7",
+    "heightmap.png": "dcf94b537e14d09f9a832c5b604527de0216a39fc88b1fcebc5d65faf1b8579b",
+    "iron.png": "a722859129797816afc3e27cbcd07ac27210df611289191f90ef12bcab5ca77b",
+    "landmask.png": "a61ba93b302c543e9179a01655301a879fb0499e505eebab40bdbf45bab05eeb",
+    "map.png": "eeed824931f4b84f59a9c907508d05a356905a955d38d56e945e25c0246d6aad",
+    "resource.png": "33008004fd6f795bf8366677672a879246a316bbe837f67a43c89490c282c34b",
+    "riverland.png": "3cd55ac9537aa51d7584d1e1385427d7ae1fbbb122628a7410d5708a0a237185",
+    "salt.png": "7c3d31af84a95ed714634c78e12b56d015dc860377d27b18c3ed2fa904070bf8",
+    "soil.png": "76c3d68d7a319d38fc0eba69f35c2b286dbf9443f376365e511126fd8973fc8d",
+    "spawn.png": "343937de58e74152893a419f0acfe4b4fa124933ab87644e580e26926e9f2ba8",
+    "tin.png": "34bec24d785853adc3f76770e83209e48c69c99d4432c7186b17385a03ca7e21"
+  }
+}

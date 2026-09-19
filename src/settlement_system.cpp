@@ -587,8 +587,9 @@ void SettlementSystem::tickYear(int year,
                   << " priorLoaded=" << (m_densityPriorLoaded ? 1 : 0)
                   << " priorWeight=" << m_ctx->config.densityInit.priorWeight
                   << std::endl;
-        std::cout << "[PaleoClimate] active=" << (m_ctx->config.paleoClimate.enabled ? 1 : 0)
-                  << " sourceSamples=" << m_paleoSeries.size()
+        std::cout << "[PaleoClimate] source=" << (map.hasGISClimate() ? "CHELSA-GIS" : "legacy-forcing")
+                  << " active=" << ((map.hasGISClimate() || m_ctx->config.paleoClimate.enabled) ? 1 : 0)
+                  << " legacySourceSamples=" << m_paleoSeries.size()
                   << std::endl;
         std::cout << "[TransportRegimes] enabled=" << (m_ctx->config.transportRegimes.enabled ? 1 : 0)
                   << " exploration=" << (m_ctx->config.exploration.enabled ? 1 : 0)
@@ -661,7 +662,7 @@ void SettlementSystem::ensureInitialized(int year, const Map& map, const std::ve
     m_densityPriorLoaded = false;
 
     ensureDensityPriorLoaded();
-    ensurePaleoSeriesLoaded();
+    if (!map.hasGISClimate()) ensurePaleoSeriesLoaded();
     initializeNodesFromFieldPopulation(year, map, countries);
     m_initialized = true;
 }
@@ -1351,7 +1352,9 @@ void SettlementSystem::updateClimateRegimesAndFertility(int year, const Map& map
     const auto& corridor = map.getFieldCorridorWeight();
     const auto& owner = map.getFieldOwnerId();
 
-    const PaleoYearForcing forcing = evaluatePaleoForcing(year);
+    // GIS fields already contain reconstructed historical climate; applying the
+    // old synthetic global paleoclimate shift again would double-count it.
+    const PaleoYearForcing forcing = map.hasGISClimate() ? PaleoYearForcing{} : evaluatePaleoForcing(year);
     const double tempInfluence = std::max(0.0, m_ctx->config.paleoClimate.tempInfluence);
     const double precipInfluence = std::max(0.0, m_ctx->config.paleoClimate.precipInfluence);
     const double monsoonScale = std::max(0.0, m_ctx->config.paleoClimate.monsoonVarianceScale);

@@ -20,6 +20,9 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <filesystem>
+#include <stdexcept>
+#include <cstring>
 
 namespace {
 bool isColorNear(const sf::Color& pixel, const sf::Color& target, int tolerance = 0) {
@@ -411,6 +414,7 @@ Map::Map(const sf::Image& baseImage,
         {sf::Color(127, 0, 55), Resource::Type::HORSES}
     };
 
+        loadGISLayers();
 	    initializeResourceGrid();
 		    rebuildCellFoodCache();
             rebuildCellOreCache();
@@ -423,6 +427,73 @@ Map::Map(const sf::Image& baseImage,
         m_plagueInterval = 4; // Active plague duration in years; recalculated at startPlague.
         m_nextPlagueYear = m_ctx->config.world.startYear + 80; // Earliest year a stochastic outbreak can trigger.
 				}
+
+void Map::loadGISLayers() {
+    // Legacy worlds remain supported; the marker opts into the complete GIS pack.
+    if (!std::filesystem::exists("assets/images/manifest.json")) return;
+    auto load = [&](sf::Image& image, const char* name) {
+        const std::string path = std::string("assets/images/") + name;
+        if (!image.loadFromFile(path) || image.getSize() != m_baseImage.getSize())
+            throw std::runtime_error("Missing or mismatched GIS layer: " + path);
+    };
+    load(m_soilImage, "soil.png");
+    load(m_ironImage, "iron.png");
+    load(m_goldImage, "gold.png");
+    load(m_saltImage, "salt.png");
+    std::ifstream input("assets/images/climate.bin", std::ios::binary);
+    char magic[8]{};
+    std::uint32_t w=0, h=0, count=0;
+    input.read(magic, 8);
+    input.read(reinterpret_cast<char*>(&w), 4);
+    input.read(reinterpret_cast<char*>(&h), 4);
+    input.read(reinterpret_cast<char*>(&count), 4);
+    if (!input || std::memcmp(magic,"WSCLIM01",8) != 0 ||
+        w != m_baseImage.getSize().x / kFieldCellSize ||
+        h != m_baseImage.getSize().y / kFieldCellSize || count < 1 || count > 256)
+        throw std::runtime_error("Invalid GIS climate header or map dimensions");
+    const size_t n = static_cast<size_t>(w) * h;
+    std::vector<GISClimateFrame> frames(count);
+    for (size_t i=0; i<frames.size(); ++i) {
+        auto& frame=frames[i];
+        std::int32_t year=0;
+        input.read(reinterpret_cast<char*>(&year),4);
+        frame.year=year;
+        if (i && year <= frames[i-1].year) throw std::runtime_error("Unsorted GIS climate years");
+        frame.temperatureC.resize(n); frame.precipitationMm.resize(n);
+        input.read(reinterpret_cast<char*>(frame.temperatureC.data()),static_cast<std::streamsize>(n*sizeof(float)));
+        input.read(reinterpret_cast<char*>(frame.precipitationMm.data()),static_cast<std::streamsize>(n*sizeof(float)));
+        if (!input) throw std::runtime_error("Truncated GIS climate file");
+        for (size_t j=0;j<n;++j) {
+            const float t=frame.temperatureC[j], p=frame.precipitationMm[j];
+            if (!std::isfinite(t) || !std::isfinite(p) ||
+                (t != -9999.f && (t < -100.f || t > 70.f)) ||
+                (p != -9999.f && (p < 0.f || p > 50000.f)))
+                throw std::runtime_error("Invalid GIS climate values");
+        }
+    }
+    if (input.peek() != std::char_traits<char>::eof()) throw std::runtime_error("Unexpected trailing GIS climate data");
+    m_gisClimateW=w; m_gisClimateH=h; m_gisClimate=std::move(frames);
+    std::cout << "[GIS] WGS84 world " << m_baseImage.getSize().x << "x" << m_baseImage.getSize().y
+              << "; soils, independent minerals, " << count << " climate snapshots loaded.\n";
+}
+
+bool Map::sampleGISClimate(int x, int y, int width, int height, int year, float& temperature, float& precipitation) const {
+    if (m_gisClimate.empty() || width <= 0 || height <= 0) return false;
+    const unsigned int cx=std::min(m_gisClimateW-1,static_cast<unsigned int>(std::max(0,x))*m_gisClimateW/static_cast<unsigned int>(width));
+    const unsigned int cy=std::min(m_gisClimateH-1,static_cast<unsigned int>(std::max(0,y))*m_gisClimateH/static_cast<unsigned int>(height));
+    const size_t index=static_cast<size_t>(cy)*m_gisClimateW+cx;
+    size_t hi=0;
+    while (hi+1<m_gisClimate.size() && m_gisClimate[hi].year<year) ++hi;
+    const size_t lo=hi>0?hi-1:0;
+    const auto& a=m_gisClimate[lo]; const auto& b=m_gisClimate[hi];
+    if (a.temperatureC[index]==-9999.f || b.temperatureC[index]==-9999.f ||
+        a.precipitationMm[index]==-9999.f || b.precipitationMm[index]==-9999.f) return false;
+    const float f=lo==hi?0.f:std::clamp(static_cast<float>(year-a.year)/static_cast<float>(b.year-a.year),0.f,1.f);
+    temperature=a.temperatureC[index]+f*(b.temperatureC[index]-a.temperatureC[index]);
+    const float mm=a.precipitationMm[index]+f*(b.precipitationMm[index]-a.precipitationMm[index]);
+    precipitation=mm/(mm+600.f); // annual mm -> existing bounded moisture contract
+    return true;
+}
 
 sf::Color Map::sampleImageAtGridCell(const sf::Image& image, int gridX, int gridY) const {
     const sf::Vector2u srcSize = image.getSize();
@@ -492,10 +563,17 @@ void Map::initializeResourceGrid() {
                 const double subtropicalDry = std::exp(-std::pow((lat01 - 0.30) / 0.12, 2.0));
                 const double polarPenalty = std::pow(lat01, 1.45);
                 const double continentalWave = 0.5 + 0.5 * std::sin((x01 * 6.283185307179586) + (lat01 * 4.5));
-                const double humidity = clamp01d(0.18 + 0.86 * equatorialWet + 0.24 * continentalWave - 0.52 * subtropicalDry - 0.36 * polarPenalty);
+                double humidity = clamp01d(0.18 + 0.86 * equatorialWet + 0.24 * continentalWave - 0.52 * subtropicalDry - 0.36 * polarPenalty);
 
                 const double coastBoost = coastalAdj ? std::max(1.0, m_ctx->config.food.coastalBonus) : 1.0;
-                const double thermal = std::max(0.10, 1.22 - 1.30 * std::pow(lat01, 1.35));
+                double thermal = std::max(0.10, 1.22 - 1.30 * std::pow(lat01, 1.35));
+                float geoTemp=0.f, geoPrecip=0.f;
+                if (sampleGISClimate(static_cast<int>(x),y,mapW,mapH,m_ctx->config.world.startYear,geoTemp,geoPrecip)) {
+                    humidity=geoPrecip;
+                    thermal=std::clamp((static_cast<double>(geoTemp)+10.0)/35.0,0.10,1.22);
+                }
+                const sf::Color soil=sampleImageAtGridCell(m_soilImage,static_cast<int>(x),y);
+                const double soilSuitability=m_soilImage.getSize().x>0 && soil.a>0 ? 0.5+0.75*(soil.b/255.0) : 1.0;
                 const double foragingPot = std::max(2.0, m_ctx->config.food.baseForaging *
                                                          (0.22 + 1.45 * humidity) *
                                                          (0.30 + 0.90 * thermal) *
@@ -503,7 +581,7 @@ void Map::initializeResourceGrid() {
                 const double farmingPot = std::max(2.0, m_ctx->config.food.baseFarming *
                                                         (0.12 + 1.60 * humidity) *
                                                         std::max(0.10, 0.18 + 1.05 * thermal) *
-                                                        coastBoost);
+                                                        coastBoost * soilSuitability);
                 foodAmount = foragingPot + 0.40 * farmingPot;
                 
                 sf::Vector2u pixelPos(static_cast<unsigned int>(x * m_gridCellSize), static_cast<unsigned int>(y * m_gridCellSize));
@@ -537,6 +615,14 @@ void Map::initializeResourceGrid() {
                     m_resourceGrid[y][x][Resource::Type::CLAY] += clayAmount;
                     if (clayAmount > 0.0) {
                         clayCells++;
+                    }
+                }
+
+                if (m_soilImage.getSize().x>0 && soil.a>0) {
+                    const double clayFraction=soil.r/255.0;
+                    // Clay-rich soils are a construction potential proxy, not ore reserves.
+                    if (clayFraction>=0.20) {
+                        m_resourceGrid[y][x][Resource::Type::CLAY] += clayFraction * std::max(0.01,m_ctx->config.food.clayMax);
                     }
                 }
 
@@ -589,6 +675,14 @@ void Map::initializeResourceGrid() {
                 if (addLayerDeposit(coalPixelColor, sf::Color(53, 0, 62), 4, Resource::Type::COAL,
                                     0.2, 2.2, 2.0, 7.0, 0x434F414C4C415952ull)) {
                     coalCells++;
+                }
+                if (m_ironImage.getSize().x>0) {
+                    addLayerDeposit(m_ironImage.getPixel(pixelPos.x,pixelPos.y),sf::Color(0,0,0),0,Resource::Type::IRON,
+                                    0.2,2.0,2.0,6.0,0x49524F4Eull);
+                    addLayerDeposit(m_goldImage.getPixel(pixelPos.x,pixelPos.y),sf::Color(242,227,21),0,Resource::Type::GOLD,
+                                    0.2,2.0,2.0,6.0,0x474F4C44ull);
+                    addLayerDeposit(m_saltImage.getPixel(pixelPos.x,pixelPos.y),sf::Color(178,0,255),0,Resource::Type::SALT,
+                                    0.2,2.0,2.0,6.0,0x53414C54ull);
                 }
             }
         }
@@ -1021,6 +1115,11 @@ void Map::initializeClimateBaseline() {
             const float sh = shadow[idx];
             const float prec = clamp01f(static_cast<float>(basePrec) * (0.55f + 0.45f * sh) + coastalBoost);
             m_fieldPrecipMean[idx] = prec;
+            float geoTemp=0.f,geoPrecip=0.f;
+            if (sampleGISClimate(fx,fy,W,H,m_ctx->config.world.startYear,geoTemp,geoPrecip)) {
+                m_fieldTempMean[idx]=geoTemp;
+                m_fieldPrecipMean[idx]=geoPrecip;
+            }
 
             // Biome classification (0..N).
             constexpr uint8_t Ice = 0;
@@ -1187,8 +1286,20 @@ void Map::tickWeather(int year, int dtYears) {
             m_fieldTempAnom[idx] = tA;
             m_fieldPrecipAnom[idx] = pA;
 
-            const float temp = m_fieldTempMean[idx] + tA + paleoTempOffset;
-            const float prec = clamp01f(m_fieldPrecipMean[idx] + pA + paleoPrecipOffset);
+            float geoTemp=0.f,geoPrecip=0.f;
+            const bool hasGIS=sampleGISClimate(fx,fy,W,H,year,geoTemp,geoPrecip);
+            if (hasGIS) {
+                m_fieldTempMean[idx]=geoTemp;
+                m_fieldPrecipMean[idx]=geoPrecip;
+                // Keep biome-dependent yields consistent as the reconstructed climate changes.
+                m_fieldBiome[idx]=geoTemp < -6.f ? 0 : geoTemp < 2.f ? 1 :
+                    geoTemp < 8.f ? (geoPrecip>.35f?2:4) :
+                    geoPrecip < (geoTemp>=24.f?.18f:.16f) ? 5 :
+                    geoTemp < 18.f ? (geoPrecip<.32f?4:3) :
+                    geoTemp < 24.f ? (geoPrecip<.40f?6:3) : (geoPrecip<.45f?6:7);
+            }
+            const float temp = hasGIS ? geoTemp+tA : m_fieldTempMean[idx] + tA + paleoTempOffset;
+            const float prec = clamp01f(hasGIS ? geoPrecip+pA : m_fieldPrecipMean[idx] + pA + paleoPrecipOffset);
             const float b = biomeBaseYield(m_fieldBiome[idx]);
             const float y = b * tempResponse(temp) * precipResponse(prec);
             m_fieldFoodYieldMult[idx] = std::max(0.05f, std::min(1.80f, y));

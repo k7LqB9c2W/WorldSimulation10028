@@ -688,3 +688,14 @@ Notes for next iteration cycle:
 ### Rationale
 - Product decision: make the newly implemented settlement research stack active by default.
 - Backward compatibility remains available by setting `[settlements].enabled = false` in runtime config.
+
+
+## Entry: 2026-09-19 (GIS world replacement)
+
+- Replaced the painted 1920x1080 world with a geographically registered 1920x960 WGS84 world: Natural Earth II display, Natural Earth land/natural lakes, ETOPO elevation, HydroRIVERS, MRDS + WoCQI minerals, SoilGrids clay/pH, and six CHELSA-TraCE21k climate snapshots.
+- Regenerated all 21 scenario spawn regions on the new grid; retained population-share settings. Kept separate mineral layers so deposits can overlap.
+- Explicit model conversions: elevation 0..9000 m -> 0..1; annual rainfall mm -> mm/(mm+600); soil clay/pH -> bounded agricultural suitability; river corridors >=10 m3/s, visible major rivers >=1000 m3/s. Kept existing seeded deposit-amount formulas.
+- GIS climate replaces procedural baseline where covered, updates biome/yield fields, and avoids adding the old global synthetic paleo forcing twice. Horse habitat remains a documented scenario approximation.
+- This changes geographic input conditions and food/resource distributions; it is not a completed historical outcome calibration. Long-run population/technology baselines need reassessment separately.
+- Source details, reproducible preparation, limitations, and validation procedure: Research/GIS_WORLD.md.
+- Validation: release build passed; GUI startup/render/spawn smoke tests passed from unrelated working directories; 50-year seed-42 run and 5-year ice-age run passed invariants; truncated climate data was rejected with a controlled diagnostic.

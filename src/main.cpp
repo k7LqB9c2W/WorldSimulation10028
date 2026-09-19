@@ -36,6 +36,7 @@
 #include "simulation_context.h"
 #include "simulation_runner.h"
 #include "settlement_system.h"
+#include "runtime_paths.h"
 
 // 🚨 CRASH DETECTION SYSTEM
 void crashHandler(int signal) {
@@ -322,25 +323,32 @@ int main(int argc, char** argv) {
     std::cout << "   Press D during gameplay to enable debug mode for more info" << std::endl;
     
     try {
+        locateRuntimeAssets(argc>0?argv[0]:nullptr);
+        bool smokeTest=false;
+        for (int i=1;i<argc;++i) if (std::string(argv[i])=="--smoke-test") smokeTest=true;
         std::cout << "🚀 Starting World Simulation..." << std::endl;
         
         const std::string windowTitle = "Country Simulator";
         sf::VideoMode fullscreenVideoMode(1920, 1080);
-        sf::VideoMode windowedVideoMode(1280, 720);
-        bool isFullscreen = true;
+        sf::VideoMode windowedVideoMode(smokeTest?1920:1280, smokeTest?1080:720);
+        bool isFullscreen = !smokeTest;
 
         if (std::find(sf::VideoMode::getFullscreenModes().begin(), sf::VideoMode::getFullscreenModes().end(), fullscreenVideoMode) == sf::VideoMode::getFullscreenModes().end()) {
-            std::cerr << "Error: 1920x1080 fullscreen mode not available." << std::endl;
-            return -1;
+            std::cout << "1920x1080 fullscreen unavailable; using a window.\n";
+            isFullscreen = false;
         }
 
-	        sf::RenderWindow window(fullscreenVideoMode, windowTitle, sf::Style::Fullscreen);
+	        sf::RenderWindow window(isFullscreen?fullscreenVideoMode:windowedVideoMode, windowTitle,
+                                    isFullscreen?sf::Style::Fullscreen:sf::Style::Default);
+        if (!window.isOpen()) throw std::runtime_error("Could not create the game window");
+        if (smokeTest) window.setVisible(false);
 
 	    // Performance optimization: Limit frame rate to reduce CPU usage
 	    window.setFramerateLimit(60);
 	    window.setVerticalSyncEnabled(false); // Disable vsync for better performance
 
 	    ImGui::SFML::Init(window);
+        if (smokeTest) ImGui::GetIO().IniFilename = nullptr; // Do not change user UI preferences during validation.
 	    struct ImGuiGuard {
 	        ~ImGuiGuard() { ImGui::SFML::Shutdown(); }
 	    } imguiGuard;
@@ -855,6 +863,7 @@ int main(int argc, char** argv) {
         };
 
 		    sf::Clock imguiDeltaClock;
+        int smokeFrames=0;
 
 	        while (window.isOpen()) {
 		        frameClock.restart(); // Start frame timing
@@ -3004,6 +3013,26 @@ int main(int argc, char** argv) {
 		            renderer.render(countries, map, news, technologyManager, cultureManager, tradeManager, settlementSystem, selectedCountry, showCountryInfo, viewMode);
 
 		            renderedFrame = true;
+                    if (smokeTest) {
+                        ++smokeFrames;
+                        if (smokeFrames==2) {
+                            map.initializeCountries(countries,startupNumCountries,&technologyManager);
+                            if (countries.empty()) throw std::runtime_error("Smoke test: no countries spawned");
+                            economy.onTerritoryChanged(map);
+                            economy.onStaticResourcesChanged(map);
+                            simulationStartYearPromptMode=false;
+                            yearClock.restart();
+                        }
+                        if (smokeFrames>=6) {
+                            sf::Texture capture;
+                            if (!capture.create(window.getSize().x,window.getSize().y)) throw std::runtime_error("Smoke test capture failed");
+                            capture.update(window);
+                            std::filesystem::create_directories("out/gis_validation");
+                            if (!capture.copyToImage().saveToFile("out/gis_validation/startup.png")) throw std::runtime_error("Smoke test screenshot failed");
+                            std::cout << "[SMOKE] PASS: assets loaded, " << countries.size() << " countries spawned, six frames rendered.\n";
+                            window.close();
+                        }
+                    }
 		            renderingNeedsUpdate = false;
 		        }
 

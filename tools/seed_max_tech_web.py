@@ -119,7 +119,11 @@ def _create_run(cfg: core.SweepConfig, seeds: list[int]) -> WebRun:
                 "state": "queued",
                 "current_year": "",
                 "max_total": "",
+                "max_frontier_order": "",
+                "max_frontier_tech_id": "",
+                "max_frontier_culture": "",
                 "max_tech_id": "",
+                "max_tech_culture": "",
                 "elapsed_sec": "",
                 "note": "",
             }
@@ -193,7 +197,11 @@ def _drain_run_events(run: WebRun) -> bool:
                         "state": "queued",
                         "current_year": "",
                         "max_total": "",
+                        "max_frontier_order": "",
+                        "max_frontier_tech_id": "",
+                        "max_frontier_culture": "",
                         "max_tech_id": "",
+                        "max_tech_culture": "",
                         "elapsed_sec": "",
                         "note": "",
                     },
@@ -204,8 +212,16 @@ def _drain_run_events(run: WebRun) -> bool:
                     row["current_year"] = event.get("current_year")
                 if event.get("max_total_unlocked_techs") is not None:
                     row["max_total"] = event.get("max_total_unlocked_techs")
+                if event.get("max_frontier_order") is not None:
+                    row["max_frontier_order"] = event.get("max_frontier_order")
+                if event.get("max_frontier_tech_id") is not None:
+                    row["max_frontier_tech_id"] = event.get("max_frontier_tech_id")
+                if event.get("max_frontier_culture") is not None:
+                    row["max_frontier_culture"] = event.get("max_frontier_culture")
                 if event.get("max_tech_id") is not None:
                     row["max_tech_id"] = event.get("max_tech_id")
+                if event.get("max_tech_culture") is not None:
+                    row["max_tech_culture"] = event.get("max_tech_culture")
                 if event.get("elapsed_sec") is not None:
                     row["elapsed_sec"] = f"{float(event.get('elapsed_sec', 0.0)):.2f}"
                 if event.get("note") is not None:
@@ -485,19 +501,35 @@ def main() -> None:
 
     st.subheader("Per-Run Progress")
     # Static table is more Safari/mobile-friendly than interactive dataframe grid.
-    st.table(rows)
+    table_rows = [
+        {
+            "Run Seed": row.get("seed", ""),
+            "Status": row.get("state", ""),
+            "Current Year": row.get("current_year", ""),
+            "Max Unlocked Tech Count": row.get("max_total", ""),
+            "Top Tech Frontier Order": row.get("max_frontier_order", ""),
+            "Top Tech ID (frontier)": row.get("max_frontier_tech_id", ""),
+            "Top Culture (frontier)": row.get("max_frontier_culture", ""),
+            "Elapsed (s)": row.get("elapsed_sec", ""),
+            "Note": row.get("note", ""),
+        }
+        for row in rows
+    ]
+    st.table(table_rows)
 
     if summary_obj is not None:
-        detail = ((summary_obj.get("best_by_tech_id") or {}).get("detail") or {})
+        best_frontier = summary_obj.get("best_by_frontier") or summary_obj.get("best_by_tech_id") or {}
+        detail = best_frontier.get("detail") or {}
         country = detail.get("country_name", "")
         culture = detail.get("country_culture", "")
         tech_name = detail.get("tech_name", "")
         tech_id = detail.get("tech_id", "")
+        tech_order = detail.get("tech_order", "")
         year = detail.get("year", "")
         st.markdown(
-            f"**Most Advanced Tech Country:** {country}  \n"
+            f"**Most Advanced Frontier Country:** {country}  \n"
             f"**Culture:** {culture}  \n"
-            f"**Tech:** {tech_name} (id {tech_id}) at year {year}"
+            f"**Tech:** {tech_name} (id {tech_id}, order {tech_order}) at year {year}"
         )
 
     log_col, summary_col = st.columns(2)

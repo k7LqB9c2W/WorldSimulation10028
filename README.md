@@ -171,14 +171,16 @@ Current automation script set includes this evaluator and the baseline JSON file
 - `tools/baseline_score.json`
 - Stores baseline aggregate score used by evaluation regression checks.
 
-## Map Scale and Territory Cap Notes (2026-02-11)
+## GIS World and Map Scale (2026-09-19)
 
-Important: this world map is rendered on a `1920 x 1080` grid and is not equal-area. It behaves like a Mercator-like display for gameplay, so there is no single globally-correct square-mile size per pixel.
+The world uses a `1920 x 960` WGS84 / EPSG:4326 latitude-longitude grid, displayed with preserved proportions inside the game window (including 1920 x 1080). It is not equal-area.
 
-- Total pixel count: `2,073,600`.
-- If you force a whole-Earth average (`~196.94M sq mi / 2,073,600`), you get about `95 sq mi per pixel` as a rough global mean.
-- If you use equatorial angular width (`360 / 1920 = 0.1875 deg` longitude per pixel), one pixel is about `12.97 miles` wide at the equator, giving an equatorial cell area on the order of `~150 sq mi` (projection-dependent vertically).
-- Real ground area per pixel varies strongly with latitude; high-latitude land is visually inflated in Mercator-like maps.
+- Total pixel count: `1,843,200`; angular cell size: `0.1875 degrees` in both directions.
+- Visible map: Natural Earth II; geography/resources: Natural Earth land/lakes, NOAA ETOPO, HydroRIVERS, USGS MRDS + WoCQI, SoilGrids and CHELSA-TraCE21k.
+- Source URLs, licensing, preparation commands and scientific/modeling limits: [GIS world documentation](Research/GIS_WORLD.md).
+- Assets are prepared offline and validated as one aligned pack. No network access is required to play.
+- Build with `build.bat release`, then launch `out/cmake/release/bin/WorldSimulation.exe`. The packaged executable includes assets, config and runtime DLLs. `--smoke-test` verifies GUI startup, spawning and rendering, then exits.
+- Real ground area per pixel varies with latitude. Existing territory/distance formulas remain gameplay approximations, not geodesic area accounting.
 
 Current territory scaling model (code):
 - Expansion no longer uses a hard territory stop.

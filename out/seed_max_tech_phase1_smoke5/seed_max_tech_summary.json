@@ -1,0 +1,65 @@
+{
+  "elapsed_sec": 146.70792388916016,
+  "total_seeds": 5,
+  "completed_seeds": 5,
+  "ok_runs": 5,
+  "failed_runs": 0,
+  "canceled_runs": 0,
+  "stopped_early": false,
+  "run_settings": {
+    "start_year": -5000,
+    "end_year": -4500,
+    "checkpoint_every_years": 500,
+    "use_gpu": true
+  },
+  "metric_notes": {
+    "frontier_metric": "highest tech order (from src/technology.cpp); ties: total_unlocked_techs, year, tech_id",
+    "legacy_metric": "best_by_tech_id kept for backward compatibility only"
+  },
+  "best_by_unlocked_count": {
+    "seed": 197967528,
+    "max_total_unlocked_techs": 22,
+    "detail": {
+      "year": -5000,
+      "tech_id": 6,
+      "tech_order": 360,
+      "tech_name": "Calendar",
+      "country_index": "58",
+      "country_name": "North venseltarburg Tribe",
+      "country_culture": "Mediterranean Urban",
+      "event_type": "initial",
+      "total_unlocked_techs": 22
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_phase1_smoke5/seed_197967528"
+  },
+  "best_by_frontier": {
+    "seed": 197967528,
+    "detail": {
+      "year": -5000,
+      "tech_id": 10,
+      "tech_order": 400,
+      "tech_name": "Irrigation",
+      "country_index": "28",
+      "country_name": "New ashashad Tribe",
+      "country_culture": "Fertile Crescent",
+      "event_type": "initial",
+      "total_unlocked_techs": 21
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_phase1_smoke5/seed_197967528"
+  },
+  "best_by_tech_id": {
+    "seed": 197967528,
+    "detail": {
+      "year": -5000,
+      "tech_id": 119,
+      "tech_order": 185,
+      "tech_name": "Native Copper Working",
+      "country_index": "28",
+      "country_name": "New ashashad Tribe",
+      "country_culture": "Fertile Crescent",
+      "event_type": "initial",
+      "total_unlocked_techs": 21
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_phase1_smoke5/seed_197967528"
+  }
+}

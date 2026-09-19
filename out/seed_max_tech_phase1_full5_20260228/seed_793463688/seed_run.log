@@ -1,0 +1,268 @@
+🏪 Trade & Economic Exchange Framework initialized!
+[GeoLayer] map.png: 1920x1080
+[GeoLayer] landmask.png: 1920x1080
+[GeoLayer] heightmap.png: 1920x1080
+[GeoLayer] resource.png: 1920x1080
+[GeoLayer] spawn.png: 1920x1080
+[Landmask] Warning: encountered 1019313 sampled pixels outside accepted land/water colors; accepted land is RGB(250..255,250..255,250..255), water is RGB(0,0,0). Out-of-range colors are treated as water.
+[Landmask] Warning: RGB(1, 1, 1) sampled 765432 times.
+[Landmask] Warning: RGB(2, 2, 2) sampled 69458 times.
+[Landmask] Warning: RGB(3, 3, 3) sampled 21417 times.
+[Landmask] Warning: RGB(4, 4, 4) sampled 10606 times.
+[Landmask] Warning: RGB(5, 5, 5) sampled 5745 times.
+[Landmask] Warning: RGB(6, 6, 6) sampled 3442 times.
+[Landmask] Warning: RGB(7, 7, 7) sampled 2456 times.
+[Landmask] Warning: RGB(8, 8, 8) sampled 2024 times.
+[Landmask] Warning: ... 241 additional non-binary RGB values omitted.
+🚀 INITIALIZING RESOURCES (Optimized)...
+✅ RESOURCES INITIALIZED in 182 ms
+   Resource ingestion: coal=18269, copper=29020, tin=13953, clay=22000, riverland-cells=22000
+[SpawnInit] worldPopTarget=23543248 startYear=-5000
+[StartTech] Applied regional presets at startYear=-5000 countries=100
+  - south_asia: countries=14 techIds=1,2,3,4,6,20,115
+  - east_asia: countries=14 techIds=1,2,3,4,6,20,115
+  - west_asia: countries=11 techIds=1,2,3,4,6,10,20,115,119
+  - se_asia: countries=6 techIds=1,2,3,5,6,20
+  - cn_asia: countries=3 techIds=2,3,4,6
+  - nile_ne_africa: countries=2 techIds=1,2,3,6,10,20,115
+  - north_africa: countries=1 techIds=1,2,3,4,6,20,115
+  - west_africa: countries=2 techIds=1,3,4,6,20
+  - east_africa: countries=2 techIds=1,3,4,6,20
+  - cs_africa: countries=1 techIds=1,3,4,6
+  - se_europe: countries=2 techIds=1,2,3,4,6,20,115,119
+  - med_europe: countries=2 techIds=1,2,3,4,5,6,20,115
+  - central_europe: countries=2 techIds=1,2,3,4,6,20
+  - wnw_europe: countries=2 techIds=1,3,4,6,20
+  - north_europe: countries=1 techIds=3,4,6
+  - mesoamerica: countries=10 techIds=1,3,6,20
+  - andes: countries=7 techIds=1,3,4,6,20
+  - e_na: countries=7 techIds=3,4,6
+  - w_na: countries=8 techIds=3,4,6
+  - caribbean: countries=1 techIds=3,5,6
+  - oceania: countries=2 techIds=3,5,6
+[SpawnInit] Region summary
+  - south_asia targetShare=0.145 actualShare=0.145 targetPop=3413771 actualPop=3413771 countriesPlaced=14
+  - east_asia targetShare=0.145 actualShare=0.145515 targetPop=3413771 actualPop=3425895 countriesPlaced=14
+  - west_asia targetShare=0.11 actualShare=0.11 targetPop=2589757 actualPop=2589757 countriesPlaced=11
+  - se_asia targetShare=0.06 actualShare=0.06 targetPop=1412595 actualPop=1412595 countriesPlaced=6
+  - cn_asia targetShare=0.033 actualShare=0.033 targetPop=776927 actualPop=776927 countriesPlaced=3
+  - nile_ne_africa targetShare=0.02 actualShare=0.02 targetPop=470865 actualPop=470865 countriesPlaced=2
+  - north_africa targetShare=0.013 actualShare=0.0127425 targetPop=306062 actualPop=300000 countriesPlaced=1
+  - west_africa targetShare=0.016 actualShare=0.016 targetPop=376692 actualPop=376692 countriesPlaced=2
+  - east_africa targetShare=0.017 actualShare=0.017 targetPop=400235 actualPop=400235 countriesPlaced=2
+  - cs_africa targetShare=0.01 actualShare=0.01 targetPop=235433 actualPop=235433 countriesPlaced=1
+  - se_europe targetShare=0.02 actualShare=0.02 targetPop=470865 actualPop=470865 countriesPlaced=2
+  - med_europe targetShare=0.018 actualShare=0.018 targetPop=423779 actualPop=423779 countriesPlaced=2
+  - central_europe targetShare=0.02 actualShare=0.02 targetPop=470865 actualPop=470865 countriesPlaced=2
+  - wnw_europe targetShare=0.018 actualShare=0.018 targetPop=423779 actualPop=423779 countriesPlaced=2
+  - north_europe targetShare=0.008 actualShare=0.008 targetPop=188346 actualPop=188346 countriesPlaced=1
+  - mesoamerica targetShare=0.1 actualShare=0.1 targetPop=2354325 actualPop=2354325 countriesPlaced=10
+  - andes targetShare=0.065 actualShare=0.065 targetPop=1530311 actualPop=1530311 countriesPlaced=7
+  - e_na targetShare=0.07 actualShare=0.07 targetPop=1648027 actualPop=1648027 countriesPlaced=7
+  - w_na targetShare=0.078 actualShare=0.078 targetPop=1836373 actualPop=1836373 countriesPlaced=8
+  - caribbean targetShare=0.013 actualShare=0.0127425 targetPop=306062 actualPop=300000 countriesPlaced=1
+  - oceania targetShare=0.021 actualShare=0.021 targetPop=494408 actualPop=494408 countriesPlaced=2
+worldsim_cli seed=793463688 config=C:\WS\WorldSimulation10028\data\sim_config.toml hash=8097c0c2326f500d start=-5000 end=2025 gpu=0 ideologyLogs=0
+[PaleoClimate] enabled=1 loaded=1 source=synthetic samples=962 file='data/climate/paleo_monthly_forcing.csv'
+[ResearchGPU] requested=1 available=1 climate=1 disease=1 adoptJoin=1 edge=1
+[Settlements] startup nodes=263 edges=501 avgPackages=0.288973 avgInfected=0 avgFertility=0.669888 avgSalinity=0 avgKnowledge=0.197495 boostedEdges=86 mix(f,farm,past,fish,craft)=0.421,0.361,0.103,0.077,0.038
+[ResearchSettlement] pastoral=1 extraction=1 polityChoice=1 controlGraph=1 campaignLogistics=1 irrigation=1 pathRebuild=1
+[DensityInit] enabled=1 priorLoaded=0 priorWeight=0.000
+[PaleoClimate] active=1 sourceSamples=962
+[TransportRegimes] enabled=1 exploration=1
+[ResearchDiffusion] channels=1 knowledgeLoss=1 salinity=1
+🗡️💀 North lorkinromia Tribe COMPLETELY ANNIHILATES Kingdom of Old lorlinzen!
+   📊 Absorbed 444 people and 299 territory!
+🛣️ Great barofiene Tribe built roads to Kingdom of New ngolammaara (32 pixels)
+🛣️ New llaqsuyumarca Tribe built roads to Kingdom of New pachaya (110 pixels)
+🛣️ New llaqsuyumarca Tribe built roads to Kingdom of New suyurumkus (108 pixels)
+🛣️ New llaqsuyumarca Tribe built roads to Llaqqorimarca Tribe (48 pixels)
+🛣️ New llaqsuyumarca Tribe built roads to Empire of Great tupintina (84 pixels)
+🛣️ New llaqsuyumarca Tribe built roads to North ayaayapachyu Tribe (60 pixels)
+🛣️ Empire of Great llaqintiyu built roads to Rumsuyu Kingdom (36 pixels)
+🛣️ South ravishadesh Tribe built roads to North vivarnala Tribe (118 pixels)
+🛣️ South ravishadesh Tribe built roads to Great kanvara Kingdom (54 pixels)
+🛣️ Empire of Old lamtanchiara built roads to Old kaofiara Tribe (132 pixels)
+🛣️ Empire of North suyuqorillaqna built roads to North tupintikus Kingdom (80 pixels)
+🛣️ Great barofiene Tribe built roads to Empire of Old ngomaa (208 pixels)
+🛣️ Empire of North qoriqoritupa built roads to South rumkus Kingdom (110 pixels)
+🛣️ Great barofiene Tribe built roads to New maofitanara Tribe (292 pixels)
+🛣️ Great itzyucan Tribe built roads to Kingdom of New temchico (73 pixels)
+🛣️ Empire of Old lamtanchiara built roads to Kingdom of Great lamofikaara Kingdom (108 pixels)
+🛣️ Empire of Great tupintina built roads to Kingdom of South ayaintiyu (94 pixels)
+🛣️ Great barofiene Tribe built roads to Great makatanu Kingdom (264 pixels)
+🛣️ Great barofiene Tribe built roads to Seofichiu Kingdom (328 pixels)
+🛣️ Empire of Great tanlamene built roads to Empire of Old lamtanchiara (108 pixels)
+🛣️ New ventarselum Tribe built roads to Kingdom of South venromven (46 pixels)
+🛣️ New ventarselum Tribe built roads to South lentartar Tribe (47 pixels)
+🛣️ Great barofiene Tribe built roads to North zulamkau Kingdom (304 pixels)
+🛣️ Empire of North ayakusna built roads to South intisuyuaya Kingdom (83 pixels)
+🛣️ New ventarselum Tribe built roads to Selkarkarland Tribe (29 pixels)
+🛣️ Great barofiene Tribe built roads to New tanmakaene Kingdom (360 pixels)
+🛣️ Kingdom of North ngomaofia Kingdom built roads to Empire of New kamaara (108 pixels)
+🛣️ Empire of New tankaa built roads to Zungo Tribe (228 pixels)
+🛣️ Zungo Tribe built roads to Empire of Old kalam (12 pixels)
+🛣️ Empire of Great selbel built roads to Kingdom of South tarromalburg (132 pixels)
+🛣️ Empire of Old kalam built roads to South zuofiara Kingdom (216 pixels)
+🛣️ Great barofiene Tribe built roads to Empire of New tankaa (631 pixels)
+🛣️ Empire of New tankaa built roads to North bartankaene Kingdom (252 pixels)
+🛣️ Empire of South lamchitan built roads to South zuofiara Kingdom (283 pixels)
+🛣️ Empire of Great selbel built roads to Kingdom of New albelbelburg (124 pixels)
+🛣️ Great barofiene Tribe built roads to Empire of Great ofikaofi (208 pixels)
+🛣️ Kingdom of Old barkakaene Kingdom built roads to Old kasemaa Kingdom (240 pixels)
+🛣️ Old tanlamlamene Tribe built roads to Kingdom of Old tanofiu Kingdom (462 pixels)
+🛣️ Great barofiene Tribe built roads to Kingdom of New setanzua (32 pixels)
+🛣️ Great lamtanu Tribe built roads to New maofitanara Tribe (120 pixels)
+🛣️ Great makatanu Kingdom built roads to Empire of Great ofikaofi (120 pixels)
+🛣️ Empire of Great selbel built roads to Kardorselburg Tribe (155 pixels)
+🛣️ Empire of Ofilamu built roads to Great lamtanu Tribe (328 pixels)
+🛣️ Great makatanu Kingdom built roads to New maofitanara Tribe (84 pixels)
+🛣️ Great lamtanu Tribe built roads to Great makatanu Kingdom (60 pixels)
+🛣️ Great barofiene Tribe built roads to North zulamkau Kingdom (304 pixels)
+🛣️ Empire of South tartarburg built roads to North romselbelland Tribe (60 pixels)
+🛣️ Great barofiene Tribe built roads to Great makatanu Kingdom (264 pixels)
+🛣️ Great lamtanu Tribe built roads to New tanmakaene Kingdom (108 pixels)
+🛣️ Great barofiene Tribe built roads to Seofichiu Kingdom (328 pixels)
+🛣️ Great makatanu Kingdom built roads to New tanmakaene Kingdom (96 pixels)
+🛣️ Great lamtanu Tribe built roads to South zuofiara Kingdom (192 pixels)
+🛣️ Empire of South tartarburg built roads to Old sellenvenum Kingdom (43 pixels)
+🛣️ Empire of South tartarburg built roads to North romdornorland Kingdom (75 pixels)
+🛣️ Great barofiene Tribe built roads to Great lamtanu Tribe (318 pixels)
+🛣️ Great barofiene Tribe built roads to Ofimaa Kingdom (180 pixels)
+🛣️ Great makatanu Kingdom built roads to New barkalamene Kingdom (48 pixels)
+🛣️ Kingdom of Great chitemnahtan built roads to Kingdom of Mixitzpan (36 pixels)
+🛣️ Great lamtanu Tribe built roads to New barkalamene Kingdom (84 pixels)
+🛣️ Empire of Great ngotan built roads to Ofimaa Kingdom (84 pixels)
+🛣️ Empire of Great barzutanu built roads to Great tankaofiara Kingdom (307 pixels)
+🛣️ Empire of South tartarburg built roads to Old karbelum Kingdom (43 pixels)
+🛣️ Great lamtanu Tribe built roads to Great ngotana Kingdom (227 pixels)
+🛣️ Kingdom of Great chitemnahtan built roads to Kingdom of New nananaland (72 pixels)
+🛣️ South zuofiara Kingdom built roads to New maofitanara Tribe (149 pixels)
+🛣️ Empire of South tartarburg built roads to North tarlenland Kingdom (46 pixels)
+🛣️ South zuofiara Kingdom built roads to North bartankaene Kingdom (132 pixels)
+🛣️ Kingdom of Great chitemnahtan built roads to Kingdom of Old marteria (94 pixels)
+🛣️ New barkalamene Kingdom built roads to New maofitanara Tribe (60 pixels)
+🛣️ South ravishadesh Tribe built roads to Empire of Old surshavara (72 pixels)
+🛣️ South zuofiara Kingdom built roads to Old kasemaa Kingdom (72 pixels)
+🛣️ Chitanene Tribe built roads to South tankau Kingdom (209 pixels)
+🛣️ Empire of South tartarburg built roads to Kingdom of Great romlenbelia (205 pixels)
+🛣️ New barkalamene Kingdom built roads to Empire of Great chibarara (48 pixels)
+🛣️ Empire of North lamzulamara built roads to Old tantan Kingdom (312 pixels)
+🛣️ Empire of South tartarburg built roads to Kingdom of North nordordor (98 pixels)
+🛣️ Empire of Great chibarara built roads to New maofitanara Tribe (108 pixels)
+🛣️ Chitanene Tribe built roads to North bartankaene Kingdom (252 pixels)
+🛣️ Chitanene Tribe built roads to Kaofikaene Kingdom (132 pixels)
+🛣️ Kingdom of Great chitemnahtan built roads to Tervialand Kingdom (72 pixels)
+🛣️ Empire of Barkaa built roads to New ngoofiara Kingdom (226 pixels)
+🛣️ Kingdom of North ashararan built roads to Kingdom of South kalkalad (52 pixels)
+🛣️ South lentartar Tribe built roads to Kingdom of New albelbelburg (48 pixels)
+🛣️ Empire of Great ngotan built roads to North kabartanara Kingdom (72 pixels)
+🛣️ Kingdom of North ashararan built roads to Kingdom of Old kalsam (112 pixels)
+🛣️ South lentartar Tribe built roads to Selkarkarland Tribe (113 pixels)
+🛣️ Kingdom of Kalar built roads to New artamurad Tribe (72 pixels)
+🛣️ North ngosezuu Tribe built roads to Empire of New sesea (180 pixels)
+🛣️ North ngosezuu Tribe built roads to Seofichiu Kingdom (228 pixels)
+🛣️ Kingdom of North ashararan built roads to Kingdom of Great ashashsamum (80 pixels)
+🛣️ Ofimaa Kingdom built roads to Empire of New sesea (60 pixels)
+🛣️ New maofitanara Tribe built roads to Kaofikaene Kingdom (60 pixels)
+🛣️ Kingdom of New lenalum built roads to Kingdom of Old rombelnorburg (20 pixels)
+🛣️ New maofitanara Tribe built roads to North kabartanara Kingdom (108 pixels)
+🛣️ North ngosezuu Tribe built roads to Great tanofi Kingdom (156 pixels)
+🛣️ Kingdom of North ashararan built roads to Great ashninan Tribe (64 pixels)
+🛣️ New maofitanara Tribe built roads to Great tanofi Kingdom (36 pixels)
+🛣️ Ofimaa Kingdom built roads to North kabartanara Kingdom (36 pixels)
+🛣️ Kingdom of New lenalum built roads to Kingdom of South tarromalburg (84 pixels)
+🛣️ North romselbelland Tribe built roads to Empire of North sellen (37 pixels)
+🛣️ Kingdom of New lenalum built roads to Kingdom of Great tarkarvenum (89 pixels)
+🛣️ North tupsuyuinti Kingdom built roads to Kingdom of South ayaintiyu (214 pixels)
+🛣️ Kingdom of North ashararan built roads to Kingdom of North kalbarkal (64 pixels)
+🛣️ Great barofiene Tribe built roads to New barzuene Kingdom (180 pixels)
+🛣️ Kingdom of New lenalum built roads to Kingdom of North nordordor (94 pixels)
+🛣️ North tupsuyuinti Kingdom built roads to Kingdom of North ayaqorina (108 pixels)
+🛣️ South qinqinhan built roads to Empire of Great minhan (74 pixels)
+🛣️ New maofitanara Tribe built roads to North ofibarara Kingdom (36 pixels)
+🛣️ Ofimaa Kingdom built roads to New barzuene Kingdom (40 pixels)
+🛣️ Kingdom of North ashararan built roads to New ninsaman Tribe (60 pixels)
+🛣️ North tupsuyuinti Kingdom built roads to Great sumllaqrumyu Kingdom (98 pixels)
+🛣️ South qinqinhan built roads to Kingdom of North linhanling (70 pixels)
+🛣️ New barofiara Tribe built roads to South ofibar Kingdom (229 pixels)
+🛣️ North tupsuyuinti Kingdom built roads to South kussumsuyumarca Kingdom (72 pixels)
+🛣️ North tupsuyuinti Kingdom built roads to Old kusllaqyu Kingdom (36 pixels)
+🛣️ South qinqinhan built roads to Great liqin Tribe (78 pixels)
+🛣️ New barofiara Tribe built roads to Old semau Kingdom (192 pixels)
+🛣️ Great barofiene Tribe built roads to Old chizuu Kingdom (280 pixels)
+🛣️ South qinqinhan built roads to Kingdom of Old renqinmin (110 pixels)
+🛣️ New maofitanara Tribe built roads to North tanbara Kingdom (24 pixels)
+🛣️ Kingdom of North kalbarkal built roads to Kingdom of Old kalsam (48 pixels)
+🛣️ North kabartanara Kingdom built roads to Empire of New sesea (48 pixels)
+🛣️ Kingdom of North kalbarkal built roads to Kingdom of Great ashashsamum (32 pixels)
+🛣️ Kingdom of North linhanling built roads to Kingdom of Old taiqinmin (76 pixels)
+🛣️ Old weilishan Tribe built roads to Kingdom of Great minlixia (46 pixels)
+🛣️ South qinqinhan built roads to South lihanxialing Kingdom (58 pixels)
+🛣️ Kingdom of North kalbarkal built roads to Kingdom of Great ashkalad (12 pixels)
+🛣️ Kingdom of North kalbarkal built roads to New ninsaman Tribe (78 pixels)
+🛣️ Kingdom of North hanminzhou built roads to Empire of Zhominzhou (56 pixels)
+🛣️ North kabartanara Kingdom built roads to Kaofikaene Kingdom (96 pixels)
+🛣️ Empire of Terrangarland built roads to Kingdom of Kinviaia (89 pixels)
+🛣️ North kabartanara Kingdom built roads to New barzuene Kingdom (52 pixels)
+🛣️ South mabartana Tribe built roads to New ngozuene Kingdom (136 pixels)
+🛣️ Kingdom of North hanminzhou built roads to South lihanxialing Kingdom (40 pixels)
+🛣️ Empire of Terrangarland built roads to Kingdom of Old terromia (34 pixels)
+🛣️ Empire of Terrangarland built roads to Empire of New linsollinland (72 pixels)
+🛣️ North kabartanara Kingdom built roads to North ofibarara Kingdom (72 pixels)
+🛣️ North kabartanara Kingdom built roads to Old semau Kingdom (60 pixels)
+🛣️ South mabartana Tribe built roads to Old mazuofi Kingdom (162 pixels)
+🛣️ Empire of North lintaizho built roads to Empire of Great xiataiguo (229 pixels)
+🛣️ Old qinweishan Tribe built roads to Kingdom of North zhoqin (106 pixels)
+🛣️ Empire of Zhominzhou built roads to Kingdom of Old taiqinmin (48 pixels)
+🛣️ Old qinweishan Tribe built roads to Kingdom of North hanxiazhou (48 pixels)
+🛣️ Kingdom of Old kusqorisuyua built roads to Kingdom of New ayarum (106 pixels)
+🛣️ Old qinweishan Tribe built roads to Kingdom of Old taiqinshan (60 pixels)
+🛣️ South mabartana Tribe built roads to Empire of Old sezukaa (241 pixels)
+🛣️ Empire of Zhominzhou built roads to Empire of North xiaqinliguo (44 pixels)
+🛣️ Old qinweishan Tribe built roads to Empire of Weilililing (72 pixels)
+🛣️ Kingdom of Old kusqorisuyua built roads to Old intiayaqorina Kingdom (96 pixels)
+🛣️ Kingdom of Great alromtarum built roads to Kingdom of Old tardorum (66 pixels)
+🛣️ South mabartana Tribe built roads to Empire of Great sezu (120 pixels)
+🛣️ Kingdom of Great alromtarum built roads to Kingdom of Great tarkarvenum (126 pixels)
+🛣️ Empire of Zhominzhou built roads to Empire of Weilililing (96 pixels)
+🛣️ Kingdom of Old kusqorisuyua built roads to Kingdom of North suyusuyumarca (108 pixels)
+🛣️ Empire of North lintaizho built roads to Empire of North minqintai (229 pixels)
+🛣️ Great renxiashan Kingdom built roads to Empire of North lintaizho Kingdom (90 pixels)
+🛣️ North kabartanara Kingdom built roads to Ofizuara Kingdom (24 pixels)
+🛣️ Kingdom of Great alromtarum built roads to Empire of North sellen (85 pixels)
+🛣️ Empire of Zutana built roads to Ofizuara Kingdom (36 pixels)
+🛣️ Kingdom of Old kusqorisuyua built roads to Kingdom of Old sumtupllaqna (96 pixels)
+🛣️ Empire of South garbelgrad built roads to Empire of North dusromqui (134 pixels)
+🛣️ Kingdom of Old kusqorisuyua built roads to Great sumllaqrumyu Kingdom (86 pixels)
+🛣️ Empire of South garbelgrad built roads to Kingdom of New kinlinmar (32 pixels)
+🛣️ Empire of North xiaqinliguo built roads to Kingdom of North hanxiazhou (52 pixels)
+🛣️ Kingdom of South kalkalad built roads to Kingdom of Old kalsam (84 pixels)
+🛣️ Kingdom of South kalkalad built roads to Great ashninan Tribe (36 pixels)
+🛣️ Kingdom of Old lormarstan built roads to Kingdom of Great quigaria (84 pixels)
+🛣️ Empire of South garbelgrad built roads to Kingdom of Ransolgarstan (42 pixels)
+🛣️ Kingdom of Old taiqinmin built roads to Kingdom of North qinlinzholing (34 pixels)
+🛣️ Empire of New xiazholing built roads to Empire of Weilililing (52 pixels)
+🛣️ Kingdom of North nordordor built roads to Kingdom of Old rombelnorburg (68 pixels)
+🛣️ Empire of South garbelgrad built roads to Empire of South lorkindus (66 pixels)
+🛣️ Kingdom of Old lormarstan built roads to North quiranbel Kingdom (48 pixels)
+🛣️ Kingdom of North nordordor built roads to Kingdom of South tarromalburg (34 pixels)
+🛣️ Kingdom of Old lormarstan built roads to Kingdom of South zenromterstan (64 pixels)
+🛣️ Great barofiene Tribe built roads to Great ofilamtanene Kingdom (208 pixels)
+🛣️ Empire of South garbelgrad built roads to Old quiterquigrad Kingdom (30 pixels)
+🛣️ Chizuene Tribe built roads to Kingdom of South ngokaene (48 pixels)
+🛣️ Empire of North lintaizho Kingdom built roads to Hanhanzhou Kingdom (95 pixels)
+🛣️ Kingdom of Old taiqinmin built roads to Kingdom of New romrommarland (168 pixels)
+🛣️ North tantanvar Kingdom built roads to Republic of South drasura (60 pixels)
+🛣️ Hanhanzhou Kingdom built roads to Great renxiashan Kingdom (62 pixels)
+🛣️ Chizuene Tribe built roads to New tanbar Kingdom (30 pixels)
+🛣️ Empire of Great norlenkarum built roads to Great beldor Kingdom (290 pixels)
+🛣️ Great renxiashan Kingdom built roads to Empire of North lintaizho Kingdom (90 pixels)
+🛣️ North tantanvar Kingdom built roads to Republic of New nalvartandesh (64 pixels)
+🛣️ Kingdom of New ayarum built roads to Empire of Great suyuqorina (110 pixels)
+🛣️ Empire of Intitupruma built roads to North tupsuyuinti Kingdom (72 pixels)
+🛣️ North tantanvar Kingdom built roads to North ravia Kingdom (82 pixels)
+Wrote C:\WS\WorldSimulation10028\out\seed_max_tech_phase1_full5_20260228\seed_793463688\run_summary.json, C:\WS\WorldSimulation10028\out\seed_max_tech_phase1_full5_20260228\seed_793463688\timeseries.csv, C:\WS\WorldSimulation10028\out\seed_max_tech_phase1_full5_20260228\seed_793463688\run_meta.json, C:\WS\WorldSimulation10028\out\seed_max_tech_phase1_full5_20260228\seed_793463688\violations.json
+COMMAND:
+/mnt/c/WS/WorldSimulation10028/out/cmake/release/bin/worldsim_cli.exe --seed 793463688 --config C:\WS\WorldSimulation10028\data\sim_config.toml --startYear -5000 --endYear 2025 --checkpointEveryYears 50 --outDir C:\WS\WorldSimulation10028\out\seed_max_tech_phase1_full5_20260228\seed_793463688 --techUnlockLog C:\WS\WorldSimulation10028\out\seed_max_tech_phase1_full5_20260228\seed_793463688\tech_unlocks.csv --techUnlockLogIncludeInitial 1 --useGPU 0
+

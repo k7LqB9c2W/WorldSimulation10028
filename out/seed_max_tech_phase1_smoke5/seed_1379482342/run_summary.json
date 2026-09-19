@@ -1,0 +1,70 @@
+{
+  "seed": 1379482342,
+  "configPath": "C:\\WS\\WorldSimulation10028\\data\\sim_config.toml",
+  "configHash": "8097c0c2326f500d",
+  "startYear": -5000,
+  "endYear": -4500,
+  "stoppedOnTargetTech": false,
+  "stoppedOnTargetTechYear": null,
+  "worldStartYear": -5000,
+  "useGPU": true,
+  "stateDiagnostics": false,
+  "total_score": 0.0,
+  "gates": {
+    "metric_availability": true,
+    "canary_pass": false,
+    "backend_parity_pass": false,
+    "hardfail": ""
+  },
+  "top_violations": [],
+  "invariants": {
+    "ok": true,
+    "message": ""
+  },
+  "checkpoints": [
+    {
+      "year": -5000,
+      "world_pop_total": 25421768.000000,
+      "world_food_adequacy_index": 0.999591,
+      "world_trade_intensity": 0.000632,
+      "world_urban_share_proxy": 0.024265,
+      "world_tech_capability_index_median": 0.280120,
+      "world_state_capacity_index_median": 0.669653,
+      "competition_fragmentation_index_median": 0.097495,
+      "idea_market_integration_index_median": 0.184700,
+      "credible_commitment_index_median": 0.661002,
+      "relative_factor_price_index_median": 0.002084,
+      "major_war_count": 0.000000,
+      "election_count": 0,
+      "famine_wave_count": 0,
+      "epidemic_wave_count": 0,
+      "migration_rate_t": 0.027496,
+      "founder_state_count": 97,
+      "founder_state_share": 1.000000,
+      "median_state_age_years": 0.000000,
+      "p90_state_age_years": 0.000000
+    },
+    {
+      "year": -4500,
+      "world_pop_total": 92461816.000000,
+      "world_food_adequacy_index": 0.948245,
+      "world_trade_intensity": 0.000623,
+      "world_urban_share_proxy": 0.025738,
+      "world_tech_capability_index_median": 0.356797,
+      "world_state_capacity_index_median": 0.885852,
+      "competition_fragmentation_index_median": 0.141356,
+      "idea_market_integration_index_median": 0.214133,
+      "credible_commitment_index_median": 0.901541,
+      "relative_factor_price_index_median": 0.000522,
+      "major_war_count": 0.023927,
+      "election_count": 0,
+      "famine_wave_count": 759,
+      "epidemic_wave_count": 0,
+      "migration_rate_t": 0.051755,
+      "founder_state_count": 69,
+      "founder_state_share": 0.579832,
+      "median_state_age_years": 500.000000,
+      "p90_state_age_years": 500.000000
+    }
+  ]
+}

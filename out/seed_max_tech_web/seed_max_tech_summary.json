@@ -1,10 +1,10 @@
 {
-  "elapsed_sec": 23.715722799301147,
+  "elapsed_sec": 1082.4824478626251,
   "total_seeds": 1,
   "completed_seeds": 1,
-  "ok_runs": 0,
+  "ok_runs": 1,
   "failed_runs": 0,
-  "canceled_runs": 1,
+  "canceled_runs": 0,
   "stopped_early": false,
   "run_settings": {
     "start_year": -5000,
@@ -12,6 +12,32 @@
     "checkpoint_every_years": 50,
     "use_gpu": false
   },
-  "best_by_unlocked_count": null,
-  "best_by_tech_id": null
+  "best_by_unlocked_count": {
+    "seed": 1839587602,
+    "max_total_unlocked_techs": 52,
+    "detail": {
+      "year": 920,
+      "tech_id": 35,
+      "tech_name": "Markets",
+      "country_index": "1",
+      "country_name": "Republic of Kingdom of Viraa",
+      "country_culture": "Indic Riverine",
+      "event_type": "unlock"
+    },
+    "run_dir": "C:\\WS\\WorldSimulation10028\\out\\seed_max_tech_web\\seed_1839587602"
+  },
+  "best_by_tech_id": {
+    "seed": 1839587602,
+    "detail": {
+      "year": -2046,
+      "tech_id": 120,
+      "tech_name": "Copper Smelting",
+      "country_index": "29",
+      "country_name": "Empire of Old belkalad",
+      "country_culture": "Fertile Crescent",
+      "event_type": "unlock",
+      "total_unlocked_techs": 15
+    },
+    "run_dir": "C:\\WS\\WorldSimulation10028\\out\\seed_max_tech_web\\seed_1839587602"
+  }
 }

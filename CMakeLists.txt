@@ -104,10 +104,24 @@ set_target_properties(worldsim_cli PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# Asset-only GIS updates must also ship when no C++ target needs relinking.
+add_custom_target(stage_world_assets ALL
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:WorldSimulation>/assets"
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_SOURCE_DIR}/data" "$<TARGET_FILE_DIR:WorldSimulation>/data"
+  DEPENDS WorldSimulation worldsim_cli
+)
+
 add_custom_command(TARGET WorldSimulation POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_directory
     "${CMAKE_SOURCE_DIR}/assets"
     "$<TARGET_FILE_DIR:WorldSimulation>/assets"
+  COMMAND ${CMAKE_COMMAND} -E make_directory
+    "$<TARGET_FILE_DIR:WorldSimulation>/data"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/data/sim_config.toml"
+    "$<TARGET_FILE_DIR:WorldSimulation>/data/sim_config.toml"
 )
 add_custom_command(TARGET worldsim_cli POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -145,6 +159,12 @@ if(WIN32 AND SFML_ROOT)
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${EXISTING_SFML_RUNTIME_DLLS}
         "$<TARGET_FILE_DIR:WorldSimulation>"
+      COMMAND_EXPAND_LISTS
+    )
+    add_custom_command(TARGET worldsim_cli POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${EXISTING_SFML_RUNTIME_DLLS}
+        "$<TARGET_FILE_DIR:worldsim_cli>"
       COMMAND_EXPAND_LISTS
     )
   endif()

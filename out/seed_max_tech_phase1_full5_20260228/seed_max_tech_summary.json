@@ -1,0 +1,65 @@
+{
+  "elapsed_sec": 2430.629064321518,
+  "total_seeds": 5,
+  "completed_seeds": 5,
+  "ok_runs": 5,
+  "failed_runs": 0,
+  "canceled_runs": 0,
+  "stopped_early": false,
+  "run_settings": {
+    "start_year": -5000,
+    "end_year": 2025,
+    "checkpoint_every_years": 50,
+    "use_gpu": false
+  },
+  "metric_notes": {
+    "frontier_metric": "highest tech order (from src/technology.cpp); ties: total_unlocked_techs, year, tech_id",
+    "legacy_metric": "best_by_tech_id kept for backward compatibility only"
+  },
+  "best_by_unlocked_count": {
+    "seed": 793463688,
+    "max_total_unlocked_techs": 57,
+    "detail": {
+      "year": 1922,
+      "tech_id": 76,
+      "tech_order": 1460,
+      "tech_name": "Integrated Circuit",
+      "country_index": "10",
+      "country_name": "Republic of New varravardesh",
+      "country_culture": "Indic Riverine",
+      "event_type": "unlock",
+      "total_unlocked_techs": 57
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_phase1_full5_20260228/seed_793463688"
+  },
+  "best_by_frontier": {
+    "seed": 793463688,
+    "detail": {
+      "year": 1564,
+      "tech_id": 91,
+      "tech_order": 1690,
+      "tech_name": "Quantum Computing",
+      "country_index": "10",
+      "country_name": "Republic of New varravardesh",
+      "country_culture": "Indic Riverine",
+      "event_type": "unlock",
+      "total_unlocked_techs": 55
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_phase1_full5_20260228/seed_793463688"
+  },
+  "best_by_tech_id": {
+    "seed": 296265706,
+    "detail": {
+      "year": 1274,
+      "tech_id": 120,
+      "tech_order": 205,
+      "tech_name": "Copper Smelting",
+      "country_index": "11",
+      "country_name": "Kingdom of Old dradradrapur",
+      "country_culture": "Indic Riverine",
+      "event_type": "unlock",
+      "total_unlocked_techs": 30
+    },
+    "run_dir": "/mnt/c/WS/WorldSimulation10028/out/seed_max_tech_phase1_full5_20260228/seed_296265706"
+  }
+}

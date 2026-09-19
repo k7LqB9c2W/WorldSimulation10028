@@ -3,7 +3,7 @@
 
 Runs `worldsim_cli` for many seeds, captures `tech_unlocks.csv`, and reports:
 - max unlocked tech-count reached in each seed
-- highest tech-id reached in each seed
+- highest tech frontier reached in each seed (by technology order)
 - overall best across all seeds
 
 Supports both CLI mode and a Tkinter GUI (`--gui`) with live per-seed year updates.
@@ -18,11 +18,13 @@ import json
 import os
 import queue
 import random
+import re
 import subprocess
 import sys
 import threading
 import time
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Iterable, Optional
 
@@ -151,11 +153,63 @@ def tech_log_has_column(tech_log: Path, column_name: str) -> bool:
         return False
 
 
+def run_reached_end_year(seed_dir: Path, end_year: int) -> bool:
+    summary_path = seed_dir / "run_summary.json"
+    summary = _load_json(summary_path)
+    if not isinstance(summary, dict):
+        return False
+
+    try:
+        summary_end_year = int(summary.get("endYear"))
+    except Exception:
+        return False
+    if summary_end_year != end_year:
+        return False
+
+    checkpoints = summary.get("checkpoints")
+    if isinstance(checkpoints, list) and checkpoints:
+        try:
+            last_year = int((checkpoints[-1] or {}).get("year"))
+        except Exception:
+            return False
+        return last_year >= end_year
+
+    return False
+
+
+@lru_cache(maxsize=8)
+def load_tech_order_map(repo_root: str) -> dict[int, int]:
+    tech_cpp = Path(repo_root) / "src" / "technology.cpp"
+    text = tech_cpp.read_text(encoding="utf-8", errors="replace")
+
+    known_ids: set[int] = set()
+    for m in re.finditer(r"m_technologies\.emplace\(\s*(\d+)\s*,", text):
+        known_ids.add(int(m.group(1)))
+
+    explicit_orders: dict[int, int] = {}
+    for m in re.finditer(r"\bmark\(\s*(\d+)\s*,\s*(\d+)\s*,", text):
+        explicit_orders[int(m.group(1))] = int(m.group(2))
+
+    order_by_id: dict[int, int] = {}
+    for tech_id in known_ids:
+        # Keep in sync with src/technology.cpp fallback:
+        # if (t.order == 0) t.order = 300 + t.id * 10;
+        order_by_id[tech_id] = explicit_orders.get(tech_id, 300 + tech_id * 10)
+    return order_by_id
+
+
+def tech_order_for(tech_id: int, order_by_id: dict[int, int]) -> int:
+    return int(order_by_id.get(tech_id, 300 + tech_id * 10))
+
+
 def can_reuse_existing_run(seed: int, cfg: SweepConfig, seed_dir: Path, tech_log: Path) -> bool:
     if not tech_log.exists():
         return False
     # Require culture column so the sweep can report top-country culture consistently.
     if not tech_log_has_column(tech_log, "country_culture"):
+        return False
+    # Require complete run summary so partial/truncated outputs are not reused.
+    if not run_reached_end_year(seed_dir, cfg.end_year):
         return False
 
     meta_path = seed_dir / "run_meta.json"
@@ -213,7 +267,7 @@ def read_latest_year_from_tech_log(tech_log_path: Path, bytes_from_end: int = 81
     return None
 
 
-def scan_max_tech(tech_log_path: Path) -> dict:
+def scan_max_tech(tech_log_path: Path, tech_order_by_id: dict[int, int]) -> dict:
     if not tech_log_path.exists():
         return {"ok": False, "reason": "tech log missing"}
 
@@ -221,6 +275,7 @@ def scan_max_tech(tech_log_path: Path) -> dict:
     max_total_row: Optional[dict] = None
     max_tech_id = -1
     max_tech_row: Optional[dict] = None
+    max_frontier_row: Optional[dict] = None
     row_count = 0
 
     with tech_log_path.open("r", encoding="utf-8", newline="") as f:
@@ -233,35 +288,61 @@ def scan_max_tech(tech_log_path: Path) -> dict:
                 total = int(row.get("total_unlocked_techs", ""))
             except ValueError:
                 continue
+            tech_order = tech_order_for(tech_id, tech_order_by_id)
+            row_data = {
+                "year": year,
+                "tech_id": tech_id,
+                "tech_order": tech_order,
+                "tech_name": row.get("tech_name", ""),
+                "country_index": row.get("country_index", ""),
+                "country_name": row.get("country_name", ""),
+                "country_culture": row.get("country_culture", ""),
+                "event_type": row.get("event_type", ""),
+                "total_unlocked_techs": total,
+            }
 
             if total > max_total:
                 max_total = total
-                max_total_row = {
-                    "year": year,
-                    "tech_id": tech_id,
-                    "tech_name": row.get("tech_name", ""),
-                    "country_index": row.get("country_index", ""),
-                    "country_name": row.get("country_name", ""),
-                    "country_culture": row.get("country_culture", ""),
-                    "event_type": row.get("event_type", ""),
-                }
+                max_total_row = row_data.copy()
+            elif total == max_total and max_total_row is not None:
+                prev = (
+                    int(max_total_row.get("tech_order", -1)),
+                    int(max_total_row.get("year", -10_000_000)),
+                    int(max_total_row.get("tech_id", -1)),
+                )
+                cand = (tech_order, year, tech_id)
+                if cand > prev:
+                    max_total_row = row_data.copy()
 
             if tech_id > max_tech_id:
                 max_tech_id = tech_id
-                max_tech_row = {
-                    "year": year,
-                    "tech_id": tech_id,
-                    "tech_name": row.get("tech_name", ""),
-                    "country_index": row.get("country_index", ""),
-                    "country_name": row.get("country_name", ""),
-                    "country_culture": row.get("country_culture", ""),
-                    "event_type": row.get("event_type", ""),
-                    "total_unlocked_techs": total,
-                }
+                max_tech_row = row_data.copy()
+            elif tech_id == max_tech_id and max_tech_row is not None:
+                prev = (
+                    int(max_tech_row.get("total_unlocked_techs", -1)),
+                    int(max_tech_row.get("year", -10_000_000)),
+                    int(max_tech_row.get("tech_order", -1)),
+                )
+                cand = (total, year, tech_order)
+                if cand > prev:
+                    max_tech_row = row_data.copy()
+
+            if max_frontier_row is None:
+                max_frontier_row = row_data.copy()
+            else:
+                prev = (
+                    int(max_frontier_row.get("tech_order", -1)),
+                    int(max_frontier_row.get("total_unlocked_techs", -1)),
+                    int(max_frontier_row.get("year", -10_000_000)),
+                    int(max_frontier_row.get("tech_id", -1)),
+                )
+                cand = (tech_order, total, year, tech_id)
+                if cand > prev:
+                    max_frontier_row = row_data.copy()
 
     if row_count == 0:
         return {"ok": False, "reason": "tech log empty"}
-    if max_total_row is None or max_tech_row is None:
+    if max_total_row is None or max_tech_row is None or max_frontier_row is None:
         return {"ok": False, "reason": "tech log parse had no valid rows"}
 
     return {
@@ -271,6 +352,7 @@ def scan_max_tech(tech_log_path: Path) -> dict:
         "max_total_unlocked_techs": max_total,
         "max_total_row": max_total_row,
         "max_tech_row": max_tech_row,
+        "max_frontier_row": max_frontier_row,
     }
 
 
@@ -386,7 +468,7 @@ def run_one_seed(
                     "reused": reused,
                     "reason": "canceled",
                     "canceled": True,
-                }
+            }
 
     elapsed = time.time() - started
     if rc != 0:
@@ -407,7 +489,26 @@ def run_one_seed(
             "canceled": False,
         }
 
-    scan = scan_max_tech(tech_log)
+    if not run_reached_end_year(seed_dir, cfg.end_year):
+        emit_event(
+            state="failed",
+            current_year=read_latest_year_from_tech_log(tech_log),
+            elapsed_sec=elapsed,
+            note=f"run summary missing end year {cfg.end_year}",
+        )
+        return {
+            "seed": seed,
+            "ok": False,
+            "returncode": 0,
+            "elapsed_sec": elapsed,
+            "run_dir": str(seed_dir),
+            "reused": reused,
+            "reason": f"run summary missing end year {cfg.end_year}",
+            "canceled": False,
+        }
+
+    tech_order_by_id = load_tech_order_map(str(cfg.repo_root))
+    scan = scan_max_tech(tech_log, tech_order_by_id)
     if not scan["ok"]:
         emit_event(
             state="failed",
@@ -431,6 +532,10 @@ def run_one_seed(
         current_year=(scan.get("max_total_row") or {}).get("year"),
         max_total_unlocked_techs=scan.get("max_total_unlocked_techs"),
         max_tech_id=(scan.get("max_tech_row") or {}).get("tech_id"),
+        max_frontier_order=(scan.get("max_frontier_row") or {}).get("tech_order"),
+        max_frontier_tech_id=(scan.get("max_frontier_row") or {}).get("tech_id"),
+        max_frontier_culture=(scan.get("max_frontier_row") or {}).get("country_culture"),
+        max_tech_culture=(scan.get("max_tech_row") or {}).get("country_culture"),
         elapsed_sec=elapsed,
         note="ok",
     )
@@ -447,6 +552,7 @@ def run_one_seed(
         "max_total_unlocked_techs": scan["max_total_unlocked_techs"],
         "max_total_row": scan["max_total_row"],
         "max_tech_row": scan["max_tech_row"],
+        "max_frontier_row": scan["max_frontier_row"],
     }
 
 
@@ -475,6 +581,28 @@ def build_summary(
         if best_tech_id is None or tid > int((best_tech_id.get("max_tech_row") or {}).get("tech_id", -1)):
             best_tech_id = r
 
+    best_frontier = None
+    for r in ok_runs:
+        row = r.get("max_frontier_row") or {}
+        cand = (
+            int(row.get("tech_order", -1)),
+            int(row.get("total_unlocked_techs", -1)),
+            int(row.get("year", -10_000_000)),
+            int(row.get("tech_id", -1)),
+        )
+        if best_frontier is None:
+            best_frontier = r
+            continue
+        best_row = best_frontier.get("max_frontier_row") or {}
+        prev = (
+            int(best_row.get("tech_order", -1)),
+            int(best_row.get("total_unlocked_techs", -1)),
+            int(best_row.get("year", -10_000_000)),
+            int(best_row.get("tech_id", -1)),
+        )
+        if cand > prev:
+            best_frontier = r
+
     total = len(results) if total_requested is None else total_requested
     return {
         "elapsed_sec": elapsed_sec,
@@ -490,6 +618,12 @@ def build_summary(
             "checkpoint_every_years": cfg.checkpoint_every_years,
             "use_gpu": cfg.use_gpu,
         },
+        "metric_notes": {
+            "frontier_metric": (
+                "highest tech order (from src/technology.cpp); ties: total_unlocked_techs, year, tech_id"
+            ),
+            "legacy_metric": "best_by_tech_id kept for backward compatibility only",
+        },
         "best_by_unlocked_count": None
         if best_total is None
         else {
@@ -497,6 +631,13 @@ def build_summary(
             "max_total_unlocked_techs": best_total["max_total_unlocked_techs"],
             "detail": best_total.get("max_total_row"),
             "run_dir": best_total["run_dir"],
+        },
+        "best_by_frontier": None
+        if best_frontier is None
+        else {
+            "seed": best_frontier["seed"],
+            "detail": best_frontier.get("max_frontier_row"),
+            "run_dir": best_frontier["run_dir"],
         },
         "best_by_tech_id": None
         if best_tech_id is None
@@ -529,6 +670,13 @@ def write_results(out_root: Path, results: list[dict], summary: dict) -> None:
                 "max_total_country_culture",
                 "max_total_tech_id",
                 "max_total_tech_name",
+                "max_frontier_order",
+                "max_frontier_tech_id",
+                "max_frontier_tech_name",
+                "max_frontier_year",
+                "max_frontier_country_index",
+                "max_frontier_country_name",
+                "max_frontier_country_culture",
                 "max_tech_id",
                 "max_tech_name",
                 "max_tech_year",
@@ -542,6 +690,7 @@ def write_results(out_root: Path, results: list[dict], summary: dict) -> None:
         )
         for r in results:
             max_total = r.get("max_total_row") or {}
+            max_frontier = r.get("max_frontier_row") or {}
             max_tid = r.get("max_tech_row") or {}
             writer.writerow(
                 [
@@ -558,6 +707,13 @@ def write_results(out_root: Path, results: list[dict], summary: dict) -> None:
                     max_total.get("country_culture", ""),
                     max_total.get("tech_id", ""),
                     max_total.get("tech_name", ""),
+                    max_frontier.get("tech_order", ""),
+                    max_frontier.get("tech_id", ""),
+                    max_frontier.get("tech_name", ""),
+                    max_frontier.get("year", ""),
+                    max_frontier.get("country_index", ""),
+                    max_frontier.get("country_name", ""),
+                    max_frontier.get("country_culture", ""),
                     max_tid.get("tech_id", ""),
                     max_tid.get("tech_name", ""),
                     max_tid.get("year", ""),
@@ -624,7 +780,7 @@ def run_sweep(
         if result.get("ok"):
             emit(
                 f"[{done}/{total}] seed={seed} ok max_total={result.get('max_total_unlocked_techs')} "
-                f"max_tid={(result.get('max_tech_row') or {}).get('tech_id')}"
+                f"frontier_order={(result.get('max_frontier_row') or {}).get('tech_order')}"
             )
         elif result.get("canceled"):
             emit(f"[{done}/{total}] seed={seed} canceled")
@@ -641,6 +797,10 @@ def run_sweep(
                 "current_year": (result.get("max_total_row") or {}).get("year"),
                 "max_total_unlocked_techs": result.get("max_total_unlocked_techs"),
                 "max_tech_id": (result.get("max_tech_row") or {}).get("tech_id"),
+                "max_frontier_order": (result.get("max_frontier_row") or {}).get("tech_order"),
+                "max_frontier_tech_id": (result.get("max_frontier_row") or {}).get("tech_id"),
+                "max_frontier_culture": (result.get("max_frontier_row") or {}).get("country_culture"),
+                "max_tech_culture": (result.get("max_tech_row") or {}).get("country_culture"),
                 "elapsed_sec": result.get("elapsed_sec"),
                 "note": result.get("reason") or ("ok" if result.get("ok") else ""),
             }
@@ -812,6 +972,18 @@ def run_cli_mode(args: argparse.Namespace) -> int:
             f"tech_id={best_tid_detail.get('tech_id', '')} "
             f"tech_name={best_tid_detail.get('tech_name', '')}"
         )
+    best_frontier = summary.get("best_by_frontier") or {}
+    best_frontier_detail = best_frontier.get("detail") or {}
+    if best_frontier:
+        print(
+            "Best by tech frontier: "
+            f"seed={best_frontier.get('seed')} "
+            f"country={best_frontier_detail.get('country_name', '')} "
+            f"culture={best_frontier_detail.get('country_culture', '')} "
+            f"tech_order={best_frontier_detail.get('tech_order', '')} "
+            f"tech_id={best_frontier_detail.get('tech_id', '')} "
+            f"tech_name={best_frontier_detail.get('tech_name', '')}"
+        )
     return 0 if summary["failed_runs"] == 0 else 1
 
 
@@ -904,7 +1076,7 @@ def launch_gui(defaults: argparse.Namespace) -> int:
     )
     advanced.grid_columnconfigure(1, weight=1)
 
-    columns = ("seed", "status", "year", "max_total", "max_tid", "elapsed", "note")
+    columns = ("seed", "status", "year", "max_total", "frontier", "elapsed", "note")
     tree_frame = tk.Frame(root)
     tree_frame.pack(fill="both", expand=True, padx=10, pady=(0, 8))
     tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=18)
@@ -912,14 +1084,14 @@ def launch_gui(defaults: argparse.Namespace) -> int:
     tree.heading("status", text="Status")
     tree.heading("year", text="Current Year")
     tree.heading("max_total", text="Max Unlocked")
-    tree.heading("max_tid", text="Max Tech ID")
+    tree.heading("frontier", text="Top Frontier Order")
     tree.heading("elapsed", text="Elapsed (s)")
     tree.heading("note", text="Note")
     tree.column("seed", width=90, anchor="e")
     tree.column("status", width=130, anchor="w")
     tree.column("year", width=120, anchor="e")
     tree.column("max_total", width=120, anchor="e")
-    tree.column("max_tid", width=110, anchor="e")
+    tree.column("frontier", width=140, anchor="e")
     tree.column("elapsed", width=100, anchor="e")
     tree.column("note", width=520, anchor="w")
     scroll = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
@@ -957,7 +1129,7 @@ def launch_gui(defaults: argparse.Namespace) -> int:
             "status": "pending",
             "year": "",
             "max_total": "",
-            "max_tid": "",
+            "frontier": "",
             "elapsed": "",
             "note": "",
         }
@@ -970,7 +1142,7 @@ def launch_gui(defaults: argparse.Namespace) -> int:
                 state["status"],
                 state["year"],
                 state["max_total"],
-                state["max_tid"],
+                state["frontier"],
                 state["elapsed"],
                 state["note"],
             ),
@@ -987,8 +1159,10 @@ def launch_gui(defaults: argparse.Namespace) -> int:
             state["year"] = str(event["current_year"])
         if event.get("max_total_unlocked_techs") is not None:
             state["max_total"] = str(event["max_total_unlocked_techs"])
-        if event.get("max_tech_id") is not None:
-            state["max_tid"] = str(event["max_tech_id"])
+        if event.get("max_frontier_order") is not None:
+            state["frontier"] = str(event["max_frontier_order"])
+        elif event.get("max_tech_id") is not None:
+            state["frontier"] = str(event["max_tech_id"])
         if event.get("elapsed_sec") is not None:
             state["elapsed"] = f"{float(event['elapsed_sec']):.2f}"
         if "note" in event and event["note"] is not None:
@@ -1000,7 +1174,7 @@ def launch_gui(defaults: argparse.Namespace) -> int:
                 state["status"],
                 state["year"],
                 state["max_total"],
-                state["max_tid"],
+                state["frontier"],
                 state["elapsed"],
                 state["note"],
             ),
@@ -1118,11 +1292,11 @@ def launch_gui(defaults: argparse.Namespace) -> int:
     def on_stop() -> None:
         if work_thread is None or not work_thread.is_alive():
             return
-            if cancel_event is not None and not cancel_event.is_set():
-                cancel_event.set()
-                status_var.set("Stopping...")
-                run_info_var.set("Stop requested")
-                append_log("Stop requested. Finishing in-flight seeds and autosaving partial results...")
+        if cancel_event is not None and not cancel_event.is_set():
+            cancel_event.set()
+            status_var.set("Stopping...")
+            run_info_var.set("Stop requested")
+            append_log("Stop requested. Finishing in-flight seeds and autosaving partial results...")
 
     def pump_ui() -> None:
         processed = 0

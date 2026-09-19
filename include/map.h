@@ -69,6 +69,7 @@ public:
     const std::vector<std::vector<bool>>& getIsLandGrid() const;
     bool isLand(int x, int y) const;
     float getElevation(int x, int y) const;
+    bool hasGISClimate() const { return !m_gisClimate.empty(); }
     const std::vector<float>& getElevationGrid() const { return m_elevationGrid; }
     sf::Vector2i pixelToGrid(const sf::Vector2f& pixel) const;
     int getGridCellSize() const;
@@ -211,6 +212,19 @@ public:
     sf::Image m_copperImage;
     sf::Image m_tinImage;
     sf::Image m_riverlandImage;
+    sf::Image m_soilImage;
+    sf::Image m_ironImage;
+    sf::Image m_goldImage;
+    sf::Image m_saltImage;
+    struct GISClimateFrame {
+        int year = 0;
+        std::vector<float> temperatureC;
+        std::vector<float> precipitationMm;
+    };
+    std::vector<GISClimateFrame> m_gisClimate;
+    unsigned int m_gisClimateW = 0, m_gisClimateH = 0;
+    void loadGISLayers();
+    bool sampleGISClimate(int x, int y, int width, int height, int year, float& temperature, float& precipitation) const;
     std::vector<float> m_elevationGrid; // normalized grayscale 0..1 per simulation grid cell
     std::unordered_set<int> m_dirtyRegions;
     std::vector<std::vector<std::unordered_map<Resource::Type, double>>> m_resourceGrid;

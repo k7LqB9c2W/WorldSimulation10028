@@ -34,6 +34,7 @@
 #include "settlement_system.h"
 #include "technology.h"
 #include "trade.h"
+#include "runtime_paths.h"
 
 namespace {
 
@@ -1766,11 +1767,16 @@ int runParityCheck(const RunOptions& opt, const std::string& argv0) {
 } // namespace
 
 int main(int argc, char** argv) {
+    try {
     RunOptions opt;
     if (!parseArgs(argc, argv, opt)) {
         printUsage((argc > 0) ? argv[0] : nullptr);
         return 2;
     }
+    // Preserve caller-relative output/config paths before asset discovery changes cwd.
+    opt.outDir = std::filesystem::absolute(opt.outDir).string();
+    if (std::filesystem::exists(opt.configPath)) opt.configPath = std::filesystem::absolute(opt.configPath).string();
+    locateRuntimeAssets(argc>0?argv[0]:nullptr);
 
 #ifdef _OPENMP
     omp_set_num_threads(1); // deterministic headless calibration mode
@@ -2492,4 +2498,8 @@ int main(int argc, char** argv) {
         return 3;
     }
     return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "Simulation initialization/run failed: " << e.what() << "\n";
+        return 1;
+    }
 }
